@@ -1,0 +1,29 @@
+[project]
+name = "nichenetpy"
+version = "0.1.0"
+
+description = """
+nichenetpy: the python implementation of the NicheNet method. The goal of NicheNet is to study intercellular communication from a computational perspective. NicheNet uses human or mouse gene expression data of interacting cells as input and combines this with a prior model that integrates existing knowledge on ligand-to-target signaling paths. This allows to predict ligand-receptor interactions that might drive gene expression changes in cells of interest. 
+"""
+
+authors = [
+  { name = "Victor Medaerts", email = "victor.medaerts@ugent.be"},
+]
+
+maintainers = [
+  { name = "Victor Medaerts", email = "victor.medaerts@ugent.be"},
+]
+
+requires-python = ">=3.10"
+
+dependencies = []
+
+classifiers = [
+    Development Status :: 1 - Planning,
+    Topic :: Scientific/Engineering :: Bio-Informatics,
+    Intended Audience :: Science/Research,
+    Programming Language :: Python :: 3.13,
+]
+
+[project.urls]
+"Source" = "https://github.com/saeyslab/nichenetpy"
