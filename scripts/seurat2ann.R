@@ -1,0 +1,8 @@
+remotes::install_github("scverse/anndataR")
+library("Seurat")
+library("SeuratObject")
+library("hdf5r")
+setwd('C:/Users/victorm/Documents/nichenetpy')
+seuratObj <- SeuratObject::UpdateSeuratObject(readRDS("./data/rds/seuratObj3531889.rds"))
+seuratObj[["RNA"]] <- as(object = seuratObj[["RNA"]], Class = "Assay5")
+anndataR::from_Seurat(seuratObj, "HDF5AnnData", file="./data/annData/annData3531889.h5")
