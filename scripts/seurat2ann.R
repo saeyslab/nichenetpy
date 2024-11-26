@@ -3,6 +3,20 @@ library("Seurat")
 library("SeuratObject")
 library("hdf5r")
 setwd('C:/Users/victorm/Documents/nichenetpy')
-seuratObj <- SeuratObject::UpdateSeuratObject(readRDS("./data/rds/seuratObj3531889.rds"))
-seuratObj[["RNA"]] <- as(object = seuratObj[["RNA"]], Class = "Assay5")
-anndataR::from_Seurat(seuratObj, "HDF5AnnData", file="./data/annData/annData3531889.h5")
+old <- readRDS("./data/rds/seuratObj3531889.rds")
+
+seuratObj <- CreateSeuratObject(
+  counts = GetAssayData(old, layer="counts"),
+  data = GetAssayData(old, layer="data"),
+  meta.data = old@meta.data
+)
+seuratObj <- SetAssayData(
+  seuratObj,
+  layer="scale.data",
+  new.data=GetAssayData(old, layer="scale.data")
+)
+anndataR::from_Seurat(
+  seuratObj,
+  "HDF5AnnData",
+  file="./data/annData/annData3531889.h5"
+)
