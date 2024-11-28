@@ -61,6 +61,16 @@ Examples
 )
 0.8851473922902493
 '''
-def calculate_aupr(response, prediction):
+def calculate_aupr(response:list[float], prediction:list[int]) -> float:
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
+
+def calculate_metrics(
+    prediction:list[float],
+    response:list[int]
+) -> dict[str, float]:
+    aupr = calculate_aupr(response, prediction)
+    return {
+        "aupr": aupr,
+        "aupr_corrected": aupr - sum(response)/len(response)
+    }

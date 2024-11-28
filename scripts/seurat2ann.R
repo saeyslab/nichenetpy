@@ -2,8 +2,8 @@ remotes::install_github("scverse/anndataR")
 library("Seurat")
 library("SeuratObject")
 library("hdf5r")
-setwd('C:/Users/victorm/Documents/nichenetpy')
-old <- readRDS("./data/rds/seuratObj3531889.rds")
+setwd('D:/Data/nichenetpy')
+old <- readRDS("./rds/seuratObj3531889.rds")
 
 seuratObj <- CreateSeuratObject(
   counts = GetAssayData(old, layer="counts"),
@@ -18,5 +18,5 @@ seuratObj <- SetAssayData(
 anndataR::from_Seurat(
   seuratObj,
   "HDF5AnnData",
-  file="./data/annData/annData3531889.h5"
+  file="./annData/annData3531889.h5"
 )
