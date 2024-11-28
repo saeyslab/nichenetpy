@@ -14,11 +14,11 @@ class LigandActivityPredictor:
         self.row_names = row_names
         self.col_names = col_names
         if self.ligands_position == "cols":
-            self.ligand2index = dict(zip(self.col_names, len(self.col_names)))
-            self.gene2index = dict(zip(self.row_names, len(self.row_names)))
+            self.ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
+            self.gene2index = dict(zip(self.row_names, range(len(self.row_names))))
         else:
-            self.ligand2index = dict(zip(self.row_names, len(self.row_names)))
-            self.gene2index = dict(zip(self.col_names, len(self.col_names)))
+            self.ligand2index = dict(zip(self.row_names, range(len(self.row_names))))
+            self.gene2index = dict(zip(self.col_names, range(len(self.col_names))))
 
     def predict_ligand_activities(
         self,
