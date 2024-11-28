@@ -1,3 +1,6 @@
+[tool.hatch.envs.default]
+path = ".hatch"
+
 [project]
 name = "nichenetpy"
 version = "0.1.0"
