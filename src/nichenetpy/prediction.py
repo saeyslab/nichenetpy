@@ -26,7 +26,7 @@ class LigandActivityPredictor:
         background_expressed_genes:list[str],
         potential_ligands:list[str]
     ) -> list[tuple[str, dict[str, float]]]:
-        output = []
+        output = dict()
 
         # create the expected gene expression response vector
         response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
@@ -49,6 +49,6 @@ class LigandActivityPredictor:
             common_keys = prediction.keys() & response.keys()
             pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-            output.append((ligand, calculate_metrics(pred, resp)))
+            output[ligand] = calculate_metrics(pred, resp)
         return output
         
