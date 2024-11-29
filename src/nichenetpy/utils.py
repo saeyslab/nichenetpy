@@ -1,5 +1,11 @@
 import numpy as np
 
+def read_list_from_csv(filename:str):
+    with open(filename) as file:
+        lines = file.readlines()
+    return [line.rstrip() for line in lines[1:]]
+   
+
 def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]]:
     with open(filename) as file:
         lines = file.readlines()

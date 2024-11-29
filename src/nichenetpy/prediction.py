@@ -25,16 +25,30 @@ class LigandActivityPredictor:
         geneset:list[str],
         background_expressed_genes:list[str],
         potential_ligands:list[str]
-    ):
+    ) -> list[tuple[str, dict[str, float]]]:
         output = []
-        response = [(gene, False) for gene in background_expressed_genes if gene not in geneset] + [(gene, True) for gene in geneset]
-        response.sort(key=lambda x : x[0])
-        if self.ligands_position == "cols":
-            for ligand in potential_ligands:
-                prediction = sorted(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]), key=lambda x : x[0])
-                output.append((ligand, calculate_metrics(prediction, response)))
-        else:
-            for ligand in potential_ligands:
-                prediction = sorted(zip(self.col_names, self.ligand_target_matrix[self.ligand2index[ligand], :]), key=lambda x : x[0])
+
+        # create the expected gene expression response vector
+        response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
+        for gene in geneset:
+            response[gene] = 1
+        
+        # create the prediction model vector
+        predictions = ([
+                dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+                for ligand in potential_ligands
+            ] if self.ligands_position == "cols" else [
+                dict(zip(self.col_names, self.ligand_target_matrix[self.ligand2index[ligand], :]))
+                for ligand in potential_ligands
+            ]
+        )
+
+        # compute the metrics for each ligand
+        for ligand, prediction in zip(potential_ligands, predictions):
+            # we need to match the predictions with the responses so we intersect and sort by key
+            common_keys = prediction.keys() & response.keys()
+            pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
+            resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
+            output.append((ligand, calculate_metrics(pred, resp)))
         return output
         
