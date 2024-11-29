@@ -25,7 +25,7 @@ class LigandActivityPredictor:
         geneset:list[str],
         background_expressed_genes:list[str],
         potential_ligands:list[str]
-    ) -> list[tuple[str, dict[str, float]]]:
+    ) -> dict[str, dict[str, float]]:
         output = dict()
 
         # create the expected gene expression response vector
