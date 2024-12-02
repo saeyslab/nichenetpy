@@ -1,0 +1,4 @@
+__pycache__
+.RData
+.Rhistory
+src/nichenetpy.egg-info/*
