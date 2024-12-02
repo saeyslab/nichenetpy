@@ -15,8 +15,12 @@ seuratObj <- SetAssayData(
   layer="scale.data",
   new.data=GetAssayData(old, layer="scale.data")
 )
-anndataR::from_Seurat(
+ann <- anndataR::from_Seurat(
   seuratObj,
-  "HDF5AnnData",
-  file="./annData/annData3531889.h5"
+  "InMemoryAnnData"
 )
+#anndataR::from_Seurat(
+#  seuratObj,
+#  "HDF5AnnData",
+#  file="./annData/annData3531889.h5"
+#)
