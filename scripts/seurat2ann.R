@@ -15,12 +15,15 @@ seuratObj <- SetAssayData(
   layer="scale.data",
   new.data=GetAssayData(old, layer="scale.data")
 )
+seuratObj@assays[["RNA"]]@layers$counts@Dimnames <- old@assays[["RNA"]]$counts@Dimnames
+seuratObj@assays[["RNA"]]@layers$data@Dimnames <- old@assays[["RNA"]]$data@Dimnames
+seuratObj[["RNA"]]@meta.data$gene <- old@assays[["RNA"]]$counts@Dimnames[[1]]
 ann <- anndataR::from_Seurat(
   seuratObj,
   "InMemoryAnnData"
 )
-#anndataR::from_Seurat(
-#  seuratObj,
-#  "HDF5AnnData",
-#  file="./annData/annData3531889.h5"
-#)
+anndataR::from_Seurat(
+  seuratObj,
+  "HDF5AnnData",
+  file="./annData/annData3531889.h5"
+)

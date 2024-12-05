@@ -1,4 +1,6 @@
 from nichenetpy.metrics import calculate_metrics
+from scipy.sparse import hstack
+from anndata import AnnData
 import numpy as np
 
 class LigandActivityPredictor:
