@@ -2,8 +2,10 @@ from scipy.sparse import hstack
 from anndata import AnnData
 
 
-def get_expressed_genes(celltype:str, ann:AnnData, pct:float=0.1) -> list[int]:
-    cells_oi = list(ann.obs.loc[ann.obs["celltype"] == celltype].index)
+def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> list[int]:
+    if type(celltype) is str:
+        celltype = [celltype]
+    cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs["celltype"]]].index)
     # transpose the matrix (remove this once the bug in anndataR is fixed)
     mat = ann.layers["data"].T
     col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
