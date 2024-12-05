@@ -86,7 +86,7 @@ class LigandReceptorNetwork:
         return ((key, self[key]) for key in self.key_iter())
     
     def get_ligands(self):
-        return set(key_iter)
+        return set(self.key_iter())
     
     def get_receptors(self):
         return set(receptor for _, receptor in self._mapping)
