@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def read_list_from_csv(filename:str) -> list[str]:
     with open(filename) as file:
         lines = file.readlines()
