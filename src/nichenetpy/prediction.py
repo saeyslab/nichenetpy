@@ -1,7 +1,6 @@
 from nichenetpy.metrics import calculate_metrics
-from scipy.sparse import hstack
-from anndata import AnnData
 import numpy as np
+
 
 class LigandActivityPredictor:
     def __init__(
@@ -53,4 +52,41 @@ class LigandActivityPredictor:
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
             output[ligand] = calculate_metrics(pred, resp)
         return output
-        
+
+class LigandReceptorNetwork:
+    def __init__(self, filename:str=None) -> None:
+        if filename is not None:
+            with open(filename) as file:
+                lines = file.readlines()
+            self._mapping = sorted(
+                (tuple(word.strip("\"\'") for word in line.rstrip().split(",")) for line in lines[1:]),
+                key=lambda x : x[0]
+            )
+        self._index = dict()
+        for i, item in enumerate(self._mapping):
+            if item[0] in self._index:
+                self._index[item[0]][1] += 1
+            else:
+                self._index[item[0]] = [i, 1]
+    
+    def __str__(self) -> str:
+        return self._mapping.__str__()
+
+    def __getitem__(self, key:str) -> list[str]:
+        start, count = self._index[key]
+        return set(item[1] for item in self._mapping[start:start+count])
+    
+    def __iter__(self):
+        return self._mapping.__iter__()
+
+    def key_iter(self):
+        return (self._mapping[start][0] for start, _ in self._index.values())
+
+    def item_iter(self):
+        return ((key, self[key]) for key in self.key_iter())
+    
+    def get_ligands(self):
+        return set(key_iter)
+    
+    def get_receptors(self):
+        return set(receptor for _, receptor in self._mapping)
