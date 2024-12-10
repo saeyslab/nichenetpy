@@ -16,11 +16,11 @@ def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> l
     # set all non-zero elements to 1
     for i in range(len(exprs_m.data)):
         exprs_m.data[i] = 1
-    enumerate((exprs_m.sum(axis=0)/nrows)[0, i] for i in range(len(ann.var["gene"])))
+    rowsum = exprs_m.sum(axis=0)/nrows
     return [
         ann.var["gene"].iloc[gene]
         for gene, val in enumerate(
-            (exprs_m.sum(axis=0)/nrows)[0, i]
+            rowsum[0, i]
             for i in range(len(ann.var["gene"]))
         )
         if val > pct
