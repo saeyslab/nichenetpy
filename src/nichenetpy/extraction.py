@@ -6,7 +6,7 @@ def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> l
     if type(celltype) is str:
         celltype = [celltype]
     cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs["celltype"]]].index)
-    # transpose the matrix (remove this once the bug in anndataR is fixed)
+    # transpose the matrix
     mat = ann.layers["data"].T
     col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     ids = [col2index[name] for name in cells_oi]
@@ -24,7 +24,7 @@ def subset_ann_celltype(ann:AnnData, celltype:str|list[str], layers:list[str]=No
     ids = [col2index[name] for name in cells_oi.index]
     new_layers = dict()
     for layer in layers:
-        # transpose the matrix (remove this once the bug in anndataR is fixed)
+        # transpose the matrix
         mat = ann.layers[layer].T
         mat = hstack([mat[:, id] for id in ids])
         new_layers[layer] = mat.T
