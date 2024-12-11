@@ -50,7 +50,7 @@ class LigandActivityPredictor:
                 key=lambda x : x[1],
                 reverse=True
             )[:n]
-        )
+        ).intersection(geneset)
         if len(targets) == 0:
             return {
                 "ligand": ligand,
