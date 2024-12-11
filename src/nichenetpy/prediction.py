@@ -8,18 +8,12 @@ class LigandActivityPredictor:
         ligand_target_matrix:np.ndarray,
         row_names:list[str],
         col_names:list[str],
-        ligands_position:str="cols"
     ) -> None:
         self.ligand_target_matrix = ligand_target_matrix
-        self.ligands_position = ligands_position
         self.row_names = row_names
         self.col_names = col_names
-        if self.ligands_position == "cols":
-            self.ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
-            self.gene2index = dict(zip(self.row_names, range(len(self.row_names))))
-        else:
-            self.ligand2index = dict(zip(self.row_names, range(len(self.row_names))))
-            self.gene2index = dict(zip(self.col_names, range(len(self.col_names))))
+        self.ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
+        self.gene2index = dict(zip(self.row_names, range(len(self.row_names))))
 
     def predict_ligand_activities(
         self,
@@ -52,6 +46,29 @@ class LigandActivityPredictor:
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
             output[ligand] = calculate_metrics(pred, resp)
         return output
+    
+    def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250):
+        targets = set(
+            self.row_names[e] for e in sorted(
+                self.ligand_target_matrix[:, self.ligand2index[ligand]],
+                reverse=True
+            )[:n]
+        ).intersection(geneset)
+        if len(targets) == 0:
+            return {
+                "ligand": ligand,
+                "target": None,
+                "weight": None
+            }
+        else:
+            return {
+                "ligand": ligand,
+                "target": targets,
+                "weight": [self.ligand_target_matrix[self.gene2index[target]][ligand] for target in targets]
+            }
+
+
+
 
 class LigandReceptorNetwork:
     def __init__(self, filename:str=None) -> None:
