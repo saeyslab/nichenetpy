@@ -22,8 +22,8 @@ ann <- anndataR::from_Seurat(
   seuratObj,
   "InMemoryAnnData"
 )
-anndataR::from_Seurat(
-  seuratObj,
-  "HDF5AnnData",
-  file="./annData/annData3531889.h5"
-)
+#anndataR::from_Seurat(
+#  seuratObj,
+#  "HDF5AnnData",
+#  file="./annData/annData3531889.h5"
+#)
