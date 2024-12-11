@@ -30,13 +30,9 @@ class LigandActivityPredictor:
         
         # create the prediction model vector
         predictions = ([
-                dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
-                for ligand in potential_ligands
-            ] if self.ligands_position == "cols" else [
-                dict(zip(self.col_names, self.ligand_target_matrix[self.ligand2index[ligand], :]))
-                for ligand in potential_ligands
-            ]
-        )
+            dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+            for ligand in potential_ligands
+        ])
 
         # compute the metrics for each ligand
         for ligand, prediction in zip(potential_ligands, predictions):
@@ -49,11 +45,12 @@ class LigandActivityPredictor:
     
     def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250):
         targets = set(
-            self.row_names[e] for e in sorted(
-                self.ligand_target_matrix[:, self.ligand2index[ligand]],
+            e[0] for e in sorted(
+                zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]),
+                key=lambda x : x[1],
                 reverse=True
             )[:n]
-        ).intersection(geneset)
+        )
         if len(targets) == 0:
             return {
                 "ligand": ligand,
@@ -64,7 +61,7 @@ class LigandActivityPredictor:
             return {
                 "ligand": ligand,
                 "target": targets,
-                "weight": [self.ligand_target_matrix[self.gene2index[target]][ligand] for target in targets]
+                "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand] ]for target in targets]
             }
 
 
