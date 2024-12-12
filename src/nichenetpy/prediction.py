@@ -1,5 +1,6 @@
 from nichenetpy.metrics import calculate_metrics
 import numpy as np
+import scipy as sc
 
 
 class LigandActivityPredictor:
@@ -43,7 +44,7 @@ class LigandActivityPredictor:
             output[ligand] = calculate_metrics(pred, resp)
         return output
     
-    def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250):
+    def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250) -> dict[str, list]:
         targets = set(
             e[0] for e in sorted(
                 zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]),
@@ -63,8 +64,37 @@ class LigandActivityPredictor:
                 "target": targets,
                 "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand] ]for target in targets]
             }
-
-
+    
+    def prepare_ligand_target_visualization(self, ligand_target_links:list[tuple[str, str, float]], cutoff:float=0.25):
+        ligands, targets, weights = zip(*ligand_target_links)
+        # define a cutoff on the ligand-target links
+        cutoff = np.quantile(weights, [cutoff])[0]
+        nrows, ncols = self.ligand_target_matrix.shape
+        ligand_target_matrix_oi = np.array([
+            [self.ligand_target_matrix[r, c] if self.ligand_target_matrix[r, c] >= cutoff else 0 for c in range(ncols)]
+            for r in range(nrows)
+        ])
+        # TODO: there is most certainly a faster way of doing this
+        ligands = sorted(set(ligands))
+        targets = sorted(set(targets))
+        # keep only rows and columns that contain at least one non-zero element
+        ligands = [ligand for ligand in ligands if any(ligand_target_matrix_oi[:, self.ligand2index[ligand]])]
+        targets = [target for target in targets if any(ligand_target_matrix_oi[self.gene2index[target], :])]
+        ligand_target_vis = ligand_target_matrix_oi[
+            [[self.gene2index[target]] for target in targets],
+            [self.ligand2index[ligand] for ligand in ligands]
+        ]
+        return (ligand_target_matrix_oi, ligand_target_vis)
+        nrows, ncols = ligand_target_vis.shape
+        if nrows > 1 and ncols > 1:
+            #corr = np.corrcoef(np.transpose(ligand_target_vis))
+            corr = np.corrcoef(ligand_target_vis, rowvar=False)
+            nrows, ncols = corr.shape
+            corr = np.array([
+                [1 - corr[r, c] for c in range(ncols)]
+                for r in range(nrows)
+            ])
+            dist = sc.spatial.distance_matrix(corr, corr)
 
 
 class LigandReceptorNetwork:
