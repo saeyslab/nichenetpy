@@ -103,13 +103,10 @@ class LigandActivityPredictor:
             #corr = np.corrcoef(np.transpose(ligand_target_vis))
             corr = np.corrcoef(ligand_target_vis, rowvar=False)
             nrows, ncols = corr.shape
-            #corr = 1 - corr
-            corr = np.array([
-                [1 - corr[r, c] for c in range(ncols)]
-                for r in range(nrows)
-            ])
+            corr = 1 - corr
             dist = sc.spatial.distance_matrix(corr, corr)
-            return dist
+            clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
+            return clust
 
 
 class LigandReceptorNetwork:
