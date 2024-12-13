@@ -1,8 +1,7 @@
 from nichenetpy.metrics import calculate_metrics
-from nichenetpy.utils import subset_matrix, remove_zero_rows_cols
+from nichenetpy.utils import subset_matrix
 
 import numpy as np
-import scipy as sc
 
 
 class LigandActivityPredictor:
@@ -95,6 +94,8 @@ class LigandActivityPredictor:
             [target2index[target] for target in targets],
             [ligand2index[ligand] for ligand in ligands]
         )
+        return (ligand_target_vis, targets, ligands)
+        '''
         # TODO: check if these dictionaries are used
         ligand2index = dict(zip(ligands, range(len(ligands))))
         target2index = dict(zip(targets, range(len(targets))))
@@ -106,7 +107,7 @@ class LigandActivityPredictor:
             corr = 1 - corr
             dist = sc.spatial.distance_matrix(corr, corr)
             clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
-            return clust
+        '''
 
 
 class LigandReceptorNetwork:
