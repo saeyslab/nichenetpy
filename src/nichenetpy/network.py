@@ -26,6 +26,9 @@ class Network:
     def __iter__(self):
         return self._mapping.__iter__()
     
+    def __contains__(self, item):
+        return item in self._mapping
+    
     def _build_index(self):
         self._index.clear()
         for i, item in enumerate(self._mapping):
@@ -48,5 +51,8 @@ class LigandReceptorNetwork(Network):
         return set(receptor for _, receptor in self._mapping)
 
 class WeightedNetwork(Network):
-    def subset(self, fr:Collection[str], to:Collection[str]):
+    def subset(self, from_to:Collection[tuple[str, str]]):
+        return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if (f, t) in from_to])
+
+    def subset_sep(self, fr:Collection[str], to:Collection[str]):
         return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if f in fr and t in to])

@@ -43,7 +43,8 @@ def get_weighted_ligand_receptor_links(
     lr_network:LigandReceptorNetwork,
     lr_sig:WeightedNetwork
 ) -> WeightedNetwork:
+    lr_sig = lr_sig.subset(set(lr_network))
     best_upstream_ligands = set(best_upstream_ligands)
     expressed_receptors = set(expressed_receptors)
     best_upstream_receptors = set(t for f, t in lr_network if f in best_upstream_ligands and t in expressed_receptors)
-    return lr_sig.subset(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
+    return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
