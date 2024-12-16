@@ -1,3 +1,5 @@
+from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+
 from scipy.sparse import vstack
 from anndata import AnnData
 
@@ -34,3 +36,17 @@ def subset_ann_celltype(ann:AnnData, celltype:str|list[str], layers:list[str]=No
     ids = [col2index[name] for name in cells_oi.index]
     new_layers = dict((layer, vstack([ann.layers[layer][id, :] for id in ids])) for layer in layers)
     return AnnData(obs=cells_oi, layers=new_layers, shape=new_layers[layers[0]].shape)
+
+def get_weighted_ligand_receptor_links(
+    best_upstream_ligands:list[str],
+    expressed_receptors:list[str],
+    lr_network:LigandReceptorNetwork,
+    lr_sig:WeightedNetwork
+) -> WeightedNetwork:
+    fr, to = zip(*lr_network)
+    best_upstream_ligands = set(best_upstream_ligands)
+    expressed_receptors = set(expressed_receptors)
+    fr = set(fr).intersection(best_upstream_ligands)
+    to = set(to).intersection(expressed_receptors)
+    best_upstream_receptors = set(t for f, t, _ in lr_sig if f in fr and t in to)
+    return lr_sig.subset(best_upstream_ligands, best_upstream_receptors)
