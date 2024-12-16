@@ -57,7 +57,7 @@ class WeightedNetwork(Network):
         if filename is not None:
             self._mapping = [(l, r, float(w)) for l, r, w in self._mapping]
     
-    def __getitem__(self, key:str) -> list[str]:
+    def __getitem__(self, key:str) -> dict[str, float]:
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start:start+count])
 
