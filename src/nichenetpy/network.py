@@ -51,6 +51,11 @@ class LigandReceptorNetwork(Network):
         return set(receptor for _, receptor in self._mapping)
 
 class WeightedNetwork(Network):
+    def __init__(self, mapping = None, filename = None):
+        super().__init__(mapping, filename)
+        if filename is not None:
+            self._mapping = [(l, r, float(w)) for l, r, w in self._mapping]
+
     def subset(self, from_to:Collection[tuple[str, str]]):
         return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if (f, t) in from_to])
 
