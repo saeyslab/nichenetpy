@@ -27,7 +27,8 @@ class Network:
         return self._mapping.__iter__()
     
     def __contains__(self, item):
-        return item in self._mapping
+        start, count = self._index[item[0]]
+        return item in self._mapping[start:start+count]
     
     def _build_index(self):
         self._index.clear()
@@ -55,9 +56,19 @@ class WeightedNetwork(Network):
         super().__init__(mapping, filename)
         if filename is not None:
             self._mapping = [(l, r, float(w)) for l, r, w in self._mapping]
+    
+    def __getitem__(self, key:str) -> list[str]:
+        start, count = self._index[key]
+        return dict(item[1:3] for item in self._mapping[start:start+count])
 
     def subset(self, from_to:Collection[tuple[str, str]]):
         return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if (f, t) in from_to])
 
     def subset_sep(self, fr:Collection[str], to:Collection[str]):
         return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if f in fr and t in to])
+    
+    def get_ligands(self) -> set[str]:
+        return set(self.key_iter())
+    
+    def get_receptors(self) -> set[str]:
+        return set(receptor for _, receptor, _ in self._mapping)
