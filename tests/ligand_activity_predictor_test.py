@@ -1,7 +1,7 @@
-import pytest
 import os
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.utils import read_matrix_from_csv, read_list_from_csv, read_csv_cols
+
 
 root = os.path.dirname(__file__)
 err_bound = 1e-12
@@ -21,11 +21,11 @@ def process_expected_output(cols:dict[str, list[str]]) -> dict[str, dict[str, fl
     )
 
 def template_predict_ligand_activities(test_id):
-    predictor = LigandActivityPredictor(*read_matrix_from_csv(os.path.join(root, f"./data/{test_id}/ligand_target_matrix.csv")))
-    geneset = read_list_from_csv(os.path.join(root, f"./data/{test_id}/geneset_oi.csv"))
-    background_expressed_genes = read_list_from_csv(os.path.join(root, f"./data/{test_id}/background_expressed_genes.csv"))
-    potential_ligands = read_list_from_csv(os.path.join(root, f"./data/{test_id}/potential_ligands.csv"))
-    expected_output = process_expected_output(read_csv_cols(os.path.join(root, f"./data/{test_id}/output.csv")))
+    predictor = LigandActivityPredictor(*read_matrix_from_csv(os.path.join(root, f"data/predictor/{test_id}/ligand_target_matrix.csv")))
+    geneset = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/geneset_oi.csv"))
+    background_expressed_genes = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/background_expressed_genes.csv"))
+    potential_ligands = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/potential_ligands.csv"))
+    expected_output = process_expected_output(read_csv_cols(os.path.join(root, f"data/predictor/{test_id}/output.csv")))
     ligand_activities = predictor.predict_ligand_activities(
         geneset,
         background_expressed_genes,

@@ -1,5 +1,6 @@
 [tool.hatch.envs.default]
 path = ".hatch"
+python = "3.12"
 
 [project]
 name = "nichenetpy"
@@ -17,9 +18,9 @@ maintainers = [
   { name = "Victor Medaerts", email = "victor.medaerts@ugent.be"},
 ]
 
-requires-python = ">=3.12"
+requires-python = "== 3.12.*"
 
-dependencies = ["scikit-learn>=1.5.2", "anndata>=0.11.1"]
+dependencies = ["scikit-learn>=1.5.2", "anndata>=0.11.1", "scanpy==1.10.4"]
 
 classifiers = [
     "Development Status :: 1 - Planning",
