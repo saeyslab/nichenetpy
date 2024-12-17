@@ -1,6 +1,6 @@
 [tool.hatch.envs.default]
 path = ".hatch"
-python = "3.12"
+python = ">= 3.12 < 3.13"
 
 [project]
 name = "nichenetpy"
