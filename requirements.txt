@@ -13,7 +13,6 @@ llvmlite==0.43.0
 matplotlib==3.9.3
 natsort==8.4.0
 networkx==3.4.2
--e git+ssh://git@github.com/saeyslab/nichenetpy.git@f313cbb79f9b89ab85466beebc6eaf89cea04b69#egg=nichenetpy
 numba==0.60.0
 numpy==2.0.2
 packaging==24.2
