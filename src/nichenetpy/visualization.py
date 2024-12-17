@@ -1,7 +1,27 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.network import WeightedNetwork
 
 import numpy as np
+import scipy as sc
+
+def reorder_labels(mat, row_labels, col_labels):
+    nrows, ncols = mat.shape
+    if nrows > 1 and ncols > 1:
+        corr = np.corrcoef(mat, rowvar=False)
+        corr = 1 - corr
+        dist = sc.spatial.distance_matrix(corr, corr)
+        clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
+        order_cols = sc.cluster.hierarchy.leaves_list(clust)
+        corr = np.corrcoef(mat, rowvar=True)
+        corr = 1 - corr
+        dist = sc.spatial.distance_matrix(corr, corr)
+        clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
+        order_rows = sc.cluster.hierarchy.leaves_list(clust)
+        mat = subset_matrix(mat, order_rows, order_cols)
+        row_labels = [row_labels[i] for i in order_rows]
+        col_labels = [col_labels[i] for i in order_cols]
+    return (mat, row_labels, col_labels)
 
 def prepare_ligand_target_visualization(
     predictor:LigandActivityPredictor,
@@ -35,17 +55,14 @@ def prepare_ligand_target_visualization(
         [target2index[target] for target in targets],
         [ligand2index[ligand] for ligand in ligands]
     )
-    return (ligand_target_vis, targets, ligands)
-    '''
-    # TODO: check if these dictionaries are used
+    return reorder_labels(ligand_target_vis, targets, ligands)
+
+def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork) -> tuple[np.ndarray, list[str], list[str]]:
+    ligands = sorted(ligand_receptor_links.get_ligands())
+    receptors = sorted(ligand_receptor_links.get_receptors())
     ligand2index = dict(zip(ligands, range(len(ligands))))
-    target2index = dict(zip(targets, range(len(targets))))
-    nrows, ncols = ligand_target_vis.shape
-    if nrows > 1 and ncols > 1:
-        #corr = np.corrcoef(np.transpose(ligand_target_vis))
-        corr = np.corrcoef(ligand_target_vis, rowvar=False)
-        nrows, ncols = corr.shape
-        corr = 1 - corr
-        dist = sc.spatial.distance_matrix(corr, corr)
-        clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
-        '''
+    receptor2index = dict(zip(receptors, range(len(receptors))))
+    mat = np.zeros(shape=(len(ligands), len(receptors)))
+    for ligand, receptor, weight in ligand_receptor_links:
+        mat[ligand2index[ligand], receptor2index[receptor]] = weight
+    return reorder_labels(mat, ligands, receptors)
