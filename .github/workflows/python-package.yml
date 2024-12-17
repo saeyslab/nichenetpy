@@ -30,7 +30,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pytest
         pip install -r requirements.txt
-        pip install -e ./src/nichenetpy
+        pip install -e .
     - name: Test with pytest
       run: |
         pytest
