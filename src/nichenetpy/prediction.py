@@ -53,6 +53,7 @@ class LigandActivityPredictor:
                 reverse=True
             )[:n]
         ).intersection(geneset)
+        targets = sorted(targets)
         if len(targets) == 0:
             return {
                 "ligand": ligand,
@@ -63,6 +64,6 @@ class LigandActivityPredictor:
             return {
                 "ligand": ligand,
                 "target": targets,
-                "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand] ]for target in targets]
+                "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand]] for target in targets]
             }
     
