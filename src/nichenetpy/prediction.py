@@ -1,10 +1,21 @@
 from nichenetpy.metrics import calculate_metrics
-from nichenetpy.utils import subset_matrix
 
 import numpy as np
 
 
 class LigandActivityPredictor:
+    '''
+        This class facilitates the computation of ligand activities using a ligand-target matrix. 
+
+        Attributes
+        ----------
+        ligand_target_matrix : numpy.ndarray
+            a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
+        row_names : list of str
+            list of names of the rows/genes
+        col_names : list of str
+            list of names of the columns/ligands
+        '''
     def __init__(
         self,
         ligand_target_matrix:np.ndarray,
@@ -23,6 +34,23 @@ class LigandActivityPredictor:
         background_expressed_genes:list[str],
         potential_ligands:list[str]
     ) -> dict[str, dict[str, float]]:
+        '''
+        Predict activities of ligands in regulating expression of a gene set of interest. Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according to the NicheNet model.
+
+        Parameters
+        ----------
+        geneset : list of str
+            the gene symbols of genes of which the expression is potentially affected by ligands from the interacting cell
+        background_expressed_genes : list of str
+            the gene symbols of the background, non-affected, genes (can contain the symbols of the affected genes as well)
+        potential ligands : list of str
+            the gene symbols of the potentially active ligands for which you want to compute ligand activities
+
+        Returns
+        -------
+        dict
+            nested dictionary which contains the ligand activity for each ligand
+        '''
         output = dict()
 
         # create the expected gene expression response vector
@@ -45,7 +73,25 @@ class LigandActivityPredictor:
             output[ligand] = calculate_metrics(pred, resp)
         return output
     
-    def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250) -> dict[str, list]:
+    def get_weighted_ligand_target_links(self, ligand:str, geneset:set[str], n:int=250) -> dict:
+        '''
+        Infer active ligand target links between possible ligands and genes belonging to a gene set of interest: consider the intersect between the top n targets of a ligand and the gene set.
+
+        Parameters
+        ----------
+        ligand : str
+            the gene symbol of the potentially active ligand for which you want to find target genes
+        geneset : list of str
+            the gene symbols of genes for which the expression is potentially affected by ligands from the interacting cell
+        n : int
+            the top n of targets per ligand that will be considered, defaults to 250
+
+        Returns
+        -------
+        dict
+            dictionary which contains:
+                the input ligand, the target genes and the regulatory potential scores between the ligand and each target
+        '''
         targets = set(
             e[0] for e in sorted(
                 zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]),

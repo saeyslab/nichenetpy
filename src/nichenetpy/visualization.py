@@ -10,7 +10,28 @@ import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 
-def reorder_labels(mat, row_labels, col_labels):
+def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray
+        the matrix to reorder
+    row_labels : list or tuple of float
+        the row labels
+    col_labels : list or tuple of float
+        the column labels
+
+    Returns
+    -------
+    numpy.ndarray
+        the reordered matrix
+    list[str]
+        the reordered row labels
+    list[str]
+        the reordered column labels
+    '''
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
         corr = np.corrcoef(mat, rowvar=False)
@@ -33,6 +54,27 @@ def prepare_ligand_target_visualization(
     ligand_target_links:list[tuple[str, str, float]],
     cutoff:float=0.25
 ) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Compute the data for a heatmap of regulatory potential. 
+
+    Parameters
+    ----------
+    predictor : LigandActivityPredictor
+        the ligand activity predictor which contains the required ligand-target prior model
+    ligand_target_links : list of tuples
+        list of (ligand, target, regulatory_potential_scores) tuples
+    cutoff : float
+        quantile cutoff on the ligand-target scores of the input weighted ligand-target network, scores under this cutoff will be set to 0
+
+    Returns
+    -------
+    numpy.ndarray
+        a matrix giving the ligand-target regulatory potential scores between ligands of interest and their targets genes part of the gene set of interest
+    list[str]
+        the row labels of the matrix
+    list[str]
+        the column labels of the matrix
+    '''
     ligands, targets, weights = zip(*ligand_target_links)
     # TODO: there is most certainly a faster way of doing this
     ligands = sorted(set(ligands))
