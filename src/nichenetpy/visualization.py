@@ -105,6 +105,23 @@ def prepare_ligand_target_visualization(
     return reorder_labels(ligand_target_vis, targets, ligands)
 
 def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Compute the data for a heatmap of prior interaction potential. 
+
+    Parameters
+    ----------
+    ligand_receptor_links : WeigthedNetwork
+        the weighted ligand-receptor links between a possible ligand and its receptors
+
+    Returns
+    -------
+    numpy.ndarray
+        a matrix giving the ligand-receptor prior interaction potential scores between a possible ligand and its receptors
+    list[str]
+        the row labels of the matrix
+    list[str]
+        the column labels of the matrix
+    '''
     ligands = sorted(ligand_receptor_links.get_ligands())
     receptors = sorted(ligand_receptor_links.get_receptors())
     ligand2index = dict(zip(ligands, range(len(ligands))))
