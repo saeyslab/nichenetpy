@@ -124,7 +124,7 @@ def get_lfc_celltype(
     layer:str,
     celltype_col:str="celltype",
     features:list[str]=None
-) -> list[float]:
+) -> tuple[list[str], list[float]]:
     '''
     Get log fold change of genes between two conditions in cell type of interest from an AnnData object.
 
@@ -145,12 +145,14 @@ def get_lfc_celltype(
     celltype_col : str
         the name of the column in obs that contains the cell types
     features : list of str or None
-        the ligands to consider
+        the genes to consider, consider all genes if None
     
     Returns
     -------
-    WeightedNetwork
-        the weighted ligand-receptor links
+    list
+        list of genes
+    list
+        list of lfcs
     '''
     ann_sender = subset_ann_celltype(ann, celltype, layers=[layer], celltype_col=celltype_col)
     if features is not None:
