@@ -10,6 +10,7 @@ import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 
+
 def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -> tuple[np.ndarray, list[str], list[str]]:
     '''
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering. 
@@ -139,6 +140,31 @@ def heatmap_1d(
     cmap:str="Greys",
     figsize:tuple[float]=(8, 8)
 ) -> tuple[Figure, Axes]:
+    '''
+    Create a 1d heatmap using matplotlib. 
+
+    Parameters
+    ----------
+    vals : list of float
+        the values to plot
+    labels : list of str
+        the labels of the values
+    title : str
+        the title of the plot
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the name of the color map
+    figsize : tuple of float
+        the size of figure
+
+    Returns
+    -------
+    Figure
+        the matplotlib figure
+    Axes
+        the matplotlib axes
+    '''
     fig, ax = plt.subplots(figsize=figsize)
     ys = range(len(labels)+1)
     im = ax.pcolormesh([0, 1], ys, [[val] for val in vals], cmap=cmap)
@@ -158,11 +184,44 @@ def heatmap_2d(
     xtitle:str=None,
     ytitle:str=None,
     cbar_label:str=None,
-    cbar_position="top",
-    cbar_orientation="horizontal",
+    cbar_position:str="top",
+    cbar_orientation:str="horizontal",
     cmap:str="Greys",
     figsize:tuple[float]=(5, 5)
 ) -> tuple[Figure, Axes]:
+    '''
+    Create a 2d heatmap using matplotlib. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray or list of list of float
+        a matrix of values to plot
+    xlabels : list of str
+        the labels of the x values
+    ylabels : list of str
+        the labels of the y values
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cbar_position : str
+        the position of the color bar ("top", "bottom", "left" or "right")
+    cbar_orientation : str
+        the orientation of the color bar ("horizontal", "vertical")
+    cmap : str
+        the name of the color map
+    figsize : tuple of float
+        the size of figure
+
+    Returns
+    -------
+    Figure
+        the matplotlib figure
+    Axes
+        the matplotlib axes
+    '''
     fig, ax = plt.subplots(figsize=figsize)
     xs = range(len(xlabels))
     ys = range(len(ylabels))

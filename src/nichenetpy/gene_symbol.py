@@ -2,6 +2,7 @@ import os
 from anndata import AnnData
 from collections.abc import Iterable
 
+
 root = os.path.dirname(__file__)
 
 class GeneAliasInfo:
