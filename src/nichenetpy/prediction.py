@@ -5,29 +5,29 @@ import numpy as np
 
 class LigandActivityPredictor:
     '''
-        This class facilitates the computation of ligand activities using a ligand-target matrix. 
+    This class facilitates the computation of ligand activities using a ligand-target matrix. 
 
-        Parameters
-        ----------
-        ligand_target_matrix : numpy.ndarray
-            a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-        row_names : list of str
-            list of names of the rows/genes
-        col_names : list of str
-            list of names of the columns/ligands
-        
-        Attributes
-        ----------
-        ligand_target_matrix : numpy.ndarray
-            a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-        row_names : list of str
-            list of names of the rows/genes
-        col_names : list of str
-            list of names of the columns/ligands
-        ligand2index : dict
-            mapping of ligand names to indices
-        gene2index : dict
-            mapping of gene names to indices
+    Parameters
+    ----------
+    ligand_target_matrix : numpy.ndarray
+        a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
+    row_names : list of str
+        list of names of the rows/genes
+    col_names : list of str
+        list of names of the columns/ligands
+    
+    Attributes
+    ----------
+    ligand_target_matrix : numpy.ndarray
+        a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
+    row_names : list of str
+        list of names of the rows/genes
+    col_names : list of str
+        list of names of the columns/ligands
+    ligand2index : dict
+        mapping of ligand names to indices
+    gene2index : dict
+        mapping of gene names to indices
     '''
     def __init__(
         self,
