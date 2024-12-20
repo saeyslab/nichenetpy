@@ -2,9 +2,18 @@ import os
 from anndata import AnnData
 from collections.abc import Iterable
 
+
 root = os.path.dirname(__file__)
 
 class GeneAliasInfo:
+    '''
+    This class facilitates gene alias conversion. 
+
+    Parameters
+    ----------
+    filename : str
+        name of the file to read gene alias information from
+    '''
     def __init__(self, filename:str) -> None:
         with open(filename) as file:
             lines = file.readlines()
@@ -24,6 +33,29 @@ class GeneAliasInfo:
         return item in self._mapping
     
     def alias_to_symbol(self, obj:Iterable[str]|AnnData) -> list[str]|None:
+        '''
+        Converts gene aliases to gene symbols. 
+
+        Parameters
+        ----------
+        obj : Iterable or AnnData
+            an object that contains gene symbols
+        
+        Returns
+        -------
+        list of str or None
+            a list of gene names post gene alias conversion
+        
+        Raises
+        ------
+        ValueError
+            if obj is not of the correct type
+        
+        Notes
+        -----
+        if obj is of type Iterable[str], this function returns a list of gene symbols
+        if obj is of type AnnData, this function returns None
+        '''
         if type(obj) is list:
             output = []
             counts = dict()
@@ -46,4 +78,11 @@ class GeneAliasInfo:
             raise ValueError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
 mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
+'''
+gene alias info for mice
+'''
+
 human_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_human.csv"))
+'''
+gene alias info for humans
+'''

@@ -3,9 +3,7 @@ from sklearn.metrics import precision_recall_curve
 
 def _auc_reverse(x:list[float], y:list[float]) -> float:
     '''
-    calculates the area under the curve using the trapezoid rule
-
-    the points should be specified in descending order of the x-values
+    Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values. 
 
     Parameters
     ----------
@@ -40,12 +38,12 @@ def _auc_reverse(x:list[float], y:list[float]) -> float:
 
 def calculate_aupr(response:list[float], prediction:list[int]) -> float:
     '''
-    calculates the area under the precision-recall curve using the trapezoid rule
+    Calculates the area under the precision-recall curve using the trapezoid rule. 
 
     Parameters
     ----------
     response : list or tuple of float
-        vector indicating whether a target is a TRUE target of the possibly active ligand(s) or a FALSE
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
     prediction : list or tuple of float
         vector which contains probability scores for each target gene (for one particular ligand)
 
@@ -69,6 +67,24 @@ def calculate_metrics(
     prediction:list[float],
     response:list[int]
 ) -> dict[str, float]:
+    '''
+    Calculates metrics that can be used to rank ligands. 
+    currently supported metrics are:
+        AUPR
+        corrected AUPR
+
+    Parameters
+    ----------
+    prediction : list or tuple of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+    response : list or tuple of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+
+    Returns
+    -------
+    dict[float]
+        dictionary with as keys the names of the supported metrics and as values the computed metrics
+    '''
     aupr = calculate_aupr(response, prediction)
     return {
         "aupr": aupr,

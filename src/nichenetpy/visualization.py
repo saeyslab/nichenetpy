@@ -10,7 +10,29 @@ import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 
-def reorder_labels(mat, row_labels, col_labels):
+
+def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray
+        the matrix to reorder
+    row_labels : list or tuple of float
+        the row labels
+    col_labels : list or tuple of float
+        the column labels
+
+    Returns
+    -------
+    numpy.ndarray
+        the reordered matrix
+    list[str]
+        the reordered row labels
+    list[str]
+        the reordered column labels
+    '''
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
         corr = np.corrcoef(mat, rowvar=False)
@@ -33,6 +55,27 @@ def prepare_ligand_target_visualization(
     ligand_target_links:list[tuple[str, str, float]],
     cutoff:float=0.25
 ) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Compute the data for a heatmap of regulatory potential. 
+
+    Parameters
+    ----------
+    predictor : LigandActivityPredictor
+        the ligand activity predictor which contains the required ligand-target prior model
+    ligand_target_links : list of tuples
+        list of (ligand, target, regulatory_potential_scores) tuples
+    cutoff : float
+        quantile cutoff on the ligand-target scores of the input weighted ligand-target network, scores under this cutoff will be set to 0
+
+    Returns
+    -------
+    numpy.ndarray
+        a matrix giving the ligand-target regulatory potential scores between ligands of interest and their targets genes part of the gene set of interest
+    list[str]
+        the row labels of the matrix
+    list[str]
+        the column labels of the matrix
+    '''
     ligands, targets, weights = zip(*ligand_target_links)
     # TODO: there is most certainly a faster way of doing this
     ligands = sorted(set(ligands))
@@ -63,6 +106,23 @@ def prepare_ligand_target_visualization(
     return reorder_labels(ligand_target_vis, targets, ligands)
 
 def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    Compute the data for a heatmap of prior interaction potential. 
+
+    Parameters
+    ----------
+    ligand_receptor_links : WeigthedNetwork
+        the weighted ligand-receptor links between a possible ligand and its receptors
+
+    Returns
+    -------
+    numpy.ndarray
+        a matrix giving the ligand-receptor prior interaction potential scores between a possible ligand and its receptors
+    list[str]
+        the row labels of the matrix
+    list[str]
+        the column labels of the matrix
+    '''
     ligands = sorted(ligand_receptor_links.get_ligands())
     receptors = sorted(ligand_receptor_links.get_receptors())
     ligand2index = dict(zip(ligands, range(len(ligands))))
@@ -80,6 +140,31 @@ def heatmap_1d(
     cmap:str="Greys",
     figsize:tuple[float]=(8, 8)
 ) -> tuple[Figure, Axes]:
+    '''
+    Create a 1d heatmap using matplotlib. 
+
+    Parameters
+    ----------
+    vals : list of float
+        the values to plot
+    labels : list of str
+        the labels of the values
+    title : str
+        the title of the plot
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the name of the color map
+    figsize : tuple of float
+        the size of figure
+
+    Returns
+    -------
+    Figure
+        the matplotlib figure
+    Axes
+        the matplotlib axes
+    '''
     fig, ax = plt.subplots(figsize=figsize)
     ys = range(len(labels)+1)
     im = ax.pcolormesh([0, 1], ys, [[val] for val in vals], cmap=cmap)
@@ -99,11 +184,44 @@ def heatmap_2d(
     xtitle:str=None,
     ytitle:str=None,
     cbar_label:str=None,
-    cbar_position="top",
-    cbar_orientation="horizontal",
+    cbar_position:str="top",
+    cbar_orientation:str="horizontal",
     cmap:str="Greys",
     figsize:tuple[float]=(5, 5)
 ) -> tuple[Figure, Axes]:
+    '''
+    Create a 2d heatmap using matplotlib. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray or list of list of float
+        a matrix of values to plot
+    xlabels : list of str
+        the labels of the x values
+    ylabels : list of str
+        the labels of the y values
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cbar_position : str
+        the position of the color bar ("top", "bottom", "left" or "right")
+    cbar_orientation : str
+        the orientation of the color bar ("horizontal", "vertical")
+    cmap : str
+        the name of the color map
+    figsize : tuple of float
+        the size of figure
+
+    Returns
+    -------
+    Figure
+        the matplotlib figure
+    Axes
+        the matplotlib axes
+    '''
     fig, ax = plt.subplots(figsize=figsize)
     xs = range(len(xlabels))
     ys = range(len(ylabels))
