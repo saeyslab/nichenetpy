@@ -29,9 +29,9 @@ def get_expressed_genes(
     celltype_col : str
         the name of the column in obs which contains the celltypes
     layer : str
-        name of the layer which contains the data matrix
+        the name of the layer which contains the data matrix
     gene_field : str
-        name of the column in var which contains the gene symbols
+        the name of the column in var which contains the gene symbols
     
     Returns
     -------
@@ -171,7 +171,7 @@ def get_lfc_celltype(
     celltype_col : str
         the name of the column in obs that contains the cell types
     gene_field : str
-        name of the column in var which contains the gene symbols
+        the name of the column in var which contains the gene symbols
     features : list of str or None
         the genes to consider, consider all genes if None
     
