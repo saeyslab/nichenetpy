@@ -52,7 +52,7 @@ def subset_ann_celltype(
         celltype:str|list[str],
         layers:list[str]=None,
         celltype_col:str="celltype"
-    ) -> AnnData:
+    ) -> AnnData|None:
     '''
     Subsets an AnnData object by cell type. 
 
@@ -74,7 +74,11 @@ def subset_ann_celltype(
     '''
     if layers is None:
         layers = ann.layers.keys()
+    if type(celltype) is str:
+        celltype = [celltype]
     cells_oi = ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]]
+    if len(cells_oi) == 0:
+        return None
     col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     ids = [col2index[name] for name in cells_oi.index]
     new_layers = dict((layer, vstack([ann.layers[layer][id, :] for id in ids])) for layer in layers)
