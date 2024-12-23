@@ -1,9 +1,10 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 
-from scipy.sparse import hstack, vstack
+from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from anndata import AnnData
 
 import scanpy as sc
+import numpy as np
 
 
 def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> list[str]:
@@ -52,7 +53,7 @@ def subset_ann_celltype(
         celltype:str|list[str],
         layers:list[str]=None,
         celltype_col:str="celltype"
-    ) -> AnnData:
+    ) -> AnnData|None:
     '''
     Subsets an AnnData object by cell type. 
 
@@ -73,11 +74,22 @@ def subset_ann_celltype(
         the subsetted AnnData object
     '''
     if layers is None:
-        layers = ann.layers.keys()
+        layers = list(ann.layers.keys())
+    if type(celltype) is str:
+        celltype = [celltype]
     cells_oi = ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]]
+    if len(cells_oi) == 0:
+        return None
     col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     ids = [col2index[name] for name in cells_oi.index]
-    new_layers = dict((layer, vstack([ann.layers[layer][id, :] for id in ids])) for layer in layers)
+    new_layers = dict(
+        (
+            layer,
+            vstack([ann.layers[layer][id, :] for id in ids])
+            if type(ann.layers[layer]) is csc_matrix or type(ann.layers[layer]) is csr_matrix
+            else np.concatenate([[ann.layers[layer][id, :]] for id in ids])
+        ) for layer in layers
+    )
     return AnnData(
         obs=cells_oi,
         layers=new_layers,
