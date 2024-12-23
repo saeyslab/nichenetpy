@@ -7,7 +7,14 @@ import scanpy as sc
 import numpy as np
 
 
-def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> list[str]:
+def get_expressed_genes(
+    celltype:str|list[str],
+    ann:AnnData,
+    pct:float=0.1,
+    celltype_col:str="celltype",
+    layer:str="data",
+    gene_field:str="gene"
+) -> list[str]:
     '''
     Gets the expressed genes from an AnnData object. 
 
@@ -18,7 +25,13 @@ def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> l
     ann : AnnData
         the AnnData object to extract expressed genes from
     pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells expressing the gene in all other clusters combined.
+        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells expressing the gene in all other clusters combined. 
+    celltype_col : str
+        the name of the column in obs which contains the celltypes
+    layer : str
+        name of the layer which contains the data matrix
+    gene_field : str
+        name of the column in var which contains the gene symbols
     
     Returns
     -------
@@ -27,9 +40,9 @@ def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> l
     '''
     if type(celltype) is str:
         celltype = [celltype]
-    cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs["celltype"]]].index)
+    cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
     # ncells x ngenes
-    mat = ann.layers["data"]
+    mat = ann.layers[layer]
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     ids = [row2index[name] for name in cells_oi]
@@ -40,10 +53,10 @@ def get_expressed_genes(celltype:str|list[str], ann:AnnData, pct:float=0.1) -> l
         exprs_m.data[i] = 1
     rowsum = exprs_m.sum(axis=0)/nrows
     return [
-        ann.var["gene"].iloc[gene]
+        ann.var[gene_field].iloc[gene]
         for gene, val in enumerate(
             rowsum[0, i]
-            for i in range(len(ann.var["gene"]))
+            for i in range(len(ann.var[gene_field]))
         )
         if val > pct
     ]
@@ -135,6 +148,7 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
+    gene_field:str="gene",
     features:list[str]=None
 ) -> tuple[list[str], list[float]]:
     '''
@@ -156,6 +170,8 @@ def get_lfc_celltype(
         the name of the data layer
     celltype_col : str
         the name of the column in obs that contains the cell types
+    gene_field : str
+        name of the column in var which contains the gene symbols
     features : list of str or None
         the genes to consider, consider all genes if None
     
@@ -168,7 +184,7 @@ def get_lfc_celltype(
     '''
     ann_sender = subset_ann_celltype(ann, celltype, layers=[layer], celltype_col=celltype_col)
     if features is not None:
-        gene2index = dict(zip(ann.var["gene"], range(len(ann.var["gene"]))))
+        gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
         ids = sorted(gene2index[gene] for gene in features)
         mat = ann_sender.layers[layer]
         mat = hstack([mat[:, id] for id in ids])
@@ -179,7 +195,7 @@ def get_lfc_celltype(
         )
         ann_sender.var_names = features
     else:
-        ann_sender.var_names = ann.var["gene"]
+        ann_sender.var_names = ann.var[gene_field]
     sc.pp.log1p(ann_sender, layer=layer)
     sc.tl.rank_genes_groups(
         ann_sender,
