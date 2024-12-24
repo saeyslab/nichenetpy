@@ -1,9 +1,27 @@
-from nichenetpy.extraction import subset_ann_celltype
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+from nichenetpy.utils import read_matrix_from_csv
+from nichenetpy.extraction import (
+    get_expressed_genes,
+    subset_ann_celltype,
+    get_weighted_ligand_receptor_links,
+    get_lfc_celltype
+)
+from nichenetpy.gene_symbol import mouse_alias_info
+from nichenetpy.visualization import (
+    prepare_ligand_target_visualization,
+    prepare_ligand_receptor_visualization,
+    heatmap_2d,
+    heatmap_1d
+)
 
+from itertools import cycle, chain
+from collections.abc import Iterable
 from anndata import AnnData
-from itertools import chain, cycle
 
 import scanpy as sc
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def get_geneset_oi(
@@ -69,7 +87,7 @@ def get_geneset_oi(
         ) if pval_adj <= max_pval_adj and abs(log2FC) >= min_log2FC
     ]
 
-def combine_weighted_ligand_target_links(active_ligand_target_links:list[dict]) -> list[tuple[str, str, float]]:
+def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[str, str, float]]:
     '''
     Combines weighted ligand-target links of different ligands. 
 
@@ -88,3 +106,203 @@ def combine_weighted_ligand_target_links(active_ligand_target_links:list[dict]) 
             *(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)
         )
     )
+
+def run_nichenet(
+    ann:AnnData,
+    predictor:LigandActivityPredictor,
+    lr_network:LigandReceptorNetwork,
+    lr_sig:WeightedNetwork,
+    receiver:str,
+    condition_oi:str,
+    condition_ref:str,
+    sender_celltypes:Iterable[str]=None,
+    get_expressed_genes_pct:float=0.05,
+    layer:str="data",
+    gene_field:str="gene",
+    condition_col:str="aggregate",
+    rank_method:str="wilcoxon",
+    max_pval_adj:float=0.05,
+    min_log2FC:float=0.25,
+    ligands_top_n:int=30
+):
+    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
+    all_receptors = lr_network.get_receptors()
+    expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
+    potential_ligands = set(
+        key for key, group in lr_network.item_iter()
+        if len(group.intersection(expressed_receptors)) > 0
+    )
+    geneset = get_geneset_oi(
+        ann,
+        receiver,
+        condition_oi,
+        condition_ref,
+        layer,
+        gene_field,
+        condition_col,
+        rank_method,
+        max_pval_adj,
+        min_log2FC
+    )
+    ligand_activities = predictor.predict_ligand_activities(
+        geneset=geneset,
+        background_expressed_genes=expressed_genes_receiver,
+        potential_ligands=potential_ligands
+    )
+    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
+    best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
+    active_ligand_target_links = combine_weighted_ligand_target_links((
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+        for ligand in best_upstream_ligands
+    ))
+    ligand_receptor_links = get_weighted_ligand_receptor_links(
+        best_upstream_ligands,
+        expressed_receptors,
+        lr_network,
+        lr_sig
+    )
+    if sender_celltypes is not None:
+        list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
+        expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+        potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
+        ligand_activities_focused = dict(
+            (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
+        )
+        ligand_activities_focused_sorted = sorted(
+            ligand_activities_focused.items(),
+            key=lambda x : x[1]["aupr_corrected"],
+            reverse=True
+        )
+        best_upstream_ligands_focused = [e[0] for e in ligand_activities_focused_sorted[:ligands_top_n]]
+        active_ligand_target_links_focused = combine_weighted_ligand_target_links((
+            predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+            for ligand in best_upstream_ligands_focused
+        ))
+        ligand_receptor_links_focused = get_weighted_ligand_receptor_links(
+            best_upstream_ligands_focused,
+            expressed_receptors,
+            lr_network,
+            lr_sig
+        )
+        ann_focused = subset_ann_celltype(ann, sender_celltypes, layers=[layer])
+        ann_focused.var = ann.var
+        ann_focused.X = ann_focused.layers[layer]
+        lfcs = [
+            get_lfc_celltype(
+                ann,
+                celltype,
+                "aggregate",
+                condition_oi="LCMV",
+                condition_ref="SS",
+                layer="data",
+                features=best_upstream_ligands_focused
+            )
+            for celltype in sender_celltypes
+        ]
+        return (
+            ligand_activities_sorted,
+            active_ligand_target_links,
+            ligand_receptor_links,
+            ligand_activities_focused_sorted,
+            active_ligand_target_links_focused,
+            ligand_receptor_links_focused,
+            ann_focused,
+            lfcs,
+            best_upstream_ligands_focused
+        )
+    else:
+        return (
+            ligand_activities_sorted,
+            active_ligand_target_links,
+            ligand_receptor_links
+        )
+
+def create_ligand_activity_hist(
+    ligand_activities_sorted:Iterable[str],
+    figsize:tuple[float, float]=(6, 6)
+):
+    plt.subplots(figsize=figsize)
+    vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
+    plt.hist(vals, bins=40, edgecolor="black")
+    plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
+    plt.xlabel("ligand activity")
+    plt.ylabel("# ligands")
+    plt.show()
+
+def create_ligand_activity_heatmap(
+    ligand_activities_sorted:Iterable[str],
+    figsize:tuple[float, float]=(6, 6)
+):
+    ligands, metrics = zip(*ligand_activities_sorted)
+    _, ax = heatmap_1d(
+        [e["aupr_corrected"] for e in metrics],
+        labels=ligands,
+        title="ligand activity",
+        cbar_label="AUPR",
+        cmap="YlOrRd",
+        figsize=figsize
+    )
+    ax.invert_yaxis()
+    plt.show()
+
+def create_regulatory_potential_heatmap(
+    predictor:LigandActivityPredictor,
+    active_ligand_target_links:list[tuple[str, str, float]],
+    figsize:tuple[float, float]=(6, 6)
+):
+    ligand_target_vis, targets, ligands = prepare_ligand_target_visualization(
+        predictor,
+        active_ligand_target_links,
+        cutoff=0.33
+    )
+    heatmap_2d(
+        ligand_target_vis.transpose(),
+        xlabels=targets,
+        ylabels=ligands,
+        xtitle="predicted target genes",
+        ytitle="prioritized ligands",
+        cbar_label="regulatory potential",
+        cmap="Blues",
+        figsize=figsize
+    )
+    plt.show()
+
+def create_prior_interaction_potential_heatmap(
+    ligand_receptor_links:WeightedNetwork,
+    figsize:tuple[float, float]=(6, 6)
+):
+    mat, ligands, receptors = prepare_ligand_receptor_visualization(ligand_receptor_links)
+    heatmap_2d(
+        mat,
+        xlabels=receptors,
+        ylabels=ligands,
+        xtitle="receptors",
+        ytitle="ligands",
+        cbar_label="prior interaction potential",
+        cmap="Oranges",
+        figsize=figsize
+    )
+    plt.show()
+
+def create_lfc_heatmap(
+    sender_celltypes:list[str],
+    best_upstream_ligands:list[str],
+    lfcs:list[tuple[list[str], list[float]]],
+    figsize:tuple[float, float]=(6, 6)
+):
+    _, ax = heatmap_2d(
+    np.hstack([[[val[0]] for val in vals] for _, vals in lfcs]),
+        xlabels=sender_celltypes,
+        ylabels=best_upstream_ligands,
+        xtitle="cell types",
+        ytitle="prioritized ligands",
+        cbar_label="LFC",
+        cbar_position="right",
+        cbar_orientation="vertical",
+        cmap="seismic",
+        figsize=figsize
+    )
+    ax.invert_yaxis()
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position('top') 
+    plt.show()
