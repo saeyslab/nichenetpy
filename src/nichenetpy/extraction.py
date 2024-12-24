@@ -205,4 +205,7 @@ def get_lfc_celltype(
         groups=[condition_oi],
         reference=condition_ref
     )
-    return (ann_sender.uns["rank_genes_groups"]["names"], ann_sender.uns["rank_genes_groups"]["logfoldchanges"])
+    return (
+        [e[0] for e in ann_sender.uns["rank_genes_groups"]["names"]],
+        [e[0] for e in ann_sender.uns["rank_genes_groups"]["logfoldchanges"]]
+    )

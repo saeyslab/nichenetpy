@@ -1,13 +1,15 @@
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.utils import read_matrix_from_csv
+from nichenetpy.utils import (
+    combine_by_key,
+    combine_dicts
+)
 from nichenetpy.extraction import (
     get_expressed_genes,
     subset_ann_celltype,
     get_weighted_ligand_receptor_links,
     get_lfc_celltype
 )
-from nichenetpy.gene_symbol import mouse_alias_info
 from nichenetpy.visualization import (
     prepare_ligand_target_visualization,
     prepare_ligand_receptor_visualization,
@@ -286,14 +288,24 @@ def create_prior_interaction_potential_heatmap(
 
 def create_lfc_heatmap(
     sender_celltypes:list[str],
-    best_upstream_ligands:list[str],
+    ligand_activities:dict[str, dict[str, float]],
     lfcs:list[tuple[list[str], list[float]]],
     figsize:tuple[float, float]=(6, 6)
 ):
+    lfcs = combine_by_key(*lfcs)
+    ligands, vals = zip(*(
+        (ligand, metrics_vals[1])
+        for ligand, metrics_vals in
+        sorted(
+            combine_dicts(ligand_activities, lfcs).items(),
+            key=lambda x : x[1][0]["aupr"],
+            reverse=True
+        )
+    ))
     _, ax = heatmap_2d(
-    np.hstack([[[val[0]] for val in vals] for _, vals in lfcs]),
+    np.vstack(vals),
         xlabels=sender_celltypes,
-        ylabels=best_upstream_ligands,
+        ylabels=ligands,
         xtitle="cell types",
         ytitle="prioritized ligands",
         cbar_label="LFC",
