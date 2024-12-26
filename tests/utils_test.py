@@ -1,4 +1,4 @@
-from nichenetpy.utils import subset_matrix, remove_zero_rows_cols, combine_by_key
+from nichenetpy.utils import subset_matrix, remove_zero_rows_cols, combine_by_key, combine_dicts
 
 import numpy as np
 
@@ -86,5 +86,58 @@ def test_combine_by_key_0():
             "b": [1, 7, 9],
             "c": [8, 3, 5],
             "d": [5, 2, 3]
+        }
+    )
+
+def combine_dicts_template(input, exp):
+    res = combine_dicts(*input)
+    assert len(res) == len(exp), f"expected to have size {len(exp)}, got {len(res)}"
+    for key in exp.keys():
+        assert res[key] == exp[key], f"expected {exp[key]} for key={key}, got {res[key]}"
+
+def test_combine_dicts_0():
+    combine_dicts_template(
+        (
+            {
+                "a": 0,
+                "b": 1,
+                "c": 2,
+                "d": 3
+            },
+            {
+                "a": 4,
+                "b": 5,
+                "c": 6,
+                "d": 7
+            }
+        ),
+        {
+            "a": (0, 4),
+            "b": (1, 5),
+            "c": (2, 6),
+            "d": (3, 7)
+        }
+    )
+
+def test_combine_dicts_1():
+    combine_dicts_template(
+        (
+            {
+                "a": 0,
+                "b": 1,
+                "c": 2,
+                "d": 3
+            },
+            {
+                "a": 4,
+                "b": 5,
+                "c": 6,
+                "e": 7
+            }
+        ),
+        {
+            "a": (0, 4),
+            "b": (1, 5),
+            "c": (2, 6),
         }
     )

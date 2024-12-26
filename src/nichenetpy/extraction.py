@@ -185,7 +185,7 @@ def get_lfc_celltype(
     ann_sender = subset_ann_celltype(ann, celltype, layers=[layer], celltype_col=celltype_col)
     if features is not None:
         gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
-        ids = sorted(gene2index[gene] for gene in features)
+        ids = [gene2index[gene] for gene in features]
         mat = ann_sender.layers[layer]
         mat = hstack([mat[:, id] for id in ids])
         ann_sender = AnnData(

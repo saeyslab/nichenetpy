@@ -293,17 +293,18 @@ def create_lfc_heatmap(
     figsize:tuple[float, float]=(6, 6)
 ):
     lfcs = combine_by_key(*lfcs)
+    # sort by ligand activity
     ligands, vals = zip(*(
         (ligand, metrics_vals[1])
         for ligand, metrics_vals in
         sorted(
             combine_dicts(ligand_activities, lfcs).items(),
-            key=lambda x : x[1][0]["aupr"],
+            key=lambda x : x[1][0]["aupr_corrected"],
             reverse=True
         )
     ))
     _, ax = heatmap_2d(
-    np.vstack(vals),
+        np.vstack(vals),
         xlabels=sender_celltypes,
         ylabels=ligands,
         xtitle="cell types",
