@@ -109,3 +109,16 @@ def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
         the subsetted matrix
     '''
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
+
+def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
+    output = dict()
+    for arg in args:
+        for key, val in zip(arg[0], arg[1]):
+            if key in output:
+                output[key].append(val)
+            else:
+                output[key] = [val]
+    return output
+
+def combine_dicts(dict1:dict, dict2:dict) -> dict:
+    return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
