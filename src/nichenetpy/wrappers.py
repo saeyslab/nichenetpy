@@ -168,12 +168,12 @@ def run_nichenet(
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
         )
-        ligand_activities_focused_sorted = sorted(
+        ligand_activities_sorted_focused = sorted(
             ligand_activities_focused.items(),
             key=lambda x : x[1]["aupr_corrected"],
             reverse=True
         )
-        best_upstream_ligands_focused = [e[0] for e in ligand_activities_focused_sorted[:ligands_top_n]]
+        best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
         active_ligand_target_links_focused = combine_weighted_ligand_target_links((
             predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
             for ligand in best_upstream_ligands_focused
@@ -199,23 +199,25 @@ def run_nichenet(
             )
             for celltype in sender_celltypes
         ]
-        return (
-            ligand_activities_sorted,
-            active_ligand_target_links,
-            ligand_receptor_links,
-            ligand_activities_focused_sorted,
-            active_ligand_target_links_focused,
-            ligand_receptor_links_focused,
-            ann_focused,
-            lfcs,
-            best_upstream_ligands_focused
-        )
+        return {
+            "best_upstream_ligands": best_upstream_ligands,
+            "ligand_activities_sorted": ligand_activities_sorted,
+            "active_ligand_target_links": active_ligand_target_links,
+            "ligand_receptor_links": ligand_receptor_links,
+            "best_upstream_ligands_focused": best_upstream_ligands_focused,
+            "ligand_activities_sorted_focused": ligand_activities_sorted_focused,
+            "active_ligand_target_links_focused": active_ligand_target_links_focused,
+            "ligand_receptor_links_focused": ligand_receptor_links_focused,
+            "ann_focused": ann_focused,
+            "lfcs": lfcs
+        }
     else:
-        return (
-            ligand_activities_sorted,
-            active_ligand_target_links,
-            ligand_receptor_links
-        )
+        return {
+            "best_upstream_ligands": best_upstream_ligands,
+            "ligand_activities_sorted": ligand_activities_sorted,
+            "active_ligand_target_links": active_ligand_target_links,
+            "ligand_receptor_links": active_ligand_target_links
+        }
 
 def create_ligand_activity_hist(
     ligand_activities_sorted:Iterable[str],
