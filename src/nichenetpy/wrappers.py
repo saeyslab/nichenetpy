@@ -295,7 +295,6 @@ def create_lfc_heatmap(
     figsize:tuple[float, float]=(6, 6)
 ):
     lfcs = combine_by_key(*lfcs)
-    print(lfcs)
     # sort by ligand activity
     ligands, vals = zip(*(
         (ligand, metrics_vals[1])
