@@ -62,7 +62,7 @@ def get_geneset_oi(
     max_pval_adj : float
         the upper bound for pval_adj
     min_log2FC : float
-        te lower bound for log2FC
+        the lower bound for log2FC
     
     Returns
     -------
@@ -127,6 +127,70 @@ def run_nichenet(
     min_log2FC:float=0.25,
     ligands_top_n:int=30
 ):
+    '''
+    Runs a standard nichenet analysis. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    predictor : LigandActivityPredictor
+        the predictor which contains the ligand-target matrix
+    lr_network : LigandReceptorNetwork
+        the ligand-receptor network containing the ligand-receptor interactions
+    lr_sig : WeightedNetwork
+        a weighted network containing the ligand-receptor interactions and their weights
+    receiver : str
+        the receiver cell type
+    condition_oi : str
+        the condition of interest
+    condition_ref : str
+        the reference condition
+    sender_celltypes : Iterable[str]
+        the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
+    get_expressed_genes_pct : float
+        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+    layer : str
+        the layer in the AnnData object which contains the data matrix
+    gene_field : str
+        the name of the column in var which contains the gene symbols
+    condition_col : str
+        the name of the column in obs which contains the conditions
+    rank_method : str
+        the method to use in rank_genes_groups
+    max_pval_adj : float
+        the upper bound for pval_adj
+    min_log2FC : float
+        the lower bound for log2FC
+    ligands_top_n : int
+        the amount of ligands that are considered to be the best upstream ligands
+    
+    Returns
+    -------
+    dict
+        a dictionary which contains the output of the analysis, it contains the following objects for the sender-agnostic approach:
+            best_upstream_ligands : list of str
+                the top scoring ligands in the sender-agnostic approach
+            ligand_activities_sorted : dict
+                the computed metrics for each ligand in the sender-agnostic approach
+            active_ligand_target_links : list of tuple
+                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
+            ligand_receptor_links : WeightedNetwork
+                the weighted ligand-receptor links in the sender-agnostic approach
+        and the following additional objects for the sender-focused approach:
+            best_upstream_ligands_focused : list of str
+                the top scoring ligands in the sender-focused approach
+            ligand_activities_sorted_focused : dict
+                the computed metrics for each ligand in the sender-focused approach
+            active_ligand_target_links_focused : list of tuple
+                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-focused approach
+            ligand_receptor_links_focused : WeightedNetwork
+                the weighted ligand-receptor links in the sender-focused approach
+            ann_focused : AnnData
+                the AnnData object used in the sender-focused approach (new object derived from ann)
+            lfcs : list of tuple
+                the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+    '''
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
     all_receptors = lr_network.get_receptors()
     expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
@@ -170,12 +234,12 @@ def run_nichenet(
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
         )
-        ligand_activities_focused_sorted = sorted(
+        ligand_activities_sorted_focused = sorted(
             ligand_activities_focused.items(),
             key=lambda x : x[1]["aupr_corrected"],
             reverse=True
         )
-        best_upstream_ligands_focused = [e[0] for e in ligand_activities_focused_sorted[:ligands_top_n]]
+        best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
         active_ligand_target_links_focused = combine_weighted_ligand_target_links((
             predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
             for ligand in best_upstream_ligands_focused
@@ -201,28 +265,40 @@ def run_nichenet(
             )
             for celltype in sender_celltypes
         ]
-        return (
-            ligand_activities_sorted,
-            active_ligand_target_links,
-            ligand_receptor_links,
-            ligand_activities_focused_sorted,
-            active_ligand_target_links_focused,
-            ligand_receptor_links_focused,
-            ann_focused,
-            lfcs,
-            best_upstream_ligands_focused
-        )
+        return {
+            "best_upstream_ligands": best_upstream_ligands,
+            "ligand_activities_sorted": ligand_activities_sorted,
+            "active_ligand_target_links": active_ligand_target_links,
+            "ligand_receptor_links": ligand_receptor_links,
+            "best_upstream_ligands_focused": best_upstream_ligands_focused,
+            "ligand_activities_sorted_focused": ligand_activities_sorted_focused,
+            "active_ligand_target_links_focused": active_ligand_target_links_focused,
+            "ligand_receptor_links_focused": ligand_receptor_links_focused,
+            "ann_focused": ann_focused,
+            "lfcs": lfcs
+        }
     else:
-        return (
-            ligand_activities_sorted,
-            active_ligand_target_links,
-            ligand_receptor_links
-        )
+        return {
+            "best_upstream_ligands": best_upstream_ligands,
+            "ligand_activities_sorted": ligand_activities_sorted,
+            "active_ligand_target_links": active_ligand_target_links,
+            "ligand_receptor_links": ligand_receptor_links
+        }
 
 def create_ligand_activity_hist(
-    ligand_activities_sorted:Iterable[str],
+    ligand_activities_sorted:Iterable[tuple],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a ligand activity histogram. 
+
+    Parameters
+    ----------
+    ligand_activities_sorted : Iterable of str
+        the computed metrics for each ligand
+    figsize : tuple of float
+        the size of the figure
+    '''
     plt.subplots(figsize=figsize)
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
@@ -232,9 +308,19 @@ def create_ligand_activity_hist(
     plt.show()
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted:Iterable[str],
+    ligand_activities_sorted:Iterable[tuple],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a ligand activity heatmap. 
+
+    Parameters
+    ----------
+    ligand_activities_sorted : Iterable of tuple
+        the computed metrics for each ligand
+    figsize : tuple of float
+        the size of the figure
+    '''
     ligands, metrics = zip(*ligand_activities_sorted)
     _, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
@@ -252,6 +338,18 @@ def create_regulatory_potential_heatmap(
     active_ligand_target_links:list[tuple[str, str, float]],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a regulatory potential heatmap. 
+
+    Parameters
+    ----------
+    predictor : LigandActivityPredictor
+        the predictor which contains the ligand-target matrix
+    active_ligand_target_links : list of tuple
+        list of (ligand, target, weight) tuples representing the ligand-target links
+    figsize : tuple of float
+        the size of the figure
+    '''
     ligand_target_vis, targets, ligands = prepare_ligand_target_visualization(
         predictor,
         active_ligand_target_links,
@@ -273,6 +371,16 @@ def create_prior_interaction_potential_heatmap(
     ligand_receptor_links:WeightedNetwork,
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a prior interaction potential heatmap. 
+
+    Parameters
+    ----------
+    ligand_receptor_links : WeightedNetwork
+        the weighted ligand-receptor links in the sender-agnostic approach
+    figsize : tuple of float
+        the size of the figure
+    '''
     mat, ligands, receptors = prepare_ligand_receptor_visualization(ligand_receptor_links)
     heatmap_2d(
         mat,
@@ -292,6 +400,20 @@ def create_lfc_heatmap(
     lfcs:list[tuple[list[str], list[float]]],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates an LFC heatmap. 
+
+    Parameters
+    ----------
+    sender_celltypes : list of str
+        the sender cell types
+    ligand_activities : dict
+        the computed metrics for each ligand
+    lfcs : list of tuple
+        the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+    figsize : tuple of float
+        the size of the figure
+    '''
     lfcs = combine_by_key(*lfcs)
     # sort by ligand activity
     ligands, vals = zip(*(

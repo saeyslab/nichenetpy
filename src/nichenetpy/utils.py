@@ -111,6 +111,33 @@ def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
 
 def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
+    '''
+    Combine tuples of lists matched by the keys in the first list of each passed tuple. 
+
+    Parameters
+    ----------
+    *args : tuple
+        tuples of equally large lists to combine, where the first list of a tuple contains the keys
+    
+    Returns
+    -------
+    dict
+        a dictionary where each key is mapped to a list containing one element per input tuple in the order the tuples were passed to the function
+    
+    Examples
+    --------
+    >>> combine_by_key(
+        (["a", "b", "c", "d"], [4, 1, 8, 5]),
+        (["b", "c", "d", "a"], [7, 3, 2, 1]),
+        (["b", "a", "c", "d"], [9, 6, 5, 3])
+    )
+    {
+        "a": [4, 1, 6],
+        "b": [1, 7, 9],
+        "c": [8, 3, 5],
+        "d": [5, 2, 3]
+    }
+    '''
     output = dict()
     for arg in args:
         for key, val in zip(arg[0], arg[1]):
@@ -121,4 +148,62 @@ def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
     return output
 
 def combine_dicts(dict1:dict, dict2:dict) -> dict:
+    '''
+    Combine two dictionaries by their mutual keys. 
+
+    Parameters
+    ----------
+    dict1: dict
+        one of the dictionaries to combine
+    dict2: dict
+        one of the dictionaries to combine
+    
+    Returns
+    -------
+    dict
+        a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key
+    
+    Examples
+    --------
+    >>> combine_dicts(
+        {
+            "a": 0,
+            "b": 1,
+            "c": 2,
+            "d": 3
+        },
+        {
+            "a": 4,
+            "b": 5,
+            "c": 6,
+            "d": 7
+        }
+    )
+    {
+        "a": (0, 4),
+        "b": (1, 5),
+        "c": (2, 6),
+        "d": (3, 7)
+    }
+
+    >>> combine_dicts(
+        {
+            "a": 0,
+            "b": 1,
+            "c": 2,
+            "d": 3
+        },
+        {
+            "a": 4,
+            "b": 5,
+            "c": 6,
+            "e": 7
+        }
+    )
+    {
+        "a": (0, 4),
+        "b": (1, 5),
+        "c": (2, 6)
+    }
+    '''
     return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))

@@ -180,7 +180,7 @@ def get_lfc_celltype(
     list
         list of genes
     list
-        list of lfcs
+        list of log fold changes
     '''
     ann_sender = subset_ann_celltype(ann, celltype, layers=[layer], celltype_col=celltype_col)
     if features is not None:
