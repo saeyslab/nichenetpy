@@ -125,7 +125,8 @@ def run_nichenet(
     rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
-    ligands_top_n:int=30
+    ligands_top_n:int=30,
+    targets_top_n:int=100
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -164,6 +165,8 @@ def run_nichenet(
         the lower bound for log2FC
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
+    targets_top_n : int
+        the number of target genes to consider per ligand when performing the target gene inference
     
     Returns
     -------
@@ -218,7 +221,7 @@ def run_nichenet(
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
     active_ligand_target_links = combine_weighted_ligand_target_links((
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
         for ligand in best_upstream_ligands
     ))
     ligand_receptor_links = get_weighted_ligand_receptor_links(
@@ -257,10 +260,10 @@ def run_nichenet(
             get_lfc_celltype(
                 ann,
                 celltype,
-                "aggregate",
-                condition_oi="LCMV",
-                condition_ref="SS",
-                layer="data",
+                condition_col=condition_col,
+                condition_oi=condition_oi,
+                condition_ref=condition_ref,
+                layer=layer,
                 features=best_upstream_ligands_focused
             )
             for celltype in sender_celltypes
