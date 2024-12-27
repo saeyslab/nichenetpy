@@ -48,7 +48,28 @@ def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]
         rows.append([float(e) for e in line[1:]])
     return (np.array(rows, dtype=np.float64), row_names, col_names)
 
-def read_csv_cols(filename:str) -> dict[tuple[str]]:
+def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
+    '''
+    Reads the rows from a csv file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the csv file to read from
+    
+    Returns
+    -------
+    list of str
+        list of column names
+    list of list of str
+        list of rows
+    '''
+    with open(filename) as file:
+        lines = file.readlines()
+    lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
+    return (lines[0], lines[1:])
+
+def read_csv_cols(filename:str) -> dict[list[str]]:
     '''
     Reads the columns from a csv file. 
 
@@ -67,7 +88,7 @@ def read_csv_cols(filename:str) -> dict[tuple[str]]:
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
     return dict(zip(lines[0], zip(*lines[1:])))
 
-def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool], cols:list[int]|list[bool]) -> np.ndarray:
+def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool]=None, cols:list[int]|list[bool]=None) -> np.ndarray:
     '''
     Subsets a matrix. 
 
@@ -75,9 +96,9 @@ def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool], cols:list[int]|list
     ----------
     mat : numpy.ndarray
         the matrix to subset
-    rows : list
+    rows : list of int or list of bool or None
         list of row indices to keep or list of booleans indicating which rows to keep
-    cols : list
+    cols : list of int or list of bool or None
         list of column indices to keep or list of booleans indicating which columns to keep
     
     Returns
@@ -85,14 +106,22 @@ def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool], cols:list[int]|list
     numpy.ndarray
         the subsetted matrix
     '''
-    if type(rows[0]) is bool or type(rows[0]) is np.bool:
+    if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
         rows = [i for i, e in enumerate(rows) if e]
-    if type(cols[0]) is bool or type(cols[0]) is np.bool:
+    if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
         cols = [i for i, e in enumerate(cols) if e]
-    return mat[
-        [[row] for row in rows],
-        [col for col in cols]
-    ]
+    if rows is None:
+        if cols is None:
+            return mat
+        else:
+            return mat[:, cols]
+    elif cols is None:
+        return np.concatenate([[mat[row, :]] for row in rows])
+    else:
+        return mat[
+            [[row] for row in rows],
+            [col for col in cols]
+        ]
 
 def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
     '''
