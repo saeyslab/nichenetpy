@@ -286,9 +286,19 @@ def run_nichenet(
         }
 
 def create_ligand_activity_hist(
-    ligand_activities_sorted:Iterable[str],
+    ligand_activities_sorted:Iterable[tuple],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a ligand activity histogram. 
+
+    Parameters
+    ----------
+    ligand_activities_sorted : Iterable of str
+        the computed metrics for each ligand
+    figsize : tuple of float
+        the size of the figure
+    '''
     plt.subplots(figsize=figsize)
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
@@ -298,9 +308,19 @@ def create_ligand_activity_hist(
     plt.show()
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted:Iterable[str],
+    ligand_activities_sorted:Iterable[tuple],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a ligand activity heatmap. 
+
+    Parameters
+    ----------
+    ligand_activities_sorted : Iterable of tuple
+        the computed metrics for each ligand
+    figsize : tuple of float
+        the size of the figure
+    '''
     ligands, metrics = zip(*ligand_activities_sorted)
     _, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
@@ -318,6 +338,18 @@ def create_regulatory_potential_heatmap(
     active_ligand_target_links:list[tuple[str, str, float]],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a regulatory potential heatmap. 
+
+    Parameters
+    ----------
+    predictor : LigandActivityPredictor
+        the predictor which contains the ligand-target matrix
+    active_ligand_target_links : list of tuple
+        list of (ligand, target, weight) tuples representing the ligand-target links
+    figsize : tuple of float
+        the size of the figure
+    '''
     ligand_target_vis, targets, ligands = prepare_ligand_target_visualization(
         predictor,
         active_ligand_target_links,
@@ -339,6 +371,16 @@ def create_prior_interaction_potential_heatmap(
     ligand_receptor_links:WeightedNetwork,
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates a prior interaction potential heatmap. 
+
+    Parameters
+    ----------
+    ligand_receptor_links : WeightedNetwork
+        the weighted ligand-receptor links in the sender-agnostic approach
+    figsize : tuple of float
+        the size of the figure
+    '''
     mat, ligands, receptors = prepare_ligand_receptor_visualization(ligand_receptor_links)
     heatmap_2d(
         mat,
@@ -358,6 +400,20 @@ def create_lfc_heatmap(
     lfcs:list[tuple[list[str], list[float]]],
     figsize:tuple[float, float]=(6, 6)
 ):
+    '''
+    Creates an LFC heatmap. 
+
+    Parameters
+    ----------
+    sender_celltypes : list of str
+        the sender cell types
+    ligand_activities : dict
+        the computed metrics for each ligand
+    lfcs : list of tuple
+        the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+    figsize : tuple of float
+        the size of the figure
+    '''
     lfcs = combine_by_key(*lfcs)
     # sort by ligand activity
     ligands, vals = zip(*(
