@@ -244,7 +244,7 @@ def run_nichenet(
         )
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
         active_ligand_target_links_focused = combine_weighted_ligand_target_links((
-            predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+            predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
             for ligand in best_upstream_ligands_focused
         ))
         ligand_receptor_links_focused = get_weighted_ligand_receptor_links(
@@ -290,6 +290,8 @@ def run_nichenet(
 
 def create_ligand_activity_hist(
     ligand_activities_sorted:Iterable[tuple],
+    xtitle:str="ligand activity",
+    ytitle:str="# ligands",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -299,6 +301,10 @@ def create_ligand_activity_hist(
     ----------
     ligand_activities_sorted : Iterable of str
         the computed metrics for each ligand
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
     figsize : tuple of float
         the size of the figure
     '''
@@ -306,12 +312,15 @@ def create_ligand_activity_hist(
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
     plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
-    plt.xlabel("ligand activity")
-    plt.ylabel("# ligands")
+    plt.xlabel(xtitle)
+    plt.ylabel(ytitle)
     plt.show()
 
 def create_ligand_activity_heatmap(
     ligand_activities_sorted:Iterable[tuple],
+    title:str="ligand_activity",
+    cbar_label:str="AUPR",
+    cmap:str="YlOrRd",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -321,6 +330,12 @@ def create_ligand_activity_heatmap(
     ----------
     ligand_activities_sorted : Iterable of tuple
         the computed metrics for each ligand
+    title : str
+        the title of the plot
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -328,9 +343,9 @@ def create_ligand_activity_heatmap(
     _, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
         labels=ligands,
-        title="ligand activity",
-        cbar_label="AUPR",
-        cmap="YlOrRd",
+        title=title,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     ax.invert_yaxis()
@@ -339,6 +354,10 @@ def create_ligand_activity_heatmap(
 def create_regulatory_potential_heatmap(
     predictor:LigandActivityPredictor,
     active_ligand_target_links:list[tuple[str, str, float]],
+    xtitle="predicted target genes",
+    ytitle="prioritized ligands",
+    cbar_label="regulatory potential",
+    cmap="Blues",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -350,6 +369,14 @@ def create_regulatory_potential_heatmap(
         the predictor which contains the ligand-target matrix
     active_ligand_target_links : list of tuple
         list of (ligand, target, weight) tuples representing the ligand-target links
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -362,16 +389,20 @@ def create_regulatory_potential_heatmap(
         ligand_target_vis.transpose(),
         xlabels=targets,
         ylabels=ligands,
-        xtitle="predicted target genes",
-        ytitle="prioritized ligands",
-        cbar_label="regulatory potential",
-        cmap="Blues",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     plt.show()
 
 def create_prior_interaction_potential_heatmap(
     ligand_receptor_links:WeightedNetwork,
+    xtitle="receptors",
+    ytitle="ligands",
+    cbar_label="prior interaction potential",
+    cmap="Oranges",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -381,6 +412,14 @@ def create_prior_interaction_potential_heatmap(
     ----------
     ligand_receptor_links : WeightedNetwork
         the weighted ligand-receptor links in the sender-agnostic approach
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -389,10 +428,10 @@ def create_prior_interaction_potential_heatmap(
         mat,
         xlabels=receptors,
         ylabels=ligands,
-        xtitle="receptors",
-        ytitle="ligands",
-        cbar_label="prior interaction potential",
-        cmap="Oranges",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     plt.show()
@@ -401,6 +440,10 @@ def create_lfc_heatmap(
     sender_celltypes:list[str],
     ligand_activities:dict[str, dict[str, float]],
     lfcs:list[tuple[list[str], list[float]]],
+    xtitle="cell types",
+    ytitle="prioritized ligands",
+    cbar_label="LFC",
+    cmap="seismic",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -414,6 +457,14 @@ def create_lfc_heatmap(
         the computed metrics for each ligand
     lfcs : list of tuple
         the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -432,12 +483,12 @@ def create_lfc_heatmap(
         np.vstack(vals),
         xlabels=sender_celltypes,
         ylabels=ligands,
-        xtitle="cell types",
-        ytitle="prioritized ligands",
-        cbar_label="LFC",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
         cbar_position="right",
         cbar_orientation="vertical",
-        cmap="seismic",
+        cmap=cmap,
         figsize=figsize
     )
     ax.invert_yaxis()
