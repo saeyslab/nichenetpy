@@ -75,6 +75,40 @@ class Network:
             the "from" values in the mapping and a list of corresponding "to" values
         '''
         return ((key, self[key]) for key in self.key_iter())
+    
+    def subset(self, from_to:Collection[tuple[str, str]]):
+        '''
+        Subset the network by the provided links. 
+
+        Parameters
+        ----------
+        from_to : Collection
+            collection of tuples (from, to) to subset by
+
+        Returns
+        -------
+        Network
+            the subsetted network
+        '''
+        return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
+
+    def subset_sep(self, fr:Collection[str], to:Collection[str]):
+        '''
+        Subset the network by the provided "from" and "to" values. 
+
+        Parameters
+        ----------
+        from : Collection
+            collection of "from" values to subset by
+        to : Collection
+            collection of "to" values to subset by
+
+        Returns
+        -------
+        Network
+            the subsetted network
+        '''
+        return type(self)(mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to])
 
 class LigandReceptorNetwork(Network):
     '''
@@ -133,40 +167,6 @@ class WeightedNetwork(Network):
     def __getitem__(self, key:str) -> dict[str, float]:
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start:start+count])
-
-    def subset(self, from_to:Collection[tuple[str, str]]):
-        '''
-        Subset the network by the provided links. 
-
-        Parameters
-        ----------
-        from_to : Collection
-            collection of tuples (from, to) to subset by
-
-        Returns
-        -------
-        WeightedNetwork
-            the subsetted network
-        '''
-        return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if (f, t) in from_to])
-
-    def subset_sep(self, fr:Collection[str], to:Collection[str]):
-        '''
-        Subset the network by the provided "from" and "to" values. 
-
-        Parameters
-        ----------
-        from : Collection
-            collection of "from" values to subset by
-        to : Collection
-            collection of "to" values to subset by
-
-        Returns
-        -------
-        WeightedNetwork
-            the subsetted network
-        '''
-        return WeightedNetwork(mapping=[(f, t, w) for f, t, w in self._mapping if f in fr and t in to])
     
     def get_ligands(self) -> set[str]:
         '''

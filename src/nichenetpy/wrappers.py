@@ -6,7 +6,7 @@ from nichenetpy.utils import (
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
-    subset_ann_celltype,
+    subset_ann,
     get_weighted_ligand_receptor_links,
     get_lfc_celltype
 )
@@ -69,7 +69,7 @@ def get_geneset_oi(
     list
         the geneset of interest
     '''
-    ann_receiver = subset_ann_celltype(ann, receiver, layers=[layer])
+    ann_receiver = subset_ann(ann, receiver, layers=[layer])
     ann_receiver.var_names = ann.var[gene_field]
     sc.pp.log1p(ann_receiver, layer=layer)
     sc.tl.rank_genes_groups(
@@ -175,8 +175,6 @@ def run_nichenet(
         if true, the active ligand-target links are computed and returned
     get_lfc : bool
         if true, the log fold changes are computed and returned
-    get_exp_ligands : bool
-        if true, the expressed ligands are computed and returned
     
     Returns
     -------
@@ -190,8 +188,6 @@ def run_nichenet(
                 list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
-            expressed_ligands : set of str
-                the expressed ligands
             expressed_receptors : set of str
                 the expressed receptors
         and the following additional objects for the sender-focused approach:
@@ -207,13 +203,13 @@ def run_nichenet(
                 the AnnData object used in the sender-focused approach (new object derived from ann)
             lfcs : list of tuple
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+            expressed_ligands : set of str
+                the expressed ligands
     '''
     output = dict()
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     output["expressed_receptors"] = expressed_receptors
-    if get_exp_ligands:
-        pass #TODO
     potential_ligands = set(
         key for key, group in lr_network.item_iter()
         if len(group.intersection(expressed_receptors)) > 0
@@ -254,6 +250,7 @@ def run_nichenet(
     if sender_celltypes is not None:
         list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
         expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+        output["expressed_ligands"] = lr_network.get_ligands().intersection(expressed_genes_sender)
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
@@ -278,7 +275,7 @@ def run_nichenet(
                 lr_network,
                 lr_sig
             )
-        ann_focused = subset_ann_celltype(ann, sender_celltypes, layers=[layer])
+        ann_focused = subset_ann(ann, sender_celltypes, layers=[layer])
         ann_focused.var = ann.var
         ann_focused.X = ann_focused.layers[layer]
         output["ann_focused"] = ann_focused
@@ -504,3 +501,43 @@ def create_lfc_heatmap(
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top') 
     plt.show()
+
+def calculate_de(
+    ann:AnnData,
+    condition_oi:str,
+    condition_col:str,
+    #condition_ref:str,
+    layer="data"
+):
+    ann = subset_ann(ann, condition_oi, layers=["data"], val_col=condition_col)
+    genes = ann.var["gene"]
+    ann.var_names = genes
+    sc.pp.log1p(ann, layer="data")
+    sc.tl.rank_genes_groups(
+        ann,
+        groupby=condition_col,
+        method="wilcoxon",
+        layer=layer,
+        #groups=[condition_oi],
+        #reference=condition_ref
+    )
+    return ann.uns["rank_genes_groups"]
+
+def generate_info_tables(
+    ann:AnnData,
+    celltype_col:str,
+    senders_oi:list[str],
+    receivers_oi:list[str],
+    lr_network_filtered:LigandReceptorNetwork,
+    condition_col:str,
+    condition_oi:str,
+    condition_ref:str,
+    scenario:str,
+    assay_oi:str
+):
+    DE_table = calculate_de(
+        ann,
+        condition_oi,
+        condition_col
+    )
+    

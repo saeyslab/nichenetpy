@@ -31,7 +31,7 @@ def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]
     Returns
     -------
     ndarray
-        the read matrix
+        the matrix
     list
         the row labels
     list

@@ -61,25 +61,26 @@ def get_expressed_genes(
         if val > pct
     ]
 
-def subset_ann_celltype(
+def subset_ann(
         ann:AnnData,
-        celltype:str|list[str],
+        val:str|list[str],
         layers:list[str]=None,
-        celltype_col:str="celltype"
+        val_col:str="celltype"
     ) -> AnnData|None:
     '''
-    Subsets an AnnData object by cell type. 
+    Subsets an AnnData object. 
 
     Parameters
     ----------
     ann : AnnData
         the AnnData object to subset
-    celltype : str or list of str
-        the cell types to subset by
+    val : str or list of str
+        the values to subset by
     layers : list of str or None
         the layers to subset (additionally to subsetting obs), if None all layers are subsetted
-    celltype_col : str
-        the name of the column in obs that contains the cell types
+        layers that aren't subsetted won't be present in the output
+    val_col : str
+        the name of the column in obs that contains the values
     
     Returns
     -------
@@ -88,9 +89,9 @@ def subset_ann_celltype(
     '''
     if layers is None:
         layers = list(ann.layers.keys())
-    if type(celltype) is str:
-        celltype = [celltype]
-    cells_oi = ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]]
+    if type(val) is str:
+        val = [val]
+    cells_oi = ann.obs.loc[[ct in val for ct in ann.obs[val_col]]]
     if len(cells_oi) == 0:
         return None
     col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
@@ -182,7 +183,7 @@ def get_lfc_celltype(
     list
         list of log fold changes
     '''
-    ann_sender = subset_ann_celltype(ann, celltype, layers=[layer], celltype_col=celltype_col)
+    ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
     if features is not None:
         gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
         ids = [gene2index[gene] for gene in features]
