@@ -113,7 +113,6 @@ def run_nichenet(
     ann:AnnData,
     predictor:LigandActivityPredictor,
     lr_network:LigandReceptorNetwork,
-    lr_sig:WeightedNetwork,
     receiver:str,
     condition_oi:str,
     condition_ref:str,
@@ -126,7 +125,11 @@ def run_nichenet(
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
     ligands_top_n:int=30,
-    targets_top_n:int=100
+    targets_top_n:int=100,
+    lr_sig:WeightedNetwork=None,
+    get_ltl:bool=False,
+    get_lfc:bool=False,
+    get_exp_ligands:bool=False
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -139,8 +142,6 @@ def run_nichenet(
         the predictor which contains the ligand-target matrix
     lr_network : LigandReceptorNetwork
         the ligand-receptor network containing the ligand-receptor interactions
-    lr_sig : WeightedNetwork
-        a weighted network containing the ligand-receptor interactions and their weights
     receiver : str
         the receiver cell type
     condition_oi : str
@@ -167,11 +168,20 @@ def run_nichenet(
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
         the number of target genes to consider per ligand when performing the target gene inference
+    lr_sig : WeightedNetwork
+        a weighted network containing the ligand-receptor interactions and their weights
+        if None, the ligand receptor links are not computed
+    get_ltl : bool
+        if true, the active ligand-target links are computed and returned
+    get_lfc : bool
+        if true, the log fold changes are computed and returned
+    get_exp_ligands : bool
+        if true, the expressed ligands are computed and returned
     
     Returns
     -------
     dict
-        a dictionary which contains the output of the analysis, it contains the following objects for the sender-agnostic approach:
+        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments) for the sender-agnostic approach:
             best_upstream_ligands : list of str
                 the top scoring ligands in the sender-agnostic approach
             ligand_activities_sorted : dict
@@ -180,6 +190,10 @@ def run_nichenet(
                 list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
+            expressed_ligands : set of str
+                the expressed ligands
+            expressed_receptors : set of str
+                the expressed receptors
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -194,9 +208,12 @@ def run_nichenet(
             lfcs : list of tuple
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
     '''
+    output = dict()
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
-    all_receptors = lr_network.get_receptors()
-    expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
+    expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
+    output["expressed_receptors"] = expressed_receptors
+    if get_exp_ligands:
+        pass #TODO
     potential_ligands = set(
         key for key, group in lr_network.item_iter()
         if len(group.intersection(expressed_receptors)) > 0
@@ -219,17 +236,21 @@ def run_nichenet(
         potential_ligands=potential_ligands
     )
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
+    output["ligand_activities_sorted"] = ligand_activities_sorted
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
-    active_ligand_target_links = combine_weighted_ligand_target_links((
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
-        for ligand in best_upstream_ligands
-    ))
-    ligand_receptor_links = get_weighted_ligand_receptor_links(
-        best_upstream_ligands,
-        expressed_receptors,
-        lr_network,
-        lr_sig
-    )
+    output["best_upstream_ligands"] = best_upstream_ligands
+    if get_ltl:
+        output["active_ligand_target_links"] = combine_weighted_ligand_target_links((
+            predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
+            for ligand in best_upstream_ligands
+        ))
+    if lr_sig is not None:
+        output["ligand_receptor_links"] = get_weighted_ligand_receptor_links(
+            best_upstream_ligands,
+            expressed_receptors,
+            lr_network,
+            lr_sig
+        )
     if sender_celltypes is not None:
         list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
         expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
@@ -242,51 +263,39 @@ def run_nichenet(
             key=lambda x : x[1]["aupr_corrected"],
             reverse=True
         )
+        output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
-        active_ligand_target_links_focused = combine_weighted_ligand_target_links((
-            predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
-            for ligand in best_upstream_ligands_focused
-        ))
-        ligand_receptor_links_focused = get_weighted_ligand_receptor_links(
-            best_upstream_ligands_focused,
-            expressed_receptors,
-            lr_network,
-            lr_sig
-        )
+        output["best_upstream_ligands_focused"] = best_upstream_ligands_focused
+        if get_ltl:
+            output["active_ligand_target_links_focused"] = combine_weighted_ligand_target_links((
+                predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
+                for ligand in best_upstream_ligands_focused
+            ))
+        if lr_sig is not None:
+            output["ligand_receptor_links_focused"] = get_weighted_ligand_receptor_links(
+                best_upstream_ligands_focused,
+                expressed_receptors,
+                lr_network,
+                lr_sig
+            )
         ann_focused = subset_ann_celltype(ann, sender_celltypes, layers=[layer])
         ann_focused.var = ann.var
         ann_focused.X = ann_focused.layers[layer]
-        lfcs = [
-            get_lfc_celltype(
-                ann,
-                celltype,
-                condition_col=condition_col,
-                condition_oi=condition_oi,
-                condition_ref=condition_ref,
-                layer=layer,
-                features=best_upstream_ligands_focused
-            )
-            for celltype in sender_celltypes
-        ]
-        return {
-            "best_upstream_ligands": best_upstream_ligands,
-            "ligand_activities_sorted": ligand_activities_sorted,
-            "active_ligand_target_links": active_ligand_target_links,
-            "ligand_receptor_links": ligand_receptor_links,
-            "best_upstream_ligands_focused": best_upstream_ligands_focused,
-            "ligand_activities_sorted_focused": ligand_activities_sorted_focused,
-            "active_ligand_target_links_focused": active_ligand_target_links_focused,
-            "ligand_receptor_links_focused": ligand_receptor_links_focused,
-            "ann_focused": ann_focused,
-            "lfcs": lfcs
-        }
-    else:
-        return {
-            "best_upstream_ligands": best_upstream_ligands,
-            "ligand_activities_sorted": ligand_activities_sorted,
-            "active_ligand_target_links": active_ligand_target_links,
-            "ligand_receptor_links": ligand_receptor_links
-        }
+        output["ann_focused"] = ann_focused
+        if get_lfc:
+            output["lfcs"] = [
+                get_lfc_celltype(
+                    ann,
+                    celltype,
+                    condition_col=condition_col,
+                    condition_oi=condition_oi,
+                    condition_ref=condition_ref,
+                    layer=layer,
+                    features=best_upstream_ligands_focused
+                )
+                for celltype in sender_celltypes
+            ]
+    return output
 
 def create_ligand_activity_hist(
     ligand_activities_sorted:Iterable[tuple],
