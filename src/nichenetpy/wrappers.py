@@ -6,7 +6,7 @@ from nichenetpy.utils import (
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
-    subset_ann_celltype,
+    subset_ann,
     get_weighted_ligand_receptor_links,
     get_lfc_celltype
 )
@@ -69,7 +69,7 @@ def get_geneset_oi(
     list
         the geneset of interest
     '''
-    ann_receiver = subset_ann_celltype(ann, receiver, layers=[layer])
+    ann_receiver = subset_ann(ann, receiver, layers=[layer])
     ann_receiver.var_names = ann.var[gene_field]
     sc.pp.log1p(ann_receiver, layer=layer)
     sc.tl.rank_genes_groups(
@@ -113,7 +113,6 @@ def run_nichenet(
     ann:AnnData,
     predictor:LigandActivityPredictor,
     lr_network:LigandReceptorNetwork,
-    lr_sig:WeightedNetwork,
     receiver:str,
     condition_oi:str,
     condition_ref:str,
@@ -125,7 +124,12 @@ def run_nichenet(
     rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
-    ligands_top_n:int=30
+    ligands_top_n:int=30,
+    targets_top_n:int=100,
+    lr_sig:WeightedNetwork=None,
+    get_ltl:bool=False,
+    get_lfc:bool=False,
+    get_exp_ligands:bool=False
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -138,8 +142,6 @@ def run_nichenet(
         the predictor which contains the ligand-target matrix
     lr_network : LigandReceptorNetwork
         the ligand-receptor network containing the ligand-receptor interactions
-    lr_sig : WeightedNetwork
-        a weighted network containing the ligand-receptor interactions and their weights
     receiver : str
         the receiver cell type
     condition_oi : str
@@ -164,11 +166,20 @@ def run_nichenet(
         the lower bound for log2FC
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
+    targets_top_n : int
+        the number of target genes to consider per ligand when performing the target gene inference
+    lr_sig : WeightedNetwork
+        a weighted network containing the ligand-receptor interactions and their weights
+        if None, the ligand receptor links are not computed
+    get_ltl : bool
+        if true, the active ligand-target links are computed and returned
+    get_lfc : bool
+        if true, the log fold changes are computed and returned
     
     Returns
     -------
     dict
-        a dictionary which contains the output of the analysis, it contains the following objects for the sender-agnostic approach:
+        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments) for the sender-agnostic approach:
             best_upstream_ligands : list of str
                 the top scoring ligands in the sender-agnostic approach
             ligand_activities_sorted : dict
@@ -177,6 +188,8 @@ def run_nichenet(
                 list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
+            expressed_receptors : set of str
+                the expressed receptors
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -190,10 +203,13 @@ def run_nichenet(
                 the AnnData object used in the sender-focused approach (new object derived from ann)
             lfcs : list of tuple
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+            expressed_ligands : set of str
+                the expressed ligands
     '''
+    output = dict()
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
-    all_receptors = lr_network.get_receptors()
-    expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
+    expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
+    output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
         key for key, group in lr_network.item_iter()
         if len(group.intersection(expressed_receptors)) > 0
@@ -216,20 +232,25 @@ def run_nichenet(
         potential_ligands=potential_ligands
     )
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
+    output["ligand_activities_sorted"] = ligand_activities_sorted
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
-    active_ligand_target_links = combine_weighted_ligand_target_links((
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
-        for ligand in best_upstream_ligands
-    ))
-    ligand_receptor_links = get_weighted_ligand_receptor_links(
-        best_upstream_ligands,
-        expressed_receptors,
-        lr_network,
-        lr_sig
-    )
+    output["best_upstream_ligands"] = best_upstream_ligands
+    if get_ltl:
+        output["active_ligand_target_links"] = combine_weighted_ligand_target_links((
+            predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
+            for ligand in best_upstream_ligands
+        ))
+    if lr_sig is not None:
+        output["ligand_receptor_links"] = get_weighted_ligand_receptor_links(
+            best_upstream_ligands,
+            expressed_receptors,
+            lr_network,
+            lr_sig
+        )
     if sender_celltypes is not None:
         list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
         expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+        output["expressed_ligands"] = lr_network.get_ligands().intersection(expressed_genes_sender)
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
@@ -239,54 +260,44 @@ def run_nichenet(
             key=lambda x : x[1]["aupr_corrected"],
             reverse=True
         )
+        output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
-        active_ligand_target_links_focused = combine_weighted_ligand_target_links((
-            predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
-            for ligand in best_upstream_ligands_focused
-        ))
-        ligand_receptor_links_focused = get_weighted_ligand_receptor_links(
-            best_upstream_ligands_focused,
-            expressed_receptors,
-            lr_network,
-            lr_sig
-        )
-        ann_focused = subset_ann_celltype(ann, sender_celltypes, layers=[layer])
+        output["best_upstream_ligands_focused"] = best_upstream_ligands_focused
+        if get_ltl:
+            output["active_ligand_target_links_focused"] = combine_weighted_ligand_target_links((
+                predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
+                for ligand in best_upstream_ligands_focused
+            ))
+        if lr_sig is not None:
+            output["ligand_receptor_links_focused"] = get_weighted_ligand_receptor_links(
+                best_upstream_ligands_focused,
+                expressed_receptors,
+                lr_network,
+                lr_sig
+            )
+        ann_focused = subset_ann(ann, sender_celltypes, layers=[layer])
         ann_focused.var = ann.var
         ann_focused.X = ann_focused.layers[layer]
-        lfcs = [
-            get_lfc_celltype(
-                ann,
-                celltype,
-                "aggregate",
-                condition_oi="LCMV",
-                condition_ref="SS",
-                layer="data",
-                features=best_upstream_ligands_focused
-            )
-            for celltype in sender_celltypes
-        ]
-        return {
-            "best_upstream_ligands": best_upstream_ligands,
-            "ligand_activities_sorted": ligand_activities_sorted,
-            "active_ligand_target_links": active_ligand_target_links,
-            "ligand_receptor_links": ligand_receptor_links,
-            "best_upstream_ligands_focused": best_upstream_ligands_focused,
-            "ligand_activities_sorted_focused": ligand_activities_sorted_focused,
-            "active_ligand_target_links_focused": active_ligand_target_links_focused,
-            "ligand_receptor_links_focused": ligand_receptor_links_focused,
-            "ann_focused": ann_focused,
-            "lfcs": lfcs
-        }
-    else:
-        return {
-            "best_upstream_ligands": best_upstream_ligands,
-            "ligand_activities_sorted": ligand_activities_sorted,
-            "active_ligand_target_links": active_ligand_target_links,
-            "ligand_receptor_links": ligand_receptor_links
-        }
+        output["ann_focused"] = ann_focused
+        if get_lfc:
+            output["lfcs"] = [
+                get_lfc_celltype(
+                    ann,
+                    celltype,
+                    condition_col=condition_col,
+                    condition_oi=condition_oi,
+                    condition_ref=condition_ref,
+                    layer=layer,
+                    features=best_upstream_ligands_focused
+                )
+                for celltype in sender_celltypes
+            ]
+    return output
 
 def create_ligand_activity_hist(
     ligand_activities_sorted:Iterable[tuple],
+    xtitle:str="ligand activity",
+    ytitle:str="# ligands",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -296,6 +307,10 @@ def create_ligand_activity_hist(
     ----------
     ligand_activities_sorted : Iterable of str
         the computed metrics for each ligand
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
     figsize : tuple of float
         the size of the figure
     '''
@@ -303,12 +318,15 @@ def create_ligand_activity_hist(
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
     plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
-    plt.xlabel("ligand activity")
-    plt.ylabel("# ligands")
+    plt.xlabel(xtitle)
+    plt.ylabel(ytitle)
     plt.show()
 
 def create_ligand_activity_heatmap(
     ligand_activities_sorted:Iterable[tuple],
+    title:str="ligand_activity",
+    cbar_label:str="AUPR",
+    cmap:str="YlOrRd",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -318,6 +336,12 @@ def create_ligand_activity_heatmap(
     ----------
     ligand_activities_sorted : Iterable of tuple
         the computed metrics for each ligand
+    title : str
+        the title of the plot
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -325,9 +349,9 @@ def create_ligand_activity_heatmap(
     _, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
         labels=ligands,
-        title="ligand activity",
-        cbar_label="AUPR",
-        cmap="YlOrRd",
+        title=title,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     ax.invert_yaxis()
@@ -336,6 +360,10 @@ def create_ligand_activity_heatmap(
 def create_regulatory_potential_heatmap(
     predictor:LigandActivityPredictor,
     active_ligand_target_links:list[tuple[str, str, float]],
+    xtitle="predicted target genes",
+    ytitle="prioritized ligands",
+    cbar_label="regulatory potential",
+    cmap="Blues",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -347,6 +375,14 @@ def create_regulatory_potential_heatmap(
         the predictor which contains the ligand-target matrix
     active_ligand_target_links : list of tuple
         list of (ligand, target, weight) tuples representing the ligand-target links
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -359,16 +395,20 @@ def create_regulatory_potential_heatmap(
         ligand_target_vis.transpose(),
         xlabels=targets,
         ylabels=ligands,
-        xtitle="predicted target genes",
-        ytitle="prioritized ligands",
-        cbar_label="regulatory potential",
-        cmap="Blues",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     plt.show()
 
 def create_prior_interaction_potential_heatmap(
     ligand_receptor_links:WeightedNetwork,
+    xtitle="receptors",
+    ytitle="ligands",
+    cbar_label="prior interaction potential",
+    cmap="Oranges",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -378,6 +418,14 @@ def create_prior_interaction_potential_heatmap(
     ----------
     ligand_receptor_links : WeightedNetwork
         the weighted ligand-receptor links in the sender-agnostic approach
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -386,10 +434,10 @@ def create_prior_interaction_potential_heatmap(
         mat,
         xlabels=receptors,
         ylabels=ligands,
-        xtitle="receptors",
-        ytitle="ligands",
-        cbar_label="prior interaction potential",
-        cmap="Oranges",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
+        cmap=cmap,
         figsize=figsize
     )
     plt.show()
@@ -398,6 +446,10 @@ def create_lfc_heatmap(
     sender_celltypes:list[str],
     ligand_activities:dict[str, dict[str, float]],
     lfcs:list[tuple[list[str], list[float]]],
+    xtitle="cell types",
+    ytitle="prioritized ligands",
+    cbar_label="LFC",
+    cmap="seismic",
     figsize:tuple[float, float]=(6, 6)
 ):
     '''
@@ -411,6 +463,14 @@ def create_lfc_heatmap(
         the computed metrics for each ligand
     lfcs : list of tuple
         the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+    xtitle : str
+        the title of the x-axis
+    ytitle : str
+        the title of the y-axis
+    cbar_label : str
+        the label of the color bar
+    cmap : str
+        the color map
     figsize : tuple of float
         the size of the figure
     '''
@@ -429,15 +489,55 @@ def create_lfc_heatmap(
         np.vstack(vals),
         xlabels=sender_celltypes,
         ylabels=ligands,
-        xtitle="cell types",
-        ytitle="prioritized ligands",
-        cbar_label="LFC",
+        xtitle=xtitle,
+        ytitle=ytitle,
+        cbar_label=cbar_label,
         cbar_position="right",
         cbar_orientation="vertical",
-        cmap="seismic",
+        cmap=cmap,
         figsize=figsize
     )
     ax.invert_yaxis()
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top') 
     plt.show()
+
+def calculate_de(
+    ann:AnnData,
+    condition_oi:str,
+    condition_col:str,
+    #condition_ref:str,
+    layer="data"
+):
+    ann = subset_ann(ann, condition_oi, layers=["data"], val_col=condition_col)
+    genes = ann.var["gene"]
+    ann.var_names = genes
+    sc.pp.log1p(ann, layer="data")
+    sc.tl.rank_genes_groups(
+        ann,
+        groupby=condition_col,
+        method="wilcoxon",
+        layer=layer,
+        #groups=[condition_oi],
+        #reference=condition_ref
+    )
+    return ann.uns["rank_genes_groups"]
+
+def generate_info_tables(
+    ann:AnnData,
+    celltype_col:str,
+    senders_oi:list[str],
+    receivers_oi:list[str],
+    lr_network_filtered:LigandReceptorNetwork,
+    condition_col:str,
+    condition_oi:str,
+    condition_ref:str,
+    scenario:str,
+    assay_oi:str
+):
+    DE_table = calculate_de(
+        ann,
+        condition_oi,
+        condition_col
+    )
+    

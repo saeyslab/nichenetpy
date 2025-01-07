@@ -47,6 +47,41 @@ def test_subset_matrix_bool_0():
         ])
     )
 
+def test_subset_matrix_rows_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_template(
+        (
+            np.array(range(nrows*ncols)).reshape(nrows, ncols),
+            [0, 2, 5],
+            None
+        ),
+        np.array([
+            [0, 1, 2, 3, 4],
+            [10, 11, 12, 13, 14],
+            [25, 26, 27, 28, 29]
+        ])
+    )
+
+def test_subset_matrix_cols_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_template(
+        (
+            np.array(range(nrows*ncols)).reshape(nrows, ncols),
+            None,
+            [1, 2]
+        ),
+        np.array([
+            [1, 2],
+            [6, 7],
+            [11, 12],
+            [16, 17],
+            [21, 22],
+            [26, 27]
+        ])
+    )
+
 def remove_zero_rows_cols_template(input, exp):
     res = remove_zero_rows_cols(input)
     assert matrix_equal(res, exp), f"expected {exp}, got {res}"

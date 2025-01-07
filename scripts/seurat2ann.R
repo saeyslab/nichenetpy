@@ -3,7 +3,7 @@ library("Seurat")
 library("SeuratObject")
 library("hdf5r")
 setwd('D:/Data/nichenetpy')
-old <- readRDS("./rds/seuratObj3531889.rds")
+old <- readRDS("./seurat/seuratObj3531889.rds")
 
 seuratObj <- CreateSeuratObject(
   counts = GetAssayData(old, layer="counts"),
