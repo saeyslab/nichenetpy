@@ -1,3 +1,5 @@
+from anndata import AnnData
+
 import numpy as np
 
 
@@ -236,3 +238,18 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
     }
     '''
     return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
+
+def average_expression(
+    ann:AnnData,
+    groupby:str,
+    keys:list[str]=None
+):
+    if keys is None:
+        keys = set(ann.obs[groupby])
+    # TODO: eliminate intermediate dict
+    groups = dict((key, [cell for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key]) for key in keys)
+    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    return dict(
+        (key, ann.layers["counts"][[cell2id[cell] for cell in group], :].mean(axis=0))
+        for key, group in groups.items()
+    )

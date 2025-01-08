@@ -16,6 +16,10 @@ from nichenetpy.visualization import (
     heatmap_2d,
     heatmap_1d
 )
+from nichenetpy.prioritization import (
+    calculate_de,
+    get_avg_exp
+)
 
 from itertools import cycle, chain
 from collections.abc import Iterable
@@ -501,27 +505,6 @@ def create_lfc_heatmap(
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top') 
     plt.show()
-
-def calculate_de(
-    ann:AnnData,
-    condition_oi:str,
-    condition_col:str,
-    #condition_ref:str,
-    layer="data"
-):
-    ann = subset_ann(ann, condition_oi, layers=["data"], val_col=condition_col)
-    genes = ann.var["gene"]
-    ann.var_names = genes
-    sc.pp.log1p(ann, layer="data")
-    sc.tl.rank_genes_groups(
-        ann,
-        groupby=condition_col,
-        method="wilcoxon",
-        layer=layer,
-        #groups=[condition_oi],
-        #reference=condition_ref
-    )
-    return ann.uns["rank_genes_groups"]
 
 def generate_info_tables(
     ann:AnnData,
