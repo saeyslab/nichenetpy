@@ -1,3 +1,5 @@
+from nichenetpy.normalization import relative_counts
+
 from anndata import AnnData
 
 import numpy as np
@@ -242,14 +244,15 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
 def average_expression(
     ann:AnnData,
     groupby:str,
-    keys:list[str]=None
+    keys:list[str]=None,
+    layer:str="counts",
+    norm_f=relative_counts
 ):
+    data = norm_f(ann.layers[layer])
     if keys is None:
         keys = set(ann.obs[groupby])
-    # TODO: eliminate intermediate dict
-    groups = dict((key, [cell for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key]) for key in keys)
     cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     return dict(
-        (key, ann.layers["counts"][[cell2id[cell] for cell in group], :].mean(axis=0))
-        for key, group in groups.items()
+        (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
+        for key in keys
     )
