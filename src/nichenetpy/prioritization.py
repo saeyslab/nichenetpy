@@ -1,8 +1,10 @@
-from nichenetpy.extraction import subset_ann
+from nichenetpy.extraction import subset_ann, average_expression
+from nichenetpy.normalization import relative_counts
 
 from anndata import AnnData
 
 import scanpy as sc
+import pandas as pd
 
 
 def calculate_de(
@@ -31,7 +33,23 @@ def get_avg_exp(
     celltype_col:str,
     condition_oi:str=None,
     condition_col:str=None,
-    layer:str="data"
+    layer:str="counts"
 ):
-    ann = subset_ann(ann, condition_oi, layers=["data"], val_col=condition_col)
-    celltypes = set(ann.obs["celltype"])
+    if condition_col is not None and condition_oi is not None:
+        ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
+    celltypes = set(ann.obs[celltype_col])
+    avg_celltype = average_expression(
+        ann,
+        celltype_col,
+        keys=celltypes,
+        layer=layer,
+        norm_f=relative_counts
+    )
+    avg_celltype.reset_index(inplace=True)
+    return pd.melt(
+        avg_celltype,
+        id_vars=["gene"],
+        value_vars=celltypes,
+        var_name="cluster_id",
+        value_name="avg_exp"
+    )

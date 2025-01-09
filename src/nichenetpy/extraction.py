@@ -5,6 +5,7 @@ from anndata import AnnData
 
 import scanpy as sc
 import numpy as np
+import pandas as pd
 
 
 def get_expressed_genes(
@@ -107,7 +108,9 @@ def subset_ann(
     return AnnData(
         obs=cells_oi,
         layers=new_layers,
-        shape=new_layers[layers[0]].shape
+        shape=new_layers[layers[0]].shape,
+        var=ann.var,
+        varm=ann.varm
     )
 
 def get_weighted_ligand_receptor_links(
@@ -210,3 +213,45 @@ def get_lfc_celltype(
         [e[0] for e in ann_sender.uns["rank_genes_groups"]["names"]],
         [e[0] for e in ann_sender.uns["rank_genes_groups"]["logfoldchanges"]]
     )
+
+def average_expression(
+    ann:AnnData,
+    groupby:str,
+    keys:list[str]=None,
+    layer:str="counts",
+    norm_f=None
+):
+    '''
+    Computes averaged expression values for each group. Similar to seurat's AverageExpression. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object for which to compute averaged expression values
+    groupby : str
+        the column in ann.obs to group by
+    keys : list of str
+        the values to group by, all values in the groupby column by default
+    layer : str
+        the layer to compute average expression values from, this layer should contain counts
+    norm_f : function
+        the normalization function (normalization prior to the computation)
+    
+    Returns
+    -------
+    dict
+        a dictionary with the groups as keys and the lists of average expressions for each gene as values
+    '''
+    if norm_f is not None:
+        data = norm_f(ann.layers[layer])
+    if keys is None:
+        keys = set(ann.obs[groupby])
+    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    col_names, cols = zip(*(
+        (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
+        for key in keys
+    ))
+    df = pd.DataFrame(np.column_stack([col.T for col in cols]))
+    df.index = ann.var["gene"]
+    df.columns = col_names
+    return df

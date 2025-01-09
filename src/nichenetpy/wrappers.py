@@ -523,4 +523,9 @@ def generate_info_tables(
         condition_oi,
         condition_col
     )
-    
+    temp = get_avg_exp(
+        ann,
+        celltype_col,
+        condition_oi,
+        condition_col
+    )
