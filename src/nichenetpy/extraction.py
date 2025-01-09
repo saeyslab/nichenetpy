@@ -105,13 +105,15 @@ def subset_ann(
             else np.concatenate([[ann.layers[layer][id, :]] for id in ids])
         ) for layer in layers
     )
-    return AnnData(
+    output =  AnnData(
         obs=cells_oi,
         layers=new_layers,
         shape=new_layers[layers[0]].shape,
         var=ann.var,
         varm=ann.varm
     )
+    output.var_names = ann.var_names
+    return output
 
 def get_weighted_ligand_receptor_links(
     best_upstream_ligands:list[str],

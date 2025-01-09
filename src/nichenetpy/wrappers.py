@@ -28,6 +28,7 @@ from anndata import AnnData
 import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def get_geneset_oi(
@@ -515,17 +516,38 @@ def generate_info_tables(
     condition_col:str,
     condition_oi:str,
     condition_ref:str,
-    scenario:str,
-    assay_oi:str
+    case_control:bool=False
 ):
     DE_table = calculate_de(
         ann,
         condition_oi,
         condition_col
     )
-    temp = get_avg_exp(
+    exp_info = get_avg_exp(
         ann,
         celltype_col,
         condition_oi,
         condition_col
     )
+    if case_control:
+        ann.var_names = ann.var["gene"]
+        sc.pp.log1p(ann, layer="data")
+        sc.tl.rank_genes_groups(
+            ann,
+            groupby=condition_col,
+            groups=[condition_oi],
+            reference=condition_ref,
+            method="wilcoxon",
+            layer="data"
+        )
+        ann.var_names = ann.var["gene"]
+        res = ann.uns["rank_genes_groups"]
+        condition_markers = pd.DataFrame({
+            "gene": [e[0] for e in res["names"]],
+            "score": [e[0] for e in res["scores"]],
+            "pval": [e[0] for e in res["pvals"]],
+            "pval_adj": [e[0] for e in res["pvals_adj"]],
+            "lfc": [e[0] for e in res["logfoldchanges"]]
+        })
+    else:
+        condition_markers = None
