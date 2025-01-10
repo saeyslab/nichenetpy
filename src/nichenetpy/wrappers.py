@@ -18,7 +18,8 @@ from nichenetpy.visualization import (
 )
 from nichenetpy.prioritization import (
     calculate_de,
-    get_avg_exp
+    get_avg_exp,
+    process_table_to_ic
 )
 
 from itertools import cycle, chain
@@ -518,17 +519,27 @@ def generate_info_tables(
     condition_ref:str,
     case_control:bool=False
 ):
-    DE_table = calculate_de(
-        ann,
-        condition_oi,
-        condition_col
-    )
-    exp_info = get_avg_exp(
-        ann,
-        celltype_col,
-        condition_oi,
-        condition_col
-    )
+    output = {
+        "DE_table": process_table_to_ic(
+            calculate_de(
+                ann,
+                condition_oi,
+                condition_col
+            ),
+            "celltype_DE",
+            lr_network_filtered
+        ),
+        "exp_info": process_table_to_ic(
+            get_avg_exp(
+                ann,
+                celltype_col,
+                condition_oi,
+                condition_col
+            ),
+            "expression",
+            lr_network_filtered
+        )
+    }
     if case_control:
         ann.var_names = ann.var["gene"]
         sc.pp.log1p(ann, layer="data")
@@ -542,12 +553,15 @@ def generate_info_tables(
         )
         ann.var_names = ann.var["gene"]
         res = ann.uns["rank_genes_groups"]
-        condition_markers = pd.DataFrame({
-            "gene": [e[0] for e in res["names"]],
-            "score": [e[0] for e in res["scores"]],
-            "pval": [e[0] for e in res["pvals"]],
-            "pval_adj": [e[0] for e in res["pvals_adj"]],
-            "lfc": [e[0] for e in res["logfoldchanges"]]
-        })
-    else:
-        condition_markers = None
+        output["condition_markers"] = process_table_to_ic(
+            pd.DataFrame({
+                "gene": [e[0] for e in res["names"]],
+                "score": [e[0] for e in res["scores"]],
+                "pval": [e[0] for e in res["pvals"]],
+                "pval_adj": [e[0] for e in res["pvals_adj"]],
+                "lfc": [e[0] for e in res["logfoldchanges"]]
+            }),
+            "group_DE",
+            lr_network_filtered
+        )
+    return output
