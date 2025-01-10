@@ -520,16 +520,18 @@ def generate_info_tables(
     case_control:bool=False
 ):
     output = {
-        "DE_table": process_table_to_ic(
+        "sender_receiver_de": process_table_to_ic(
             calculate_de(
                 ann,
                 condition_oi,
                 condition_col
             ),
             "celltype_DE",
-            lr_network_filtered
+            lr_network_filtered,
+            senders_oi,
+            receivers_oi
         ),
-        "exp_info": process_table_to_ic(
+        "sender_receiver_info": process_table_to_ic(
             get_avg_exp(
                 ann,
                 celltype_col,
@@ -553,7 +555,7 @@ def generate_info_tables(
         )
         ann.var_names = ann.var["gene"]
         res = ann.uns["rank_genes_groups"]
-        output["condition_markers"] = process_table_to_ic(
+        output["lr_condition_de"] = process_table_to_ic(
             pd.DataFrame({
                 "gene": [e[0] for e in res["names"]],
                 "score": [e[0] for e in res["scores"]],

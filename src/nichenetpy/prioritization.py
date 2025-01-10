@@ -10,9 +10,9 @@ import pandas as pd
 
 def calculate_de(
     ann:AnnData,
+    celltype_col:str,
     condition_oi:str,
     condition_col:str,
-    #condition_ref:str,
     layer="data"
 ) -> pd.DataFrame:
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
@@ -20,11 +20,9 @@ def calculate_de(
     sc.pp.log1p(ann, layer=layer)
     sc.tl.rank_genes_groups(
         ann,
-        #groupby=condition_col,
+        groupby=celltype_col,
         method="wilcoxon",
         layer=layer,
-        #groups=[condition_oi],
-        #reference=condition_ref,
         pts=True
     )
     res = ann.uns["rank_genes_groups"]
@@ -34,7 +32,7 @@ def calculate_de(
         "pval": [e[0] for e in res["pvals"]],
         "pval_adj": [e[0] for e in res["pvals_adj"]],
         "lfc": [e[0] for e in res["logfoldchanges"]]
-    }).merge(res["pts"].reset_index(), on="gene", how="inner")
+    }).merge(res["pts"].rename(columns=lambda x : f"pcs({x})").reset_index(), on="gene", how="inner")
 
 def get_avg_exp(
     ann:AnnData,
@@ -83,6 +81,7 @@ def process_table_to_ic(
             "avg_exp": "avg_receptor"
         })
     elif (table_type == "celltype_DE"):
+        # TODO: pcs rename
         sender_table = tab.rename({
             "gene": "ligand",
             "lfc": "avg_ligand",
@@ -112,6 +111,5 @@ def process_table_to_ic(
             "pval_adj": "pval_adj_receiver",
             "score": "score_receiver"
         })
-        # TODO: merge if possible
     else:
         raise ValueError("table_type argument should be 'expression', 'celltype_DE' or 'group_DE'")
