@@ -146,6 +146,26 @@ def get_weighted_ligand_receptor_links(
     best_upstream_receptors = set(t for f, t in lr_network if f in best_upstream_ligands and t in expressed_receptors)
     return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
 
+def _subset_layer(
+    ann:AnnData,
+    layer:str,
+    features:list[str],
+    gene_field:str="gene"
+) -> AnnData:
+    if type(features) is set:
+        features = sorted(features)
+    gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
+    ids = [gene2index[gene] for gene in features]
+    mat = ann.layers[layer]
+    mat = hstack([mat[:, id] for id in ids])
+    ann = AnnData(
+        obs=ann.obs,
+        layers={layer: mat},
+        shape=(ann.obs.shape[0], len(features))
+    )
+    ann.var["gene"] = features
+    return ann
+
 def get_lfc_celltype(
     ann:AnnData,
     celltype:str,
@@ -190,15 +210,7 @@ def get_lfc_celltype(
     '''
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
     if features is not None:
-        gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
-        ids = [gene2index[gene] for gene in features]
-        mat = ann_sender.layers[layer]
-        mat = hstack([mat[:, id] for id in ids])
-        ann_sender = AnnData(
-            obs=ann_sender.obs,
-            layers={"data": mat},
-            shape=(ann_sender.obs.shape[0], len(features))
-        )
+        ann_sender = _subset_layer(ann_sender, layer, features, gene_field)
         ann_sender.var_names = features
     else:
         ann_sender.var_names = ann.var[gene_field]

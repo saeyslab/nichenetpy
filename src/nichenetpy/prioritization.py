@@ -1,6 +1,7 @@
 from nichenetpy.extraction import subset_ann, average_expression
 from nichenetpy.normalization import relative_counts
 from nichenetpy.network import LigandReceptorNetwork
+from nichenetpy.extraction import _subset_layer
 
 from anndata import AnnData
 
@@ -13,10 +14,16 @@ def calculate_de(
     celltype_col:str,
     condition_oi:str,
     condition_col:str,
-    layer="data"
+    layer="data",
+    features:list[str]=None,
+    gene_field="gene"
 ) -> pd.DataFrame:
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    ann.var_names = ann.var["gene"]
+    if features is not None:
+        ann = _subset_layer(ann, layer, features, gene_field)
+        ann.var_names = features
+    else:
+        ann.var_names = ann.var[gene_field]
     sc.pp.log1p(ann, layer=layer)
     sc.tl.rank_genes_groups(
         ann,
@@ -26,13 +33,14 @@ def calculate_de(
         pts=True
     )
     res = ann.uns["rank_genes_groups"]
+    res["pts"].index.name = "gene"
     return pd.DataFrame({
         "gene": [e[0] for e in res["names"]],
         "score": [e[0] for e in res["scores"]],
         "pval": [e[0] for e in res["pvals"]],
         "pval_adj": [e[0] for e in res["pvals_adj"]],
         "lfc": [e[0] for e in res["logfoldchanges"]]
-    }).merge(res["pts"].rename(columns=lambda x : f"pcs({x})").reset_index(), on="gene", how="inner")
+    }).merge(res["pts"].rename(columns=lambda x : f"pct({x})").reset_index(), on="gene", how="inner")
 
 def get_avg_exp(
     ann:AnnData,

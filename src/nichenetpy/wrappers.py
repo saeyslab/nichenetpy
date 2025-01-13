@@ -524,7 +524,8 @@ def generate_info_tables(
             calculate_de(
                 ann,
                 condition_oi,
-                condition_col
+                condition_col,
+                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
             ),
             "celltype_DE",
             lr_network_filtered,
