@@ -523,6 +523,7 @@ def generate_info_tables(
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
                 ann,
+                celltype_col,
                 condition_oi,
                 condition_col,
                 features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())

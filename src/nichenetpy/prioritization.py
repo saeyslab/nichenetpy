@@ -4,6 +4,7 @@ from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.extraction import _subset_layer
 
 from anndata import AnnData
+from itertools import repeat
 
 import scanpy as sc
 import pandas as pd
@@ -33,14 +34,17 @@ def calculate_de(
         pts=True
     )
     res = ann.uns["rank_genes_groups"]
-    res["pts"].index.name = "gene"
-    return pd.DataFrame({
-        "gene": [e[0] for e in res["names"]],
-        "score": [e[0] for e in res["scores"]],
-        "pval": [e[0] for e in res["pvals"]],
-        "pval_adj": [e[0] for e in res["pvals_adj"]],
-        "lfc": [e[0] for e in res["logfoldchanges"]]
-    }).merge(res["pts"].rename(columns=lambda x : f"pct({x})").reset_index(), on="gene", how="inner")
+    output = pd.melt(res["pts"], var_name="celltype", ignore_index=False)
+    output.index.name = "gene"
+    output.reset_index(inplace=True)
+    col_count = len(output.columns)
+    print(output)
+    for col in ["pvals", "pvals_adj", "logfoldchanges"]:
+        temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
+        temp["gene"] = list(repeat(res["names"], col_count))
+        output = output.join(temp, on=["gene", "celltype"], how="inner")
+    output.rename(columns={"variable": id}, inplace=True)
+    return output
 
 def get_avg_exp(
     ann:AnnData,
@@ -75,8 +79,6 @@ def process_table_to_ic(
     senders_oi:list[str]=None,
     receivers_oi:list[str]=None
 ):
-    ligands = lr_network.get_ligands()
-    receptors = lr_network.get_receptors()
     if table_type == "expression":
         sender_table = tab.rename({
             "cluster_id": "sender",
@@ -89,35 +91,66 @@ def process_table_to_ic(
             "avg_exp": "avg_receptor"
         })
     elif (table_type == "celltype_DE"):
-        # TODO: pcs rename
+        # TODO: pct
         sender_table = tab.rename({
+            "cluster_id": "sender",
             "gene": "ligand",
             "lfc": "avg_ligand",
             "pval": "pval_ligand",
-            "pval_adj": "pval_adj_ligand",
-            "score": "score_ligand"
+            "pval_adj": "pval_adj_ligand"
         })
         receiver_table = tab.rename({
-            "gene": "receiver",
-            "lfc": "avg_receiver",
-            "pval": "pval_receiver",
-            "pval_adj": "pval_adj_receiver",
-            "score": "score_receiver"
+            "cluster_id": "receiver",
+            "gene": "receptor",
+            "lfc": "avg_receptor",
+            "pval": "pval_receptor",
+            "pval_adj": "pval_adj_receptor"
         })
     elif table_type == "group_DE":
         sender_table = tab.rename({
             "gene": "ligand",
             "lfc": "avg_ligand",
             "pval": "pval_ligand",
-            "pval_adj": "pval_adj_ligand",
-            "score": "score_ligand"
+            "pval_adj": "pval_adj_ligand"
         })
         receiver_table = tab.rename({
-            "gene": "receiver",
-            "lfc": "avg_receiver",
-            "pval": "pval_receiver",
-            "pval_adj": "pval_adj_receiver",
-            "score": "score_receiver"
+            "gene": "receptor",
+            "lfc": "avg_receptor",
+            "pval": "pval_receptor",
+            "pval_adj": "pval_adj_receptor"
         })
     else:
         raise ValueError("table_type argument should be 'expression', 'celltype_DE' or 'group_DE'")
+    if senders_oi is not None:
+        sender_table = sender_table[sender_table["sender"] in senders_oi]
+    if receivers_oi is not None:
+        receiver_table = receiver_table[receiver_table["receiver"] in receivers_oi]
+    sender_receiver_table = (
+        pd.DataFrame(lr_network)
+        .rename(columns={0: "ligand", 1: "receptor"})
+        .merge(sender_table, on="ligand", how="inner")
+        .merge(receiver_table, on="receptor", how="inner")
+    )
+    if table_type == "expression":
+        sender_receiver_table["ligand_receptor_prod"] = (
+            x * y
+            for x, y in zip(
+                sender_receiver_table["ligand_avg"],
+                sender_receiver_table["receptor_avg"]
+            )
+        )
+        sender_receiver_table.sort_values(by="ligand_receptor_prod", ascending=False)
+    else:
+        sender_receiver_table["ligand_receptor_avg"] = (
+            (x + y) / 2
+            for x, y in zip(
+                sender_receiver_table["ligand_avg"],
+                sender_receiver_table["receptor_avg"]
+            )
+        )
+        sender_receiver_table.sort_values(by="ligand_receptor_avg", ascending=False)
+        sender_receiver_table.rename(columns={
+            "ligand_receptor_avg": "ligand_receptor_lfc_avg",
+            "avg_ligand": "lfc_ligand",
+            "avg_receptor": "lfc_receptor"
+        })
