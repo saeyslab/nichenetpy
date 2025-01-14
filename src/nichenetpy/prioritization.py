@@ -4,7 +4,6 @@ from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.extraction import _subset_layer
 
 from anndata import AnnData
-from itertools import repeat
 
 import scanpy as sc
 import pandas as pd
@@ -34,16 +33,15 @@ def calculate_de(
         pts=True
     )
     res = ann.uns["rank_genes_groups"]
-    output = pd.melt(res["pts"], var_name="celltype", ignore_index=False)
-    output.index.name = "gene"
-    output.reset_index(inplace=True)
-    col_count = len(output.columns)
-    print(output)
+    output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:
         temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
-        temp["gene"] = list(repeat(res["names"], col_count))
-        output = output.join(temp, on=["gene", "celltype"], how="inner")
-    output.rename(columns={"variable": id}, inplace=True)
+        temp.drop(columns={"celltype"}, inplace=True)
+        output = output.join(temp, how="inner")
+    temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
+    temp.index.name = "gene"
+    temp.reset_index(inplace=True)
+    output = output.merge(temp, on=["gene", "celltype"], how="inner")
     return output
 
 def get_avg_exp(
