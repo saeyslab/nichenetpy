@@ -20,11 +20,19 @@ def log_fold_change(
     denormalize:Callable=np.expm1,
     pseudocount:int=1
 ):
+    mat = csr_matrix(ann.layers["data"])
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = set(ann.obs[groupby])
+    lfc = []
     for group in groups:
         cells_oi = ann.obs[ann.obs[groupby] == group].index
         rest = ann.obs[ann.obs[groupby] != group].index
-        mat1 = vstack([ann.layers["data"][row2index[cell], :] for cell in cells_oi])
-        mat2 = vstack([ann.layers["data"][row2index[cell], :] for cell in rest])
-        lfc = _sub_log_fold_change(mat1, denormalize, pseudocount) - _sub_log_fold_change(mat1, denormalize, pseudocount)
+        mat1 = vstack([mat[row2index[cell], :] for cell in cells_oi], format="csc")
+        mat2 = vstack([mat[row2index[cell], :] for cell in rest], format="csc")
+        lfc.append(
+            (
+                _sub_log_fold_change(mat1, denormalize, pseudocount) - 
+                _sub_log_fold_change(mat2, denormalize, pseudocount)
+            )
+        )
+    return np.concatenate(lfc)
