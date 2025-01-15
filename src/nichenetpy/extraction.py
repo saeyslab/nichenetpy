@@ -1,6 +1,6 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+from nichenetpy.utils import subset_matrix
 
-from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from anndata import AnnData
 
 import scanpy as sc
@@ -47,7 +47,7 @@ def get_expressed_genes(
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     ids = [row2index[name] for name in cells_oi]
-    exprs_m = vstack([mat[id, :] for id in ids])
+    exprs_m = subset_matrix(mat, rows=ids)
     nrows = exprs_m.get_shape()[0]
     # set all non-zero elements to 1
     for i in range(len(exprs_m.data)):
@@ -100,9 +100,7 @@ def subset_ann(
     new_layers = dict(
         (
             layer,
-            vstack([ann.layers[layer][id, :] for id in ids])
-            if type(ann.layers[layer]) is csc_matrix or type(ann.layers[layer]) is csr_matrix
-            else np.concatenate([[ann.layers[layer][id, :]] for id in ids])
+            subset_matrix(ann.layers[layer], rows=ids)
         ) for layer in layers
     )
     output =  AnnData(
@@ -156,8 +154,7 @@ def _subset_layer(
         features = sorted(features)
     gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
     ids = [gene2index[gene] for gene in features]
-    mat = ann.layers[layer]
-    mat = hstack([mat[:, id] for id in ids])
+    mat = subset_matrix(ann.layers[layer], cols=ids)
     ann = AnnData(
         obs=ann.obs,
         layers={layer: mat},

@@ -1,7 +1,6 @@
-from nichenetpy.extraction import subset_ann, average_expression
+from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
 from nichenetpy.normalization import relative_counts
 from nichenetpy.network import LigandReceptorNetwork
-from nichenetpy.extraction import _subset_layer
 
 from anndata import AnnData
 
