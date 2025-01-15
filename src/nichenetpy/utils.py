@@ -1,3 +1,5 @@
+from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
+
 import numpy as np
 
 
@@ -88,13 +90,17 @@ def read_csv_cols(filename:str) -> dict[list[str]]:
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
     return dict(zip(lines[0], zip(*lines[1:])))
 
-def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool]=None, cols:list[int]|list[bool]=None) -> np.ndarray:
+def subset_matrix(
+    mat:np.ndarray|csc_matrix|csr_matrix,
+    rows:list[int]|list[bool]=None,
+    cols:list[int]|list[bool]=None
+) -> np.ndarray:
     '''
     Subsets a matrix. 
 
     Parameters
     ----------
-    mat : numpy.ndarray
+    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the matrix to subset
     rows : list of int or list of bool or None
         list of row indices to keep or list of booleans indicating which rows to keep
@@ -106,22 +112,40 @@ def subset_matrix(mat:np.ndarray, rows:list[int]|list[bool]=None, cols:list[int]
     numpy.ndarray
         the subsetted matrix
     '''
+    if rows is None and cols is None:
+        return mat
     if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
         rows = [i for i, e in enumerate(rows) if e]
     if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
         cols = [i for i, e in enumerate(cols) if e]
-    if rows is None:
-        if cols is None:
-            return mat
+    if type(mat) is np.ndarray:
+        if rows is None:
+            if cols is None:
+                return mat
+            else:
+                return mat[:, cols]
+        elif cols is None:
+            return np.concatenate([[mat[row, :]] for row in rows])
         else:
-            return mat[:, cols]
-    elif cols is None:
-        return np.concatenate([[mat[row, :]] for row in rows])
+            output = mat[
+                [[row] for row in rows],
+                [col for col in cols]
+            ]
+    elif type(mat) is csc_matrix:
+        if cols is None: # rows is not None
+            output = csr_matrix(mat)
+        else:
+            output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
+        output = vstack([output[row, :] for row in rows], format="csc")
+    elif type(mat) is csr_matrix:
+        if rows is None: # cols is not None
+            output = csc_matrix(mat)
+        else:
+            output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
+        output = hstack([output[:, col] for col in cols], format="csr")
     else:
-        return mat[
-            [[row] for row in rows],
-            [col for col in cols]
-        ]
+        raise ValueError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
+    return output
 
 def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
     '''
