@@ -13,8 +13,7 @@ def get_expressed_genes(
     ann:AnnData,
     pct:float=0.1,
     celltype_col:str="celltype",
-    layer:str="data",
-    gene_field:str="gene"
+    layer:str="data"
 ) -> list[str]:
     '''
     Gets the expressed genes from an AnnData object. 
@@ -31,8 +30,6 @@ def get_expressed_genes(
         the name of the column in obs which contains the celltypes
     layer : str
         the name of the layer which contains the data matrix
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     
     Returns
     -------
@@ -54,10 +51,10 @@ def get_expressed_genes(
         exprs_m.data[i] = 1
     rowsum = exprs_m.sum(axis=0)/nrows
     return [
-        ann.var[gene_field].iloc[gene]
+        ann.var_names[gene]
         for gene, val in enumerate(
             rowsum[0, i]
-            for i in range(len(ann.var[gene_field]))
+            for i in range(len(ann.var_names))
         )
         if val > pct
     ]
@@ -147,12 +144,11 @@ def get_weighted_ligand_receptor_links(
 def _subset_layer(
     ann:AnnData,
     layer:str,
-    features:list[str],
-    gene_field:str="gene"
+    features:list[str]
 ) -> AnnData:
     if type(features) is set:
         features = sorted(features)
-    gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
+    gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
     ids = [gene2index[gene] for gene in features]
     mat = subset_matrix(ann.layers[layer], cols=ids)
     ann = AnnData(
@@ -160,7 +156,7 @@ def _subset_layer(
         layers={layer: mat},
         shape=(ann.obs.shape[0], len(features))
     )
-    ann.var["gene"] = features
+    ann.var_names = features
     return ann
 
 def get_lfc_celltype(
@@ -171,7 +167,6 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    gene_field:str="gene",
     features:list[str]=None
 ) -> tuple[list[str], list[float]]:
     '''
@@ -193,8 +188,6 @@ def get_lfc_celltype(
         the name of the data layer
     celltype_col : str
         the name of the column in obs that contains the cell types
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     features : list of str or None
         the genes to consider, consider all genes if None
     
@@ -207,10 +200,10 @@ def get_lfc_celltype(
     '''
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
     if features is not None:
-        ann_sender = _subset_layer(ann_sender, layer, features, gene_field)
+        ann_sender = _subset_layer(ann_sender, layer, features)
         ann_sender.var_names = features
     else:
-        ann_sender.var_names = ann.var[gene_field]
+        ann_sender.var_names = ann.var_names
     sc.pp.log1p(ann_sender, layer=layer)
     sc.tl.rank_genes_groups(
         ann_sender,
@@ -263,6 +256,6 @@ def average_expression(
         for key in keys
     ))
     df = pd.DataFrame(np.column_stack([col.T for col in cols]))
-    df.index = ann.var["gene"]
+    df.index = ann.var_names
     df.columns = col_names
     return df
