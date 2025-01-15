@@ -136,13 +136,15 @@ def subset_matrix(
             output = csr_matrix(mat)
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
-        output = vstack([output[row, :] for row in rows], format="csc")
+        if rows is not None:
+            output = vstack([output[row, :] for row in rows], format="csc")
     elif type(mat) is csr_matrix:
         if rows is None: # cols is not None
             output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
-        output = hstack([output[:, col] for col in cols], format="csr")
+        if cols is not None:
+            output = hstack([output[:, col] for col in cols], format="csr")
     else:
         raise ValueError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
     return output

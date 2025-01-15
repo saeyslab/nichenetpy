@@ -1,13 +1,23 @@
 from nichenetpy.utils import subset_matrix, remove_zero_rows_cols, combine_by_key, combine_dicts
 
+from scipy.sparse import csc_matrix, csr_matrix
+
 import numpy as np
 
 def matrix_equal(m1, m2):
     if type(m1) is np.ndarray:
-        for e1, e2 in zip(m1, m2):
-            if matrix_equal(e1, e2):
-                return False
-        return True
+        if m1.shape != m2.shape:
+            return False
+        if m1.shape == 1:
+            for e1, e2 in zip(m1[0], m2[0]):
+                if e1 != e2:
+                    return False
+            return True
+        else:
+            for e1, e2 in zip(m1, m2):
+                if not matrix_equal(e1, e2):
+                    return False
+            return True
     else:
         return m1 == m2
 
@@ -69,6 +79,144 @@ def test_subset_matrix_cols_0():
     subset_matrix_template(
         (
             np.array(range(nrows*ncols)).reshape(nrows, ncols),
+            None,
+            [1, 2]
+        ),
+        np.array([
+            [1, 2],
+            [6, 7],
+            [11, 12],
+            [16, 17],
+            [21, 22],
+            [26, 27]
+        ])
+    )
+
+def subset_matrix_sparse_template(input, exp):
+    res = np.array(subset_matrix(*input).todense())
+    assert matrix_equal(res, exp), f"expected {exp}, got {res}"
+
+def test_subset_matrix_csc_index_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csc_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [0, 2, 5],
+            [1, 2]
+        ),
+        np.array([
+            [1, 2],
+            [11, 12],
+            [26, 27]
+        ])
+    )
+
+def test_subset_matrix_csc_bool_0():
+    nrows = 5
+    ncols = 4
+    subset_matrix_sparse_template(
+        (
+            csc_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [False, True, False, True, True],
+            [True, False, False, True]
+        ),
+        np.array([
+            [4, 7],
+            [12, 15],
+            [16, 19]
+        ])
+    )
+
+def test_subset_matrix_csc_rows_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csc_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [0, 2, 5],
+            None
+        ),
+        np.array([
+            [0, 1, 2, 3, 4],
+            [10, 11, 12, 13, 14],
+            [25, 26, 27, 28, 29]
+        ])
+    )
+
+def test_subset_matrix_csc_cols_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csc_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            None,
+            [1, 2]
+        ),
+        np.array([
+            [1, 2],
+            [6, 7],
+            [11, 12],
+            [16, 17],
+            [21, 22],
+            [26, 27]
+        ])
+    )
+
+def test_subset_matrix_csr_index_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csr_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [0, 2, 5],
+            [1, 2]
+        ),
+        np.array([
+            [1, 2],
+            [11, 12],
+            [26, 27]
+        ])
+    )
+
+def test_subset_matrix_csr_bool_0():
+    nrows = 5
+    ncols = 4
+    subset_matrix_sparse_template(
+        (
+            csr_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [False, True, False, True, True],
+            [True, False, False, True]
+        ),
+        np.array([
+            [4, 7],
+            [12, 15],
+            [16, 19]
+        ])
+    )
+
+def test_subset_matrix_csr_rows_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csr_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
+            [0, 2, 5],
+            None
+        ),
+        np.array([
+            [0, 1, 2, 3, 4],
+            [10, 11, 12, 13, 14],
+            [25, 26, 27, 28, 29]
+        ])
+    )
+
+def test_subset_matrix_csr_cols_0():
+    nrows = 6
+    ncols = 5
+    subset_matrix_sparse_template(
+        (
+            csr_matrix(np.array(range(nrows*ncols)).reshape(nrows, ncols)),
             None,
             [1, 2]
         ),
