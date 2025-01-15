@@ -38,5 +38,4 @@ def log_fold_change(
                 _sub_log_fold_change(mat2, denormalize, pseudocount)
             ).transpose()
         )
-    #return pd.DataFrame(np.concatenate(lfc), index=groups, columns=ann.var["gene"])
     return pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups)
