@@ -38,7 +38,6 @@ def get_geneset_oi(
     condition_oi:str,
     condition_ref:str,
     layer:str="data",
-    gene_field:str="gene",
     condition_col:str="aggregate",
     method:str="wilcoxon",
     max_pval_adj:float=0.05,
@@ -59,8 +58,6 @@ def get_geneset_oi(
         the reference condition
     layer : str
         the name of the layer which contains the data matrix
-    gene_field : str
-        the name of the column in ann.var which contains the gene symbols
     condition_col : str
         the name of the column in obs which contains the conditions
     method : str
@@ -76,7 +73,7 @@ def get_geneset_oi(
         the geneset of interest
     '''
     ann_receiver = subset_ann(ann, receiver, layers=[layer])
-    ann_receiver.var_names = ann.var[gene_field]
+    ann_receiver.var_names = ann.var_names
     sc.pp.log1p(ann_receiver, layer=layer)
     sc.tl.rank_genes_groups(
         ann_receiver,
@@ -125,7 +122,6 @@ def run_nichenet(
     sender_celltypes:Iterable[str]=None,
     get_expressed_genes_pct:float=0.05,
     layer:str="data",
-    gene_field:str="gene",
     condition_col:str="aggregate",
     rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
@@ -134,8 +130,7 @@ def run_nichenet(
     targets_top_n:int=100,
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
-    get_lfc:bool=False,
-    get_exp_ligands:bool=False
+    get_lfc:bool=False
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -160,8 +155,6 @@ def run_nichenet(
         the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     layer : str
         the layer in the AnnData object which contains the data matrix
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     condition_col : str
         the name of the column in obs which contains the conditions
     rank_method : str
@@ -226,7 +219,6 @@ def run_nichenet(
         condition_oi,
         condition_ref,
         layer,
-        gene_field,
         condition_col,
         rank_method,
         max_pval_adj,
@@ -545,7 +537,6 @@ def generate_info_tables(
         )
     }
     if case_control:
-        ann.var_names = ann.var["gene"]
         sc.pp.log1p(ann, layer="data")
         sc.tl.rank_genes_groups(
             ann,
@@ -555,7 +546,6 @@ def generate_info_tables(
             method="wilcoxon",
             layer="data"
         )
-        ann.var_names = ann.var["gene"]
         res = ann.uns["rank_genes_groups"]
         output["lr_condition_de"] = process_table_to_ic(
             pd.DataFrame({
