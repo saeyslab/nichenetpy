@@ -1,8 +1,11 @@
+from nichenetpy.utils import subset_matrix
+
 from anndata import AnnData
 from collections.abc import Callable
 from scipy.sparse import vstack, csc_matrix, csr_matrix
 
 import numpy as np
+import pandas as pd
 
 
 def _sub_log_fold_change(
@@ -20,19 +23,19 @@ def log_fold_change(
     denormalize:Callable=np.expm1,
     pseudocount:int=1
 ):
-    mat = csr_matrix(ann.layers["data"])
+    mat = ann.layers["data"]
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    groups = set(ann.obs[groupby])
+    groups = sorted(set(ann.obs[groupby]))
     lfc = []
     for group in groups:
         cells_oi = ann.obs[ann.obs[groupby] == group].index
         rest = ann.obs[ann.obs[groupby] != group].index
-        mat1 = vstack([mat[row2index[cell], :] for cell in cells_oi], format="csc")
-        mat2 = vstack([mat[row2index[cell], :] for cell in rest], format="csc")
+        mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
+        mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in rest])
         lfc.append(
             (
                 _sub_log_fold_change(mat1, denormalize, pseudocount) - 
                 _sub_log_fold_change(mat2, denormalize, pseudocount)
             )
         )
-    return np.concatenate(lfc)
+    return pd.DataFrame(np.concatenate(lfc), index=groups, columns=ann.var["gene"])
