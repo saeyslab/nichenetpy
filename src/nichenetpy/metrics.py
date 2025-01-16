@@ -144,15 +144,23 @@ def group_metrics(
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
+    pct = []
     for group in groups:
         cells_oi = ann.obs[ann.obs[groupby] == group].index
         rest = ann.obs[ann.obs[groupby] != group].index
-        lfc.append(
-            log_fold_change(
-                subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),
-                subset_matrix(mat, rows=[row2index[cell] for cell in rest]),
-                lfc_denormalize,
-                lfc_pseudocount
-            )
-        )
-    return pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups)
+        mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
+        mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in rest])
+        lfc.append(log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount))
+        pct.append(gene_expression_pct(mat1))
+    output = pd.melt(
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups),
+        var_name=groupby,
+        value_name="lfc",
+        ignore_index=False
+    )
+    output.reset_index(inplace=True)
+    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var["gene"]), value_name="pct", ignore_index=False)
+    pct.index.name = groupby
+    pct.reset_index(inplace=True)
+    output = output.merge(pct, on=["gene", groupby], how="inner")
+    return output
