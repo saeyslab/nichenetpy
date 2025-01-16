@@ -1,4 +1,12 @@
+from nichenetpy.utils import subset_matrix
+
+from anndata import AnnData
+from collections.abc import Callable
+from scipy.sparse import csc_matrix, csr_matrix
 from sklearn.metrics import precision_recall_curve
+
+import numpy as np
+import pandas as pd
 
 
 def _auc_reverse(x:list[float], y:list[float]) -> float:
@@ -90,3 +98,61 @@ def calculate_metrics(
         "aupr": aupr,
         "aupr_corrected": aupr - sum(response)/len(response)
     }
+
+def _sub_log_fold_change(
+    data:csc_matrix|csr_matrix,
+    denormalize:Callable=np.expm1,
+    pseudocount:int=1
+):
+    if denormalize is not None:
+        data = denormalize(data)
+    return np.log2((data.sum(axis=0) + pseudocount) / data.shape[1])
+
+def log_fold_change(
+    mat1:np.ndarray|csc_matrix|csr_matrix,
+    mat2:np.ndarray|csc_matrix|csr_matrix,
+    denormalize:Callable=np.expm1,
+    pseudocount:int=1
+):
+    return (
+        _sub_log_fold_change(mat1, denormalize, pseudocount) - 
+        _sub_log_fold_change(mat2, denormalize, pseudocount)
+    ).transpose()
+
+def gene_expression_pct(
+    mat=np.ndarray|csc_matrix|csr_matrix
+) -> list[float]:
+    if type(mat) is csc_matrix or type(mat) is csr_matrix:
+        nrows, ncols = mat.get_shape()
+    elif type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+    else:
+        raise ValueError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
+    # set all non-zero elements to 1
+    for i in range(len(mat.data)):
+        mat.data[i] = 1
+    output = mat.sum(axis=0) / nrows
+    return [output[0, i] for i in range(ncols)]
+
+def group_metrics(
+    ann:AnnData,
+    groupby:str,
+    lfc_denormalize:Callable=np.expm1,
+    lfc_pseudocount:int=1
+):
+    mat = ann.layers["data"]
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    groups = sorted(set(ann.obs[groupby]))
+    lfc = []
+    for group in groups:
+        cells_oi = ann.obs[ann.obs[groupby] == group].index
+        rest = ann.obs[ann.obs[groupby] != group].index
+        lfc.append(
+            log_fold_change(
+                subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),
+                subset_matrix(mat, rows=[row2index[cell] for cell in rest]),
+                lfc_denormalize,
+                lfc_pseudocount
+            )
+        )
+    return pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups)
