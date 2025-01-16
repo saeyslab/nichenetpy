@@ -1,5 +1,6 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
+from nichenetpy.metrics import gene_expression_pct
 
 from anndata import AnnData
 
@@ -25,7 +26,8 @@ def get_expressed_genes(
     ann : AnnData
         the AnnData object to extract expressed genes from
     pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells expressing the gene in all other clusters combined. 
+        We consider genes expressed if they are expressed in at least a specific fraction of cells of the given cluster(s). 
+        This number indicates this fraction. 
     celltype_col : str
         the name of the column in obs which contains the celltypes
     layer : str
@@ -43,21 +45,9 @@ def get_expressed_genes(
     mat = ann.layers[layer]
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    ids = [row2index[name] for name in cells_oi]
-    exprs_m = subset_matrix(mat, rows=ids)
-    nrows = exprs_m.get_shape()[0]
-    # set all non-zero elements to 1
-    for i in range(len(exprs_m.data)):
-        exprs_m.data[i] = 1
-    rowsum = exprs_m.sum(axis=0)/nrows
-    return [
-        ann.var_names[gene]
-        for gene, val in enumerate(
-            rowsum[0, i]
-            for i in range(len(ann.var_names))
-        )
-        if val > pct
-    ]
+    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
+    exps = gene_expression_pct(exprs_m)
+    return [ann.var_names[gene] for gene, val in enumerate(exps) if val > pct]
 
 def subset_ann(
         ann:AnnData,
