@@ -167,4 +167,4 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
-    return output
+    ann.uns["group_metrics"] = output
