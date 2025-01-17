@@ -106,7 +106,7 @@ def _sub_log_fold_change(
 ):
     if denormalize is not None:
         data = denormalize(data)
-    return np.log2((data.sum(axis=0) + pseudocount) / data.shape[1])
+    return np.log2((data.sum(axis=0) + pseudocount) / data.shape[0])
 
 def log_fold_change(
     mat1:np.ndarray|csc_matrix|csr_matrix,
@@ -137,10 +137,14 @@ def gene_expression_pct(
 def group_metrics(
     ann:AnnData,
     groupby:str,
-    lfc_denormalize:Callable=np.expm1,
+    layer:str="data",
     lfc_pseudocount:int=1
 ):
-    mat = ann.layers["data"]
+    if layer == "data":
+        lfc_denormalize = np.expm1
+    else:
+        lfc_denormalize = None
+    mat = ann.layers[layer]
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
@@ -153,13 +157,13 @@ def group_metrics(
         lfc.append(log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount))
         pct.append(gene_expression_pct(mat1))
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups),
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=groups),
         var_name=groupby,
         value_name="lfc",
         ignore_index=False
     )
     output.reset_index(inplace=True)
-    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var["gene"]), value_name="pct", ignore_index=False)
+    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var_names), value_name="pct", ignore_index=False)
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
