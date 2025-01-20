@@ -6,6 +6,7 @@ from anndata import AnnData
 
 import scanpy as sc
 import pandas as pd
+import numpy as np
 
 
 def calculate_de(
@@ -191,3 +192,74 @@ def process_table_to_ic(
             inplace=True
         )
     return sender_receiver_table[columns_reorder]
+
+def _prioritization(
+    de:pd.DataFrame,
+    sender:bool=True
+):
+    if sender:
+        send_rcvr = "sender"
+        lig_rec = "ligand"
+    else:
+        send_rcvr = "receiver"
+        lig_rec = "receptor"
+    output = de[[send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]]
+    output.drop_duplicates(inplace=True)
+    output[f"lfc_pval_{lig_rec}"] = (
+        -1 *
+        np.log10(output[f"pval_{lig_rec}"]) *
+        output[f"lfc_{lig_rec}"]
+    )
+    temp = -np.log10(output[f"pval_{lig_rec}"])
+    output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
+    output[f"pval_adapted_{lig_rec}"] = (
+        temp * output[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)
+    )
+    temp = output[f"lfc_{lig_rec}"].rank(method="average", na_option="top")
+    output[f"scaled_lfc_{lig_rec}"] = temp / temp.max()
+    temp = output[f"pval_{lig_rec}"].rank(method="average", na_option="top", ascending=False)
+    output[f"scaled_pval_{lig_rec}"] = temp / temp.max()
+    temp = output[f"lfc_pval_{lig_rec}"].rank(method="average", na_option="top")
+    output[f"scaled_lfc_pval_{lig_rec}"] = temp / temp.max()
+    temp = output[f"pval_adapted_{lig_rec}"].rank(method="average", na_option="top")
+    output[f"scaled_pval_adapted_{lig_rec}"] = temp / temp.max()
+    output.sort_values(by=f"lfc_pval_{lig_rec}", ascending=False, inplace=True)
+    return output
+
+def generate_prioritization_tables(
+    sender_receiver_info:pd.DataFrame,
+    sender_receiver_de:pd.DataFrame,
+    ligand_activities:list[tuple[str, dict[str, float]]],
+    lr_condition_de:pd.DataFrame=None,
+    prioritizing_weights:dict[str, float]=None
+):
+    if prioritizing_weights is None:
+        prioritizing_weights = {
+            "de_ligand": 1,
+            "de_receptor": 1,
+            "activity_scaled": 1,
+            "exprs_ligand": 1,
+            "exprs_receptor": 1,
+            "ligand_condition_specificity": 0,
+            "receptor_condition_specificity": 0
+        } if lr_condition_de is None else {
+            "de_ligand": 1,
+            "de_receptor": 1,
+            "activity_scaled": 1,
+            "exprs_ligand": 1,
+            "exprs_receptor": 1,
+            "ligand_condition_specificity": 1,
+            "receptor_condition_specificity": 1
+        }
+    else:
+        # TODO: convert ligand_activities to dataframe / add rank
+        sender_receiver = sender_receiver_de[["sender, receiver"]]
+        sender_receiver.drop_duplicates(inplace=True)
+        sender_ligand_prioritization = _prioritization(
+            sender_receiver_de,
+            sender=True
+        )
+        receiver_receptor_prioritization = _prioritization(
+            sender_receiver_de,
+            sender=False
+        )
