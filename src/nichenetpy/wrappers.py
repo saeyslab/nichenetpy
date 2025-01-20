@@ -550,7 +550,6 @@ def generate_info_tables(
         output["lr_condition_de"] = process_table_to_ic(
             pd.DataFrame({
                 "gene": [e[0] for e in res["names"]],
-                "score": [e[0] for e in res["scores"]],
                 "pval": [e[0] for e in res["pvals"]],
                 "pval_adj": [e[0] for e in res["pvals_adj"]],
                 "lfc": [e[0] for e in res["logfoldchanges"]]
