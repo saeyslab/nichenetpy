@@ -132,14 +132,14 @@ def process_table_to_ic(
         sender_table = tab.rename(columns={
             "gene": "ligand",
             "logfoldchanges": "lfc_ligand",
-            "pvals": "pval_ligand",
-            "pvals_adj": "pval_adj_ligand"
+            "pval": "pval_ligand",
+            "pval_adj": "pval_adj_ligand"
         })
         receiver_table = tab.rename(columns={
             "gene": "receptor",
             "logfoldchanges": "lfc_receptor",
-            "pvals": "pval_receptor",
-            "pvals_adj": "pval_adj_receptor"
+            "pval": "pval_receptor",
+            "pval_adj": "pval_adj_receptor"
         })
         columns_reorder = [
             "ligand",

@@ -552,7 +552,7 @@ def generate_info_tables(
                 "gene": [e[0] for e in res["names"]],
                 "pval": [e[0] for e in res["pvals"]],
                 "pval_adj": [e[0] for e in res["pvals_adj"]],
-                "lfc": [e[0] for e in res["logfoldchanges"]]
+                "logfoldchanges": [e[0] for e in res["logfoldchanges"]]
             }),
             "group_DE",
             lr_network_filtered
