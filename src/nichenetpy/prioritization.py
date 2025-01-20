@@ -87,6 +87,15 @@ def process_table_to_ic(
             "gene": "receptor",
             "avg_exp": "avg_receptor"
         })
+        columns_reorder = [
+            "sender",
+            "receiver",
+            "ligand",
+            "receptor",
+            "avg_ligand",
+            "avg_receptor",
+            "ligand_receptor_prod"
+        ]
     elif (table_type == "celltype_DE"):
         sender_table = tab.rename(columns={
             "celltype": "sender",
@@ -104,6 +113,21 @@ def process_table_to_ic(
             "pvals_adj": "pval_adj_receptor",
             "pts": "pct_expressed_receiver"
         })
+        columns_reorder = [
+            "sender",
+            "receiver",
+            "ligand",
+            "receptor",
+            "lfc_ligand",
+            "lfc_receptor",
+            "ligand_receptor_lfc_avg",
+            "pval_ligand",
+            "pval_adj_ligand",
+            "pval_receptor",
+            "pval_adj_receptor",
+            "pct_expressed_sender",
+            "pct_expressed_receiver"
+        ]
     elif table_type == "group_DE":
         sender_table = tab.rename(columns={
             "gene": "ligand",
@@ -117,6 +141,17 @@ def process_table_to_ic(
             "pvals": "pval_receptor",
             "pvals_adj": "pval_adj_receptor"
         })
+        columns_reorder = [
+            "ligand",
+            "receptor",
+            "lfc_ligand",
+            "lfc_receptor",
+            "ligand_receptor_lfc_avg",
+            "pval_ligand",
+            "pval_adj_ligand",
+            "pval_receptor",
+            "pval_adj_receptor"
+        ]
     else:
         raise ValueError("table_type argument should be 'expression', 'celltype_DE' or 'group_DE'")
     if senders_oi is not None:
@@ -155,4 +190,4 @@ def process_table_to_ic(
             ascending=False,
             inplace=True
         )
-    return sender_receiver_table
+    return sender_receiver_table[columns_reorder]
