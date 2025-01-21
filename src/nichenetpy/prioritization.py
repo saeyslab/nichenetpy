@@ -1,6 +1,7 @@
 from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
-from nichenetpy.normalization import relative_counts
+from nichenetpy.normalization import relative_counts, scaling_zscore
 from nichenetpy.network import LigandReceptorNetwork
+from nichenetpy.utils import ligand_activities_df
 
 from anndata import AnnData
 
@@ -229,10 +230,14 @@ def _prioritization(
 def generate_prioritization_tables(
     sender_receiver_info:pd.DataFrame,
     sender_receiver_de:pd.DataFrame,
-    ligand_activities:list[tuple[str, dict[str, float]]],
+    ligand_activities:pd.DataFrame|dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]],
     lr_condition_de:pd.DataFrame=None,
     prioritizing_weights:dict[str, float]=None
 ):
+    if type(ligand_activities) is dict or type(ligand_activities) is list:
+        ligand_activities = ligand_activities_df(ligand_activities)
+    elif type(ligand_activities) is not pd.DataFrame:
+        raise TypeError(f"ligand_activities should be of type pandas.DataFrame, dict or list, was {type(ligand_activities)}")
     if prioritizing_weights is None:
         prioritizing_weights = {
             "de_ligand": 1,
@@ -252,14 +257,27 @@ def generate_prioritization_tables(
             "receptor_condition_specificity": 1
         }
     else:
-        # TODO: convert ligand_activities to dataframe / add rank
-        sender_receiver = sender_receiver_de[["sender, receiver"]]
-        sender_receiver.drop_duplicates(inplace=True)
-        sender_ligand_prioritization = _prioritization(
-            sender_receiver_de,
-            sender=True
-        )
-        receiver_receptor_prioritization = _prioritization(
-            sender_receiver_de,
-            sender=False
-        )
+        pass # TODO
+    if "rank" not in ligand_activities.columns:
+        ligand_activities["rank"] = ligand_activities.rank(method="average", na_option="bottom")
+    sender_receiver = sender_receiver_de[["sender, receiver"]]
+    sender_receiver.drop_duplicates(inplace=True)
+    sender_ligand_prioritization = _prioritization(
+        sender_receiver_de,
+        sender=True
+    )
+    receiver_receptor_prioritization = _prioritization(
+        sender_receiver_de,
+        sender=False
+    )
+    if "receiver" in ligand_activities.columns:
+        ligand_activity_prioritization = ligand_activities[["aupr", "aupr_corrected", "rank", "receiver"]]
+    else:
+        ligand_activity_prioritization = ligand_activities[["aupr", "aupr_corrected", "rank"]]
+    ligand_activity_prioritization.rename(columns={"aupr_corrected": "activity"}, inplace=True)
+    ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
+    # TODO: check if this is correct
+    cutoff = np.quantile(ligand_activity_prioritization["activity"], [0.01])[0]
+    ligand_activity_prioritization["scaled_activity"] = [
+        x + 0.001 if x > cutoff else 0.001 for x in ligand_activity_prioritization["activity"]
+    ]

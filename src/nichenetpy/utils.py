@@ -1,6 +1,7 @@
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 
 import numpy as np
+import pandas as pd
 
 
 def read_list_from_csv(filename:str) -> list[str]:
@@ -146,7 +147,7 @@ def subset_matrix(
         if cols is not None:
             output = hstack([output[:, col] for col in cols], format="csr")
     else:
-        raise ValueError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
+        raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
     return output
 
 def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
@@ -262,3 +263,17 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
     }
     '''
     return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
+
+def ligand_activities_df(
+    ligand_activities:dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]]
+) -> pd.DataFrame:
+    if type(ligand_activities) is dict:
+        ligands, activities = ligand_activities.items()
+    elif type(ligand_activities is list):
+        ligands, activities = zip(*ligand_activities)
+    else:
+        raise TypeError(f"ligand_activities should be of type dict or list, was {type(ligand_activities)}")
+    columns = tuple(activities[0].keys())
+    data = [tuple(act.values()) for act in activities]
+    df = pd.DataFrame(data=data, index=ligands, columns=columns)
+    return df

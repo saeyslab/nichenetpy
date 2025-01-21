@@ -127,7 +127,7 @@ def gene_expression_pct(
     elif type(mat) is np.ndarray:
         nrows, ncols = mat.shape
     else:
-        raise ValueError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
+        raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
     # set all non-zero elements to 1
     for i in range(len(mat.data)):
         mat.data[i] = 1
