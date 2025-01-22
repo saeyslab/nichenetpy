@@ -269,7 +269,7 @@ def ligand_activities_df(
 ) -> pd.DataFrame:
     if type(ligand_activities) is dict:
         ligands, activities = ligand_activities.items()
-    elif type(ligand_activities is list):
+    elif type(ligand_activities) is list:
         ligands, activities = zip(*ligand_activities)
     else:
         raise TypeError(f"ligand_activities should be of type dict or list, was {type(ligand_activities)}")
@@ -277,3 +277,18 @@ def ligand_activities_df(
     data = [tuple(act.values()) for act in activities]
     df = pd.DataFrame(data=data, index=ligands, columns=columns)
     return df
+
+def df_grouped_apply(
+    df:pd.DataFrame,
+    groupby:str,
+    func:callable,
+    dest:str
+):
+    pd.options.mode.chained_assignment = None # false positive warnings removal
+    vals = sorted(set(df[groupby]))
+    groups = []
+    for val in vals:
+        group = df[df[groupby] == val]
+        group[dest] = func(group)
+        groups.append(group)
+    return pd.concat(groups)

@@ -1,7 +1,7 @@
 from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
-from nichenetpy.normalization import relative_counts, scaling_zscore
+from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
 from nichenetpy.network import LigandReceptorNetwork
-from nichenetpy.utils import ligand_activities_df
+from nichenetpy.utils import ligand_activities_df, df_grouped_apply
 
 from anndata import AnnData
 
@@ -276,8 +276,34 @@ def generate_prioritization_tables(
         ligand_activity_prioritization = ligand_activities[["aupr", "aupr_corrected", "rank"]]
     ligand_activity_prioritization.rename(columns={"aupr_corrected": "activity"}, inplace=True)
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
-    # TODO: check if this is correct
-    cutoff = np.quantile(ligand_activity_prioritization["activity"], [0.01])[0]
-    ligand_activity_prioritization["scaled_activity"] = [
-        x + 0.001 if x > cutoff else 0.001 for x in ligand_activity_prioritization["activity"]
-    ]
+    ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
+        ligand_activity_prioritization["activity"].transpose(),
+        cutoff=0.01
+    ).transpose()
+    ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
+    ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]]
+    ligand_celltype_specificity_prioritization.drop_duplicates(inplace=True)
+    ligand_celltype_specificity_prioritization = df_grouped_apply(
+        ligand_celltype_specificity_prioritization,
+        groupby="ligand",
+        func=lambda group : scale_quantile_adapted(group["avg_ligand"]),
+        dest="scaled_avg_exprs_ligand"
+    )
+    ligand_celltype_specificity_prioritization.sort_values(
+        by="scaled_avg_exprs_ligand",
+        ascending=False,
+        inplace=True
+    )
+    receptor_celltype_specificity_prioritization = sender_receiver_info[["receiver", "receptor", "avg_receptor"]]
+    receptor_celltype_specificity_prioritization.drop_duplicates(inplace=True)
+    receptor_celltype_specificity_prioritization = df_grouped_apply(
+        receptor_celltype_specificity_prioritization,
+        groupby="receptor",
+        func=lambda group : scale_quantile_adapted(group["avg_receptor"]),
+        dest="scaled_avg_exprs_receptor"
+    )
+    receptor_celltype_specificity_prioritization.sort_values(
+        by="scaled_avg_exprs_receptor",
+        ascending=False,
+        inplace=True
+    )
