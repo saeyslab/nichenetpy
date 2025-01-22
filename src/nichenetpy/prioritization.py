@@ -194,28 +194,33 @@ def process_table_to_ic(
         )
     return sender_receiver_table[columns_reorder]
 
+def _lfc_pval__pval_adapted(
+    df:pd.DataFrame,
+    lig_rec:str
+):
+    df[f"lfc_pval_{lig_rec}"] = (
+        -1 *
+        np.log10(df[f"pval_{lig_rec}"]) *
+        df[f"lfc_{lig_rec}"]
+    )
+    temp = -np.log10(df[f"pval_{lig_rec}"])
+    df[f"lfc_pval_{lig_rec}"] = temp * df[f"lfc_{lig_rec}"]
+    df[f"pval_adapted_{lig_rec}"] = (
+        temp * df[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)
+    )
+
 def _prioritization(
     de:pd.DataFrame,
-    sender:bool=True
+    lig_rec:str,
+    send_rcvr:str=None
 ):
-    if sender:
-        send_rcvr = "sender"
-        lig_rec = "ligand"
-    else:
-        send_rcvr = "receiver"
-        lig_rec = "receptor"
-    output = de[[send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]]
+    output = de[
+        [lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
+        if send_rcvr is None else
+        [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
+    ]
     output.drop_duplicates(inplace=True)
-    output[f"lfc_pval_{lig_rec}"] = (
-        -1 *
-        np.log10(output[f"pval_{lig_rec}"]) *
-        output[f"lfc_{lig_rec}"]
-    )
-    temp = -np.log10(output[f"pval_{lig_rec}"])
-    output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
-    output[f"pval_adapted_{lig_rec}"] = (
-        temp * output[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)
-    )
+    _lfc_pval__pval_adapted(output, lig_rec)
     temp = output[f"lfc_{lig_rec}"].rank(method="average", na_option="top")
     output[f"scaled_lfc_{lig_rec}"] = temp / temp.max()
     temp = output[f"pval_{lig_rec}"].rank(method="average", na_option="top", ascending=False)
@@ -307,3 +312,14 @@ def generate_prioritization_tables(
         ascending=False,
         inplace=True
     )
+    if lr_condition_de is not None:
+        ligand_condition_prioritization = _prioritization(lr_condition_de, "ligand")
+        ligand_condition_prioritization.index = ligand_condition_prioritization["ligand"]
+        ligand_condition_prioritization.drop(["ligand"], inplace=True)
+        ligand_condition_prioritization.rename(columns=lambda x : f"{x}_group", inplace=True)
+        ligand_condition_prioritization.reset_index(inplace=True)
+        receptor_condition_prioritization = _prioritization(lr_condition_de, "receptor")
+        receptor_condition_prioritization.index = receptor_condition_prioritization["receptor"]
+        receptor_condition_prioritization.drop(["receptor"], inplace=True)
+        receptor_condition_prioritization.rename(columns=lambda x : f"{x}_group", inplace=True)
+        receptor_condition_prioritization.reset_index(inplace=True)
