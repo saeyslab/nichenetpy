@@ -1,6 +1,7 @@
 from scipy.sparse import lil_matrix, csc_matrix, csr_matrix
 
 import numpy as np
+import pandas as pd
 
 
 def relative_counts(
@@ -59,13 +60,13 @@ def _scale_quantile_seq(data:list|tuple|np.ndarray, cutoff:float=0.05) -> np.nda
         output = (data - sub) / div
     return np.clip(output, 0, 1)
 
-def scale_quantile(data:list|tuple|np.ndarray, cutoff:float=0.05) -> np.ndarray:
+def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> np.ndarray:
     '''
     Cut off outer quantiles and rescale to a [0, 1] range. 
 
     Parameters
     ----------
-    data : list or tuple or numpy.ndarray
+    data : list or tuple or numpy.ndarray or pandas.Series
         the data to normalize
     cutoff : float
         the quantile cutoff for outliers
@@ -86,6 +87,8 @@ def scale_quantile(data:list|tuple|np.ndarray, cutoff:float=0.05) -> np.ndarray:
     ----
     Contrary to the R function dplyr::scale_quantile, this function is implemented row-by-row
     '''
+    if type(data) is pd.Series:
+        data = data.to_numpy()
     if type(data) is list or type(data) is tuple:
         if len(data) > 0:
             if type(data[0]) is list or type(data[0]) is tuple:
@@ -102,15 +105,15 @@ def scale_quantile(data:list|tuple|np.ndarray, cutoff:float=0.05) -> np.ndarray:
         else:
             raise ValueError(f"data should be 1-dimensional or 2-dimensional, shape was {data.shape}")
     else:
-        raise TypeError(f"data should be of type list, tuple or numpy.ndarray, was {type(data)}")
+        raise TypeError(f"data should be of type list, tuple, numpy.ndarray or pandas.Series, was {type(data)}")
 
-def scale_quantile_adapted(data:np.ndarray, cutoff=0):
+def scale_quantile_adapted(data:list|tuple|np.ndarray|pd.Series, cutoff=0) -> np.ndarray:
     '''
     Normalize values in a vector by quantile scaling. Add a pseudovalue of 0.001 to avoid having a score of 0 for the lowest value.
 
     Parameters
     ----------
-    data : list or tuple or numpy.ndarray
+    data : list or tuple or numpy.ndarray or pandas.Series
         the data to normalize
     cutoff : float
         the quantile cutoff for outliers
