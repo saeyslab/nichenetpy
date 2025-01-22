@@ -1,4 +1,4 @@
-from nichenetpy.normalization import scale_quantile
+from nichenetpy.normalization import scale_quantile, scale_quantile_adapted
 
 import numpy as np
 
@@ -59,4 +59,16 @@ def test_scale_quantile_ndarray_1():
             [0, 0, 0.032, 0.468, 0.825, 1, 1]
         ]),
         equals=equals_ndarray
+    )
+
+def template_scale_quantile_adapted(data, cutoff, exp, equals=equals_iter):
+    res = scale_quantile_adapted(data, cutoff)
+    print(res)
+    assert equals(res, exp), f"the following output is incorrect: {res}"
+
+def test_scale_quantile_adapted_std_0():
+    template_scale_quantile_adapted(
+        [1, 5, 9, 16, 20, 32, 45, 50, 54, 71],
+        0,
+        [0.001, 0.058, 0.115, 0.215, 0.272, 0.444, 0.630, 0.701, 0.758, 1.001]
     )
