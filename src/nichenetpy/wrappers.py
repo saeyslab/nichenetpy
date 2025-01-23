@@ -19,7 +19,8 @@ from nichenetpy.visualization import (
 from nichenetpy.prioritization import (
     calculate_de,
     get_avg_exp,
-    process_table_to_ic
+    process_table_to_ic,
+    generate_prioritization_table
 )
 
 from itertools import cycle, chain
@@ -123,6 +124,7 @@ def run_nichenet(
     get_expressed_genes_pct:float=0.05,
     layer:str="data",
     condition_col:str="aggregate",
+    celltype_col:str="celltype",
     rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
@@ -130,7 +132,9 @@ def run_nichenet(
     targets_top_n:int=100,
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
-    get_lfc:bool=False
+    get_lfc:bool=False,
+    get_prioritization_table:bool=False,#TODO: add output to docs
+    case_control:bool=True #TODO: add to docs
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -157,6 +161,8 @@ def run_nichenet(
         the layer in the AnnData object which contains the data matrix
     condition_col : str
         the name of the column in obs which contains the conditions
+    celltype_col : str
+        the name of the column in obs which contains the celltypes
     rank_method : str
         the method to use in rank_genes_groups
     max_pval_adj : float
@@ -174,6 +180,8 @@ def run_nichenet(
         if true, the active ligand-target links are computed and returned
     get_lfc : bool
         if true, the log fold changes are computed and returned
+    get_prioritization_table : bool
+        if true, the prioritization table is computed and returned
     
     Returns
     -------
@@ -206,7 +214,10 @@ def run_nichenet(
                 the expressed ligands
     '''
     output = dict()
-    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
+    expressed_genes_receiver = set(
+        get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
+    )
+    output["expressed_genes_receiver"] = expressed_genes_receiver #TODO: add to docs
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
@@ -246,9 +257,17 @@ def run_nichenet(
             lr_sig
         )
     if sender_celltypes is not None:
-        list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
+        list_expressed_genes_sender = [
+            get_expressed_genes(
+                ct,
+                ann,
+                pct=get_expressed_genes_pct,
+                celltype_col=celltype_col
+            ) for ct in sender_celltypes
+        ]
         expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
-        output["expressed_ligands"] = lr_network.get_ligands().intersection(expressed_genes_sender)
+        expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
+        output["expressed_ligands"] = expressed_ligands
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
@@ -286,10 +305,32 @@ def run_nichenet(
                     condition_oi=condition_oi,
                     condition_ref=condition_ref,
                     layer=layer,
+                    celltype_col=celltype_col,
                     features=best_upstream_ligands_focused
                 )
                 for celltype in sender_celltypes
             ]
+    if get_prioritization_table:
+        if sender_celltypes is None:
+            return ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
+        lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
+        info_tables = generate_info_tables(
+            ann,
+            celltype_col,
+            sender_celltypes,
+            [receiver],
+            lr_network_filtered,
+            condition_col,
+            condition_oi,
+            condition_ref,
+            case_control
+        )
+        output["prioritization_table"] = generate_prioritization_table(
+            info_tables["sender_receiver_info"],
+            info_tables["sender_receiver_de"],
+            ligand_activities_sorted,
+            info_tables["lr_condition_de"]
+        )
     return output
 
 def create_ligand_activity_hist(
