@@ -16,6 +16,12 @@ from nichenetpy.visualization import (
     heatmap_2d,
     heatmap_1d
 )
+from nichenetpy.prioritization import (
+    calculate_de,
+    get_avg_exp,
+    process_table_to_ic,
+    generate_prioritization_table
+)
 
 from itertools import cycle, chain
 from collections.abc import Iterable
@@ -24,6 +30,7 @@ from anndata import AnnData
 import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def get_geneset_oi(
@@ -32,7 +39,6 @@ def get_geneset_oi(
     condition_oi:str,
     condition_ref:str,
     layer:str="data",
-    gene_field:str="gene",
     condition_col:str="aggregate",
     method:str="wilcoxon",
     max_pval_adj:float=0.05,
@@ -53,8 +59,6 @@ def get_geneset_oi(
         the reference condition
     layer : str
         the name of the layer which contains the data matrix
-    gene_field : str
-        the name of the column in ann.var which contains the gene symbols
     condition_col : str
         the name of the column in obs which contains the conditions
     method : str
@@ -70,7 +74,7 @@ def get_geneset_oi(
         the geneset of interest
     '''
     ann_receiver = subset_ann(ann, receiver, layers=[layer])
-    ann_receiver.var_names = ann.var[gene_field]
+    ann_receiver.var_names = ann.var_names
     sc.pp.log1p(ann_receiver, layer=layer)
     sc.tl.rank_genes_groups(
         ann_receiver,
@@ -119,8 +123,8 @@ def run_nichenet(
     sender_celltypes:Iterable[str]=None,
     get_expressed_genes_pct:float=0.05,
     layer:str="data",
-    gene_field:str="gene",
     condition_col:str="aggregate",
+    celltype_col:str="celltype",
     rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
@@ -129,7 +133,8 @@ def run_nichenet(
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
-    get_exp_ligands:bool=False
+    get_prioritization_table:bool=False,#TODO: add output to docs
+    case_control:bool=True #TODO: add to docs
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -154,10 +159,10 @@ def run_nichenet(
         the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     layer : str
         the layer in the AnnData object which contains the data matrix
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     condition_col : str
         the name of the column in obs which contains the conditions
+    celltype_col : str
+        the name of the column in obs which contains the celltypes
     rank_method : str
         the method to use in rank_genes_groups
     max_pval_adj : float
@@ -175,6 +180,8 @@ def run_nichenet(
         if true, the active ligand-target links are computed and returned
     get_lfc : bool
         if true, the log fold changes are computed and returned
+    get_prioritization_table : bool
+        if true, the prioritization table is computed and returned
     
     Returns
     -------
@@ -207,7 +214,10 @@ def run_nichenet(
                 the expressed ligands
     '''
     output = dict()
-    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct))
+    expressed_genes_receiver = set(
+        get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
+    )
+    output["expressed_genes_receiver"] = expressed_genes_receiver #TODO: add to docs
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
@@ -220,7 +230,6 @@ def run_nichenet(
         condition_oi,
         condition_ref,
         layer,
-        gene_field,
         condition_col,
         rank_method,
         max_pval_adj,
@@ -248,9 +257,17 @@ def run_nichenet(
             lr_sig
         )
     if sender_celltypes is not None:
-        list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=get_expressed_genes_pct) for ct in sender_celltypes]
+        list_expressed_genes_sender = [
+            get_expressed_genes(
+                ct,
+                ann,
+                pct=get_expressed_genes_pct,
+                celltype_col=celltype_col
+            ) for ct in sender_celltypes
+        ]
         expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
-        output["expressed_ligands"] = lr_network.get_ligands().intersection(expressed_genes_sender)
+        expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
+        output["expressed_ligands"] = expressed_ligands
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
         ligand_activities_focused = dict(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
@@ -288,10 +305,32 @@ def run_nichenet(
                     condition_oi=condition_oi,
                     condition_ref=condition_ref,
                     layer=layer,
+                    celltype_col=celltype_col,
                     features=best_upstream_ligands_focused
                 )
                 for celltype in sender_celltypes
             ]
+    if get_prioritization_table:
+        if sender_celltypes is None:
+            return ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
+        lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
+        info_tables = generate_info_tables(
+            ann,
+            celltype_col,
+            sender_celltypes,
+            [receiver],
+            lr_network_filtered,
+            condition_col,
+            condition_oi,
+            condition_ref,
+            case_control
+        )
+        output["prioritization_table"] = generate_prioritization_table(
+            info_tables["sender_receiver_info"],
+            info_tables["sender_receiver_de"],
+            ligand_activities_sorted,
+            info_tables["lr_condition_de"]
+        )
     return output
 
 def create_ligand_activity_hist(
@@ -502,27 +541,6 @@ def create_lfc_heatmap(
     ax.xaxis.set_label_position('top') 
     plt.show()
 
-def calculate_de(
-    ann:AnnData,
-    condition_oi:str,
-    condition_col:str,
-    #condition_ref:str,
-    layer="data"
-):
-    ann = subset_ann(ann, condition_oi, layers=["data"], val_col=condition_col)
-    genes = ann.var["gene"]
-    ann.var_names = genes
-    sc.pp.log1p(ann, layer="data")
-    sc.tl.rank_genes_groups(
-        ann,
-        groupby=condition_col,
-        method="wilcoxon",
-        layer=layer,
-        #groups=[condition_oi],
-        #reference=condition_ref
-    )
-    return ann.uns["rank_genes_groups"]
-
 def generate_info_tables(
     ann:AnnData,
     celltype_col:str,
@@ -532,12 +550,52 @@ def generate_info_tables(
     condition_col:str,
     condition_oi:str,
     condition_ref:str,
-    scenario:str,
-    assay_oi:str
+    case_control:bool=False
 ):
-    DE_table = calculate_de(
-        ann,
-        condition_oi,
-        condition_col
-    )
-    
+    output = {
+        "sender_receiver_de": process_table_to_ic(
+            calculate_de(
+                ann,
+                celltype_col,
+                condition_oi,
+                condition_col,
+                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
+            ),
+            "celltype_DE",
+            lr_network_filtered,
+            senders_oi,
+            receivers_oi
+        ),
+        "sender_receiver_info": process_table_to_ic(
+            get_avg_exp(
+                ann,
+                celltype_col,
+                condition_oi,
+                condition_col
+            ),
+            "expression",
+            lr_network_filtered
+        )
+    }
+    if case_control:
+        sc.pp.log1p(ann, layer="data")
+        sc.tl.rank_genes_groups(
+            ann,
+            groupby=condition_col,
+            groups=[condition_oi],
+            reference=condition_ref,
+            method="wilcoxon",
+            layer="data"
+        )
+        res = ann.uns["rank_genes_groups"]
+        output["lr_condition_de"] = process_table_to_ic(
+            pd.DataFrame({
+                "gene": [e[0] for e in res["names"]],
+                "pval": [e[0] for e in res["pvals"]],
+                "pval_adj": [e[0] for e in res["pvals_adj"]],
+                "logfoldchanges": [e[0] for e in res["logfoldchanges"]]
+            }),
+            "group_DE",
+            lr_network_filtered
+        )
+    return output

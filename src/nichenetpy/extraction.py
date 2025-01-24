@@ -1,10 +1,12 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+from nichenetpy.utils import subset_matrix
+from nichenetpy.metrics import gene_expression_pct
 
-from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from anndata import AnnData
 
 import scanpy as sc
 import numpy as np
+import pandas as pd
 
 
 def get_expressed_genes(
@@ -12,8 +14,7 @@ def get_expressed_genes(
     ann:AnnData,
     pct:float=0.1,
     celltype_col:str="celltype",
-    layer:str="data",
-    gene_field:str="gene"
+    layer:str="data"
 ) -> list[str]:
     '''
     Gets the expressed genes from an AnnData object. 
@@ -25,13 +26,12 @@ def get_expressed_genes(
     ann : AnnData
         the AnnData object to extract expressed genes from
     pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells expressing the gene in all other clusters combined. 
+        We consider genes expressed if they are expressed in at least a specific fraction of cells of the given cluster(s). 
+        This number indicates this fraction. 
     celltype_col : str
         the name of the column in obs which contains the celltypes
     layer : str
         the name of the layer which contains the data matrix
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     
     Returns
     -------
@@ -45,21 +45,9 @@ def get_expressed_genes(
     mat = ann.layers[layer]
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    ids = [row2index[name] for name in cells_oi]
-    exprs_m = vstack([mat[id, :] for id in ids])
-    nrows = exprs_m.get_shape()[0]
-    # set all non-zero elements to 1
-    for i in range(len(exprs_m.data)):
-        exprs_m.data[i] = 1
-    rowsum = exprs_m.sum(axis=0)/nrows
-    return [
-        ann.var[gene_field].iloc[gene]
-        for gene, val in enumerate(
-            rowsum[0, i]
-            for i in range(len(ann.var[gene_field]))
-        )
-        if val > pct
-    ]
+    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
+    exps = gene_expression_pct(exprs_m)
+    return [ann.var_names[gene] for gene, val in enumerate(exps) if val > pct]
 
 def subset_ann(
         ann:AnnData,
@@ -99,16 +87,18 @@ def subset_ann(
     new_layers = dict(
         (
             layer,
-            vstack([ann.layers[layer][id, :] for id in ids])
-            if type(ann.layers[layer]) is csc_matrix or type(ann.layers[layer]) is csr_matrix
-            else np.concatenate([[ann.layers[layer][id, :]] for id in ids])
+            subset_matrix(ann.layers[layer], rows=ids)
         ) for layer in layers
     )
-    return AnnData(
+    output =  AnnData(
         obs=cells_oi,
         layers=new_layers,
-        shape=new_layers[layers[0]].shape
+        shape=new_layers[layers[0]].shape,
+        var=ann.var,
+        varm=ann.varm
     )
+    output.var_names = ann.var_names
+    return output
 
 def get_weighted_ligand_receptor_links(
     best_upstream_ligands:list[str],
@@ -141,6 +131,24 @@ def get_weighted_ligand_receptor_links(
     best_upstream_receptors = set(t for f, t in lr_network if f in best_upstream_ligands and t in expressed_receptors)
     return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
 
+def _subset_layer(
+    ann:AnnData,
+    layer:str,
+    features:list[str]
+) -> AnnData:
+    if type(features) is set:
+        features = sorted(features)
+    gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
+    ids = [gene2index[gene] for gene in features]
+    mat = subset_matrix(ann.layers[layer], cols=ids)
+    ann = AnnData(
+        obs=ann.obs,
+        layers={layer: mat},
+        shape=(ann.obs.shape[0], len(features))
+    )
+    ann.var_names = features
+    return ann
+
 def get_lfc_celltype(
     ann:AnnData,
     celltype:str,
@@ -149,7 +157,6 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    gene_field:str="gene",
     features:list[str]=None
 ) -> tuple[list[str], list[float]]:
     '''
@@ -171,8 +178,6 @@ def get_lfc_celltype(
         the name of the data layer
     celltype_col : str
         the name of the column in obs that contains the cell types
-    gene_field : str
-        the name of the column in var which contains the gene symbols
     features : list of str or None
         the genes to consider, consider all genes if None
     
@@ -185,18 +190,10 @@ def get_lfc_celltype(
     '''
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
     if features is not None:
-        gene2index = dict(zip(ann.var[gene_field], range(len(ann.var[gene_field]))))
-        ids = [gene2index[gene] for gene in features]
-        mat = ann_sender.layers[layer]
-        mat = hstack([mat[:, id] for id in ids])
-        ann_sender = AnnData(
-            obs=ann_sender.obs,
-            layers={"data": mat},
-            shape=(ann_sender.obs.shape[0], len(features))
-        )
+        ann_sender = _subset_layer(ann_sender, layer, features)
         ann_sender.var_names = features
     else:
-        ann_sender.var_names = ann.var[gene_field]
+        ann_sender.var_names = ann.var_names
     sc.pp.log1p(ann_sender, layer=layer)
     sc.tl.rank_genes_groups(
         ann_sender,
@@ -210,3 +207,45 @@ def get_lfc_celltype(
         [e[0] for e in ann_sender.uns["rank_genes_groups"]["names"]],
         [e[0] for e in ann_sender.uns["rank_genes_groups"]["logfoldchanges"]]
     )
+
+def average_expression(
+    ann:AnnData,
+    groupby:str,
+    keys:list[str]=None,
+    layer:str="counts",
+    norm_f=None
+):
+    '''
+    Computes averaged expression values for each group. Similar to seurat's AverageExpression. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object for which to compute averaged expression values
+    groupby : str
+        the column in ann.obs to group by
+    keys : list of str
+        the values to group by, all values in the groupby column by default
+    layer : str
+        the layer to compute average expression values from, this layer should contain counts
+    norm_f : function
+        the normalization function (normalization prior to the computation)
+    
+    Returns
+    -------
+    dict
+        a dictionary with the groups as keys and the lists of average expressions for each gene as values
+    '''
+    if norm_f is not None:
+        data = norm_f(ann.layers[layer])
+    if keys is None:
+        keys = set(ann.obs[groupby])
+    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    col_names, cols = zip(*(
+        (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
+        for key in keys
+    ))
+    df = pd.DataFrame(np.column_stack([col.T for col in cols]))
+    df.index = ann.var_names
+    df.columns = col_names
+    return df

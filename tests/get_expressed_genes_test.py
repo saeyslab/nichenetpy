@@ -7,6 +7,7 @@ import os
 
 root = os.path.dirname(__file__)
 ann_2000_50 =  anndata.io.read_h5ad(os.path.join(root, "data/AnnData/anndata_2000_50.h5"))
+ann_2000_50.var_names = ann_2000_50.var["gene"]
 
 def template_expressed_genes(celltype, ann, pct, exp):
     res = set(get_expressed_genes(celltype, ann, pct))
