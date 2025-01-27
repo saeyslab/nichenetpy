@@ -43,7 +43,7 @@ def get_geneset_oi(
     method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25
-) -> list[str]:
+) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
 
@@ -83,14 +83,14 @@ def get_geneset_oi(
         groups=[condition_oi], 
         reference=condition_ref
     )
-    return [
+    return {
         gene for gene, pval_adj, log2FC in
         zip(
             [e[0] for e in ann_receiver.uns["rank_genes_groups"]["names"]],
             [e[0] for e in ann_receiver.uns["rank_genes_groups"]["pvals_adj"]],
             [e[0] for e in ann_receiver.uns["rank_genes_groups"]["logfoldchanges"]]
         ) if pval_adj <= max_pval_adj and abs(log2FC) >= min_log2FC
-    ]
+    }
 
 def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[str, str, float]]:
     '''
@@ -234,6 +234,7 @@ def run_nichenet(
         max_pval_adj,
         min_log2FC
     )
+    geneset.intersection_update(predictor.get_genes())
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
         background_expressed_genes=expressed_genes_receiver,
