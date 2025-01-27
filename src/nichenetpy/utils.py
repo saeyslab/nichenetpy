@@ -72,7 +72,7 @@ def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
     return (lines[0], lines[1:])
 
-def read_csv_cols(filename:str) -> dict[list[str]]:
+def read_csv_cols(filename:str) -> dict[str, list[str]]:
     '''
     Reads the columns from a csv file. 
 

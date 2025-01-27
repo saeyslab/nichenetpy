@@ -25,7 +25,6 @@ def calculate_de(
         ann.var_names = features
     else:
         ann.var_names = ann.var[gene_field]
-    sc.pp.log1p(ann, layer=layer)
     sc.tl.rank_genes_groups(
         ann,
         groupby=celltype_col,

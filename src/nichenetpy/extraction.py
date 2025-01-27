@@ -194,7 +194,6 @@ def get_lfc_celltype(
         ann_sender.var_names = features
     else:
         ann_sender.var_names = ann.var_names
-    sc.pp.log1p(ann_sender, layer=layer)
     sc.tl.rank_genes_groups(
         ann_sender,
         groupby=condition_col,

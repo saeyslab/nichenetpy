@@ -75,7 +75,6 @@ def get_geneset_oi(
     '''
     ann_receiver = subset_ann(ann, receiver, layers=[layer])
     ann_receiver.var_names = ann.var_names
-    sc.pp.log1p(ann_receiver, layer=layer)
     sc.tl.rank_genes_groups(
         ann_receiver,
         groupby=condition_col,
@@ -578,7 +577,6 @@ def generate_info_tables(
         )
     }
     if case_control:
-        sc.pp.log1p(ann, layer="data")
         sc.tl.rank_genes_groups(
             ann,
             groupby=condition_col,
