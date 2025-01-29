@@ -29,6 +29,7 @@ def _rank_cells(
         n_neg = 0
         while n_neg < len(non_zero) and non_zero[n_neg] < 0:
             n_neg += 1
+        indices_non_zero = set(indices_non_zero)
         mat_cells.append(
             list(
                 chain(
