@@ -59,7 +59,8 @@ def _rank_cells(
             n_tied = 1
             while i + n_tied < n_neg and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
-            tie_stat[-1] += (n_tied**2 - 1)*n_tied
+            if n_tied > 1:
+                tie_stat[-1] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
@@ -72,7 +73,8 @@ def _rank_cells(
             n_tied = 1
             while i + n_tied < len(non_zero) and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
-            tie_stat[-1] += (n_tied**2 - 1)*n_tied
+            if n_tied > 1:
+                tie_stat[-1] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = n_zero + i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
@@ -112,11 +114,12 @@ def wilcoxon_rank_sum_test(
             u_other = total_rank - rank_sums[group] + n_other * (rank_offset - (n_other + 1)/2)
             u = max(u_group, u_other)
             u_mean = n_group * n_other / 2
-            u_std = sqrt(u_mean / 6 * ((n_total + 1 - tie_stat) / (n_total*(n_total - 1))))
+            u_std = sqrt(u_mean / 6 * (n_total + 1 - tie_stat / (n_total*(n_total - 1))))
             continuity_correction = 0.5 if u > u_mean else 0
             z_score = (u - continuity_correction - u_mean) / u_std
+            pval = 1 if u_std == 0 else erfc(z_score / sqrt(2))
             if group in pvals:
-                pvals[group].append(1 if u_std == 0 else erfc(z_score / sqrt(2)))
+                pvals[group].append(pval)
             else:
-                pvals[group] = []
+                pvals[group] = [pval]
     return pvals
