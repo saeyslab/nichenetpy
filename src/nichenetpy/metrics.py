@@ -1,4 +1,5 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
 
 from anndata import AnnData
 from collections.abc import Callable
@@ -167,4 +168,9 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
+    # TODO: layer dependent
+    pvals = wilcoxon_rank_sum_test(ann, groupby, as_dataframe=True)
+    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
+    pvals.reset_index(inplace=True)
+    output = output.merge(pvals, on=["gene", groupby], how="inner")
     ann.uns["group_metrics"] = output

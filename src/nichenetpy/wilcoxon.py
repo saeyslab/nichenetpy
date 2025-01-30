@@ -25,15 +25,19 @@ def _rank_cells(
         ranks = []
         indices_non_zero = mat.indices[mat.indptr[ci]:mat.indptr[ci+1]]
         values_non_zero = mat.data[mat.indptr[ci]:mat.indptr[ci+1]]
-        groups_sorted, non_zero = zip(
-            *sorted(
-                zip(
-                    (cell_groups[i] for i in indices_non_zero),
-                    values_non_zero
-                ),
-                key=lambda x : x[1]
+        if len(values_non_zero) > 0:
+            groups_sorted, non_zero = zip(
+                *sorted(
+                    zip(
+                        (cell_groups[i] for i in indices_non_zero),
+                        values_non_zero
+                    ),
+                    key=lambda x : x[1]
+                )
             )
-        )
+        else:
+            non_zero = []
+            groups_sorted = []
         n_zero = nrows - (mat.indptr[ci+1] - mat.indptr[ci])
         tie_stat.append((float(n_zero)**2 - 1)*float(n_zero))
         n_neg = 0
@@ -85,7 +89,8 @@ def _rank_cells(
 
 def wilcoxon_rank_sum_test(
     ann:AnnData,
-    groupby:str
+    groupby:str,
+    as_dataframe:bool=False
 ):
     '''
     Notes
@@ -122,4 +127,7 @@ def wilcoxon_rank_sum_test(
                 pvals[group].append(pval)
             else:
                 pvals[group] = [pval]
+    if as_dataframe:
+        pvals = pd.DataFrame(pvals)
+        pvals.index = ann.var_names
     return pvals
