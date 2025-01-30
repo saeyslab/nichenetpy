@@ -1,51 +1,65 @@
 from scipy.sparse import csc_matrix
 
+from anndata import AnnData
 from itertools import chain
+from collections.abc import Iterable
+from math import sqrt, erfc
+
+import pandas as pd
 
 
 def _rank_cells(
     mat:csc_matrix,
-    cells:list[str]
+    cell_groups:Iterable[str]
 ):
+    if type(cell_groups) is pd.Series:
+        # indexing series is slow and deprecated (warning is thrown)
+        cell_groups = list(cell_groups)
     if type(mat) is not csc_matrix:
         raise TypeError(f"mat should have type scipy.csc_matrix, was {type(mat)}")
     output = []
-    mat_cells = []
+    group_mat = []
+    tie_stat = []
     nrows, ncols = mat.shape
     for ci in range(ncols):
         ranks = []
         indices_non_zero = mat.indices[mat.indptr[ci]:mat.indptr[ci+1]]
         values_non_zero = mat.data[mat.indptr[ci]:mat.indptr[ci+1]]
-        cells_sorted, non_zero = zip(
+        groups_sorted, non_zero = zip(
             *sorted(
                 zip(
-                    (cells[i] for i in indices_non_zero),
+                    (cell_groups[i] for i in indices_non_zero),
                     values_non_zero
                 ),
                 key=lambda x : x[1]
             )
         )
         n_zero = nrows - (mat.indptr[ci+1] - mat.indptr[ci])
+        tie_stat.append((float(n_zero)**2 - 1)*float(n_zero))
         n_neg = 0
         while n_neg < len(non_zero) and non_zero[n_neg] < 0:
             n_neg += 1
         indices_non_zero = set(indices_non_zero)
-        mat_cells.append(
+        # reorder the groups of the cells so it matches the ranking
+        group_mat.append(
             list(
                 chain(
-                    cells_sorted[:n_neg],
-                    (cells[i] for i in range(nrows) if i not in indices_non_zero),
-                    cells_sorted[n_neg:]
+                    groups_sorted[:n_neg],
+                    (cell_groups[i] for i in range(nrows) if i not in indices_non_zero),# bottleneck
+                    groups_sorted[n_neg:]
                 )
             )
         )
+        # original rank for a value of 0 (ranks will be translated to get a 0-rank for 0-values)
         # compute average using gaussian summation
         zero_rank = n_neg + (n_zero - 1)/2
+        # negative 
         i = 0
         while i < n_neg:
             n_tied = 1
             while i + n_tied < n_neg and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
+            tie_stat[-1] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
@@ -58,10 +72,51 @@ def _rank_cells(
             n_tied = 1
             while i + n_tied < len(non_zero) and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
+            tie_stat[-1] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = n_zero + i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
                 ranks.append(rank)
             i += n_tied
         output.append(ranks)
-    return (mat_cells, output)
+    return (output, group_mat, tie_stat)
+
+def wilcoxon_rank_sum_test(
+    ann:AnnData,
+    groupby:str
+):
+    '''
+    Notes
+    -----
+    implementation based on https://github.com/bnprks/BPCells
+    '''
+    group_sizes = dict(ann.obs[groupby].value_counts())
+    n_total = len(ann.obs)
+    pvals = dict()
+    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers["counts"], ann.obs[groupby])
+    rank_sums = dict()
+    for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
+        rank_sums.clear()
+        for rank, group in zip(ranking, groups):
+            if group in rank_sums:
+                rank_sums[group] += rank
+            else:
+                rank_sums[group] = float(rank)
+        total_rank = sum(rank_sums.values())
+        for group in rank_sums.keys():
+            # test statistic
+            n_group = group_sizes[group]
+            n_other = n_total - n_group
+            rank_offset = (n_total + 1) / 2 - (total_rank / n_total)
+            u_group = rank_sums[group] + n_group * (rank_offset - (n_group + 1)/2)
+            u_other = total_rank - rank_sums[group] + n_other * (rank_offset - (n_other + 1)/2)
+            u = max(u_group, u_other)
+            u_mean = n_group * n_other / 2
+            u_std = sqrt(u_mean / 6 * ((n_total + 1 - tie_stat) / (n_total*(n_total - 1))))
+            continuity_correction = 0.5 if u > u_mean else 0
+            z_score = (u - continuity_correction - u_mean) / u_std
+            if group in pvals:
+                pvals[group].append(1 if u_std == 0 else erfc(z_score / sqrt(2)))
+            else:
+                pvals[group] = []
+    return pvals
