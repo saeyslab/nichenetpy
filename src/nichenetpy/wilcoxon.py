@@ -55,8 +55,8 @@ def _rank_cells(
             )
         )
         # original rank for a value of 0 (ranks will be translated to get a 0-rank for 0-values)
-        # compute average using gaussian summation
-        zero_rank = n_neg + (n_zero - 1)/2
+        # compute average using gaussian summation (the +1 has been moved into the division)
+        zero_rank = 0 if n_zero == 0 else n_neg + (n_zero + 1)/2
         # negative 
         i = 0
         while i < n_neg:
@@ -70,8 +70,10 @@ def _rank_cells(
             for _ in range(n_tied):
                 ranks.append(rank)
             i += n_tied
+        # zero
         for _ in range(n_zero):
             ranks.append(0)
+        # positive
         i = n_neg
         while i < len(non_zero):
             n_tied = 1
