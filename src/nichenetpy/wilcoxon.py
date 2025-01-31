@@ -6,11 +6,13 @@ from collections.abc import Iterable
 from math import sqrt, erfc
 
 import pandas as pd
+import numpy as np
 
 
 def _rank_cells(
     mat:csc_matrix,
-    cell_groups:Iterable[str]
+    cell_groups:Iterable[str],
+    tie_correction:bool=True
 ):
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
@@ -19,8 +21,8 @@ def _rank_cells(
         raise TypeError(f"mat should have type scipy.csc_matrix, was {type(mat)}")
     output = []
     group_mat = []
-    tie_stat = []
     nrows, ncols = mat.shape
+    tie_stat = np.zeros(shape=(ncols,))
     for ci in range(ncols):
         ranks = []
         indices_non_zero = mat.indices[mat.indptr[ci]:mat.indptr[ci+1]]
@@ -39,7 +41,8 @@ def _rank_cells(
             non_zero = []
             groups_sorted = []
         n_zero = nrows - (mat.indptr[ci+1] - mat.indptr[ci])
-        tie_stat.append((float(n_zero)**2 - 1)*float(n_zero))
+        if tie_correction:
+            tie_stat[ci] += (float(n_zero)**2 - 1)*float(n_zero)
         n_neg = 0
         while n_neg < len(non_zero) and non_zero[n_neg] < 0:
             n_neg += 1
@@ -63,8 +66,8 @@ def _rank_cells(
             n_tied = 1
             while i + n_tied < n_neg and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
-            if n_tied > 1:
-                tie_stat[-1] += (n_tied**2 - 1)*n_tied
+            if tie_correction and n_tied > 1:
+                tie_stat[ci] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
@@ -79,8 +82,8 @@ def _rank_cells(
             n_tied = 1
             while i + n_tied < len(non_zero) and non_zero[i] == non_zero[i + n_tied]:
                 n_tied += 1
-            if n_tied > 1:
-                tie_stat[-1] += (n_tied**2 - 1)*n_tied
+            if tie_correction and n_tied > 1:
+                tie_stat[ci] += (n_tied**2 - 1)*n_tied
             # compute average using gaussian summation
             rank = n_zero + i + 1 + (n_tied - 1)/2 - zero_rank
             for _ in range(n_tied):
@@ -92,7 +95,8 @@ def _rank_cells(
 def wilcoxon_rank_sum_test(
     ann:AnnData,
     groupby:str,
-    as_dataframe:bool=False
+    as_dataframe:bool=False,
+    tie_correction:bool=True
 ):
     '''
     Notes
@@ -102,7 +106,7 @@ def wilcoxon_rank_sum_test(
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()
-    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers["counts"], ann.obs[groupby])
+    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers["counts"], ann.obs[groupby], tie_correction=tie_correction)
     rank_sums = dict()
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
         rank_sums.clear()
