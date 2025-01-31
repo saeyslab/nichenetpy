@@ -127,8 +127,11 @@ def wilcoxon_rank_sum_test(
             u_mean = n_group * n_other / 2
             u_std = sqrt(u_mean / 6 * (n_total + 1 - tie_stat / (n_total*(n_total - 1))))
             continuity_correction = 0.5 if u > u_mean else 0
-            z_score = (u - continuity_correction - u_mean) / u_std
-            pval = 1 if u_std == 0 else erfc(z_score / sqrt(2))
+            if u_std == 0:
+                pval = 1
+            else:
+                z_score = (u - continuity_correction - u_mean) / u_std
+                pval = erfc(z_score / sqrt(2))
             if group in pvals:
                 pvals[group].append(pval)
             else:
