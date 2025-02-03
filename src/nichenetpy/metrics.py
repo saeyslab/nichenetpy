@@ -140,7 +140,8 @@ def group_metrics(
     groupby:str,
     layer:str="data",
     lfc_pseudocount:int=1,
-    tie_correction=True
+    tie_correction=True,
+    min_pct=0.05
 ):
     if layer == "data":
         lfc_denormalize = np.expm1
@@ -174,7 +175,8 @@ def group_metrics(
         groupby,
         as_dataframe=True,
         tie_correction=tie_correction,
-        layer=layer
+        layer=layer,
+        genes=pct[pct["pct"] >= min_pct]["gene"]
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     pvals.reset_index(inplace=True)

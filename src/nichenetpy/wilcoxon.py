@@ -1,5 +1,6 @@
-from scipy.sparse import csc_matrix
+from nichenetpy.utils import subset_matrix
 
+from scipy.sparse import csc_matrix
 from anndata import AnnData
 from itertools import chain
 from collections.abc import Iterable
@@ -97,7 +98,8 @@ def wilcoxon_rank_sum_test(
     groupby:str,
     as_dataframe:bool=False,
     tie_correction:bool=True,
-    layer="data"
+    layer="data",
+    genes=None
 ):
     '''
     Notes
@@ -107,7 +109,17 @@ def wilcoxon_rank_sum_test(
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()
-    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers[layer], ann.obs[groupby], tie_correction=tie_correction)
+    mat = ann.layers[layer]
+    if genes is None:
+        genes = ann.var_names
+    else:
+        gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
+        mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])
+    ranks, sorted_groups, tie_stats = _rank_cells(
+        mat,
+        ann.obs[groupby],
+        tie_correction=tie_correction
+    )
     rank_sums = dict()
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
         rank_sums.clear()
@@ -139,5 +151,5 @@ def wilcoxon_rank_sum_test(
                 pvals[group] = [pval]
     if as_dataframe:
         pvals = pd.DataFrame(pvals)
-        pvals.index = ann.var_names
+        pvals.index = genes
     return pvals
