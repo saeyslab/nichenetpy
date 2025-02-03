@@ -139,7 +139,8 @@ def group_metrics(
     ann:AnnData,
     groupby:str,
     layer:str="data",
-    lfc_pseudocount:int=1
+    lfc_pseudocount:int=1,
+    tie_correction=True
 ):
     if layer == "data":
         lfc_denormalize = np.expm1
@@ -169,7 +170,7 @@ def group_metrics(
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
     # TODO: layer dependent
-    pvals = wilcoxon_rank_sum_test(ann, groupby, as_dataframe=True)
+    pvals = wilcoxon_rank_sum_test(ann, groupby, as_dataframe=True, tie_correction=tie_correction)
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
