@@ -96,7 +96,8 @@ def wilcoxon_rank_sum_test(
     ann:AnnData,
     groupby:str,
     as_dataframe:bool=False,
-    tie_correction:bool=True
+    tie_correction:bool=True,
+    layer="data"
 ):
     '''
     Notes
@@ -106,7 +107,7 @@ def wilcoxon_rank_sum_test(
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()
-    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers["counts"], ann.obs[groupby], tie_correction=tie_correction)
+    ranks, sorted_groups, tie_stats = _rank_cells(ann.layers[layer], ann.obs[groupby], tie_correction=tie_correction)
     rank_sums = dict()
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
         rank_sums.clear()

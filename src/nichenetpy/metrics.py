@@ -169,8 +169,13 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
-    # TODO: layer dependent
-    pvals = wilcoxon_rank_sum_test(ann, groupby, as_dataframe=True, tie_correction=tie_correction)
+    pvals = wilcoxon_rank_sum_test(
+        ann,
+        groupby,
+        as_dataframe=True,
+        tie_correction=tie_correction,
+        layer=layer
+    )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
