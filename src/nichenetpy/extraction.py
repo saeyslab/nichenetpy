@@ -1,10 +1,9 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
-from nichenetpy.metrics import gene_expression_pct
+from nichenetpy.metrics import gene_expression_pct, group_metrics
 
 from anndata import AnnData
 
-import scanpy as sc
 import numpy as np
 import pandas as pd
 
@@ -194,17 +193,14 @@ def get_lfc_celltype(
         ann_sender.var_names = features
     else:
         ann_sender.var_names = ann.var_names
-    sc.tl.rank_genes_groups(
+    group_metrics(
         ann_sender,
         groupby=condition_col,
-        method="wilcoxon",
-        layer=layer,
-        groups=[condition_oi],
-        reference=condition_ref
+        layer=layer
     )
     return (
-        [e[0] for e in ann_sender.uns["rank_genes_groups"]["names"]],
-        [e[0] for e in ann_sender.uns["rank_genes_groups"]["logfoldchanges"]]
+        [e[0] for e in ann_sender.uns["group_metrics"]["gene"]],
+        [e[0] for e in ann_sender.uns["group_metrics"]["lfc"]]
     )
 
 def average_expression(

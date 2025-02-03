@@ -2,10 +2,10 @@ from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
 from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.utils import ligand_activities_df, df_grouped_apply
+from nichenetpy.metrics import group_metrics
 
 from anndata import AnnData
 
-import scanpy as sc
 import pandas as pd
 import numpy as np
 
@@ -25,14 +25,12 @@ def calculate_de(
         ann.var_names = features
     else:
         ann.var_names = ann.var[gene_field]
-    sc.tl.rank_genes_groups(
+    group_metrics(
         ann,
         groupby=celltype_col,
-        method="wilcoxon",
-        layer=layer,
-        pts=True
+        layer=layer
     )
-    res = ann.uns["rank_genes_groups"]
+    res = ann.uns["group_metrics"]
     output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:
         temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)

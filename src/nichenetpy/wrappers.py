@@ -22,12 +22,12 @@ from nichenetpy.prioritization import (
     process_table_to_ic,
     generate_prioritization_table
 )
+from nichenetpy.metrics import group_metrics
 
 from itertools import cycle, chain
 from collections.abc import Iterable
 from anndata import AnnData
 
-import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,11 +36,10 @@ import pandas as pd
 def get_geneset_oi(
     ann:AnnData,
     receiver:str,
-    condition_oi:str,
-    condition_ref:str,
+    condition_oi:str,#TODO
+    condition_ref:str,#TODO
     layer:str="data",
     condition_col:str="aggregate",
-    method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25
 ) -> set[str]:
@@ -61,8 +60,6 @@ def get_geneset_oi(
         the name of the layer which contains the data matrix
     condition_col : str
         the name of the column in obs which contains the conditions
-    method : str
-        the method to use in rank_genes_groups
     max_pval_adj : float
         the upper bound for pval_adj
     min_log2FC : float
@@ -74,23 +71,19 @@ def get_geneset_oi(
         the geneset of interest
     '''
     ann_receiver = subset_ann(ann, receiver, layers=[layer])
-    ann_receiver.var_names = ann.var_names
-    sc.tl.rank_genes_groups(
+    group_metrics(
         ann_receiver,
         groupby=condition_col,
-        method=method,
-        layer=layer,
-        groups=[condition_oi], 
-        reference=condition_ref
+        layer=layer
     )
-    return {
-        gene for gene, pval_adj, log2FC in
-        zip(
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["names"]],
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["pvals_adj"]],
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["logfoldchanges"]]
-        ) if pval_adj <= max_pval_adj and abs(log2FC) >= min_log2FC
-    }
+    DE_table = ann_receiver.uns["group_metrics"]
+    return set(
+        DE_table[
+            (DE_table[condition_col] == "LCMV") &
+            (DE_table["pval_adj"] <= max_pval_adj) &
+            (abs(DE_table["lfc"]) >= min_log2FC)
+        ]["gene"]
+    )
 
 def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[str, str, float]]:
     '''
@@ -124,7 +117,6 @@ def run_nichenet(
     layer:str="data",
     condition_col:str="aggregate",
     celltype_col:str="celltype",
-    rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
     ligands_top_n:int=30,
@@ -162,8 +154,6 @@ def run_nichenet(
         the name of the column in obs which contains the conditions
     celltype_col : str
         the name of the column in obs which contains the celltypes
-    rank_method : str
-        the method to use in rank_genes_groups
     max_pval_adj : float
         the upper bound for pval_adj
     min_log2FC : float
@@ -230,7 +220,6 @@ def run_nichenet(
         condition_ref,
         layer,
         condition_col,
-        rank_method,
         max_pval_adj,
         min_log2FC
     )
@@ -549,7 +538,7 @@ def generate_info_tables(
     lr_network_filtered:LigandReceptorNetwork,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,
+    condition_ref:str,#TODO
     case_control:bool=False
 ):
     output = {
@@ -578,15 +567,11 @@ def generate_info_tables(
         )
     }
     if case_control:
-        sc.tl.rank_genes_groups(
+        group_metrics(
             ann,
-            groupby=condition_col,
-            groups=[condition_oi],
-            reference=condition_ref,
-            method="wilcoxon",
-            layer="data"
+            groupby=condition_col
         )
-        res = ann.uns["rank_genes_groups"]
+        res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(
             pd.DataFrame({
                 "gene": [e[0] for e in res["names"]],
