@@ -113,8 +113,28 @@ def log_fold_change(
     mat1:np.ndarray|csc_matrix|csr_matrix,
     mat2:np.ndarray|csc_matrix|csr_matrix,
     denormalize:Callable=np.expm1,
-    pseudocount:int=1
-):
+    pseudocount:float=1
+) -> np.ndarray:
+    '''
+    Calculates the log fold changes the way seurat does it.
+
+    Parameters
+    ----------
+    mat1 : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        the first matrix
+    mat2 : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        the second matrix
+    denormalize : Callable
+        a denormalization function to apply prior to the calculation
+    pseudocount : float
+        the pseudocount, to ensure that the log of 0 is never taken
+        the pseudocount is divided by the amount of cells
+
+    Returns
+    -------
+    numpy.ndarray
+        the log fold changes
+    '''
     return (
         _sub_log_fold_change(mat1, denormalize, pseudocount) - 
         _sub_log_fold_change(mat2, denormalize, pseudocount)
@@ -123,6 +143,19 @@ def log_fold_change(
 def gene_expression_pct(
     mat=np.ndarray|csc_matrix|csr_matrix
 ) -> list[float]:
+    '''
+    For each gene, calculate the percentage of cells that have an expression value greater than 0. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        (#cells X #genes) matrix containing the expression values
+
+    Returns
+    -------
+    list
+        for each gene the percentage of cells that have an expression value greater than 0
+    '''
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
     elif type(mat) is np.ndarray:
@@ -139,10 +172,37 @@ def group_metrics(
     ann:AnnData,
     groupby:str,
     layer:str="data",
-    lfc_pseudocount:int=1,
+    lfc_pseudocount:float=1,
     tie_correction:bool=True,
+    min_abs_lfc:float=0,
     min_pct:float=0
 ):
+    '''
+    For each gene, calculate the percentage of cells that have an expression value greater than 0,
+    the log fold changes and the p-values / adjusted p-values. 
+    The result is a pandas dataframe stored in ann.uns["group_metrics"]
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    groupby : str
+        the column in ann.obs to group by
+    layer : str
+        the layer in the AnnData object to use
+    lfc_pseudocount : float
+        the pseudocount to use in the computation of the log fold changes
+    tie_correction : bool
+        if True, tie correction is performed through averaging
+    min_lfc : float
+        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+    min_pct : float
+        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    
+    Notes
+    -----
+    The result is the same as seurat's FindMarkers function.
+    '''
     if layer == "data":
         lfc_denormalize = np.expm1
     else:
@@ -176,7 +236,7 @@ def group_metrics(
         as_dataframe=True,
         tie_correction=tie_correction,
         layer=layer,
-        genes=pct[pct["pct"] >= min_pct]["gene"]
+        genes=output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     pvals.reset_index(inplace=True)

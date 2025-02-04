@@ -41,7 +41,7 @@ def get_geneset_oi(
     layer:str="data",
     condition_col:str="aggregate",
     max_pval_adj:float=0.05,
-    min_log2FC:float=0.25,
+    min_abs_lfc:float=0.25,
     min_pct:float=0.05
 ) -> set[str]:
     '''
@@ -63,8 +63,8 @@ def get_geneset_oi(
         the name of the column in obs which contains the conditions
     max_pval_adj : float
         the upper bound for pval_adj
-    min_log2FC : float
-        the lower bound for log2FC,
+    min_lfc : float
+        the lower bound for lfc,
     min_pct : float
         the lower bound for the pct
     
@@ -78,14 +78,14 @@ def get_geneset_oi(
         ann_receiver,
         groupby=condition_col,
         layer=layer,
-        min_pct=min_pct
+        min_pct=min_pct,
+        min_abs_lfc=min_abs_lfc
     )
     DE_table = ann_receiver.uns["group_metrics"]
     return set(
         DE_table[
             (DE_table[condition_col] == "LCMV") &
-            (DE_table["pval_adj"] <= max_pval_adj) &
-            (abs(DE_table["lfc"]) >= min_log2FC)
+            (DE_table["pval_adj"] <= max_pval_adj)
         ]["gene"]
     )
 
@@ -122,7 +122,7 @@ def run_nichenet(
     condition_col:str="aggregate",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
-    min_log2FC:float=0.25,
+    min_abs_lfc:float=0.25,
     min_pct:float=0.05,
     ligands_top_n:int=30,
     targets_top_n:int=100,
@@ -161,8 +161,8 @@ def run_nichenet(
         the name of the column in obs which contains the celltypes
     max_pval_adj : float
         the upper bound for pval_adj
-    min_log2FC : float
-        the lower bound for log2FC
+    min_abs_lfc : float
+        the lower bound for lfc
     min_pct : float
         the lower bound for the pct
     ligands_top_n : int
@@ -228,13 +228,13 @@ def run_nichenet(
     )
     geneset = get_geneset_oi(
         ann,
-        receiver,
-        condition_oi,
-        condition_ref,
-        layer,
-        condition_col,
-        max_pval_adj,
-        min_log2FC,
+        receiver=receiver,
+        condition_oi=condition_oi,
+        condition_ref=condition_ref,
+        layer=layer,
+        condition_col=condition_col,
+        max_pval_adj=max_pval_adj,
+        min_abs_lfc=min_abs_lfc,
         min_pct=min_pct
     )
     geneset.intersection_update(predictor.get_genes())
