@@ -155,7 +155,7 @@ def get_lfc_celltype(
     celltype:str,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,
+    condition_ref:str,#TODO
     layer:str,
     celltype_col:str="celltype",
     features:list[str]=None
@@ -199,9 +199,14 @@ def get_lfc_celltype(
         groupby=condition_col,
         layer=layer
     )
+    res = ann_sender.uns["group_metrics"]
+    pd.options.mode.chained_assignment = None # false positive warnings removal
+    res = res[res[condition_col] == condition_oi]
+    res.drop(columns={condition_col}, inplace=True)
+    res.drop_duplicates(inplace=True)
     return (
-        list(ann_sender.uns["group_metrics"]["gene"]),
-        list(ann_sender.uns["group_metrics"]["lfc"])
+        list(res["gene"]),
+        list(res["lfc"])
     )
 
 def average_expression(

@@ -41,7 +41,8 @@ def get_geneset_oi(
     layer:str="data",
     condition_col:str="aggregate",
     max_pval_adj:float=0.05,
-    min_log2FC:float=0.25
+    min_log2FC:float=0.25,
+    min_pct:float=0.05
 ) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
@@ -63,7 +64,9 @@ def get_geneset_oi(
     max_pval_adj : float
         the upper bound for pval_adj
     min_log2FC : float
-        the lower bound for log2FC
+        the lower bound for log2FC,
+    min_pct : float
+        the lower bound for the pct
     
     Returns
     -------
@@ -74,7 +77,8 @@ def get_geneset_oi(
     group_metrics(
         ann_receiver,
         groupby=condition_col,
-        layer=layer
+        layer=layer,
+        min_pct=min_pct
     )
     DE_table = ann_receiver.uns["group_metrics"]
     return set(
@@ -119,6 +123,7 @@ def run_nichenet(
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
     min_log2FC:float=0.25,
+    min_pct:float=0.05,
     ligands_top_n:int=30,
     targets_top_n:int=100,
     lr_sig:WeightedNetwork=None,
@@ -158,6 +163,8 @@ def run_nichenet(
         the upper bound for pval_adj
     min_log2FC : float
         the lower bound for log2FC
+    min_pct : float
+        the lower bound for the pct
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -171,6 +178,8 @@ def run_nichenet(
         if true, the log fold changes are computed and returned
     get_prioritization_table : bool
         if true, the prioritization table is computed and returned
+    case_control : bool
+        the case_control argument for generate_info_tables
     
     Returns
     -------
@@ -186,6 +195,10 @@ def run_nichenet(
                 the weighted ligand-receptor links in the sender-agnostic approach
             expressed_receptors : set of str
                 the expressed receptors
+            expressed_genes_receiver : set of str
+                expressed genes in the receiver
+            prioritization_table : pandas.DataFrame
+                Data frame of prioritized sender-ligand-receiver-receptor interactions
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -206,7 +219,7 @@ def run_nichenet(
     expressed_genes_receiver = set(
         get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
     )
-    output["expressed_genes_receiver"] = expressed_genes_receiver #TODO: add to docs
+    output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
@@ -221,7 +234,8 @@ def run_nichenet(
         layer,
         condition_col,
         max_pval_adj,
-        min_log2FC
+        min_log2FC,
+        min_pct=min_pct
     )
     geneset.intersection_update(predictor.get_genes())
     ligand_activities = predictor.predict_ligand_activities(

@@ -140,8 +140,8 @@ def group_metrics(
     groupby:str,
     layer:str="data",
     lfc_pseudocount:int=1,
-    tie_correction=True,
-    min_pct=0.05
+    tie_correction:bool=True,
+    min_pct:float=0
 ):
     if layer == "data":
         lfc_denormalize = np.expm1
