@@ -183,4 +183,3 @@ def group_metrics(
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
     ann.uns["group_metrics"] = output
-    print(output)

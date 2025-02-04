@@ -3,6 +3,7 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.metrics import gene_expression_pct, group_metrics
 
 from anndata import AnnData
+from anndata.typing import Index
 
 import numpy as np
 import pandas as pd
@@ -145,7 +146,8 @@ def _subset_layer(
         layers={layer: mat},
         shape=(ann.obs.shape[0], len(features))
     )
-    ann.var_names = features
+    ann.var_names = ann.var_names.reindex(features)[0]
+    ann.var_names.name = "gene"
     return ann
 
 def get_lfc_celltype(
@@ -188,19 +190,18 @@ def get_lfc_celltype(
         list of log fold changes
     '''
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
-    if features is not None:
-        ann_sender = _subset_layer(ann_sender, layer, features)
-        ann_sender.var_names = features
-    else:
+    if features is None:
         ann_sender.var_names = ann.var_names
+    else:
+        ann_sender = _subset_layer(ann_sender, layer, features)
     group_metrics(
         ann_sender,
         groupby=condition_col,
         layer=layer
     )
     return (
-        [e[0] for e in ann_sender.uns["group_metrics"]["gene"]],
-        [e[0] for e in ann_sender.uns["group_metrics"]["lfc"]]
+        list(ann_sender.uns["group_metrics"]["gene"]),
+        list(ann_sender.uns["group_metrics"]["lfc"])
     )
 
 def average_expression(
