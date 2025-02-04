@@ -2,10 +2,10 @@ from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
 from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.utils import ligand_activities_df, df_grouped_apply
+from nichenetpy.metrics import group_metrics
 
 from anndata import AnnData
 
-import scanpy as sc
 import pandas as pd
 import numpy as np
 
@@ -16,24 +16,42 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:list[str]=None,
-    gene_field="gene"
+    features:list[str]=None
 ) -> pd.DataFrame:
+    '''
+    Calculate differential expression of one cell type versus all other cell types using group_metrics.
+    If condition_oi is provided, only consider cells from that condition.
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    celltype_col : str
+        the column in ann.obs which contains the celltypes
+    condition_oi : str
+        The condition of interest
+    condition_col : str
+        the column in ann.obs which contains the conditions
+    layer : str
+        the layer of the AnnData object to use
+    features : list of str
+        the genes to consider
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the differential expression
+    '''
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     if features is not None:
         ann = _subset_layer(ann, layer, features)
         ann.var_names = features
-    else:
-        ann.var_names = ann.var[gene_field]
-    sc.pp.log1p(ann, layer=layer)
-    sc.tl.rank_genes_groups(
+    group_metrics(
         ann,
         groupby=celltype_col,
-        method="wilcoxon",
-        layer=layer,
-        pts=True
+        layer=layer
     )
-    res = ann.uns["rank_genes_groups"]
+    res = ann.uns["group_metrics"]
     output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:
         temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
@@ -52,6 +70,28 @@ def get_avg_exp(
     condition_col:str=None,
     layer:str="counts"
 ) -> pd.DataFrame:
+    '''
+    Calculate the average gene expression per cell type.
+    If condition_oi is provided, only consider cells from that condition.
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    celltype_col : str
+        the column in ann.obs which contains the celltypes
+    condition_oi : str
+        The condition of interest
+    condition_col : str
+        the column in ann.obs which contains the conditions
+    layer : str
+        the layer of the AnnData object to use
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the average gene expression per cell type
+    '''
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     celltypes = set(ann.obs[celltype_col])
@@ -78,6 +118,29 @@ def process_table_to_ic(
     senders_oi:list[str]=None,
     receivers_oi:list[str]=None
 ):
+    '''
+    First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
+    Then, combine information for senders and receivers by linking ligands to receptors based on the prior knowledge ligand-receptor network.
+
+    Parameters
+    ----------
+    tab : pandas.DataFrame
+        the table to process
+    table_type : str
+        "expression", "celltype_DE", or "group_DE"
+        indicates whether the table contains expression, celltype markers, or condition-specific information
+    lr_network : LigandReceptorNetwork
+        prior knowledge Ligand-Receptor network
+    senders_oi : list of str
+        the sender celltypes of interest
+    receivers_oi : list of str
+        the receiver celltypes of interest
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the processed table
+    '''
     if table_type == "expression":
         sender_table = tab.rename(columns={
             "celltype": "sender",
@@ -233,6 +296,38 @@ def generate_prioritization_table(
     lr_condition_de:pd.DataFrame=None,
     prioritizing_weights:dict[str, float]=None
 ):
+    '''
+    User can choose the importance attached to each of the following prioritization criteria:
+        differential expression of ligand and receptor,
+        cell-type specificity of expression of ligand and receptor,
+        NicheNet ligand activity
+
+    Parameters
+    ----------
+    sender_receiver_info : pandas.DataFrame
+        processed output of get_avg_exp
+    sender_receiver_de : pandas.DataFrame
+        processed output of calculate_de
+    ligand_activities : pandas.DataFrame
+        output of predict_ligand_activities
+    lr_condition_de : pandas.DataFrame
+        processed output of group_metrics
+    prioritizing_weights : dict
+        a dictionary indicating the relative weights of each prioritization criterion
+        If provided, the dictionary must contain the following names:
+            "de_ligand",
+            "de_receptor",
+            "activity_scaled",
+            "exprs_ligand",
+            "exprs_receptor",
+            "ligand_condition_specificity",
+            "receptor_condition_specificity"
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the processed table
+    '''
     pd.options.mode.chained_assignment = None # false positive warnings removal
     if type(ligand_activities) is dict or type(ligand_activities) is list:
         ligand_activities = ligand_activities_df(ligand_activities)

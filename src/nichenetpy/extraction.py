@@ -1,10 +1,10 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
-from nichenetpy.metrics import gene_expression_pct
+from nichenetpy.metrics import gene_expression_pct, group_metrics
 
 from anndata import AnnData
+from anndata.typing import Index
 
-import scanpy as sc
 import numpy as np
 import pandas as pd
 
@@ -146,7 +146,8 @@ def _subset_layer(
         layers={layer: mat},
         shape=(ann.obs.shape[0], len(features))
     )
-    ann.var_names = features
+    ann.var_names = ann.var_names.reindex(features)[0]
+    ann.var_names.name = "gene"
     return ann
 
 def get_lfc_celltype(
@@ -154,7 +155,7 @@ def get_lfc_celltype(
     celltype:str,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,
+    condition_ref:str,#TODO
     layer:str,
     celltype_col:str="celltype",
     features:list[str]=None
@@ -189,23 +190,23 @@ def get_lfc_celltype(
         list of log fold changes
     '''
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
-    if features is not None:
-        ann_sender = _subset_layer(ann_sender, layer, features)
-        ann_sender.var_names = features
-    else:
+    if features is None:
         ann_sender.var_names = ann.var_names
-    sc.pp.log1p(ann_sender, layer=layer)
-    sc.tl.rank_genes_groups(
+    else:
+        ann_sender = _subset_layer(ann_sender, layer, features)
+    group_metrics(
         ann_sender,
         groupby=condition_col,
-        method="wilcoxon",
-        layer=layer,
-        groups=[condition_oi],
-        reference=condition_ref
+        layer=layer
     )
+    res = ann_sender.uns["group_metrics"]
+    pd.options.mode.chained_assignment = None # false positive warnings removal
+    res = res[res[condition_col] == condition_oi]
+    res.drop(columns={condition_col}, inplace=True)
+    res.drop_duplicates(inplace=True)
     return (
-        [e[0] for e in ann_sender.uns["rank_genes_groups"]["names"]],
-        [e[0] for e in ann_sender.uns["rank_genes_groups"]["logfoldchanges"]]
+        list(res["gene"]),
+        list(res["lfc"])
     )
 
 def average_expression(

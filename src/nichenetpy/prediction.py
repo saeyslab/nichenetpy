@@ -40,6 +40,28 @@ class LigandActivityPredictor:
         self.col_names = col_names
         self.ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
         self.gene2index = dict(zip(self.row_names, range(len(self.row_names))))
+    
+    def get_ligands(self) -> set[str]:
+        '''
+        Get the ligands from the ligand-target matrix. 
+
+        Returns
+        -------
+        set
+            all ligands in the ligand-target matrix
+        '''
+        return set(self.ligand2index.keys())
+    
+    def get_genes(self) -> set[str]:
+        '''
+        Get the genes from the ligand-target matrix. 
+
+        Returns
+        -------
+        set
+            all geness in the ligand-target matrix
+        '''
+        return set(self.gene2index.keys())
 
     def predict_ligand_activities(
         self,
