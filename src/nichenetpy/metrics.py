@@ -1,4 +1,5 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
 
 from anndata import AnnData
 from collections.abc import Callable
@@ -106,14 +107,34 @@ def _sub_log_fold_change(
 ):
     if denormalize is not None:
         data = denormalize(data)
-    return np.log2((data.sum(axis=0) + pseudocount) / data.shape[1])
+    return np.log2((data.sum(axis=0) + pseudocount) / data.shape[0])
 
 def log_fold_change(
     mat1:np.ndarray|csc_matrix|csr_matrix,
     mat2:np.ndarray|csc_matrix|csr_matrix,
     denormalize:Callable=np.expm1,
-    pseudocount:int=1
-):
+    pseudocount:float=1
+) -> np.ndarray:
+    '''
+    Calculates the log fold changes the way seurat does it.
+
+    Parameters
+    ----------
+    mat1 : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        the first matrix
+    mat2 : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        the second matrix
+    denormalize : Callable
+        a denormalization function to apply prior to the calculation
+    pseudocount : float
+        the pseudocount, to ensure that the log of 0 is never taken
+        the pseudocount is divided by the amount of cells
+
+    Returns
+    -------
+    numpy.ndarray
+        the log fold changes
+    '''
     return (
         _sub_log_fold_change(mat1, denormalize, pseudocount) - 
         _sub_log_fold_change(mat2, denormalize, pseudocount)
@@ -122,6 +143,19 @@ def log_fold_change(
 def gene_expression_pct(
     mat=np.ndarray|csc_matrix|csr_matrix
 ) -> list[float]:
+    '''
+    For each gene, calculate the percentage of cells that have an expression value greater than 0. 
+
+    Parameters
+    ----------
+    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+        (#cells X #genes) matrix containing the expression values
+
+    Returns
+    -------
+    list
+        for each gene the percentage of cells that have an expression value greater than 0
+    '''
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
     elif type(mat) is np.ndarray:
@@ -137,22 +171,75 @@ def gene_expression_pct(
 def group_metrics(
     ann:AnnData,
     groupby:str,
-    lfc_denormalize:Callable=np.expm1,
-    lfc_pseudocount:int=1
+    layer:str="data",
+    lfc_pseudocount:float=1,
+    tie_correction:bool=True,
+    min_abs_lfc:float=0,
+    min_pct:float=0
 ):
-    mat = ann.layers["data"]
+    '''
+    For each gene, calculate the percentage of cells that have an expression value greater than 0,
+    the log fold changes and the p-values / adjusted p-values. 
+    The result is a pandas dataframe stored in ann.uns["group_metrics"]
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    groupby : str
+        the column in ann.obs to group by
+    layer : str
+        the layer in the AnnData object to use
+    lfc_pseudocount : float
+        the pseudocount to use in the computation of the log fold changes
+    tie_correction : bool
+        if True, tie correction is performed through averaging
+    min_lfc : float
+        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+    min_pct : float
+        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    
+    Notes
+    -----
+    The result is the same as seurat's FindMarkers function.
+    '''
+    if layer == "data":
+        lfc_denormalize = np.expm1
+    else:
+        lfc_denormalize = None
+    mat = ann.layers[layer]
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
+    pct = []
     for group in groups:
         cells_oi = ann.obs[ann.obs[groupby] == group].index
         rest = ann.obs[ann.obs[groupby] != group].index
-        lfc.append(
-            log_fold_change(
-                subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),
-                subset_matrix(mat, rows=[row2index[cell] for cell in rest]),
-                lfc_denormalize,
-                lfc_pseudocount
-            )
-        )
-    return pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var["gene"], columns=groups)
+        mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
+        mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in rest])
+        lfc.append(log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount))
+        pct.append(gene_expression_pct(mat1))
+    output = pd.melt(
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=groups),
+        var_name=groupby,
+        value_name="lfc",
+        ignore_index=False
+    )
+    output.reset_index(inplace=True)
+    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var_names), value_name="pct", ignore_index=False)
+    pct.index.name = groupby
+    pct.reset_index(inplace=True)
+    output = output.merge(pct, on=["gene", groupby], how="inner")
+    pvals = wilcoxon_rank_sum_test(
+        ann,
+        groupby,
+        as_dataframe=True,
+        tie_correction=tie_correction,
+        layer=layer,
+        genes=output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]
+    )
+    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
+    pvals.reset_index(inplace=True)
+    output = output.merge(pvals, on=["gene", groupby], how="inner")
+    output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
+    ann.uns["group_metrics"] = output

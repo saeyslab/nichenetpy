@@ -22,12 +22,12 @@ from nichenetpy.prioritization import (
     process_table_to_ic,
     generate_prioritization_table
 )
+from nichenetpy.metrics import group_metrics
 
 from itertools import cycle, chain
 from collections.abc import Iterable
 from anndata import AnnData
 
-import scanpy as sc
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -36,14 +36,14 @@ import pandas as pd
 def get_geneset_oi(
     ann:AnnData,
     receiver:str,
-    condition_oi:str,
-    condition_ref:str,
+    condition_oi:str,#TODO
+    condition_ref:str,#TODO
     layer:str="data",
     condition_col:str="aggregate",
-    method:str="wilcoxon",
     max_pval_adj:float=0.05,
-    min_log2FC:float=0.25
-) -> list[str]:
+    min_abs_lfc:float=0.25,
+    min_pct:float=0.05
+) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
 
@@ -61,12 +61,12 @@ def get_geneset_oi(
         the name of the layer which contains the data matrix
     condition_col : str
         the name of the column in obs which contains the conditions
-    method : str
-        the method to use in rank_genes_groups
     max_pval_adj : float
         the upper bound for pval_adj
-    min_log2FC : float
-        the lower bound for log2FC
+    min_lfc : float
+        the lower bound for lfc,
+    min_pct : float
+        the lower bound for the pct
     
     Returns
     -------
@@ -74,24 +74,20 @@ def get_geneset_oi(
         the geneset of interest
     '''
     ann_receiver = subset_ann(ann, receiver, layers=[layer])
-    ann_receiver.var_names = ann.var_names
-    sc.pp.log1p(ann_receiver, layer=layer)
-    sc.tl.rank_genes_groups(
+    group_metrics(
         ann_receiver,
         groupby=condition_col,
-        method=method,
         layer=layer,
-        groups=[condition_oi], 
-        reference=condition_ref
+        min_pct=min_pct,
+        min_abs_lfc=min_abs_lfc
     )
-    return [
-        gene for gene, pval_adj, log2FC in
-        zip(
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["names"]],
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["pvals_adj"]],
-            [e[0] for e in ann_receiver.uns["rank_genes_groups"]["logfoldchanges"]]
-        ) if pval_adj <= max_pval_adj and abs(log2FC) >= min_log2FC
-    ]
+    DE_table = ann_receiver.uns["group_metrics"]
+    return set(
+        DE_table[
+            (DE_table[condition_col] == "LCMV") &
+            (DE_table["pval_adj"] <= max_pval_adj)
+        ]["gene"]
+    )
 
 def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[str, str, float]]:
     '''
@@ -125,9 +121,9 @@ def run_nichenet(
     layer:str="data",
     condition_col:str="aggregate",
     celltype_col:str="celltype",
-    rank_method:str="wilcoxon",
     max_pval_adj:float=0.05,
-    min_log2FC:float=0.25,
+    min_abs_lfc:float=0.25,
+    min_pct:float=0.05,
     ligands_top_n:int=30,
     targets_top_n:int=100,
     lr_sig:WeightedNetwork=None,
@@ -163,12 +159,12 @@ def run_nichenet(
         the name of the column in obs which contains the conditions
     celltype_col : str
         the name of the column in obs which contains the celltypes
-    rank_method : str
-        the method to use in rank_genes_groups
     max_pval_adj : float
         the upper bound for pval_adj
-    min_log2FC : float
-        the lower bound for log2FC
+    min_abs_lfc : float
+        the lower bound for lfc
+    min_pct : float
+        the lower bound for the pct
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -182,6 +178,8 @@ def run_nichenet(
         if true, the log fold changes are computed and returned
     get_prioritization_table : bool
         if true, the prioritization table is computed and returned
+    case_control : bool
+        the case_control argument for generate_info_tables
     
     Returns
     -------
@@ -197,6 +195,10 @@ def run_nichenet(
                 the weighted ligand-receptor links in the sender-agnostic approach
             expressed_receptors : set of str
                 the expressed receptors
+            expressed_genes_receiver : set of str
+                expressed genes in the receiver
+            prioritization_table : pandas.DataFrame
+                Data frame of prioritized sender-ligand-receiver-receptor interactions
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -217,7 +219,7 @@ def run_nichenet(
     expressed_genes_receiver = set(
         get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
     )
-    output["expressed_genes_receiver"] = expressed_genes_receiver #TODO: add to docs
+    output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
@@ -226,15 +228,16 @@ def run_nichenet(
     )
     geneset = get_geneset_oi(
         ann,
-        receiver,
-        condition_oi,
-        condition_ref,
-        layer,
-        condition_col,
-        rank_method,
-        max_pval_adj,
-        min_log2FC
+        receiver=receiver,
+        condition_oi=condition_oi,
+        condition_ref=condition_ref,
+        layer=layer,
+        condition_col=condition_col,
+        max_pval_adj=max_pval_adj,
+        min_abs_lfc=min_abs_lfc,
+        min_pct=min_pct
     )
+    geneset.intersection_update(predictor.get_genes())
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
         background_expressed_genes=expressed_genes_receiver,
@@ -549,9 +552,41 @@ def generate_info_tables(
     lr_network_filtered:LigandReceptorNetwork,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,
+    condition_ref:str,#TODO
     case_control:bool=False
-):
+) -> dict[str, pd.DataFrame]:
+    '''
+    Calculate differential expression, average expression, and condition specificity of ligands and receptors. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    celltype_col : str
+        the column in ann.obs which contains the celltypes
+    senders_oi : list of str
+        the sender celltypes of interest
+    receivers_oi : list of str
+        the receiver celltypes of interest
+    lr_network_filtered : LigandReceptorNetwork
+        the filtered ligand-receptor network
+    condition_col : str
+        the column in ann.obs which contains the conditions
+    condition_oi : str
+        the condition of interest
+    condition_ref : str
+        the reference condition
+    case_control : bool
+        if True, calculate condition specificity, else only calculate cell type specificity.
+    
+    Returns
+    -------
+    dict
+        dictionary containing the three dataframes:
+            "sender_receiver_de",
+            "sender_receiver_info",
+            "group_DE"
+    '''
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
@@ -578,16 +613,11 @@ def generate_info_tables(
         )
     }
     if case_control:
-        sc.pp.log1p(ann, layer="data")
-        sc.tl.rank_genes_groups(
+        group_metrics(
             ann,
-            groupby=condition_col,
-            groups=[condition_oi],
-            reference=condition_ref,
-            method="wilcoxon",
-            layer="data"
+            groupby=condition_col
         )
-        res = ann.uns["rank_genes_groups"]
+        res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(
             pd.DataFrame({
                 "gene": [e[0] for e in res["names"]],
