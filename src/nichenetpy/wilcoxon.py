@@ -98,10 +98,32 @@ def wilcoxon_rank_sum_test(
     groupby:str,
     as_dataframe:bool=False,
     tie_correction:bool=True,
-    layer="data",
-    genes=None
+    layer:str="data",
+    genes:list[str]=None
 ):
     '''
+    perform the wilcoxon rank sum test and return the p-values
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    groupby : str
+        the column to group by
+    as_dataframe : bool
+        if True, a pandas DataFrame is returned
+    tie_correction : bool
+        if True, tie correction is performed
+    layer : str
+        the layer of the AnnData object to use
+    genes : list of str
+        if provided, only consider these genes
+    
+    Returns
+    -------
+    pandas.DataFrame or dict
+        the p-value for each gene
+    
     Notes
     -----
     implementation based on https://github.com/bnprks/BPCells
@@ -150,6 +172,5 @@ def wilcoxon_rank_sum_test(
             else:
                 pvals[group] = [pval]
     if as_dataframe:
-        pvals = pd.DataFrame(pvals)
-        pvals.index = genes
+        pvals = pd.DataFrame(pvals, index=genes)
     return pvals

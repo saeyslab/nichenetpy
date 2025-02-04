@@ -554,7 +554,39 @@ def generate_info_tables(
     condition_oi:str,
     condition_ref:str,#TODO
     case_control:bool=False
-):
+) -> dict[str, pd.DataFrame]:
+    '''
+    Calculate differential expression, average expression, and condition specificity of ligands and receptors. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    celltype_col : str
+        the column in ann.obs which contains the celltypes
+    senders_oi : list of str
+        the sender celltypes of interest
+    receivers_oi : list of str
+        the receiver celltypes of interest
+    lr_network_filtered : LigandReceptorNetwork
+        the filtered ligand-receptor network
+    condition_col : str
+        the column in ann.obs which contains the conditions
+    condition_oi : str
+        the condition of interest
+    condition_ref : str
+        the reference condition
+    case_control : bool
+        if True, calculate condition specificity, else only calculate cell type specificity.
+    
+    Returns
+    -------
+    dict
+        dictionary containing the three dataframes:
+            "sender_receiver_de",
+            "sender_receiver_info",
+            "group_DE"
+    '''
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(

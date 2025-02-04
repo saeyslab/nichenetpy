@@ -267,6 +267,19 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
 def ligand_activities_df(
     ligand_activities:dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]]
 ) -> pd.DataFrame:
+    '''
+    convert ligand activities to a pandas DataFrame
+
+    Parameters
+    ----------
+    ligand_activities : dict
+        the ligand activities to convert
+    
+    Returns
+    -------
+    pandas.DataFrame
+        a pandas DataFrame containing the ligand activities
+    '''
     if type(ligand_activities) is dict:
         ligands, activities = ligand_activities.items()
     elif type(ligand_activities) is list:
@@ -283,7 +296,26 @@ def df_grouped_apply(
     groupby:str,
     func:callable,
     dest:str
-):
+) -> pd.DataFrame:
+    '''
+    apply a function to groups of a dataframe
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        the dataframe
+    groupby : str
+        the column to group by
+    func : Callable
+        the function to apply
+    dest : str
+        the column to store the output in
+    
+    Returns
+    -------
+    pandas.DataFrame
+        a pandas DataFrame containing the ligand activities
+    '''
     pd.options.mode.chained_assignment = None # false positive warnings removal
     vals = sorted(set(df[groupby]))
     groups = []
