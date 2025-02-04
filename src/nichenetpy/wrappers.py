@@ -619,12 +619,7 @@ def generate_info_tables(
         )
         res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(
-            pd.DataFrame({
-                "gene": [e[0] for e in res["names"]],
-                "pval": [e[0] for e in res["pvals"]],
-                "pval_adj": [e[0] for e in res["pvals_adj"]],
-                "logfoldchanges": [e[0] for e in res["logfoldchanges"]]
-            }),
+            res[["gene", "lfc", "pval", "pval_adj"]],
             "group_DE",
             lr_network_filtered
         )

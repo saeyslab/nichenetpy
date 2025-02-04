@@ -45,23 +45,12 @@ def calculate_de(
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     if features is not None:
         ann = _subset_layer(ann, layer, features)
-        ann.var_names = features
     group_metrics(
         ann,
         groupby=celltype_col,
         layer=layer
     )
-    res = ann.uns["group_metrics"]
-    output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
-    for col in ["pvals", "pvals_adj", "logfoldchanges"]:
-        temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
-        temp.drop(columns={"celltype"}, inplace=True)
-        output = output.join(temp, how="inner")
-    temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
-    temp.index.name = "gene"
-    temp.reset_index(inplace=True)
-    output = output.merge(temp, on=["gene", "celltype"], how="inner")
-    return output
+    return ann.uns["group_metrics"]
 
 def get_avg_exp(
     ann:AnnData,
@@ -165,18 +154,18 @@ def process_table_to_ic(
         sender_table = tab.rename(columns={
             "celltype": "sender",
             "gene": "ligand",
-            "logfoldchanges": "lfc_ligand",
-            "pvals": "pval_ligand",
-            "pvals_adj": "pval_adj_ligand",
-            "pts": "pct_expressed_sender"
+            "lfc": "lfc_ligand",
+            "pval": "pval_ligand",
+            "pval_adj": "pval_adj_ligand",
+            "pct": "pct_expressed_sender"
         })
         receiver_table = tab.rename(columns={
             "celltype": "receiver",
             "gene": "receptor",
-            "logfoldchanges": "lfc_receptor",
-            "pvals": "pval_receptor",
-            "pvals_adj": "pval_adj_receptor",
-            "pts": "pct_expressed_receiver"
+            "lfc": "lfc_receptor",
+            "pval": "pval_receptor",
+            "pval_adj": "pval_adj_receptor",
+            "pct": "pct_expressed_receiver"
         })
         columns_reorder = [
             "sender",
@@ -196,13 +185,13 @@ def process_table_to_ic(
     elif table_type == "group_DE":
         sender_table = tab.rename(columns={
             "gene": "ligand",
-            "logfoldchanges": "lfc_ligand",
+            "lfc": "lfc_ligand",
             "pval": "pval_ligand",
             "pval_adj": "pval_adj_ligand"
         })
         receiver_table = tab.rename(columns={
             "gene": "receptor",
-            "logfoldchanges": "lfc_receptor",
+            "lfc": "lfc_receptor",
             "pval": "pval_receptor",
             "pval_adj": "pval_adj_receptor"
         })
