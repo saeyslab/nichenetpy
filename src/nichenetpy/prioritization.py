@@ -49,7 +49,7 @@ def calculate_de(
         ann,
         groupby=celltype_col,
         layer=layer
-    )
+    ) #TODO: pval_adj doesn't match enough
     return ann.uns["group_metrics"]
 
 def get_avg_exp(
@@ -257,13 +257,7 @@ def _prioritization(
         [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
     ]
     output.drop_duplicates(inplace=True)
-    temp = np.log10(output[f"pval_{lig_rec}"])
-    output[f"lfc_pval_{lig_rec}"] = (
-        -1 *
-        temp *
-        output[f"lfc_{lig_rec}"]
-    )
-    temp = -temp
+    temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
     output[f"pval_adapted_{lig_rec}"] = (
         temp * output[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)
@@ -355,8 +349,6 @@ def generate_prioritization_table(
                 return ValueError(f"{key} key missing in lr_condition_de")
     if "rank" not in ligand_activities.columns:
         ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
-    sender_receiver = sender_receiver_de[["sender", "receiver"]]
-    sender_receiver.drop_duplicates(inplace=True)
     sender_ligand_prioritization = _prioritization(
         sender_receiver_de,
         "ligand",
@@ -444,20 +436,20 @@ def generate_prioritization_table(
         prioritizing_weights["receptor_condition_specificity"]
     )
     score = 0
-    if "scaled_p_val_adapted_ligand" in group_prioritization.columns:
-        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_p_val_adapted_ligand"] / 2
-    if "scaled_p_val_adapted_receptor" in group_prioritization.columns:
-        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_p_val_adapted_receptor"] / 2
+    if "scaled_pval_adapted_ligand" in group_prioritization.columns:
+        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2 #small diff
+    if "scaled_pval_adapted_receptor" in group_prioritization.columns:
+        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2 #small diff
     if "scaled_activity" in group_prioritization.columns:
         score += prioritizing_weights["activity_scaled"] * group_prioritization["scaled_activity"]
     if "scaled_avg_exprs_ligand" in group_prioritization.columns:
         score += prioritizing_weights["exprs_ligand"] * group_prioritization["scaled_avg_exprs_ligand"] / 2
     if "scaled_avg_exprs_receptor" in group_prioritization.columns:
         score += prioritizing_weights["exprs_receptor"] * group_prioritization["scaled_avg_exprs_receptor"] / 2
-    if "scaled_p_val_adapted_ligand_group" in group_prioritization.columns:
-        score += prioritizing_weights["ligand_condition_specificity"] * group_prioritization["scaled_p_val_adapted_ligand_group"]
-    if "scaled_p_val_adapted_receptor_group" in group_prioritization.columns:
-        score += prioritizing_weights["receptor_condition_specificity"] * group_prioritization["scaled_p_val_adapted_receptor_group"]
+    if "scaled_pval_adapted_ligand_group" in group_prioritization.columns:
+        score += prioritizing_weights["ligand_condition_specificity"] * group_prioritization["scaled_pval_adapted_ligand_group"]
+    if "scaled_pval_adapted_receptor_group" in group_prioritization.columns:
+        score += prioritizing_weights["receptor_condition_specificity"] * group_prioritization["scaled_pval_adapted_receptor_group"]
     score /= sum_prioritization_weights
     group_prioritization["prioritization_score"] = score
     group_prioritization.sort_values(by="prioritization_score", ascending=False, inplace=True)

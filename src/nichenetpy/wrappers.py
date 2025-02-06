@@ -615,7 +615,9 @@ def generate_info_tables(
     if case_control:
         group_metrics(
             ann,
-            groupby=condition_col
+            groupby=condition_col,
+            group_oi=condition_oi,
+            group_ref=condition_ref
         )
         res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(

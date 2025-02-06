@@ -168,9 +168,30 @@ def gene_expression_pct(
     output = mat.sum(axis=0) / nrows
     return [output[0, i] for i in range(ncols)]
 
+def _single_group_metrics(
+    ann,
+    mat,
+    row2index,
+    lfc_denormalize,
+    lfc_pseudocount,
+    groupby,
+    group_oi,
+    group_ref=None
+):
+    cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
+    if group_ref is None:
+        cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
+    else:
+        cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
+    mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
+    mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
+    return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
+
 def group_metrics(
     ann:AnnData,
     groupby:str,
+    group_oi:str=None,
+    group_ref:str=None,
     layer:str="data",
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
@@ -188,6 +209,10 @@ def group_metrics(
         the AnnData object
     groupby : str
         the column in ann.obs to group by
+    group_oi : str
+        the group of interest
+    group_ref : str
+        the reference group
     layer : str
         the layer in the AnnData object to use
     lfc_pseudocount : float
@@ -212,15 +237,35 @@ def group_metrics(
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
     pct = []
-    for group in groups:
-        cells_oi = ann.obs[ann.obs[groupby] == group].index
-        rest = ann.obs[ann.obs[groupby] != group].index
-        mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
-        mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in rest])
-        lfc.append(log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount))
-        pct.append(gene_expression_pct(mat1))
+    if group_oi is None:
+        for group in groups:
+            x, y = _single_group_metrics(
+                ann,
+                mat,
+                row2index,
+                lfc_denormalize,
+                lfc_pseudocount,
+                groupby,
+                group,
+                group_ref
+            )
+            lfc.append(x)
+            pct.append(y)
+    else:
+        x, y = _single_group_metrics(
+            ann,
+            mat,
+            row2index,
+            lfc_denormalize,
+            lfc_pseudocount,
+            groupby,
+            group_oi,
+            group_ref
+        )
+        lfc.append(x)
+        pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=groups),
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=(groups if group_oi is None else [group_oi])),
         var_name=groupby,
         value_name="lfc",
         ignore_index=False
