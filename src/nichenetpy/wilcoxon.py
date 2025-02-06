@@ -99,7 +99,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe:bool=False,
     tie_correction:bool=True,
     layer:str="data",
-    genes:list[str]=None
+    genes:list[str]|tuple[str]=None
 ):
     '''
     perform the wilcoxon rank sum test and return the p-values
@@ -116,7 +116,7 @@ def wilcoxon_rank_sum_test(
         if True, tie correction is performed
     layer : str
         the layer of the AnnData object to use
-    genes : list of str
+    genes : list of str or tuple of str
         if provided, only consider these genes
     
     Returns
@@ -127,6 +127,7 @@ def wilcoxon_rank_sum_test(
     Notes
     -----
     implementation based on https://github.com/bnprks/BPCells
+    please make sure the optional "genes" argument does not contain duplicates
     '''
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
@@ -135,6 +136,8 @@ def wilcoxon_rank_sum_test(
     if genes is None:
         genes = ann.var_names
     else:
+        if type(genes) is not list and type(genes) is not tuple:
+            raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
         mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])
     ranks, sorted_groups, tie_stats = _rank_cells(
@@ -173,4 +176,5 @@ def wilcoxon_rank_sum_test(
                 pvals[group] = [pval]
     if as_dataframe:
         pvals = pd.DataFrame(pvals, index=genes)
+        pvals.index.name = "gene"
     return pvals

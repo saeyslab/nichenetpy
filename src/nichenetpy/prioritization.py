@@ -257,12 +257,13 @@ def _prioritization(
         [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
     ]
     output.drop_duplicates(inplace=True)
+    temp = np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = (
         -1 *
-        np.log10(output[f"pval_{lig_rec}"]) *
+        temp *
         output[f"lfc_{lig_rec}"]
     )
-    temp = -np.log10(output[f"pval_{lig_rec}"])
+    temp = -temp
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
     output[f"pval_adapted_{lig_rec}"] = (
         temp * output[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)

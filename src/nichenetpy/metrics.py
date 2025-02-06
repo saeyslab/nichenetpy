@@ -232,11 +232,11 @@ def group_metrics(
     output = output.merge(pct, on=["gene", groupby], how="inner")
     pvals = wilcoxon_rank_sum_test(
         ann,
-        groupby,
+        groupby=groupby,
         as_dataframe=True,
         tie_correction=tie_correction,
         layer=layer,
-        genes=output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]
+        genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     pvals.reset_index(inplace=True)
