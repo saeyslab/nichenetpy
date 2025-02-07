@@ -196,7 +196,8 @@ def group_metrics(
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
     min_abs_lfc:float=0,
-    min_pct:float=0
+    min_pct:float=0,
+    pval_thresh:float=0.01
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -223,6 +224,8 @@ def group_metrics(
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
     min_pct : float
         genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    pval_thresh : float
+        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     
     Notes
     -----
@@ -284,6 +287,7 @@ def group_metrics(
         genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
+    pvals = pvals[pvals["pval"] < pval_thresh]
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)

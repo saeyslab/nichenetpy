@@ -48,7 +48,8 @@ def calculate_de(
     group_metrics(
         ann,
         groupby=celltype_col,
-        layer=layer
+        layer=layer,
+        pval_thresh=1
     ) #TODO: pval_adj doesn't match enough
     return ann.uns["group_metrics"]
 
