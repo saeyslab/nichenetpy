@@ -1,4 +1,4 @@
-from nichenetpy.extraction import subset_ann
+from nichenetpy.ann_utils import subset_ann
 
 import anndata
 import os

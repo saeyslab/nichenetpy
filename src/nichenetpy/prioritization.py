@@ -1,8 +1,9 @@
-from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
+from nichenetpy.extraction import average_expression
 from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.utils import ligand_activities_df, df_grouped_apply
 from nichenetpy.metrics import group_metrics
+from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
 
@@ -43,13 +44,12 @@ def calculate_de(
         the differential expression
     '''
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    if features is not None:
-        ann = _subset_layer(ann, layer, features)
     group_metrics(
         ann,
         groupby=celltype_col,
         layer=layer,
-        pval_thresh=1
+        pval_thresh=1,
+        features=features
     ) #TODO: pval_adj doesn't match enough
     return ann.uns["group_metrics"]
 

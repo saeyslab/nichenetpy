@@ -1,5 +1,6 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
+from nichenetpy.ann_utils import _subset_layer
 
 from anndata import AnnData
 from collections.abc import Callable
@@ -195,9 +196,10 @@ def group_metrics(
     layer:str="data",
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
+    features:list[str]=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
-    pval_thresh:float=0.01
+    pval_thresh:float=None # 0.01 in seurat
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -220,6 +222,8 @@ def group_metrics(
         the pseudocount to use in the computation of the log fold changes
     tie_correction : bool
         if True, tie correction is performed through averaging
+    features : list of str
+        the genes to consider
     min_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
     min_pct : float
@@ -235,7 +239,11 @@ def group_metrics(
         lfc_denormalize = np.expm1
     else:
         lfc_denormalize = None
-    mat = ann.layers[layer]
+    if features is None:
+        mat = ann.layers[layer]
+        genes = ann.var_names
+    else:
+        mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
@@ -268,13 +276,19 @@ def group_metrics(
         lfc.append(x)
         pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=(groups if group_oi is None else [group_oi])),
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),
         var_name=groupby,
         value_name="lfc",
         ignore_index=False
     )
+    output.index.name = "gene"
     output.reset_index(inplace=True)
-    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var_names), value_name="pct", ignore_index=False)
+    pct = pd.melt(
+        pd.DataFrame(pct, index=groups, columns=genes),
+        value_name="pct",
+        var_name="gene",
+        ignore_index=False
+    )
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
@@ -287,8 +301,10 @@ def group_metrics(
         genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
-    pvals = pvals[pvals["pval"] < pval_thresh]
+    if pval_thresh is not None:
+        pvals = pvals[pvals["pval"] < pval_thresh]
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
+    # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
     ann.uns["group_metrics"] = output
