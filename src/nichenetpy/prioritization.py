@@ -1,8 +1,9 @@
-from nichenetpy.extraction import subset_ann, average_expression, _subset_layer
+from nichenetpy.extraction import average_expression
 from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.utils import ligand_activities_df, df_grouped_apply
 from nichenetpy.metrics import group_metrics
+from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
 
@@ -43,25 +44,14 @@ def calculate_de(
         the differential expression
     '''
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    if features is not None:
-        ann = _subset_layer(ann, layer, features)
-        ann.var_names = features
     group_metrics(
         ann,
         groupby=celltype_col,
-        layer=layer
-    )
-    res = ann.uns["group_metrics"]
-    output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
-    for col in ["pvals", "pvals_adj", "logfoldchanges"]:
-        temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
-        temp.drop(columns={"celltype"}, inplace=True)
-        output = output.join(temp, how="inner")
-    temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
-    temp.index.name = "gene"
-    temp.reset_index(inplace=True)
-    output = output.merge(temp, on=["gene", "celltype"], how="inner")
-    return output
+        layer=layer,
+        pval_thresh=1,
+        features=features
+    ) #TODO: pval_adj doesn't match enough
+    return ann.uns["group_metrics"]
 
 def get_avg_exp(
     ann:AnnData,
@@ -165,18 +155,18 @@ def process_table_to_ic(
         sender_table = tab.rename(columns={
             "celltype": "sender",
             "gene": "ligand",
-            "logfoldchanges": "lfc_ligand",
-            "pvals": "pval_ligand",
-            "pvals_adj": "pval_adj_ligand",
-            "pts": "pct_expressed_sender"
+            "lfc": "lfc_ligand",
+            "pval": "pval_ligand",
+            "pval_adj": "pval_adj_ligand",
+            "pct": "pct_expressed_sender"
         })
         receiver_table = tab.rename(columns={
             "celltype": "receiver",
             "gene": "receptor",
-            "logfoldchanges": "lfc_receptor",
-            "pvals": "pval_receptor",
-            "pvals_adj": "pval_adj_receptor",
-            "pts": "pct_expressed_receiver"
+            "lfc": "lfc_receptor",
+            "pval": "pval_receptor",
+            "pval_adj": "pval_adj_receptor",
+            "pct": "pct_expressed_receiver"
         })
         columns_reorder = [
             "sender",
@@ -196,13 +186,13 @@ def process_table_to_ic(
     elif table_type == "group_DE":
         sender_table = tab.rename(columns={
             "gene": "ligand",
-            "logfoldchanges": "lfc_ligand",
+            "lfc": "lfc_ligand",
             "pval": "pval_ligand",
             "pval_adj": "pval_adj_ligand"
         })
         receiver_table = tab.rename(columns={
             "gene": "receptor",
-            "logfoldchanges": "lfc_receptor",
+            "lfc": "lfc_receptor",
             "pval": "pval_receptor",
             "pval_adj": "pval_adj_receptor"
         })
@@ -268,11 +258,6 @@ def _prioritization(
         [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
     ]
     output.drop_duplicates(inplace=True)
-    output[f"lfc_pval_{lig_rec}"] = (
-        -1 *
-        np.log10(output[f"pval_{lig_rec}"]) *
-        output[f"lfc_{lig_rec}"]
-    )
     temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
     output[f"pval_adapted_{lig_rec}"] = (
@@ -365,8 +350,6 @@ def generate_prioritization_table(
                 return ValueError(f"{key} key missing in lr_condition_de")
     if "rank" not in ligand_activities.columns:
         ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
-    sender_receiver = sender_receiver_de[["sender", "receiver"]]
-    sender_receiver.drop_duplicates(inplace=True)
     sender_ligand_prioritization = _prioritization(
         sender_receiver_de,
         "ligand",
@@ -454,20 +437,20 @@ def generate_prioritization_table(
         prioritizing_weights["receptor_condition_specificity"]
     )
     score = 0
-    if "scaled_p_val_adapted_ligand" in group_prioritization.columns:
-        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_p_val_adapted_ligand"] / 2
-    if "scaled_p_val_adapted_receptor" in group_prioritization.columns:
-        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_p_val_adapted_receptor"] / 2
+    if "scaled_pval_adapted_ligand" in group_prioritization.columns:
+        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2 #small diff
+    if "scaled_pval_adapted_receptor" in group_prioritization.columns:
+        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2 #small diff
     if "scaled_activity" in group_prioritization.columns:
         score += prioritizing_weights["activity_scaled"] * group_prioritization["scaled_activity"]
     if "scaled_avg_exprs_ligand" in group_prioritization.columns:
         score += prioritizing_weights["exprs_ligand"] * group_prioritization["scaled_avg_exprs_ligand"] / 2
     if "scaled_avg_exprs_receptor" in group_prioritization.columns:
         score += prioritizing_weights["exprs_receptor"] * group_prioritization["scaled_avg_exprs_receptor"] / 2
-    if "scaled_p_val_adapted_ligand_group" in group_prioritization.columns:
-        score += prioritizing_weights["ligand_condition_specificity"] * group_prioritization["scaled_p_val_adapted_ligand_group"]
-    if "scaled_p_val_adapted_receptor_group" in group_prioritization.columns:
-        score += prioritizing_weights["receptor_condition_specificity"] * group_prioritization["scaled_p_val_adapted_receptor_group"]
+    if "scaled_pval_adapted_ligand_group" in group_prioritization.columns:
+        score += prioritizing_weights["ligand_condition_specificity"] * group_prioritization["scaled_pval_adapted_ligand_group"]
+    if "scaled_pval_adapted_receptor_group" in group_prioritization.columns:
+        score += prioritizing_weights["receptor_condition_specificity"] * group_prioritization["scaled_pval_adapted_receptor_group"]
     score /= sum_prioritization_weights
     group_prioritization["prioritization_score"] = score
     group_prioritization.sort_values(by="prioritization_score", ascending=False, inplace=True)

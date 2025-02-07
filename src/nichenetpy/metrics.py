@@ -1,5 +1,6 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
+from nichenetpy.ann_utils import _subset_layer
 
 from anndata import AnnData
 from collections.abc import Callable
@@ -168,14 +169,37 @@ def gene_expression_pct(
     output = mat.sum(axis=0) / nrows
     return [output[0, i] for i in range(ncols)]
 
+def _single_group_metrics(
+    ann,
+    mat,
+    row2index,
+    lfc_denormalize,
+    lfc_pseudocount,
+    groupby,
+    group_oi,
+    group_ref=None
+):
+    cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
+    if group_ref is None:
+        cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
+    else:
+        cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
+    mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
+    mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
+    return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
+
 def group_metrics(
     ann:AnnData,
     groupby:str,
+    group_oi:str=None,
+    group_ref:str=None,
     layer:str="data",
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
+    features:list[str]=None,
     min_abs_lfc:float=0,
-    min_pct:float=0
+    min_pct:float=0,
+    pval_thresh:float=None # 0.01 in seurat
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -188,16 +212,24 @@ def group_metrics(
         the AnnData object
     groupby : str
         the column in ann.obs to group by
+    group_oi : str
+        the group of interest
+    group_ref : str
+        the reference group
     layer : str
         the layer in the AnnData object to use
     lfc_pseudocount : float
         the pseudocount to use in the computation of the log fold changes
     tie_correction : bool
         if True, tie correction is performed through averaging
+    features : list of str
+        the genes to consider
     min_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
     min_pct : float
         genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    pval_thresh : float
+        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     
     Notes
     -----
@@ -207,39 +239,72 @@ def group_metrics(
         lfc_denormalize = np.expm1
     else:
         lfc_denormalize = None
-    mat = ann.layers[layer]
+    if features is None:
+        mat = ann.layers[layer]
+        genes = ann.var_names
+    else:
+        mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     groups = sorted(set(ann.obs[groupby]))
     lfc = []
     pct = []
-    for group in groups:
-        cells_oi = ann.obs[ann.obs[groupby] == group].index
-        rest = ann.obs[ann.obs[groupby] != group].index
-        mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
-        mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in rest])
-        lfc.append(log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount))
-        pct.append(gene_expression_pct(mat1))
+    if group_oi is None:
+        for group in groups:
+            x, y = _single_group_metrics(
+                ann,
+                mat,
+                row2index,
+                lfc_denormalize,
+                lfc_pseudocount,
+                groupby,
+                group,
+                group_ref
+            )
+            lfc.append(x)
+            pct.append(y)
+    else:
+        x, y = _single_group_metrics(
+            ann,
+            mat,
+            row2index,
+            lfc_denormalize,
+            lfc_pseudocount,
+            groupby,
+            group_oi,
+            group_ref
+        )
+        lfc.append(x)
+        pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=ann.var_names, columns=groups),
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),
         var_name=groupby,
         value_name="lfc",
         ignore_index=False
     )
+    output.index.name = "gene"
     output.reset_index(inplace=True)
-    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=ann.var_names), value_name="pct", ignore_index=False)
+    pct = pd.melt(
+        pd.DataFrame(pct, index=groups, columns=genes),
+        value_name="pct",
+        var_name="gene",
+        ignore_index=False
+    )
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
     pvals = wilcoxon_rank_sum_test(
         ann,
-        groupby,
+        groupby=groupby,
         as_dataframe=True,
         tie_correction=tie_correction,
         layer=layer,
-        genes=output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]
+        genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
     )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
+    if pval_thresh is not None:
+        pvals = pvals[pvals["pval"] < pval_thresh]
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
+    # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
     ann.uns["group_metrics"] = output
