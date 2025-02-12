@@ -1,6 +1,7 @@
 from nichenetpy.prediction import LigandActivityPredictor
 
 from math import log2, ceil
+from scipy.sparse import csc_matrix, csr_matrix
 
 import numpy as np
 import struct
@@ -52,7 +53,49 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
         mat = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))))
     row_names = row_names.decode("ascii").split()
     col_names = col_names.decode("ascii").split()
-    mat.reshape((len(row_names), len(col_names)))
+    mat = mat.reshape((len(row_names), len(col_names)))
+    return (mat, row_names, col_names)
+
+def write_sparse_matrix(
+    filename:str,
+    mat:csc_matrix|csr_matrix,
+    row_names:str,
+    col_names:str
+):
+    _write_chunks(
+        filename,
+        "\n".join(row_names).encode("ascii"),
+        "\n".join(col_names).encode("ascii"),
+        mat.data.tobytes(),
+        mat.indices.tobytes(),
+        mat.indptr.tobytes()
+    )
+
+def _read_sparse_matrix(
+    filename
+):
+    with open(filename, "rb") as file:
+        row_names = file.read(int.from_bytes(file.read(INT_SIZE)))
+        col_names = file.read(int.from_bytes(file.read(INT_SIZE)))
+        data = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))))
+        indices = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))), dtype=np.int32)
+        indptr = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))), dtype=np.int32)
+    row_names = row_names.decode("ascii").split()
+    col_names = col_names.decode("ascii").split()
+    return (data, indices, indptr, row_names, col_names)
+
+def read_csc_matrix(
+    filename:str
+) -> tuple[csc_matrix, list[str], list[str]]:
+    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
+    mat = csc_matrix((data, indices, indptr))
+    return (mat, row_names, col_names)
+
+def read_csr_matrix(
+    filename:str
+) -> tuple[csr_matrix, list[str], list[str]]:
+    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
+    mat = csr_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
 
 def write_network(filename:str, mapping:list[tuple[str, str]]):
