@@ -74,7 +74,7 @@ def subset_ann_layer(
 ) -> AnnData:
     if type(features) is set:
         features = sorted(features)
-    mat = _subset_layer(ann, layer=layer, features=features)
+    mat = _subset_layer(ann, layer=layer, features=features)[0]
     ann = AnnData(
         obs=ann.obs,
         layers={layer: mat},

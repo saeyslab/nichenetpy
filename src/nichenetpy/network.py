@@ -1,3 +1,4 @@
+from nichenetpy.io import read_network, read_weighted_network
 
 from collections.abc import Collection
 
@@ -21,10 +22,8 @@ class Network:
         if mapping is not None:
             self._mapping = mapping
         elif filename is not None:
-            with open(filename) as file:
-                lines = file.readlines()
             self._mapping = sorted(
-                (tuple(word.strip("\"\'") for word in line.rstrip().split(",")) for line in lines[1:]),
+                read_network(filename),
                 key=lambda x : x[0]
             )
         else:
@@ -159,10 +158,12 @@ class WeightedNetwork(Network):
         name of the file to read the network from
     '''
     def __init__(self, mapping = None, filename = None):
-        super().__init__(mapping, filename)
         if filename is not None:
-            # the weigths are read as strings and must be converted to floats
-            self._mapping = [(l, r, float(w)) for l, r, w in self._mapping]
+            mapping = sorted(
+                read_weighted_network(filename),
+                key=lambda x : x[0]
+            )
+        super().__init__(mapping=mapping)
     
     def __getitem__(self, key:str) -> dict[str, float]:
         start, count = self._index[key]
