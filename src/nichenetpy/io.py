@@ -56,17 +56,24 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
     return (mat, row_names, col_names)
 
 def write_network(filename:str, mapping:list[tuple[str, str]]):
+    grouped_mapping = dict()
     name2id = dict()
     for fr, to in mapping:
+        if fr in grouped_mapping:
+            grouped_mapping[fr].append(to)
+        else:
+            grouped_mapping[fr] = [to]
         if fr not in name2id:
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
     id_size = ceil(log2(len(name2id) - 1))
     data = bytearray()
-    for fr, to in mapping: # run length encoding may have potential here (as an option)
+    for fr, tos in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
-        data.extend(name2id[to].to_bytes(length=id_size))
+        data.extend(len(tos).to_bytes(length=INT_SIZE))
+        for to in tos:
+            data.extend(name2id[to].to_bytes(length=id_size))
     _write_chunks(
         filename,
         "\n".join(name2id.keys()).encode("ascii"),
@@ -75,18 +82,25 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
     )
 
 def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
+    grouped_mapping = dict()
     name2id = dict()
-    for fr, to, _ in mapping:
+    for fr, to, w in mapping:
+        if fr in grouped_mapping:
+            grouped_mapping[fr].append((to, w))
+        else:
+            grouped_mapping[fr] = [(to, w)]
         if fr not in name2id:
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
     id_size = ceil(log2(len(name2id) - 1))
     data = bytearray()
-    for fr, to, w in mapping: # run length encoding may have potential here (as an option)
+    for fr, group in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
-        data.extend(name2id[to].to_bytes(length=id_size))
-        data.extend(struct.pack("d", w))
+        data.extend(len(group).to_bytes(length=INT_SIZE))
+        for to, w in group:
+            data.extend(name2id[to].to_bytes(length=id_size))
+            data.extend(struct.pack("d", w))
     _write_chunks(
         filename,
         "\n".join(name2id.keys()).encode("ascii"),
@@ -101,13 +115,17 @@ def read_network(filename:str) -> list[tuple[str, str]]:
         mapping = file.read(int.from_bytes(file.read(INT_SIZE)))
     names = names.decode("ascii").split()
     id2name = dict(enumerate(names))
-    return [
-        (
-            id2name[int.from_bytes(mapping[i:i+id_size])],
-            id2name[int.from_bytes(mapping[i+id_size:i+2*id_size])]
-        )
-        for i in range(0, len(mapping), 2*id_size)
-    ]
+    output = []
+    i = 0
+    while i < len(mapping):
+        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        i += id_size
+        k = int.from_bytes(mapping[i:i+INT_SIZE])
+        i += INT_SIZE
+        for _ in range(k):
+            output.append((fr, id2name[int.from_bytes(mapping[i:i+id_size])]))
+            i += id_size
+    return output
 
 def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     with open(filename, "rb") as file:
@@ -116,11 +134,18 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
         mapping = file.read(int.from_bytes(file.read(INT_SIZE)))
     names = names.decode("ascii").split()
     id2name = dict(enumerate(names))
-    return [
-        (
-            id2name[int.from_bytes(mapping[i:i+id_size])],
-            id2name[int.from_bytes(mapping[i+id_size:i+2*id_size])],
-            struct.unpack("d", mapping[i+2*id_size:i+2*id_size+DOUBLE_SIZE])[0]
-        )
-        for i in range(0, len(mapping), 2*id_size+DOUBLE_SIZE)
-    ]
+    output = []
+    i = 0
+    while i < len(mapping):
+        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        i += id_size
+        k = int.from_bytes(mapping[i:i+INT_SIZE])
+        i += INT_SIZE
+        for _ in range(k):
+            output.append((
+                fr,
+                id2name[int.from_bytes(mapping[i:i+id_size])],
+                struct.unpack("d", mapping[i+id_size:i+id_size+DOUBLE_SIZE])[0]
+            ))
+            i += id_size + DOUBLE_SIZE
+    return output
