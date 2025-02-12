@@ -2,3 +2,4 @@ __pycache__
 .RData
 .Rhistory
 src/nichenetpy.egg-info/*
+notebooks/tutorial_files/*
