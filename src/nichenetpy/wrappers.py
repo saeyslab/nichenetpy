@@ -6,7 +6,6 @@ from nichenetpy.utils import (
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
-    subset_ann,
     get_weighted_ligand_receptor_links,
     get_lfc_celltype
 )
@@ -23,6 +22,7 @@ from nichenetpy.prioritization import (
     generate_prioritization_table
 )
 from nichenetpy.metrics import group_metrics
+from nichenetpy.ann_utils import subset_ann
 
 from itertools import cycle, chain
 from collections.abc import Iterable
@@ -70,7 +70,12 @@ def get_geneset_oi(
     list
         the geneset of interest
     '''
-    ann_receiver = subset_ann(ann, receiver, layers=[layer])
+    ann_receiver = subset_ann(
+        ann,
+        val=receiver,
+        layers=[layer],
+        val_col="celltype"
+    )
     group_metrics(
         ann_receiver,
         groupby=condition_col,
@@ -296,7 +301,12 @@ def run_nichenet(
                 lr_network,
                 lr_sig
             )
-        ann_focused = subset_ann(ann, sender_celltypes, layers=[layer])
+        ann_focused = subset_ann(
+            ann,
+            val=sender_celltypes,
+            layers=[layer],
+            val_col="celltype"
+        )
         ann_focused.X = ann_focused.layers[layer]
         output["ann_focused"] = ann_focused
         if get_lfc:
