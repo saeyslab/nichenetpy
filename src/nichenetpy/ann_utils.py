@@ -85,6 +85,8 @@ def subset_ann(
             genes = sorted(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
         col_ids = [gene2index[gene] for gene in genes]
+    if row_ids is None and col_ids is None:
+        return None
     new_layers = dict(
         (
             layer,
