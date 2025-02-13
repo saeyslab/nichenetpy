@@ -47,16 +47,29 @@ def subset_ann(
     -------
     AnnData
         the subsetted AnnData object
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if val_col is not None and type(val_col) is not str:
+        raise TypeError(f"val_col should be of type str, was {type(val_col)}")
+    if genes is not None and not isinstance(genes, Iterable):
+        raise TypeError(f"genes should be an Iterable of strings, was {type(genes)}")
     if layers is None:
         layers = list(ann.layers.keys())
     elif not isinstance(layers, Iterable):
-        raise TypeError(f"layers should be a string or an Iterable of strings, was {type(layers)}")
+        raise TypeError(f"layers should be an Iterable of strings, was {type(layers)}")
     if val is None:
         row_ids = None
     else:
         if type(val) is str:
             val = {val}
+        elif not isinstance(val, Iterable):
+            raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")
         elif type(val) is not set:
             val = set(val)
         cells_oi = ann.obs.loc[[ct in val for ct in ann.obs[val_col]]]

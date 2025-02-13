@@ -48,7 +48,7 @@ class GeneAliasInfo:
         
         Raises
         ------
-        ValueError
+        TypeError
             if obj is not of the correct type
         
         Notes
@@ -75,7 +75,7 @@ class GeneAliasInfo:
         elif isinstance(obj, Iterable):
             return self.alias_to_symbol(list(obj))
         else:
-            raise ValueError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
+            raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
 mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
 '''
