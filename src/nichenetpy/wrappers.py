@@ -301,7 +301,6 @@ def run_nichenet(
                     celltype,
                     condition_col=condition_col,
                     condition_oi=condition_oi,
-                    condition_ref=condition_ref,
                     layer=layer,
                     celltype_col=celltype_col,
                     features=best_upstream_ligands_focused

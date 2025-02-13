@@ -85,7 +85,6 @@ def get_lfc_celltype(
     celltype:str,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,#TODO
     layer:str,
     celltype_col:str="celltype",
     features:list[str]=None
@@ -103,8 +102,6 @@ def get_lfc_celltype(
         the name of the column in obs that contains the condition
     condition_oi : str
         the condition of interest
-    condition_ref : str
-        the reference condition
     layer : str
         the name of the data layer
     celltype_col : str
