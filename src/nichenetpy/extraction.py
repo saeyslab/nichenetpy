@@ -1,7 +1,7 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
 from nichenetpy.metrics import gene_expression_pct, group_metrics
-from nichenetpy.ann_utils import subset_ann, subset_ann_layer
+from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
 
@@ -85,7 +85,6 @@ def get_lfc_celltype(
     celltype:str,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,#TODO
     layer:str,
     celltype_col:str="celltype",
     features:list[str]=None
@@ -103,8 +102,6 @@ def get_lfc_celltype(
         the name of the column in obs that contains the condition
     condition_oi : str
         the condition of interest
-    condition_ref : str
-        the reference condition
     layer : str
         the name of the data layer
     celltype_col : str
@@ -119,11 +116,13 @@ def get_lfc_celltype(
     list
         list of log fold changes
     '''
-    ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col)
-    if features is None:
-        ann_sender.var_names = ann.var_names
-    else:
-        ann_sender = subset_ann_layer(ann_sender, layer, features)
+    ann_sender = subset_ann(
+        ann,
+        celltype,
+        layers=[layer],
+        val_col=celltype_col,
+        genes=features
+    )
     group_metrics(
         ann_sender,
         groupby=condition_col,
