@@ -124,6 +124,11 @@ def wilcoxon_rank_sum_test(
     pandas.DataFrame or dict
         the p-value for each gene
     
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
     Notes
     -----
     implementation based on https://github.com/bnprks/BPCells

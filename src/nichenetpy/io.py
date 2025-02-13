@@ -42,11 +42,6 @@ def write_ligand_target_matrix(
     col_names : list of str
         the names of the columns
     
-    Returns
-    -------
-    AnnData
-        the subsetted AnnData object (only contains the subsetted layers)
-    
     Raises
     ------
     TypeError
@@ -73,6 +68,23 @@ def write_ligand_target_matrix(
     )
 
 def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list[str]]:
+    '''
+    reads a ligand-target matrix from a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    numpy.ndarray
+        the ligand-target matrix
+    list of str
+        the names of the rows
+    list of str
+        the names of the columns
+    '''
     with open(filename, "rb") as file:
         row_names = file.read(int.from_bytes(file.read(INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(INT_SIZE)))
@@ -88,6 +100,20 @@ def write_sparse_matrix(
     row_names:str,
     col_names:str
 ):
+    '''
+    Writes a sparse matrix to a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to write to
+    mat : csc_matrix or csr_matrix
+        the sparse matrix
+    row_names : list of str
+        the names of the rows
+    col_names : list of str
+        the names of the columns
+    '''
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),
@@ -113,6 +139,23 @@ def _read_sparse_matrix(
 def read_csc_matrix(
     filename:str
 ) -> tuple[csc_matrix, list[str], list[str]]:
+    '''
+    reads a csc_matrix from a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    csc_matrix
+        the sparse matrix
+    list of str
+        the names of the rows
+    list of str
+        the names of the columns
+    '''
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csc_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
@@ -120,11 +163,38 @@ def read_csc_matrix(
 def read_csr_matrix(
     filename:str
 ) -> tuple[csr_matrix, list[str], list[str]]:
+    '''
+    reads a csr_matrix from a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    csr_matrix
+        the sparse matrix
+    list of str
+        the names of the rows
+    list of str
+        the names of the columns
+    '''
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csr_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
 
 def write_network(filename:str, mapping:list[tuple[str, str]]):
+    '''
+    Writes a network to a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to write to
+    mapping : list[tuple[str, str]]
+        the network connections
+    '''
     grouped_mapping = dict()
     name2id = dict()
     for fr, to in mapping:
@@ -151,6 +221,16 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
     )
 
 def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
+    '''
+    Writes a weighted network to a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to write to
+    mapping : list[tuple[str, str, float]]
+        the weighted connections of the network
+    '''
     grouped_mapping = dict()
     name2id = dict()
     for fr, to, w in mapping:
@@ -178,6 +258,19 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
     )
 
 def read_network(filename:str) -> list[tuple[str, str]]:
+    '''
+    reads a network from a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    list of tuples
+        the network connections
+    '''
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(INT_SIZE))
         names = file.read(int.from_bytes(file.read(INT_SIZE)))
@@ -197,6 +290,19 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     return output
 
 def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
+    '''
+    reads a weighted network from a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    list of tuples
+        the weighted connections of the network
+    '''
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(INT_SIZE))
         names = file.read(int.from_bytes(file.read(INT_SIZE)))

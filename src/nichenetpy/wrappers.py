@@ -211,6 +211,11 @@ def run_nichenet(
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
             expressed_ligands : set of str
                 the expressed ligands
+    
+    Raises
+    ------
+    ValueError
+        if get_prioritization_table is True and sender_celltypes is not provided
     '''
     output = dict()
     expressed_genes_receiver = set(

@@ -112,6 +112,11 @@ def subset_matrix(
     -------
     numpy.ndarray
         the subsetted matrix
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
     if rows is None and cols is None:
         return mat
@@ -279,6 +284,11 @@ def ligand_activities_df(
     -------
     pandas.DataFrame
         a pandas DataFrame containing the ligand activities
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
     if type(ligand_activities) is dict:
         ligands, activities = ligand_activities.items()

@@ -312,6 +312,11 @@ def generate_prioritization_table(
     -------
     pandas.DataFrame
         the processed table
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
     pd.options.mode.chained_assignment = None # false positive warnings removal
     if type(ligand_activities) is dict or type(ligand_activities) is list:
