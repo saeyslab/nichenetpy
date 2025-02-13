@@ -19,26 +19,52 @@ def _write_chunks(filename, *chunks, data=None):
     with open(filename, "wb") as file:
         file.write(data)
 
-def write_ligand_target_matrix(filename:str, *args):
-    if len(args) == 1:
-        if type(args[0]) is not LigandActivityPredictor:
-            raise TypeError(f"expected a LigandActivityPredictor, got {type(args[0])}")
-        predictor = args[0]
+def write_ligand_target_matrix(
+    filename:str,
+    predictor:LigandActivityPredictor=None,
+    mat:np.ndarray=None,
+    row_names:list[str]=None,
+    col_names:list[str]=None
+):
+    '''
+    Writes a ligand-target matrix to a file. 
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to write to
+    predictor : LigandActvivityPredictor
+        the predictor which contains the matrix
+    mat : numpy.ndarray
+        the ligand-target matrix
+    row_names : list of str
+        the names of the rows
+    col_names : list of str
+        the names of the columns
+    
+    Returns
+    -------
+    AnnData
+        the subsetted AnnData object (only contains the subsetted layers)
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if predictor is None:
+        if type(mat) is not np.ndarray:
+            raise TypeError(f"expected a numpy.ndarray for mat, got {mat}")
+        if type(row_names) is not list:
+            raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
+        if type(col_names) is not list:
+            raise TypeError(f"expected a list of strings for col_names, got {type(col_names)}")
+    else:
+        if type(predictor) is not LigandActivityPredictor:
+            raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
-    elif len(args) == 3:
-        if type(args[0]) is not np.ndarray:
-            raise TypeError(f"expected a numpy.ndarray as first argument after filename, got {type(args[0])}")
-        if type(args[1]) is not list:
-            raise TypeError(f"expected a list of strings as second argument after filename, got {type(args[1])}")
-        if type(args[2]) is not list:
-            raise TypeError(f"expected a list of strings as third argument after filename, got {type(args[2])}")
-        mat = args[0]
-        row_names = args[1]
-        col_names = args[2]
-    else:
-        raise TypeError(f"expected a LigandActivityPredictor or a numpy.ndarray and two lists of strings after filename, got {len(args)} arguments")
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),

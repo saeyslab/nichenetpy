@@ -74,7 +74,7 @@ def subset_ann_layer(
     features:list[str]
 ) -> AnnData:
     '''
-    Subsets genes in a layer of an AnnData object. 
+    Subsets the genes of an AnnData object. 
 
     Parameters
     ----------
