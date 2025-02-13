@@ -1,6 +1,7 @@
 from nichenetpy.utils import subset_matrix
 
 from anndata import AnnData
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -69,15 +70,46 @@ def _subset_layer(
 
 def subset_ann_layer(
     ann:AnnData,
-    layer:str,
+    layers:str|Iterable[str],
     features:list[str]
 ) -> AnnData:
+    '''
+    Subsets genes in a layer of an AnnData object. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object to subset
+    layers : str or Iterable of str
+        the layers to subset
+    features : list of str
+        the genes to select
+    
+    Returns
+    -------
+    AnnData
+        the subsetted AnnData object (only contains the subsetted layers)
+    
+    Raises
+    ------
+    TypeError
+        if arguments have the wrong type
+    '''
     if type(features) is set:
         features = sorted(features)
-    mat = _subset_layer(ann, layer=layer, features=features)[0]
+    if type(layers) is str:
+        layers = [layers]
+    elif not isinstance(layers, Iterable):
+        raise TypeError(f"layers should be a string or an Iterable of strings, was {type(layers)}")
+    new_layers = dict(
+        (
+            layer,
+            _subset_layer(ann, layer=layer, features=features)[0]
+        ) for layer in layers
+    )
     ann = AnnData(
         obs=ann.obs,
-        layers={layer: mat},
+        layers=new_layers,
         shape=(ann.obs.shape[0], len(features))
     )
     ann.var_names = ann.var_names.reindex(features)[0]
