@@ -36,10 +36,9 @@ import pandas as pd
 def get_geneset_oi(
     ann:AnnData,
     receiver:str,
-    condition_oi:str,#TODO
-    condition_ref:str,#TODO
+    condition_col:str,
+    condition_oi:str,
     layer:str="data",
-    condition_col:str="aggregate",
     max_pval_adj:float=0.05,
     min_abs_lfc:float=0.25,
     min_pct:float=0.05
@@ -53,14 +52,12 @@ def get_geneset_oi(
         the AnnData object to extract expressed genes from
     receiver : str
         the receiver cell type
-    condition_oi : str
-        the condition of interest
-    condition_ref : str
-        the reference condition
-    layer : str
-        the name of the layer which contains the data matrix
     condition_col : str
         the name of the column in obs which contains the conditions
+    condition_oi : str
+        the condition of interest
+    layer : str
+        the name of the layer which contains the data matrix
     max_pval_adj : float
         the upper bound for pval_adj
     min_lfc : float
@@ -84,7 +81,7 @@ def get_geneset_oi(
     DE_table = ann_receiver.uns["group_metrics"]
     return set(
         DE_table[
-            (DE_table[condition_col] == "LCMV") &
+            (DE_table[condition_col] == condition_oi) &
             (DE_table["pval_adj"] <= max_pval_adj)
         ]["gene"]
     )
@@ -114,12 +111,12 @@ def run_nichenet(
     predictor:LigandActivityPredictor,
     lr_network:LigandReceptorNetwork,
     receiver:str,
+    condition_col:str,
     condition_oi:str,
     condition_ref:str,
     sender_celltypes:Iterable[str]=None,
     get_expressed_genes_pct:float=0.05,
     layer:str="data",
-    condition_col:str="aggregate",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
     min_abs_lfc:float=0.25,
@@ -145,6 +142,8 @@ def run_nichenet(
         the ligand-receptor network containing the ligand-receptor interactions
     receiver : str
         the receiver cell type
+    condition_col : str
+        the name of the column in obs which contains the conditions
     condition_oi : str
         the condition of interest
     condition_ref : str
@@ -155,8 +154,6 @@ def run_nichenet(
         the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     layer : str
         the layer in the AnnData object which contains the data matrix
-    condition_col : str
-        the name of the column in obs which contains the conditions
     celltype_col : str
         the name of the column in obs which contains the celltypes
     max_pval_adj : float
@@ -230,7 +227,6 @@ def run_nichenet(
         ann,
         receiver=receiver,
         condition_oi=condition_oi,
-        condition_ref=condition_ref,
         layer=layer,
         condition_col=condition_col,
         max_pval_adj=max_pval_adj,
@@ -296,7 +292,6 @@ def run_nichenet(
                 lr_sig
             )
         ann_focused = subset_ann(ann, sender_celltypes, layers=[layer])
-        ann_focused.var = ann.var
         ann_focused.X = ann_focused.layers[layer]
         output["ann_focused"] = ann_focused
         if get_lfc:
@@ -366,7 +361,7 @@ def create_ligand_activity_hist(
 
 def create_ligand_activity_heatmap(
     ligand_activities_sorted:Iterable[tuple],
-    title:str="ligand_activity",
+    title:str="ligand activity",
     cbar_label:str="AUPR",
     cmap:str="YlOrRd",
     figsize:tuple[float, float]=(6, 6)
