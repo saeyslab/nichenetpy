@@ -13,6 +13,20 @@ class Network:
         sorted list of tuples (from, to)
     filename : str
         name of the file to read the network from
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if neither mapping nor filename is provided
+    
+    Attributes
+    ----------
+    mapping : list
+        sorted list of tuples (from, to)
+    _index : dict
+        index for the mapping
     
     Notes
     -----
@@ -20,8 +34,12 @@ class Network:
     '''
     def __init__(self, mapping:list=None, filename:str=None) -> None:
         if mapping is not None:
+            if type(mapping) is not list:
+                raise TypeError(f"mapping should have type list, was {type(mapping)}")
             self._mapping = mapping
         elif filename is not None:
+            if type(filename) is not str:
+                raise TypeError(f"filename should have type str, was {type(filename)}")
             self._mapping = sorted(
                 read_network(filename),
                 key=lambda x : x[0]
@@ -88,7 +106,14 @@ class Network:
         -------
         Network
             the subsetted network
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
         '''
+        if not isinstance(from_to, Collection):
+            raise TypeError(f"from_to should be a Collection of tuple[str, str], was {type(from_to)}")
         return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
 
     def subset_sep(self, fr:Collection[str], to:Collection[str]):
@@ -106,7 +131,16 @@ class Network:
         -------
         Network
             the subsetted network
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
         '''
+        if not isinstance(fr, Collection):
+            raise TypeError(f"fr should be a Collection of str, was {type(fr)}")
+        if not isinstance(to, Collection):
+            raise TypeError(f"to should be a Collection of str, was {type(to)}")
         return type(self)(mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to])
 
 class LigandReceptorNetwork(Network):
@@ -119,6 +153,20 @@ class LigandReceptorNetwork(Network):
         sorted list of tuples (from, to)
     filename : str
         name of the file to read the network from
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if neither mapping nor filename is provided
+    
+    Attributes
+    ----------
+    mapping : list
+        sorted list of tuples (from, to)
+    _index : dict
+        index for the mapping
     
     Notes
     -----
@@ -156,9 +204,23 @@ class WeightedNetwork(Network):
         sorted list of tuples (from, to, weight)
     filename : str
         name of the file to read the network from
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Attributes
+    ----------
+    mapping : list
+        sorted list of tuples (from, to, weight)
+    _index : dict
+        index for the mapping
     '''
     def __init__(self, mapping = None, filename = None):
         if filename is not None:
+            if type(filename) is not str:
+                raise TypeError(f"filename should have type str, was {type(filename)}")
             mapping = sorted(
                 read_weighted_network(filename),
                 key=lambda x : x[0]

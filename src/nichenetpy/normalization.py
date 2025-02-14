@@ -1,5 +1,7 @@
 from scipy.sparse import lil_matrix, csc_matrix, csr_matrix
 
+from numbers import Number
+
 import numpy as np
 import pandas as pd
 
@@ -22,7 +24,16 @@ def relative_counts(
     -------
     numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the normalized data
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(data) is not np.ndarray and type(data) is not csc_matrix and type(data) is not csr_matrix:
+        raise TypeError(f"data should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(data)}")
+    if not isinstance(scale_factor, Number):
+        raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = [scale_factor/float(e) for e in data.sum(axis=1)]
     mp_mat = lil_matrix((len(mp), len(mp)))
     mp_mat.setdiag(mp)
@@ -79,7 +90,7 @@ def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> n
     Raises
     ------
     TypeError
-        if data has the wrong type
+        if the arguments have the wrong type
     ValueError
         if data is invalid
     
@@ -87,6 +98,8 @@ def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> n
     ----
     Contrary to the R function dplyr::scale_quantile, this function is implemented row-by-row
     '''
+    if not isinstance(cutoff, Number):
+        raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
     if type(data) is pd.Series:
         data = data.to_numpy()
     if type(data) is list or type(data) is tuple:

@@ -49,7 +49,7 @@ def write_ligand_target_matrix(
     '''
     if predictor is None:
         if type(mat) is not np.ndarray:
-            raise TypeError(f"expected a numpy.ndarray for mat, got {mat}")
+            raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
         if type(row_names) is not list:
             raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
         if type(col_names) is not list:
@@ -84,7 +84,14 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
         the names of the rows
     list of str
         the names of the columns
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         row_names = file.read(int.from_bytes(file.read(INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(INT_SIZE)))
@@ -113,7 +120,20 @@ def write_sparse_matrix(
         the names of the rows
     col_names : list of str
         the names of the columns
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(mat) is not csc_matrix and type(mat) is not csr_matrix:
+        raise TypeError(f"mat should have type csc_matrix or csr_matrix, was {type(mat)}")
+    if type(row_names) is not list:
+        raise TypeError(f"row_names should be a list of strings, had type {type(row_names)}")
+    if type(col_names) is not list:
+        raise TypeError(f"col_names should be a list of strings, had type {type(col_names)}")
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),
@@ -155,7 +175,14 @@ def read_csc_matrix(
         the names of the rows
     list of str
         the names of the columns
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csc_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
@@ -179,7 +206,14 @@ def read_csr_matrix(
         the names of the rows
     list of str
         the names of the columns
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csr_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
@@ -194,7 +228,16 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
         the name of the file to write to
     mapping : list[tuple[str, str]]
         the network connections
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(mapping) is not list:
+        raise TypeError(f"mapping should have type list[tuple[str, str]], was {type(mapping)}")
     grouped_mapping = dict()
     name2id = dict()
     for fr, to in mapping:
@@ -230,7 +273,16 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
         the name of the file to write to
     mapping : list[tuple[str, str, float]]
         the weighted connections of the network
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(mapping) is not list:
+        raise TypeError(f"mapping should have type list[tuple[str, str, float]], was {type(mapping)}")
     grouped_mapping = dict()
     name2id = dict()
     for fr, to, w in mapping:
@@ -270,7 +322,14 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     -------
     list of tuples
         the network connections
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(INT_SIZE))
         names = file.read(int.from_bytes(file.read(INT_SIZE)))
@@ -302,7 +361,14 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     -------
     list of tuples
         the weighted connections of the network
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(INT_SIZE))
         names = file.read(int.from_bytes(file.read(INT_SIZE)))

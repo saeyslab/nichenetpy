@@ -132,8 +132,19 @@ def wilcoxon_rank_sum_test(
     Notes
     -----
     implementation based on https://github.com/bnprks/BPCells
+    
     please make sure the optional "genes" argument does not contain duplicates
     '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type AnnData, was {type(ann)}")
+    if type(groupby) is not str:
+        raise TypeError(f"groupby should have type str, was {type(groupby)}")
+    if type(as_dataframe) is not bool:
+        raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
+    if type(tie_correction) is not bool:
+        raise TypeError(f"tie_correction should have type bool, was {type(tie_correction)}")
+    if type(layer) is not str:
+        raise TypeError(f"layer should have type str, was {type(layer)}")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()
