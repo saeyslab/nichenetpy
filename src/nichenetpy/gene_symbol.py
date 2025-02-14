@@ -13,8 +13,15 @@ class GeneAliasInfo:
     ----------
     filename : str
         name of the file to read gene alias information from
+    
+    Raises
+    ------
+    TypeError
+        if filename is not of the correct type
     '''
     def __init__(self, filename:str) -> None:
+        if type(filename) is not str:
+            raise TypeError(f"filename should have type str, was {type(filename)}")
         with open(filename) as file:
             lines = file.readlines()
         symbol, entrez, alias = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))

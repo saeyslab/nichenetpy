@@ -4,7 +4,8 @@ from nichenetpy.metrics import gene_expression_pct, group_metrics
 from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
-from collections.abc import Iterable
+from collections.abc import Iterable, Callable
+from numbers import Number
 
 import numpy as np
 import pandas as pd
@@ -50,7 +51,7 @@ def get_expressed_genes(
         raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
-    if type(pct) is not float:
+    if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
@@ -193,7 +194,7 @@ def average_expression(
     groupby:str,
     keys:Iterable[str]=None,
     layer:str="counts",
-    norm_f=None
+    norm_f:Callable=None
 ):
     '''
     Computes averaged expression values for each group. Similar to seurat's AverageExpression. 
@@ -208,7 +209,7 @@ def average_expression(
         the values to group by, all values in the groupby column by default
     layer : str
         the layer to compute average expression values from, this layer should contain counts
-    norm_f : function
+    norm_f : Callable
         the normalization function (normalization prior to the computation)
     
     Returns
@@ -228,6 +229,8 @@ def average_expression(
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     if norm_f is not None:
+        if not isinstance(norm_f, Callable):
+            raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
         data = norm_f(ann.layers[layer])
     if keys is None:
         keys = set(ann.obs[groupby])

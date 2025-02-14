@@ -3,10 +3,10 @@ from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
 from nichenetpy.ann_utils import _subset_layer
 
 from anndata import AnnData
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from scipy.sparse import csc_matrix, csr_matrix
 from sklearn.metrics import precision_recall_curve
-from collections.abc import Iterable
+from numbers import Number
 
 import numpy as np
 import pandas as pd
@@ -169,7 +169,7 @@ def log_fold_change(
         raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
     if not isinstance(denormalize, Callable):
         raise TypeError(f"denormalize should be a Callable, had type {type(denormalize)}")
-    if type(pseudocount) is not float:
+    if not isinstance(pseudocount, Number):
         raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
     return (
         _sub_log_fold_change(mat1, denormalize, pseudocount) - 
@@ -290,17 +290,17 @@ def group_metrics(
         raise TypeError(f"group_ref should be of type str, was {type(group_ref)}")
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
-    if type(lfc_pseudocount) is not float:
+    if not isinstance(lfc_pseudocount, Number):
         raise TypeError(f"lfc_pseudocount should be of type float, was {type(lfc_pseudocount)}")
     if type(tie_correction) is not bool:
         raise TypeError(f"tie_correction should be of type bool, was {type(tie_correction)}")
     if features is not None and not isinstance(features, Iterable):
         raise TypeError(f"features should be an Iterable of strings, had type {type(features)}")
-    if type(min_abs_lfc) is not float:
+    if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should be of type float, was {type(min_abs_lfc)}")
-    if type(min_pct) is not float:
+    if not isinstance(min_pct, Number):
         raise TypeError(f"min_pct should be of type float, was {type(min_pct)}")
-    if type(pval_thresh) is not float:
+    if not isinstance(pval_thresh, Number):
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
     if layer == "data":
         lfc_denormalize = np.expm1
