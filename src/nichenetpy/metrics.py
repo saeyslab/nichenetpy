@@ -300,7 +300,7 @@ def group_metrics(
         raise TypeError(f"min_abs_lfc should be of type float, was {type(min_abs_lfc)}")
     if not isinstance(min_pct, Number):
         raise TypeError(f"min_pct should be of type float, was {type(min_pct)}")
-    if not isinstance(pval_thresh, Number):
+    if pval_thresh is not None and not isinstance(pval_thresh, Number):
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
     if layer == "data":
         lfc_denormalize = np.expm1
