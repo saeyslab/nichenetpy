@@ -13,8 +13,15 @@ class GeneAliasInfo:
     ----------
     filename : str
         name of the file to read gene alias information from
+    
+    Raises
+    ------
+    TypeError
+        if filename is not of the correct type
     '''
     def __init__(self, filename:str) -> None:
+        if type(filename) is not str:
+            raise TypeError(f"filename should have type str, was {type(filename)}")
         with open(filename) as file:
             lines = file.readlines()
         symbol, entrez, alias = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))
@@ -48,7 +55,7 @@ class GeneAliasInfo:
         
         Raises
         ------
-        ValueError
+        TypeError
             if obj is not of the correct type
         
         Notes
@@ -75,7 +82,7 @@ class GeneAliasInfo:
         elif isinstance(obj, Iterable):
             return self.alias_to_symbol(list(obj))
         else:
-            raise ValueError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
+            raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
 mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
 '''

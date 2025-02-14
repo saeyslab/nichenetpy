@@ -3,9 +3,10 @@ from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
 from nichenetpy.ann_utils import _subset_layer
 
 from anndata import AnnData
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from scipy.sparse import csc_matrix, csr_matrix
 from sklearn.metrics import precision_recall_curve
+from numbers import Number
 
 import numpy as np
 import pandas as pd
@@ -46,7 +47,10 @@ def _auc_reverse(x:list[float], y:list[float]) -> float:
         raise ValueError('x and y should have a length of at least 2')
     return sum((x[i-1] - x[i])*(y[i] + y[i-1]) for i in range(1, len(x))) / 2
 
-def calculate_aupr(response:list[float], prediction:list[int]) -> float:
+def calculate_aupr(
+        response:list[float]|tuple[float],
+        prediction:list[float]|tuple[float]
+    ) -> float:
     '''
     Calculates the area under the precision-recall curve using the trapezoid rule. 
 
@@ -61,6 +65,11 @@ def calculate_aupr(response:list[float], prediction:list[int]) -> float:
     -------
     float
         the area under the precision-recall curve
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
 
     Examples
     --------
@@ -70,12 +79,16 @@ def calculate_aupr(response:list[float], prediction:list[int]) -> float:
     )
     0.8851473922902493
     '''
+    if type(response) is not list and type(response) is not tuple:
+        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple:
+        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
 
 def calculate_metrics(
-    prediction:list[float],
-    response:list[int]
+    prediction:list[float]|tuple[float],
+    response:list[float]|tuple[float]
 ) -> dict[str, float]:
     '''
     Calculates metrics that can be used to rank ligands. 
@@ -94,7 +107,16 @@ def calculate_metrics(
     -------
     dict[float]
         dictionary with as keys the names of the supported metrics and as values the computed metrics
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(response) is not list and type(response) is not tuple:
+        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple:
+        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
     aupr = calculate_aupr(response, prediction)
     return {
         "aupr": aupr,
@@ -135,7 +157,20 @@ def log_fold_change(
     -------
     numpy.ndarray
         the log fold changes
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(mat1) is not np.ndarray and type(mat1) is not csc_matrix and type(mat1) is not csr_matrix:
+        raise TypeError(f"mat1 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat1)}")
+    if type(mat2) is not np.ndarray and type(mat2) is not csc_matrix and type(mat2) is not csr_matrix:
+        raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
+    if not isinstance(denormalize, Callable):
+        raise TypeError(f"denormalize should be a Callable, had type {type(denormalize)}")
+    if not isinstance(pseudocount, Number):
+        raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
     return (
         _sub_log_fold_change(mat1, denormalize, pseudocount) - 
         _sub_log_fold_change(mat2, denormalize, pseudocount)
@@ -156,6 +191,11 @@ def gene_expression_pct(
     -------
     list
         for each gene the percentage of cells that have an expression value greater than 0
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
@@ -196,7 +236,7 @@ def group_metrics(
     layer:str="data",
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
-    features:list[str]=None,
+    features:Iterable[str]=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
     pval_thresh:float=None # 0.01 in seurat
@@ -222,19 +262,46 @@ def group_metrics(
         the pseudocount to use in the computation of the log fold changes
     tie_correction : bool
         if True, tie correction is performed through averaging
-    features : list of str
+    features : Iterable of str
         the genes to consider
-    min_lfc : float
+    min_abs_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
     min_pct : float
         genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
     pval_thresh : float
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
     Notes
     -----
     The result is the same as seurat's FindMarkers function.
     '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if type(groupby) is not str:
+        raise TypeError(f"groupby should be of type str, was {type(groupby)}")
+    if group_oi is not None and type(group_oi) is not str:
+        raise TypeError(f"group_oi should be of type str, was {type(group_oi)}")
+    if group_ref is not None and type(group_ref) is not str:
+        raise TypeError(f"group_ref should be of type str, was {type(group_ref)}")
+    if type(layer) is not str:
+        raise TypeError(f"layer should be of type str, was {type(layer)}")
+    if not isinstance(lfc_pseudocount, Number):
+        raise TypeError(f"lfc_pseudocount should be of type float, was {type(lfc_pseudocount)}")
+    if type(tie_correction) is not bool:
+        raise TypeError(f"tie_correction should be of type bool, was {type(tie_correction)}")
+    if features is not None and not isinstance(features, Iterable):
+        raise TypeError(f"features should be an Iterable of strings, had type {type(features)}")
+    if not isinstance(min_abs_lfc, Number):
+        raise TypeError(f"min_abs_lfc should be of type float, was {type(min_abs_lfc)}")
+    if not isinstance(min_pct, Number):
+        raise TypeError(f"min_pct should be of type float, was {type(min_pct)}")
+    if pval_thresh is not None and not isinstance(pval_thresh, Number):
+        raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
     if layer == "data":
         lfc_denormalize = np.expm1
     else:

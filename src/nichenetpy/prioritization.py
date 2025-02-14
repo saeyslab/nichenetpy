@@ -6,6 +6,7 @@ from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
+from collections.abc import Iterable, Collection
 
 import pandas as pd
 import numpy as np
@@ -17,7 +18,7 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:list[str]=None
+    features:Iterable[str]=None
 ) -> pd.DataFrame:
     '''
     Calculate differential expression of one cell type versus all other cell types using group_metrics.
@@ -35,14 +36,31 @@ def calculate_de(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
-    features : list of str
+    features : Iterable of str
         the genes to consider
     
     Returns
     -------
     pandas.DataFrame
         the differential expression
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type AnnData, was {type(ann)}")
+    if type(celltype_col) is not str:
+        raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
+    if type(condition_oi) is not str:
+        raise TypeError(f"condition_oi should have type str, was {type(condition_oi)}")
+    if type(condition_col) is not str:
+        raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
+    if type(layer) is not str:
+        raise TypeError(f"layer should have type str, was {type(layer)}")
+    if not isinstance(features, Iterable):
+        raise TypeError(f"features should have type Iterable[str], was {type(features)}")
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     group_metrics(
         ann,
@@ -50,7 +68,7 @@ def calculate_de(
         layer=layer,
         pval_thresh=1,
         features=features
-    ) #TODO: pval_adj doesn't match enough
+    )
     return ann.uns["group_metrics"]
 
 def get_avg_exp(
@@ -81,7 +99,22 @@ def get_avg_exp(
     -------
     pandas.DataFrame
         the average gene expression per cell type
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type AnnData, was {type(ann)}")
+    if type(celltype_col) is not str:
+        raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
+    if type(condition_oi) is not str:
+        raise TypeError(f"condition_oi should have type str, was {type(condition_oi)}")
+    if type(condition_col) is not str:
+        raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
+    if type(layer) is not str:
+        raise TypeError(f"layer should have type str, was {type(layer)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     celltypes = set(ann.obs[celltype_col])
@@ -105,8 +138,8 @@ def process_table_to_ic(
     tab:pd.DataFrame,
     table_type:str,
     lr_network:LigandReceptorNetwork,
-    senders_oi:list[str]=None,
-    receivers_oi:list[str]=None
+    senders_oi:Collection[str]=None,
+    receivers_oi:Collection[str]=None
 ):
     '''
     First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
@@ -121,16 +154,31 @@ def process_table_to_ic(
         indicates whether the table contains expression, celltype markers, or condition-specific information
     lr_network : LigandReceptorNetwork
         prior knowledge Ligand-Receptor network
-    senders_oi : list of str
+    senders_oi : Collection of str
         the sender celltypes of interest
-    receivers_oi : list of str
+    receivers_oi : Collection of str
         the receiver celltypes of interest
     
     Returns
     -------
     pandas.DataFrame
         the processed table
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(tab) is not pd.DataFrame:
+        raise TypeError(f"tab should have type pandas.DataFrame, was {type(tab)}")
+    if type(table_type) is not str:
+        raise TypeError(f"table_type should have type str, was {type(table_type)}")
+    if type(lr_network) is not LigandReceptorNetwork:
+        raise TypeError(f"lr_network should have type LigandReceptorNetwork, was {type(lr_network)}")
+    if senders_oi is not None and not isinstance(senders_oi, Collection):
+        raise TypeError(f"senders_oi should have type Collection[str], was {type(senders_oi)}")
+    if receivers_oi is not None and not isinstance(receivers_oi, Collection):
+        raise TypeError(f"receivers_oi should have type Collection[str], was {type(receivers_oi)}")
     if table_type == "expression":
         sender_table = tab.rename(columns={
             "celltype": "sender",
@@ -317,7 +365,15 @@ def generate_prioritization_table(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if prioritizing weigths does not contain the correct keys
     '''
+    if type(sender_receiver_info) is not pd.DataFrame:
+        raise TypeError(f"sender_receiver_info should be of type pandas.DataFrame, was {type(sender_receiver_info)}")
+    if type(sender_receiver_de) is not pd.DataFrame:
+        raise TypeError(f"sender_receiver_de should be of type pandas.DataFrame, was {type(sender_receiver_de)}")
+    if lr_condition_de is not None and type(lr_condition_de) is not pd.DataFrame:
+        raise TypeError(f"lr_condition_de should be of type pandas.DataFrame, was {type(lr_condition_de)}")
     pd.options.mode.chained_assignment = None # false positive warnings removal
     if type(ligand_activities) is dict or type(ligand_activities) is list:
         ligand_activities = ligand_activities_df(ligand_activities)
@@ -342,6 +398,8 @@ def generate_prioritization_table(
             "receptor_condition_specificity": 1
         }
     else:
+        if type(prioritizing_weights) is not dict:
+            raise TypeError(f"prioritizing_weights should have type dict, was {type(prioritizing_weights)}")
         for key in (
             "de_ligand",
             "de_receptor",

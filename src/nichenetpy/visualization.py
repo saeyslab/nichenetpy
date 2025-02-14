@@ -4,6 +4,8 @@ from nichenetpy.network import WeightedNetwork
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+from collections.abc import Iterable, Collection
+from numbers import Number
 
 import numpy as np
 import scipy as sc
@@ -11,7 +13,11 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 
 
-def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -> tuple[np.ndarray, list[str], list[str]]:
+def reorder_labels(
+    mat:np.ndarray,
+    row_labels:list[str],
+    col_labels:list[str]
+) -> tuple[np.ndarray, list[str], list[str]]:
     '''
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering. 
 
@@ -19,9 +25,9 @@ def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -
     ----------
     mat : numpy.ndarray
         the matrix to reorder
-    row_labels : list or tuple of float
+    row_labels : list or tuple of str
         the row labels
-    col_labels : list or tuple of float
+    col_labels : list or tuple of str
         the column labels
 
     Returns
@@ -32,7 +38,18 @@ def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -
         the reordered row labels
     list[str]
         the reordered column labels
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(mat) is not np.ndarray:
+        raise TypeError(f"mat should have type numpy.ndarray, was {type(mat)}")
+    if type(row_labels) is not list and type(row_labels) is not tuple:
+        raise TypeError(f"row_labels should have type list[str] or tuple[str], was {type(row_labels)}")
+    if type(col_labels) is not list and type(col_labels) is not tuple:
+        raise TypeError(f"col_labels should have type list[str] or tuple[str], was {type(col_labels)}")
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
         corr = np.corrcoef(mat, rowvar=False)
@@ -52,7 +69,7 @@ def reorder_labels(mat:np.ndarray, row_labels:list[str], col_labels:list[str]) -
 
 def prepare_ligand_target_visualization(
     predictor:LigandActivityPredictor,
-    ligand_target_links:list[tuple[str, str, float]],
+    ligand_target_links:Iterable[tuple[str, str, float]],
     cutoff:float=0.25
 ) -> tuple[np.ndarray, list[str], list[str]]:
     '''
@@ -62,8 +79,8 @@ def prepare_ligand_target_visualization(
     ----------
     predictor : LigandActivityPredictor
         the ligand activity predictor which contains the required ligand-target prior model
-    ligand_target_links : list of tuples
-        list of (ligand, target, regulatory_potential_scores) tuples
+    ligand_target_links : Iterable of tuples
+        Iterable of (ligand, target, regulatory_potential_scores) tuples
     cutoff : float
         quantile cutoff on the ligand-target scores of the input weighted ligand-target network, scores under this cutoff will be set to 0
 
@@ -75,7 +92,18 @@ def prepare_ligand_target_visualization(
         the row labels of the matrix
     list[str]
         the column labels of the matrix
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(predictor) is not LigandActivityPredictor:
+        raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
+    if not isinstance(ligand_target_links, Iterable):
+        raise TypeError(f"ligand_target_links should have type Iterable, was {type(ligand_target_links)}")
+    if not isinstance(cutoff, Number):
+        raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
     ligands, targets, weights = zip(*ligand_target_links)
     # TODO: there is most certainly a faster way of doing this
     ligands = sorted(set(ligands))
@@ -122,7 +150,14 @@ def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork)
         the row labels of the matrix
     list[str]
         the column labels of the matrix
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(ligand_receptor_links) is not WeightedNetwork:
+        raise TypeError(f"ligand_receptor_links should have type WeightedNetwork, was {type(ligand_receptor_links)}")
     ligands = sorted(ligand_receptor_links.get_ligands())
     receptors = sorted(ligand_receptor_links.get_receptors())
     ligand2index = dict(zip(ligands, range(len(ligands))))
@@ -133,8 +168,8 @@ def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork)
     return reorder_labels(mat, ligands, receptors)
 
 def heatmap_1d(
-    vals:list[float]|np.ndarray,
-    labels:list[str],
+    vals:Iterable[float],
+    labels:Collection[str],
     title:str=None,
     cbar_label:str=None,
     cmap:str="Greys",
@@ -145,9 +180,9 @@ def heatmap_1d(
 
     Parameters
     ----------
-    vals : list of float
+    vals : Iterable of float
         the values to plot
-    labels : list of str
+    labels : Collection of str
         the labels of the values
     title : str
         the title of the plot
@@ -164,23 +199,40 @@ def heatmap_1d(
         the matplotlib figure
     Axes
         the matplotlib axes
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if not isinstance(vals, Iterable):
+        raise TypeError(f"vals should have type Iterable, was {type(vals)}")
+    if not isinstance(labels, Collection):
+        raise TypeError(f"labels should have type Collection, was {type(labels)}")
+    if type(cmap) is not str:
+        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(figsize) is not tuple:
+        raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
     fig, ax = plt.subplots(figsize=figsize)
     ys = range(len(labels)+1)
     im = ax.pcolormesh([0, 1], ys, [[val] for val in vals], cmap=cmap)
     ax.get_xaxis().set_visible(False)
     ax.set_yticks(np.arange(len(labels))+0.5, labels=labels)
     if title is not None:
+        if type(title) is not str:
+            raise TypeError(f"title should have type str, was {type(title)}")
         ax.set_title(title)
     fig.tight_layout()
     if cbar_label is not None:
+        if type(cbar_label) is not str:
+            raise TypeError(f"cbar_label should have type str, was {type(cbar_label)}")
         plt.colorbar(im, label=cbar_label)
     return (fig, ax)
 
 def heatmap_2d(
     mat:list[list[float]]|np.ndarray,
-    xlabels:list[str],
-    ylabels:list[str],
+    xlabels:Collection[str],
+    ylabels:Collection[str],
     xtitle:str=None,
     ytitle:str=None,
     cbar_label:str=None,
@@ -196,9 +248,9 @@ def heatmap_2d(
     ----------
     mat : numpy.ndarray or list of list of float
         a matrix of values to plot
-    xlabels : list of str
+    xlabels : Collection of str
         the labels of the x values
-    ylabels : list of str
+    ylabels : Collection of str
         the labels of the y values
     xtitle : str
         the title of the x-axis
@@ -221,7 +273,26 @@ def heatmap_2d(
         the matplotlib figure
     Axes
         the matplotlib axes
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(mat) is not np.ndarray and type(mat) is not list and type(mat) is not tuple:
+        raise TypeError(f"mat should have type numpy.ndarray or list or tuple, was {type(mat)}")
+    if not isinstance(xlabels, Collection):
+        raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
+    if not isinstance(ylabels, Collection):
+        raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
+    if type(cmap) is not str:
+        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(figsize) is not tuple:
+        raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
+    if type(cbar_position) is not str:
+        raise TypeError(f"cbar_position should have type str, was {type(cbar_position)}")
+    if type(cbar_orientation) is not str:
+        raise TypeError(f"cbar_orientation should have type str, was {type(cbar_orientation)}")
     fig, ax = plt.subplots(figsize=figsize)
     xs = range(len(xlabels))
     ys = range(len(ylabels))
@@ -236,10 +307,16 @@ def heatmap_2d(
         t.set_transform(t.get_transform()+trans)
     fig.tight_layout()
     if cbar_label is not None:
+        if type(cbar_label) is not str:
+            raise TypeError(f"cbar_label should have type str, was {type(cbar_label)}")
         plt.colorbar(im, fraction=0.05, orientation=cbar_orientation, location=cbar_position, label=cbar_label)
     if xtitle is not None:
+        if type(xtitle) is not str:
+            raise TypeError(f"xtitle should have type str, was {type(xtitle)}")
         plt.xlabel(xtitle)
     if ytitle is not None:
+        if type(ytitle) is not str:
+            raise TypeError(f"ytitle should have type str, was {type(ytitle)}")
         plt.ylabel(ytitle)
     plt.hlines([y + 0.5 for y in ys[:-1]], xs[0]-0.5, xs[-1]+0.5, color="white")
     plt.vlines([x + 0.5 for x in xs[:-1]], ys[0]-0.5, ys[-1]+0.5, color="white")

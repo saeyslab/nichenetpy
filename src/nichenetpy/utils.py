@@ -1,5 +1,7 @@
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 
+from collections.abc import Iterable, Callable
+
 import numpy as np
 import pandas as pd
 
@@ -17,7 +19,14 @@ def read_list_from_csv(filename:str) -> list[str]:
     -------
     list
         list of read strings
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
     return [line.rstrip().strip("\"\'") for line in lines[1:]]
@@ -39,7 +48,14 @@ def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]
         the row labels
     list
         the column labels
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
@@ -66,7 +82,14 @@ def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
         list of column names
     list of list of str
         list of rows
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
@@ -85,7 +108,14 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
     -------
     dict
         mapping of column names to columns (lists of strings)
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(filename) is not str:
+        raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
     lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
@@ -93,8 +123,8 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
 
 def subset_matrix(
     mat:np.ndarray|csc_matrix|csr_matrix,
-    rows:list[int]|list[bool]=None,
-    cols:list[int]|list[bool]=None
+    rows:Iterable[int]|Iterable[bool]=None,
+    cols:Iterable[int]|Iterable[bool]=None
 ) -> np.ndarray:
     '''
     Subsets a matrix. 
@@ -103,9 +133,9 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the matrix to subset
-    rows : list of int or list of bool or None
+    rows : Iterable of int or Iterable of bool or None
         list of row indices to keep or list of booleans indicating which rows to keep
-    cols : list of int or list of bool or None
+    cols : Iterable of int or Iterable of bool or None
         list of column indices to keep or list of booleans indicating which columns to keep
     
     Returns
@@ -118,6 +148,10 @@ def subset_matrix(
     TypeError
         if the arguments have the wrong type
     '''
+    if rows is not None and not isinstance(rows, Iterable):
+        raise TypeError(f"rows should be of type Iterable, was {type(rows)}")
+    if cols is not None and not isinstance(cols, Iterable):
+        raise TypeError(f"cols should be of type Iterable, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
@@ -224,6 +258,11 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
     dict
         a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key
     
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
     Examples
     --------
     >>> combine_dicts(
@@ -267,17 +306,21 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
         "c": (2, 6)
     }
     '''
+    if type(dict1) is not dict:
+        raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
+    if type(dict2) is not dict:
+        raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
     return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
 
 def ligand_activities_df(
-    ligand_activities:dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]]
+    ligand_activities:dict[str, dict[str, float]]|Iterable[tuple[str, dict[str, float]]]
 ) -> pd.DataFrame:
     '''
     convert ligand activities to a pandas DataFrame
 
     Parameters
     ----------
-    ligand_activities : dict
+    ligand_activities : dict or Iterable
         the ligand activities to convert
     
     Returns
@@ -292,10 +335,10 @@ def ligand_activities_df(
     '''
     if type(ligand_activities) is dict:
         ligands, activities = ligand_activities.items()
-    elif type(ligand_activities) is list:
+    elif isinstance(ligand_activities, Iterable):
         ligands, activities = zip(*ligand_activities)
     else:
-        raise TypeError(f"ligand_activities should be of type dict or list, was {type(ligand_activities)}")
+        raise TypeError(f"ligand_activities should be of type dict or Iterable, was {type(ligand_activities)}")
     columns = tuple(activities[0].keys())
     data = [tuple(act.values()) for act in activities]
     df = pd.DataFrame(data=data, index=ligands, columns=columns)
@@ -304,7 +347,7 @@ def ligand_activities_df(
 def df_grouped_apply(
     df:pd.DataFrame,
     groupby:str,
-    func:callable,
+    func:Callable,
     dest:str
 ) -> pd.DataFrame:
     '''
@@ -325,7 +368,20 @@ def df_grouped_apply(
     -------
     pandas.DataFrame
         a pandas DataFrame containing the ligand activities
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
+    if type(df) is not pd.DataFrame:
+        raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
+    if type(groupby) is not str:
+        raise TypeError(f"groupby should have type str, was {type(groupby)}")
+    if not isinstance(func, Callable):
+        raise TypeError(f"func should have type Callable, was {type(func)}")
+    if type(dest) is not str:
+        raise TypeError(f"dest should have type str, was {type(dest)}")
     pd.options.mode.chained_assignment = None # false positive warnings removal
     vals = sorted(set(df[groupby]))
     groups = []
