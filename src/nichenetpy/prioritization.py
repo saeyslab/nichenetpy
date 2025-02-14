@@ -410,7 +410,7 @@ def generate_prioritization_table(
             "receptor_condition_specificity"
         ):
             if key not in lr_condition_de:
-                return ValueError(f"{key} key missing in lr_condition_de")
+                raise ValueError(f"{key} key missing in lr_condition_de")
     if "rank" not in ligand_activities.columns:
         ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
     sender_ligand_prioritization = _prioritization(
