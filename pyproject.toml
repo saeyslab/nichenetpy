@@ -7,7 +7,11 @@ name = "nichenetpy"
 version = "0.1.0"
 
 description = """
-nichenetpy: the python implementation of the NicheNet method. The goal of NicheNet is to study intercellular communication from a computational perspective. NicheNet uses human or mouse gene expression data of interacting cells as input and combines this with a prior model that integrates existing knowledge on ligand-to-target signaling paths. This allows to predict ligand-receptor interactions that might drive gene expression changes in cells of interest. 
+nichenetpy: the python implementation of the NicheNet method.
+The goal of NicheNet is to study intercellular communication from a computational perspective.
+NicheNet uses human or mouse gene expression data of interacting cells as input and combines this
+with a prior model that integrates existing knowledge on ligand-to-target signaling paths.
+This allows to predict ligand-receptor interactions that might drive gene expression changes in cells of interest. 
 """
 
 authors = [
@@ -20,7 +24,16 @@ maintainers = [
 
 requires-python = "== 3.12.*"
 
-dependencies = ["scikit-learn>=1.5.2", "anndata>=0.11.1", "scanpy==1.10.4"]
+dependencies = [
+    "scikit-learn>=1.5.2",
+    "anndata>=0.11.1",
+    "scanpy>=1.10.4",
+    "numpy>=2.0.2",
+    "matplotlib>=3.9.3",
+    "pyCirclize>=1.9.0",
+    "scipy>=1.14.1",
+    "statsmodels>=0.14.4"
+]
 
 classifiers = [
     "Development Status :: 1 - Planning",

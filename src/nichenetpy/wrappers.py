@@ -27,6 +27,10 @@ from nichenetpy.ann_utils import subset_ann
 from itertools import cycle, chain
 from collections.abc import Iterable
 from anndata import AnnData
+from pycirclize import Circos
+from pycirclize.utils import ColorCycler
+from matplotlib.patches import Patch
+from matplotlib.figure import Figure
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -552,6 +556,99 @@ def create_lfc_heatmap(
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top') 
     plt.show()
+
+def create_ligand_receptor_links_circos_plot(
+    senders:Iterable[str],
+    receivers:Iterable[str],
+    ligands:Iterable[str],
+    receptors:Iterable[str]
+) -> Figure:
+    '''
+    Creates a circos plot showing the links between ligands and receptors. 
+
+    Parameters
+    ----------
+    senders : Iterable of str
+        the sender celltypes
+    receivers : Iterable of str
+        the receiver celltypes
+    ligands : Iterable of str
+        the ligands
+    receptors : Iterable of str
+        the receptors
+    
+    Returns
+    -------
+    matplotlib.Figure
+        the plotted figure
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if not isinstance(senders, Iterable):
+        raise TypeError(f"senders should have type Iterable[str], was {type(senders)}")
+    if not isinstance(receivers, Iterable):
+        raise TypeError(f"receivers should have type Iterable[str], was {type(receivers)}")
+    if not isinstance(ligands, Iterable):
+        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+    if not isinstance(receptors, Iterable):
+        raise TypeError(f"receptors should have type Iterable[str], was {type(receptors)}")
+    celltypes = set(chain(senders, receivers))
+    link_count_in = dict()
+    link_count_out = dict()
+    links = []
+    for sender, receiver, ligand, receptor in zip(senders, receivers, ligands, receptors):
+        key_out = f"{sender}_{ligand}_out"
+        if key_out in link_count_out:
+            link_count_out[key_out] += 1
+        else:
+            link_count_out[key_out] = 1
+        key_in = f"{receiver}_{receptor}_in"
+        if key_in in link_count_in:
+            link_count_in[key_in] += 1
+        else:
+            link_count_in[key_in] = 1
+        links.append((
+            key_out,
+            key_in,
+            link_count_out[key_out],
+            link_count_in[key_in]
+        ))
+    circos = Circos(
+    sectors={
+            key: count
+            for key, count in chain(link_count_in.items(), link_count_out.items())
+        },
+        space=1
+    )
+    ColorCycler.set_cmap("Set1")
+    colors = dict(zip(celltypes, ColorCycler.get_color_list(len(celltypes))))
+    for sector in circos.sectors:
+        celltype, gene, _ = sector.name.split("_")
+        sector.text(gene, size=10, orientation="vertical")
+        track = sector.add_track((95, 100))
+        track.axis(fc=colors[celltype])
+    for sender, receiver, send_pos, rec_pos in links:
+        celltype = sender.split("_")[0]
+        circos.link_line(
+            (sender, send_pos - 0.5),
+            (receiver, rec_pos - 0.5,),
+            direction=1,
+            color=colors[celltype]
+        )
+    fig = circos.plotfig()
+    circos.ax.legend(
+        handles=[
+            Patch(color=color, label=celltype)
+            for celltype, color in colors.items()
+        ],
+        bbox_to_anchor=(0, 1.1),
+        loc="right",
+        ncols=1,
+    )
+    return fig
 
 def generate_info_tables(
     ann:AnnData,
