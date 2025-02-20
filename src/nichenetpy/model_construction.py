@@ -1,4 +1,7 @@
 from numbers import Number
+from itertools import chain
+from collections.abc import Iterable
+from scipy.sparse import csc_matrix
 
 import pandas as pd
 
@@ -71,7 +74,51 @@ def apply_hub_correction(
     to_count = df.groupby("to").aggregate("count")
     to_count.rename(columns={"weight": "n"}, inplace=True)
     to_count.reset_index(inplace=True)
+    df.reset_index(inplace=True)
     df = df.merge(to_count, on="to", how="inner")
     df["weight"] = df["weight"] / (df["n"] ** hub)
     df.drop(columns="n", inplace=True)
     return df
+
+def construct_ligand_tf_matrix(
+    weighted_networks:dict[str, pd.DataFrame],
+    ligands:Iterable[str],
+    ltf_cutoff:float=0.99,
+    algorithm:str="PPR",
+    damping_factor:float=0.5,
+    ligands_as_cols:bool=False
+):
+    lr_sig = weighted_networks["lr_sig"]
+    gr = weighted_networks["gr"]
+    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    genes2id = dict(zip(range(len(all_genes)), all_genes))
+    if algorithm is "PPR":
+        lr_sig_mat = csc_matrix(
+            lr_sig["weight"],
+            (lr_sig["from"].apply(lambda x : genes2id[x]), lr_sig["to"].apply(lambda x : genes2id[x]))
+        )
+    elif algorithm is "SPL":
+        pass
+    elif algorithm is "direct":
+        pass
+    else:
+        raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
+
+def construct_ligand_target_matrix(
+    weighted_networks:dict[str, pd.DataFrame],
+    lr_network:pd.DataFrame,
+    ligands:Iterable[str],
+    ltf_cutoff:float=0.99,
+    algorithm:str="PPR",
+    damping_factor:float=0.5,
+    secondary_targets:bool=False,
+    ligands_as_cols:bool=True,
+    remove_direct_links:str="no"
+):
+    if remove_direct_links is "ligand":
+        rm_set = set(lr_network["from"])
+        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+    elif remove_direct_links is "ligand_receptor":
+        rm_set = set(chain(lr_network["from"], lr_network["to"]))
+        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+    
