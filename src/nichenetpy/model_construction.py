@@ -1,9 +1,11 @@
 from numbers import Number
 from itertools import chain
 from collections.abc import Iterable
-from scipy.sparse import csc_matrix
+from scipy.sparse import csr_matrix
+from sknetwork.ranking import PageRank
 
 import pandas as pd
+import numpy as np
 
 
 def _sum_weights(df, source_weights):
@@ -91,16 +93,40 @@ def construct_ligand_tf_matrix(
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
-    genes2id = dict(zip(range(len(all_genes)), all_genes))
-    if algorithm is "PPR":
-        lr_sig_mat = csc_matrix(
-            lr_sig["weight"],
-            (lr_sig["from"].apply(lambda x : genes2id[x]), lr_sig["to"].apply(lambda x : genes2id[x]))
+    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    if algorithm == "PPR":
+        # the adjancy matrix (and adjacency graph)
+        lr_sig_mat = csr_matrix(
+            (
+                lr_sig["weight"],
+                (
+                    lr_sig["from"].apply(lambda x : gene2id[x]),
+                    lr_sig["to"].apply(lambda x : gene2id[x])
+                )
+            )
         )
-    elif algorithm is "SPL":
-        pass
-    elif algorithm is "direct":
-        pass
+        # preference vector
+        pv = np.zeros(shape=lr_sig_mat.shape[0])
+        pr = PageRank(damping_factor=damping_factor)
+        complete_matrix = []
+        for ligand in ligands:
+            pv[gene2id[ligand]] = 1
+            ppr_matrix = np.array(pr.fit_predict(lr_sig_mat, weights=pv), ncol=len(pv))
+            if damping_factor == 0:
+                ltf_cutoff = 0
+            if ltf_cutoff > 0:
+                for i in range(ppr_matrix.shape[0]):
+                    row = ppr_matrix[i, :]
+                    qt = np.quantile(row, ltf_cutoff)
+                    for j in range(len(row)):
+                        if row[j] <= qt:
+                            ppr_matrix[i, j] = 0
+            complete_matrix.append(ppr_matrix.mean(axis=0))
+        complete_matrix = np.array(complete_matrix)
+    elif algorithm == "SPL":
+        raise NotImplementedError("SPL is not supported yet")
+    elif algorithm == "direct":
+        raise NotImplementedError("direct is not supported yet")
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
 
@@ -115,10 +141,10 @@ def construct_ligand_target_matrix(
     ligands_as_cols:bool=True,
     remove_direct_links:str="no"
 ):
-    if remove_direct_links is "ligand":
+    if remove_direct_links == "ligand":
         rm_set = set(lr_network["from"])
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
-    elif remove_direct_links is "ligand_receptor":
+    elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
     
