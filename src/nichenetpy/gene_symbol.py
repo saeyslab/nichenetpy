@@ -86,10 +86,10 @@ class GeneAliasInfo:
 
 mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
 '''
-gene alias info for mice (3845 Mb)
+gene alias info for mice (3845 kb)
 '''
 
 human_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_human.csv"))
 '''
-gene alias info for humans (3845 Mb)
+gene alias info for humans (3845 kb)
 '''
