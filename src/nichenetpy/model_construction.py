@@ -84,7 +84,7 @@ def apply_hub_correction(
 
 def construct_ligand_tf_matrix(
     weighted_networks:dict[str, pd.DataFrame],
-    ligands:Iterable[str],
+    ligands:Iterable[Iterable[str]],
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
@@ -109,9 +109,16 @@ def construct_ligand_tf_matrix(
         pv = np.zeros(shape=lr_sig_mat.shape[0])
         pr = PageRank(damping_factor=damping_factor)
         complete_matrix = []
-        for ligand in ligands:
-            pv[gene2id[ligand]] = 1
-            ppr_matrix = np.array(pr.fit_predict(lr_sig_mat, weights=pv), ncol=len(pv))
+        for _ligands in ligands:
+            partial_matrix = []
+            for ligand in _ligands:
+                pv[gene2id[ligand]] = 1 # TODO: check if this needs a reset
+                partial_matrix.append(pr.fit_predict(lr_sig_mat, weights=pv))
+            ppr_matrix = np.array(partial_matrix)
+            ppr_matrix = ppr_matrix.reshape((
+                int(sum(len(x) for x in partial_matrix)/len(pv)),
+                len(pv)
+            ))
             if damping_factor == 0:
                 ltf_cutoff = 0
             if ltf_cutoff > 0:
@@ -122,13 +129,16 @@ def construct_ligand_tf_matrix(
                         if row[j] <= qt:
                             ppr_matrix[i, j] = 0
             complete_matrix.append(ppr_matrix.mean(axis=0))
-        complete_matrix = np.array(complete_matrix)
     elif algorithm == "SPL":
         raise NotImplementedError("SPL is not supported yet")
     elif algorithm == "direct":
         raise NotImplementedError("direct is not supported yet")
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
+    ltf_matrix = np.array(complete_matrix)
+    if ligands_as_cols:
+        return ltf_matrix.transpose()
+    return ltf_matrix
 
 def construct_ligand_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
@@ -147,4 +157,5 @@ def construct_ligand_target_matrix(
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
-    
+    ltf_matrix = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
+    return ltf_matrix
