@@ -3,6 +3,7 @@ from itertools import chain
 from collections.abc import Iterable
 from scipy.sparse import csr_matrix
 from sknetwork.ranking import PageRank
+from sknetwork.path import get_shortest_path
 
 import pandas as pd
 import numpy as np
@@ -82,6 +83,16 @@ def apply_hub_correction(
     df.drop(columns="n", inplace=True)
     return df
 
+def _quantile_clip(mat, cutoff):
+    if cutoff > 0:
+        for i in range(mat.shape[0]):
+            row = mat[i, :]
+            qt = np.quantile(row, cutoff)
+            for j in range(len(row)):
+                if row[j] <= qt:
+                    mat[i, j] = 0
+
+
 def construct_ligand_tf_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     ligands:Iterable[Iterable[str]],
@@ -121,16 +132,26 @@ def construct_ligand_tf_matrix(
             ))
             if damping_factor == 0:
                 ltf_cutoff = 0
-            if ltf_cutoff > 0:
-                for i in range(ppr_matrix.shape[0]):
-                    row = ppr_matrix[i, :]
-                    qt = np.quantile(row, ltf_cutoff)
-                    for j in range(len(row)):
-                        if row[j] <= qt:
-                            ppr_matrix[i, j] = 0
+            _quantile_clip(ppr_matrix, ltf_cutoff)
             complete_matrix.append(ppr_matrix.mean(axis=0))
-    elif algorithm == "SPL":
-        raise NotImplementedError("SPL is not supported yet")
+    elif algorithm == "SPL": #TODO test this
+        # the adjancy matrix (and adjacency graph)
+        lr_sig_mat = csr_matrix(
+            (
+                [1/e for e in lr_sig["weight"]],
+                (
+                    lr_sig["from"].apply(lambda x : gene2id[x]),
+                    lr_sig["to"].apply(lambda x : gene2id[x])
+                )
+            )
+        )
+        complete_matrix = []
+        for _ligands in ligands:
+            distances = get_shortest_path(lr_sig_mat, source=[gene2id[ligand] for ligand in _ligands])
+            max_dist = max(distances)
+            spl_matrix = max_dist - distances
+            _quantile_clip(spl_matrix, ltf_cutoff)
+            complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
         raise NotImplementedError("direct is not supported yet")
     else:
