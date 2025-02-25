@@ -102,7 +102,7 @@ def construct_ligand_tf_matrix(
     algorithm:str="PPR",
     damping_factor:float=0.5,
     ligands_as_cols:bool=False
-):
+) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if not isinstance(ligands, Iterable):
@@ -177,15 +177,17 @@ def construct_ligand_tf_matrix(
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix)
+    row_names = ["-".join(_ligands) for _ligands in ligands]
+    col_names = all_genes
     if ligands_as_cols:
-        return ltf_matrix.transpose()
-    return ltf_matrix
+        return (col_names, row_names, ltf_matrix.transpose())
+    return (row_names, col_names, ltf_matrix)
 
 def construct_tf_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     tfs_as_cols:bool=False,
     standalone_output:bool=False
-):
+) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(tfs_as_cols) is not bool:
@@ -196,18 +198,18 @@ def construct_tf_target_matrix(
     gr = weighted_networks["gr"]
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes))))
-    row_names = gr["from"]
-    col_names = gr["to"]
-    fr = [gene2id[e] for e in row_names]
+    fr = [gene2id[e] for e in gr["from"]]
     grn_matrix = csr_matrix(
         (
             gr["weight"],
             (
                 fr,
-                [gene2id[e] for e in col_names]
+                [gene2id[e] for e in gr["to"]]
             )
         )
     )
+    row_names = all_genes
+    col_names = all_genes
     if standalone_output:
         # keep only regulators with gene regulatory interactions
         rows = sorted(set(fr))
@@ -215,10 +217,19 @@ def construct_tf_target_matrix(
             grn_matrix,
             rows=rows
         )
-        row_names = [all_genes[i] for i in rows]
+        row_names = [row_names[i] for i in rows]
     if tfs_as_cols:
         return (col_names, row_names, grn_matrix.transpose())
     return (row_names, col_names, grn_matrix)
+
+def _set_min(mat):
+    for i in range(len(mat)):
+        if mat[i] == 0:
+            mat[i] = np.inf
+    m = min(mat)
+    for i in range(len(mat)):
+        if mat[i] == np.inf:
+            mat[i] = m
 
 def construct_ligand_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
@@ -230,7 +241,7 @@ def construct_ligand_target_matrix(
     secondary_targets:bool=False,
     ligands_as_cols:bool=True,
     remove_direct_links:str="no"
-):
+) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(lr_network) is not pd.DataFrame:
@@ -261,6 +272,15 @@ def construct_ligand_target_matrix(
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
-    ltf_matrix = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
-    grn_rows, grn_cols, grn_matrix = construct_tf_target_matrix(weighted_networks)
-    return ltf_matrix
+    ltf_rows, _, ltf_matrix = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
+    _, grn_cols, grn_matrix = construct_tf_target_matrix(weighted_networks)
+    ligand2target = ltf_matrix * grn_matrix
+    if secondary_targets:
+        _quantile_clip(ligand2target, ltf_cutoff)
+        ligand2target_secondary = ligand2target * grn_matrix
+        _set_min(ligand2target)
+        _set_min(ligand2target_secondary)
+        ligand2target = (ligand2target**-1 + ligand2target_secondary**-1)**-1
+    if ligands_as_cols:
+        return (grn_cols, ltf_rows, ligand2target.transpose())
+    return (ltf_rows, grn_cols, ligand2target)
