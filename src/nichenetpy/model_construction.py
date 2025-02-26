@@ -1,4 +1,5 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.graph import dijkstra_spl
 
 from numbers import Number
 from itertools import chain
@@ -153,25 +154,32 @@ def construct_ligand_tf_matrix(
             _quantile_clip(ppr_matrix, ltf_cutoff)
             complete_matrix.append(ppr_matrix.mean(axis=0))
     elif algorithm == "SPL":
-        raise NotImplementedError("SPL is not supported yet")
-        '''# the adjancy matrix (and adjacency graph)
+        # the adjancy matrix (and adjacency graph)
         lr_sig_mat = csr_matrix(
             (
                 [1/e for e in lr_sig["weight"]],
                 (
-                    lr_sig["from"].apply(lambda x : gene2id[x]),
-                    lr_sig["to"].apply(lambda x : gene2id[x])
+                    [gene2id[e] for e in lr_sig["from"]],
+                    [gene2id[e] for e in lr_sig["to"]]
                 )
             )
         )
         complete_matrix = []
         for _ligands in ligands:
-            distances = get_distances(lr_sig_mat, source=[gene2id[ligand] for ligand in _ligands]) # not correct
-            print(distances)
-            max_dist = max(distances)
-            spl_matrix = max_dist - distances
+            spl_matrix = np.array([dijkstra_spl(graph=lr_sig_mat, src=gene2id[src]) for src in _ligands])
+            for i in range(spl_matrix.shape[0]):
+                for j in range(spl_matrix.shape[1]):
+                    if spl_matrix[i, j] == np.inf:
+                        spl_matrix[i, j] = -1
+            max_dist = spl_matrix.max()
+            for i in range(spl_matrix.shape[0]):
+                for j in range(spl_matrix.shape[1]):
+                    if spl_matrix[i, j] == -1:
+                        spl_matrix[i, j] = 0
+                    else:
+                        spl_matrix[i, j] = max_dist - spl_matrix[i, j]
             _quantile_clip(spl_matrix, ltf_cutoff)
-            complete_matrix.append(spl_matrix.mean(axis=0))'''
+            complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
         raise NotImplementedError("direct is not supported yet")
     else:
