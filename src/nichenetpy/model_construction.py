@@ -6,7 +6,6 @@ from itertools import chain
 from collections.abc import Iterable
 from scipy.sparse import csr_matrix
 from sknetwork.ranking import PageRank
-from sknetwork.path import get_distances
 
 import pandas as pd
 import numpy as np
@@ -27,6 +26,39 @@ def construct_weighted_networks(
     source_weights:dict[str, float]|pd.DataFrame,
     n_output_networks:int=2
 ) -> dict[str, pd.DataFrame]:
+    '''
+    Construct layer-specific weighted integrated networks from input source networks via weighted aggregation.
+
+    Parameters
+    ----------
+    lr_network : pandas.DataFrame
+        dataframe which contains ligand-receptor interactions
+    sig_network : pandas.DataFrame
+        dataframe which contains signaling interactions
+    gr_network : pandas.DataFrame
+        dataframe which contains gene regulatory interactions
+    source_weights : pandas.DataFrame or dictionary
+        Dataframe or dictionary which contains the weights associated to each individual data source.
+        Sources with higher weights will contribute more to the final model performance.
+        Note that only interactions described by sources included here, will be retained during model construction.
+    n_output_networks : int
+        the number of output networks to return: 2
+        (ligand-signaling and gene regulatory; default) or 3 (ligand-receptor, signaling and gene regulatory)
+    
+    Returns
+    -------
+    dictionary
+        a dictionary containing 2 elements (lr_sig and gr) or 3 elements (lr, sig, gr):
+        the integrated weighted ligand-signaling and gene regulatory networks or ligand-receptor,
+        signaling and gene regulatory networks in data frame / tibble format with columns: from, to, weight
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
+    '''
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if type(sig_network) is not pd.DataFrame:
@@ -69,6 +101,28 @@ def apply_hub_correction(
     df:pd.DataFrame,
     hub:float
 ) -> pd.DataFrame:
+    '''
+    downweighs the importance of nodes with a lot of incoming links in the ligand-signaling and/or gene regulatory network.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        the network
+    hub : float
+        a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
+    
+    Returns
+    -------
+    dictionary
+        the hubiness-corrected network
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
+    '''
     if type(df) is not pd.DataFrame:
         raise TypeError(f"df should haver type pandas.DataFrame, was {type(df)}")
     if not isinstance(hub, Number):
@@ -104,6 +158,52 @@ def construct_ligand_tf_matrix(
     damping_factor:float=0.5,
     ligands_as_cols:bool=False
 ) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+    '''
+    Convert integrated weighted networks into a matrix containg ligand-tf probability scores.
+    The higher this score, the more likely a particular ligand can signal to a downstream gene.
+
+    Parameters
+    ----------
+    weighted_networks : dict
+        the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
+    ligands : Iterable of Iterable of str
+        all ligands and ligand-combinations of which target gene probability scores should be calculated
+    ltf_cutoff : float
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
+    algorithm : str
+        Selection of the algorithm to calculate ligand-tf signaling probability scores.
+        Different options:
+        "PPR" (personalized pagerank),
+        "SPL" (shortest path length) and
+        "direct"(just take weights of ligand-signaling network as ligand-tf weights + give the ligand itself the max score).
+        Default and recommended: PPR
+    damping_factor : float
+        Only relevant when algorithm is PPR.
+        In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
+        1-damping factor is the probability that the walker will return to the seed node.
+        Default: 0.5
+    ligands_as_cols : bool
+        Indicate whether ligands should be in columns of the matrix and target genes in rows or vice versa.
+        Default: False
+    
+    
+    Returns
+    -------
+    list of str
+        the names of the rows of the matrix
+    list of str
+        the name of the columns of the matrix
+    numpy.ndarray
+        a matrix containing ligand-target probability scores
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
+    '''
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if not isinstance(ligands, Iterable):
@@ -196,6 +296,35 @@ def construct_tf_target_matrix(
     tfs_as_cols:bool=False,
     standalone_output:bool=False
 ) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+    '''
+    Convert integrated gene regulatory weighted network into matrix format.
+
+    Parameters
+    ----------
+    weighted_networks : dict
+        the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
+    tfs_as_cols : bool
+        Indicate whether ligands should be in columns of the matrix and target genes in rows or vice versa.
+        Default: FALSE
+    standalone_output : bool
+        Indicate whether the ligand-tf matrix should be formatted in a way convenient to use alone (with gene symbols as row/colnames).
+        Default: FALSE
+    
+    
+    Returns
+    -------
+    list of str
+        the names of the rows of the matrix
+    list of str
+        the name of the columns of the matrix
+    numpy.ndarray
+        a matrix containing tf-target regulatory weights
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(tfs_as_cols) is not bool:
@@ -250,6 +379,61 @@ def construct_ligand_target_matrix(
     ligands_as_cols:bool=True,
     remove_direct_links:str="no"
 ) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+    '''
+    Convert integrated weighted networks into a matrix containg ligand-target probability scores.
+    The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
+
+    Parameters
+    ----------
+    weighted_networks : dict
+        the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
+    ligands : Iterable of str
+        a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
+    ltf_cutoff : float
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
+    algorithm : str
+        Selection of the algorithm to calculate ligand-tf signaling probability scores.
+        Different options: "PPR" (personalized pagerank),
+        "SPL" (shortest path length)
+        and "direct"(just take weights of ligand-signaling network as ligand-tf weights).
+        Default and recommended: "PPR"
+    damping_factor : float
+        Only relevant when algorithm is PPR.
+        In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
+        1-damping factor is the probability that the walker will return to the seed node.
+        Default: 0.5
+    secondary_targets : bool
+        Indicate whether a ligand-target matrix should be returned that explicitly includes putative secondary targets of a ligand
+        (by means of an additional matrix multiplication step considering primary targets as possible regulators).
+        Default: FALSE
+    ligands_as_cols : bool
+        Indicate whether ligands should be in columns of the matrix and target genes in rows or vice versa.
+        Default: TRUE
+    remove_direct_links : str
+        Indicate whether direct ligand-target and receptor-target links in the gene regulatory network should be kept or not.
+        "no": keep links;
+        "ligand": remove direct ligand-target links;
+        "ligand-receptor": remove both direct ligand-target and receptor-target links.
+        Default: "no"
+    
+    
+    Returns
+    -------
+    list of str
+        the names of the rows of the matrix
+    list of str
+        the name of the columns of the matrix
+    numpy.ndarray
+        a matrix containing tf-target regulatory weights
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
+    '''
     if type(weighted_networks) is not dict:
         return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(lr_network) is not pd.DataFrame:

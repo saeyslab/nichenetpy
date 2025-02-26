@@ -1,7 +1,6 @@
 import heapq
 
 from scipy.sparse import csr_matrix
-from collections.abc import Iterable
 
 import numpy as np
 
@@ -9,7 +8,27 @@ import numpy as np
 def dijkstra_spl(
     graph:csr_matrix,
     src:int
-):
+) -> list[float]:
+    '''
+    Computes the shortest path length from the source vertex to every vertex in the graph using dijkstra's algorithm. 
+
+    Parameters
+    ----------
+    graph : scipy.csr_matrix
+        the graph
+    src : int
+        the source vertex
+    
+    Returns
+    -------
+    list of float
+        the shortest path lengths from the source vertex to every vertex in the graph
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
     if type(graph) is not csr_matrix:
         raise TypeError(f"graph should have type scipy.csr_matrix, was {type(csr_matrix)}")
     if type(src) is not int:
