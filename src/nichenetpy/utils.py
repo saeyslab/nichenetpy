@@ -123,9 +123,9 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
 
 def subset_matrix(
     mat:np.ndarray|csc_matrix|csr_matrix,
-    rows:Iterable[int]|Iterable[bool]=None,
-    cols:Iterable[int]|Iterable[bool]=None
-) -> np.ndarray:
+    rows:list[int|bool]|tuple[int|bool]|np.ndarray=None,
+    cols:list[int|bool]|tuple[int|bool]|np.ndarray=None
+) -> np.ndarray|csc_matrix|csr_matrix:
     '''
     Subsets a matrix. 
 
@@ -133,14 +133,14 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the matrix to subset
-    rows : Iterable of int or Iterable of bool or None
+    rows : list or tuple of int or bool
         list of row indices to keep or list of booleans indicating which rows to keep
-    cols : Iterable of int or Iterable of bool or None
+    cols : list or tuple of int or bool
         list of column indices to keep or list of booleans indicating which columns to keep
     
     Returns
     -------
-    numpy.ndarray
+    numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix
         the subsetted matrix
 
     Raises
@@ -148,10 +148,10 @@ def subset_matrix(
     TypeError
         if the arguments have the wrong type
     '''
-    if rows is not None and not isinstance(rows, Iterable):
-        raise TypeError(f"rows should be of type Iterable, was {type(rows)}")
-    if cols is not None and not isinstance(cols, Iterable):
-        raise TypeError(f"cols should be of type Iterable, was {type(cols)}")
+    if rows is not None and type(rows) is not tuple and type(rows) is not list and type(rows) is not np.ndarray:
+        raise TypeError(f"rows should be of type list, tuple or numpy.ndarray, was {type(rows)}")
+    if cols is not None and type(cols) is not tuple and type(cols) is not list and type(rows) is not np.ndarray:
+        raise TypeError(f"cols should be of type list or tuple or numpy.ndarray, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):

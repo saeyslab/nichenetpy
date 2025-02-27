@@ -281,7 +281,26 @@ def construct_ligand_tf_matrix(
             _quantile_clip(spl_matrix, ltf_cutoff)
             complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
-        raise NotImplementedError("direct is not supported yet")
+        lig_lig = lr_sig[["from", "weight"]].groupby("from", as_index=False).apply(lambda x : x.sort_values(by="weight", ascending=False).head(1))
+        lig_lig.drop_duplicates(inplace=True)
+        all_ligands = set(chain(*ligands))
+        lig_lig = lig_lig.merge(pd.DataFrame(data=(all_ligands, all_ligands), columns=("from", "to")), on="from", how="inner")
+        lig_lig.drop_duplicates(inplace=True)
+        lr_sig = pd.concat((lr_sig, lig_lig))
+        lr_sig_mat = csr_matrix(
+            (
+                lr_sig["weight"],
+                (
+                    [gene2id[e] for e in lr_sig["from"]],
+                    [gene2id[e] for e in lr_sig["to"]]
+                )
+            )
+        )
+        complete_matrix = []
+        for _ligands in ligands:
+            ltf_matrix = subset_matrix(lr_sig_mat, rows=[gene2id[ligand] for ligand in _ligands]).toarray()
+            _quantile_clip(ltf_matrix, ltf_cutoff)
+            complete_matrix.append(ltf_matrix.mean(axis=0))
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix)
