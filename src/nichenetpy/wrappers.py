@@ -135,8 +135,8 @@ def run_nichenet(
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
-    get_prioritization_table:bool=False,#TODO: add output to docs
-    case_control:bool=True #TODO: add to docs
+    get_prioritization_table:bool=False,
+    case_control:bool=True
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -220,6 +220,8 @@ def run_nichenet(
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
             expressed_ligands : set of str
                 the expressed ligands
+        if get_prioritization_table is True, additionally
+            prioritization_table : pandas.DataFrame
     
     Raises
     ------

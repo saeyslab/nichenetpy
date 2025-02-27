@@ -117,6 +117,7 @@ def get_lfc_celltype(
     celltype:str,
     condition_col:str,
     condition_oi:str,
+    condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
     features:Iterable[str]=None
@@ -134,6 +135,8 @@ def get_lfc_celltype(
         the name of the column in obs that contains the condition
     condition_oi : str
         the condition of interest
+    condition_ref : str
+        the condition of reference
     layer : str
         the name of the data layer
     celltype_col : str
@@ -177,13 +180,11 @@ def get_lfc_celltype(
     group_metrics(
         ann_sender,
         groupby=condition_col,
+        group_oi=condition_oi,
+        group_ref=condition_ref,
         layer=layer
     )
     res = ann_sender.uns["group_metrics"]
-    pd.options.mode.chained_assignment = None # false positive warnings removal
-    res = res[res[condition_col] == condition_oi]
-    res.drop(columns={condition_col}, inplace=True)
-    res.drop_duplicates(inplace=True)
     return (
         list(res["gene"]),
         list(res["lfc"])
