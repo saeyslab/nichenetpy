@@ -1,16 +1,20 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
+from nichenetpy.graph import dijkstra_spl
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from collections.abc import Iterable, Collection
 from numbers import Number
+from scipy.sparse import csr_matrix
+from itertools import chain
 
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
+import pandas as pd
 
 
 def reorder_labels(
@@ -105,7 +109,6 @@ def prepare_ligand_target_visualization(
     if not isinstance(cutoff, Number):
         raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
     ligands, targets, weights = zip(*ligand_target_links)
-    # TODO: there is most certainly a faster way of doing this
     ligands = sorted(set(ligands))
     targets = sorted(set(targets))
     # select ligands and targets that appear in ligand_target_links
@@ -321,3 +324,55 @@ def heatmap_2d(
     plt.hlines([y + 0.5 for y in ys[:-1]], xs[0]-0.5, xs[-1]+0.5, color="white")
     plt.vlines([x + 0.5 for x in xs[:-1]], ys[0]-0.5, ys[-1]+0.5, color="white")
     return (fig, ax)
+
+def construct_ligand_signaling_df(
+    ligands:Iterable[str],
+    targets:Iterable[str],
+    gr:pd.DataFrame,
+    ltf_matrix:csr_matrix,
+    ligand2id:dict[str, int],
+    k:int
+) -> pd.DataFrame:
+    ligand2id = dict(zip(ligands, range(len(ligands))))
+    dfs = []
+    for ligand in ligands:
+        for target in targets:
+            ltf_vis = pd.DataFrame(data=ltf_matrix[:, ligand2id[ligand]].toarray(), columns=["weight"], index=targets)
+            ltf_vis.index.name = "TF"
+            ltf_vis.reset_index(inplace=True)
+            ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
+            ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]
+            gr_filtered = gr[gr["to"] == target]
+            gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
+            combined_df = ltf_vis.merge(gr_filtered, on="TF")
+            combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
+            combined_df.sort_values(by="total_weight", ascending=False, inplace=True)
+            combined_df = combined_df.iloc[0:min(k, len(combined_df))]
+            dfs.append(combined_df)
+    return pd.concat(dfs)
+
+def get_ligand_signaling_path(
+    ltf_matrix:csr_matrix,
+    ligands:Iterable[str],
+    targets:Iterable[str],
+    lr_sig:pd.DataFrame,
+    gr:pd.DataFrame,
+    top_n_regulators:int=4,
+    minmax_scaling:bool=False
+):
+    combined_df = construct_ligand_signaling_df(ligands, targets, gr, ltf_matrix, top_n_regulators)
+    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    lr_sig_mat = csr_matrix(
+        (
+            [1/e for e in lr_sig["weight"]],
+            (
+                [gene2id[e] for e in lr_sig["from"]],
+                [gene2id[e] for e in lr_sig["to"]]
+            )
+        )
+    )
+    for ligand in ligands:
+        ligand_signaling = combined_df[combined_df["ligand"] == ligand]
+        tfs = set(ligand_signaling["TF"])
+        dijkstra_spl(lr_sig_mat, src=ligand) # TODO: modify dijkstra_spl to optionally return shortest paths
