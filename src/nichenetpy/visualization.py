@@ -1,7 +1,7 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
-from nichenetpy.graph import dijkstra_spl
+from nichenetpy.graph import walk_graph
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -326,22 +326,24 @@ def heatmap_2d(
     return (fig, ax)
 
 def construct_ligand_signaling_df(
-    ligands:Iterable[str],
-    targets:Iterable[str],
+    ligands_oi:Iterable[str],
+    targets_oi:Iterable[str],
+    all_ligands:Iterable[str],
+    all_targets:Iterable[str],
     gr:pd.DataFrame,
     ltf_matrix:csr_matrix,
-    ligand2id:dict[str, int],
     k:int
 ) -> pd.DataFrame:
-    ligand2id = dict(zip(ligands, range(len(ligands))))
+    pd.options.mode.chained_assignment = None # false positive warnings removal
+    target2id = dict(zip(all_targets, range(len(all_targets))))
     dfs = []
-    for ligand in ligands:
-        for target in targets:
-            ltf_vis = pd.DataFrame(data=ltf_matrix[:, ligand2id[ligand]].toarray(), columns=["weight"], index=targets)
-            ltf_vis.index.name = "TF"
-            ltf_vis.reset_index(inplace=True)
-            ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
-            ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]
+    for ligand in ligands_oi:
+        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)
+        ltf_vis.index.name = "TF"
+        ltf_vis.reset_index(inplace=True)
+        ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
+        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]
+        for target in targets_oi:
             gr_filtered = gr[gr["to"] == target]
             gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
             combined_df = ltf_vis.merge(gr_filtered, on="TF")
@@ -351,16 +353,32 @@ def construct_ligand_signaling_df(
             dfs.append(combined_df)
     return pd.concat(dfs)
 
+def _minmax_scaling(df):
+    weight = np.array(df["weight"])
+    mn = min(weight)
+    mx = max(weight)
+    df["weight"] = (weight - mn) / (mx - mn) + 0.75
+
 def get_ligand_signaling_path(
     ltf_matrix:csr_matrix,
-    ligands:Iterable[str],
-    targets:Iterable[str],
+    ligands_oi:Iterable[str],
+    targets_oi:Iterable[str],
+    all_ligands:Iterable[str],
+    all_targets:Iterable[str],
     lr_sig:pd.DataFrame,
     gr:pd.DataFrame,
     top_n_regulators:int=4,
     minmax_scaling:bool=False
-):
-    combined_df = construct_ligand_signaling_df(ligands, targets, gr, ltf_matrix, top_n_regulators)
+) -> tuple[pd.DataFrame]:
+    combined_df = construct_ligand_signaling_df(
+        ligands_oi,
+        targets_oi,
+        all_ligands,
+        all_targets,
+        gr,
+        ltf_matrix,
+        top_n_regulators
+    )
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes))))
     lr_sig_mat = csr_matrix(
@@ -372,7 +390,17 @@ def get_ligand_signaling_path(
             )
         )
     )
-    for ligand in ligands:
+    tfs = set()
+    for ligand in ligands_oi:
         ligand_signaling = combined_df[combined_df["ligand"] == ligand]
-        tfs = set(ligand_signaling["TF"])
-        dijkstra_spl(lr_sig_mat, src=ligand) # TODO: modify dijkstra_spl to optionally return shortest paths
+        ligand_id = gene2id[ligand]
+        tfs = tfs.union(set(ligand_signaling["TF"]).intersection(walk_graph(lr_sig_mat, src=ligand_id)))
+        tfs.remove(ligand_id)
+    tfs = {all_genes[id] for id in tfs}
+    tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
+    tf_signaling = tf_signaling.groupby(("from", "to")).sum()
+    tf_regulatory = gr[[fr in combined_df and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
+    if minmax_scaling:
+        _minmax_scaling(tf_signaling)
+        _minmax_scaling(tf_regulatory)
+    return (tf_signaling, tf_regulatory)

@@ -1,6 +1,7 @@
 import heapq
 
 from scipy.sparse import csr_matrix
+from collections.abc import Iterator
 
 import numpy as np
 
@@ -51,3 +52,17 @@ def dijkstra_spl(
                     heapq.heappush(pq, (pl, nb))
             done.add(cur)
     return spl
+
+def _walk_graph(
+    graph:csr_matrix,
+    src:int,
+) -> Iterator[int]:
+    yield src
+    for nb in graph.indices[graph.indptr[src]:graph.indptr[src+1]]:
+        yield from _walk_graph(graph, nb)
+
+def walk_graph(
+    graph:csr_matrix,
+    src:int,
+) -> Iterator[int]:
+    yield from _walk_graph(graph.copy(), src)
