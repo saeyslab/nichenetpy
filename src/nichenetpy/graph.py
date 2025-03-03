@@ -1,7 +1,6 @@
 import heapq
 
 from scipy.sparse import csr_matrix
-from collections.abc import Iterator
 
 import numpy as np
 
@@ -53,23 +52,17 @@ def dijkstra_spl(
             done.add(cur)
     return spl
 
-def _walk_graph(
+def get_reachable_nodes(
     graph:csr_matrix,
-    src:int,
-) -> Iterator[int]:
-    yield src
-    for nb, val in zip(
-        graph.indices[graph.indptr[src]:graph.indptr[src+1]],
-        graph.data[graph.indptr[src]:graph.indptr[src+1]]
-    ):
-        if val != 0:
-            # more efficient than removing from graph.indices and graph.data
-            graph[src, nb] = 0
-            graph[nb, src] = 0
-            yield from _walk_graph(graph, nb)
-
-def walk_graph(
-    graph:csr_matrix,
-    src:int,
-) -> Iterator[int]:
-    yield from _walk_graph(graph.copy(), src)
+    src:int
+):
+    output = {src}
+    q = [src]
+    while len(q) > 0:
+        cur = q.pop()
+        nxts = graph.indices[graph.indptr[cur]:graph.indptr[cur+1]]
+        for nxt in nxts:
+            if nxt not in output: # if nxt is in output it's neighbours have already been visited or nxt is already queued
+                q.append(nxt)
+                output.add(nxt)
+    return output

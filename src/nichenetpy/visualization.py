@@ -1,7 +1,7 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
-from nichenetpy.graph import walk_graph
+from nichenetpy.graph import get_reachable_nodes
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -355,8 +355,8 @@ def construct_ligand_signaling_df(
 
 def _minmax_scaling(df):
     weight = np.array(df["weight"])
-    mn = min(weight)
-    mx = max(weight)
+    mn = weight.min()
+    mx = weight.max()
     df["weight"] = (weight - mn) / (mx - mn) + 0.75
 
 def get_ligand_signaling_path(
@@ -394,12 +394,17 @@ def get_ligand_signaling_path(
     for ligand in ligands_oi:
         ligand_signaling = combined_df[combined_df["ligand"] == ligand]
         ligand_id = gene2id[ligand]
-        tfs = tfs.union(set(ligand_signaling["TF"]).intersection(walk_graph(lr_sig_mat, src=ligand_id)))
-        tfs.remove(ligand_id)
+        tfs.update(set(gene2id[e] for e in ligand_signaling["TF"]).intersection(get_reachable_nodes(lr_sig_mat, src=ligand_id)))
+        try:
+            tfs.remove(ligand_id)
+        except KeyError:
+            pass # if it's not in there, that's great!
     tfs = {all_genes[id] for id in tfs}
     tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
-    tf_signaling = tf_signaling.groupby(("from", "to")).sum()
-    tf_regulatory = gr[[fr in combined_df and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
+    tf_signaling = tf_signaling.groupby(["from", "to"]).sum()
+    print(gr.sort_values(by=["from", "to"]))
+    tf_regulatory = gr[[fr in combined_df["TF"] and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
+    print(tf_regulatory)
     if minmax_scaling:
         _minmax_scaling(tf_signaling)
         _minmax_scaling(tf_regulatory)
