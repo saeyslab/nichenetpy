@@ -58,8 +58,15 @@ def _walk_graph(
     src:int,
 ) -> Iterator[int]:
     yield src
-    for nb in graph.indices[graph.indptr[src]:graph.indptr[src+1]]:
-        yield from _walk_graph(graph, nb)
+    for nb, val in zip(
+        graph.indices[graph.indptr[src]:graph.indptr[src+1]],
+        graph.data[graph.indptr[src]:graph.indptr[src+1]]
+    ):
+        if val != 0:
+            # more efficient than removing from graph.indices and graph.data
+            graph[src, nb] = 0
+            graph[nb, src] = 0
+            yield from _walk_graph(graph, nb)
 
 def walk_graph(
     graph:csr_matrix,
