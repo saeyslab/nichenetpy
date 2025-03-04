@@ -367,7 +367,7 @@ def df_grouped_apply(
     Returns
     -------
     pandas.DataFrame
-        a pandas DataFrame containing the ligand activities
+        the result of the function application
     
     Raises
     ------

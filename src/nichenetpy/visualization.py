@@ -1,16 +1,21 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
+from nichenetpy.graph import get_reachable_nodes
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from collections.abc import Iterable, Collection
 from numbers import Number
+from scipy.sparse import csr_matrix
+from itertools import chain, repeat
 
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
+import pandas as pd
+import networkx as nx
 
 
 def reorder_labels(
@@ -105,7 +110,6 @@ def prepare_ligand_target_visualization(
     if not isinstance(cutoff, Number):
         raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
     ligands, targets, weights = zip(*ligand_target_links)
-    # TODO: there is most certainly a faster way of doing this
     ligands = sorted(set(ligands))
     targets = sorted(set(targets))
     # select ligands and targets that appear in ligand_target_links
@@ -321,3 +325,217 @@ def heatmap_2d(
     plt.hlines([y + 0.5 for y in ys[:-1]], xs[0]-0.5, xs[-1]+0.5, color="white")
     plt.vlines([x + 0.5 for x in xs[:-1]], ys[0]-0.5, ys[-1]+0.5, color="white")
     return (fig, ax)
+
+def _construct_ligand_signaling_df(
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    all_ligands:Collection[str],
+    all_targets:Collection[str],
+    gr:pd.DataFrame,
+    ltf_matrix:csr_matrix,
+    k:int
+) -> pd.DataFrame:
+    pd.options.mode.chained_assignment = None # false positive warnings removal
+    target2id = dict(zip(all_targets, range(len(all_targets))))
+    dfs = []
+    for ligand in ligands_oi:
+        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)
+        ltf_vis.index.name = "TF"
+        ltf_vis.reset_index(inplace=True)
+        ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
+        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]
+        for target in targets_oi:
+            gr_filtered = gr[gr["to"] == target]
+            gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
+            combined_df = ltf_vis.merge(gr_filtered, on="TF")
+            combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
+            combined_df.sort_values(by="total_weight", ascending=False, inplace=True)
+            combined_df = combined_df.iloc[0:min(k, len(combined_df))]
+            dfs.append(combined_df)
+    return pd.concat(dfs)
+
+def _minmax_scaling(df):
+    weight = np.array(df["weight"])
+    mn = weight.min()
+    mx = weight.max()
+    df["weight"] = (weight - mn) / (mx - mn) + 0.75
+
+def get_ligand_signaling_path(
+    ltf_matrix:csr_matrix,
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    all_ligands:Collection[str],
+    all_targets:Collection[str],
+    lr_sig:pd.DataFrame,
+    gr:pd.DataFrame,
+    top_n_regulators:int=4,
+    minmax_scaling:bool=False
+) -> tuple[pd.DataFrame]:
+    '''
+    Extract possible signaling paths between a ligand and target gene of interest. The most highly weighted path(s) will be extracted.
+
+    Parameters
+    ----------
+    ltf_matrix : csr_matrix
+        a row-major parse matrix of ligand-regulator probability scores
+    ligands_oi : Collection of str
+        the ligands of interest
+    targets_oi : Collection of str
+        the target genes of interest
+    all_ligands : Collection of str
+        all ligands (row labels of ltf_matrix)
+    all_targets : Collection of str
+        all targets (column labels of ltf_matrix)
+    lr_sig : pandas.DataFrame
+        dataframe which contains weighted ligand-receptor and signaling interactions (from, to, weight)
+    gr : pandas.DataFrame
+        dataframe which contains weighted gene regulatory interactions (from, to, weight)
+    top_n_regulators : int
+        The number of top regulators that should be included in the ligand-target signaling network.
+        Top regulators are regulators that score both high for being upstream of the target gene(s) and high for being downstream of the ligand.
+        Default: 4
+    minmax_scaling : bool
+        Indicate whether the weights of both dataframes should be min-max scaled between 0.75 and 1.
+        Default: FALSE
+
+    Returns
+    -------
+    tuple of pandas.DataFrame
+        the integrated weighted ligand-signaling and gene regulatory network data frames
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(ltf_matrix) is not csr_matrix:
+        raise TypeError(f"ltf_matrix should have type csr_matrix, was {type(ltf_matrix)}")
+    if not isinstance(ligands_oi, Collection):
+        raise TypeError(f"ligands_oi should have type Collection[str], was {type(ligands_oi)}")
+    if not isinstance(targets_oi, Collection):
+        raise TypeError(f"targets_oi should have type Collection[str], was {type(targets_oi)}")
+    if not isinstance(all_ligands, Collection):
+        raise TypeError(f"all_ligands should have type Collection[str], was {type(all_ligands)}")
+    if not isinstance(all_targets, Collection):
+        raise TypeError(f"all_targets should have type Collection[str], was {type(all_targets)}")
+    if type(lr_sig) is not pd.DataFrame:
+        raise TypeError(f"lr_sig should have type pandas.DataFrame, was {type(lr_sig)}")
+    if type(gr) is not pd.DataFrame:
+        raise TypeError(f"gr should have type pandas.DataFrame, was {type(gr)}")
+    if type(top_n_regulators) is not int:
+        raise TypeError(f"top_n_regulators should have type int, was {type(top_n_regulators)}")
+    if type(minmax_scaling) is not bool:
+        raise TypeError(f"minmax_scaling should have type bool, was {type(minmax_scaling)}")
+    combined_df = _construct_ligand_signaling_df(
+        ligands_oi,
+        targets_oi,
+        all_ligands,
+        all_targets,
+        gr,
+        ltf_matrix,
+        top_n_regulators
+    )
+    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    lr_sig_mat = csr_matrix(
+        (
+            [1/e for e in lr_sig["weight"]],
+            (
+                [gene2id[e] for e in lr_sig["from"]],
+                [gene2id[e] for e in lr_sig["to"]]
+            )
+        )
+    )
+    tfs = set()
+    for ligand in ligands_oi:
+        ligand_signaling = combined_df[combined_df["ligand"] == ligand]
+        ligand_id = gene2id[ligand]
+        tfs.update(set(gene2id[e] for e in ligand_signaling["TF"]).intersection(get_reachable_nodes(lr_sig_mat, src=ligand_id)))
+        try:
+            tfs.remove(ligand_id)
+        except KeyError:
+            pass # if it's not in there, that's great!
+    tfs = {all_genes[id] for id in tfs}
+    tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
+    tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
+    combined_df_tf = set(combined_df["TF"])
+    tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
+    if minmax_scaling:
+        _minmax_scaling(tf_signaling)
+        _minmax_scaling(tf_regulatory)
+    return (tf_signaling, tf_regulatory)
+
+def visualize_ligand_signaling_graph(
+    tf_signaling:pd.DataFrame,
+    tf_regulatory:pd.DataFrame,
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    node_size:int=1300,
+    arrow_size:int=10,
+    label_size:int=7
+):
+    '''
+    Visualize extracted ligand-target signaling network. 
+
+    Parameters
+    ----------
+    tf_signaling : pandas.DataFrame
+        dataframe which contains weighted ligand-receptor and signaling interactions  (from, to, weight)
+    tf_regulatory : pandas.DataFrame
+        dataframe which contains weighted gene regulatory interactions (from, to, weight)
+    ligands_oi : Collection of str
+        the ligands of interest
+    targets_oi : Collection of str
+        the target genes of interest
+    node_size : int
+        the size of the nodes in the visualized network
+    arrow_size : int
+        the size of the arrows in the visualized network
+    label_size : int
+        the size of the node labels in the visualized network
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(tf_signaling) is not pd.DataFrame:
+        raise TypeError(f"tf_signaling should have type pandas.DataFrame, was {type(tf_signaling)}")
+    if type(tf_regulatory) is not pd.DataFrame:
+        raise TypeError(f"tf_regulatory should have type pandas.DataFrame, was {type(tf_regulatory)}")
+    if not isinstance(ligands_oi, Collection):
+        raise TypeError(f"ligands_oi should have type Collection[str], was {type(ligands_oi)}")
+    if not isinstance(targets_oi, Collection):
+        raise TypeError(f"targets_oi should have type Collection[str], was {type(targets_oi)}")
+    if type(node_size) is not int:
+        raise TypeError(f"node_size should have type int, was {type(node_size)}")
+    if type(arrow_size) is not int:
+        raise TypeError(f"arrow_size should have type int, was {type(arrow_size)}")
+    if type(label_size) is not int:
+        raise TypeError(f"font_size should have type int, was {type(label_size)}")
+    graph = nx.DiGraph()
+    for fr, to, w, c in chain(
+        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
+        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
+    ):
+        graph.add_edge(fr, to, weight=w, color=c)
+    pos = nx.arf_layout(graph)
+    node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
+    nx.draw_networkx_nodes(
+        graph,
+        pos,
+        node_color=[node2color[node] for node in graph.nodes],
+        node_size=node_size
+    )
+    nx.draw_networkx_labels(graph, pos, labels=dict(zip(graph.nodes, graph.nodes)), font_size=label_size, font_color="white")
+    nx.draw_networkx_edges(
+        graph,
+        pos,
+        arrowstyle="->",
+        arrowsize=arrow_size,
+        arrows=True,
+        label=graph.nodes,
+        node_size=node_size,
+        edge_color=[e[2]["color"] for e in graph.edges.data()],
+        width=[e[2]["weight"] for e in graph.edges.data()]
+    )

@@ -51,3 +51,18 @@ def dijkstra_spl(
                     heapq.heappush(pq, (pl, nb))
             done.add(cur)
     return spl
+
+def get_reachable_nodes(
+    graph:csr_matrix,
+    src:int
+):
+    output = {src}
+    q = [src]
+    while len(q) > 0:
+        cur = q.pop()
+        nxts = graph.indices[graph.indptr[cur]:graph.indptr[cur+1]]
+        for nxt in nxts:
+            if nxt not in output: # if nxt is in output it's neighbours have already been visited or nxt is already queued
+                q.append(nxt)
+                output.add(nxt)
+    return output
