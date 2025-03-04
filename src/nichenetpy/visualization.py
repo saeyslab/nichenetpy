@@ -437,7 +437,7 @@ def visualize_ligand_signaling_graph(
         node_size=node_size
     )
     nx.draw_networkx_labels(graph, pos, labels=dict(zip(graph.nodes, graph.nodes)), font_size=font_size, font_color="white")
-    edges = nx.draw_networkx_edges(
+    nx.draw_networkx_edges(
         graph,
         pos,
         arrowstyle="->",
@@ -445,5 +445,6 @@ def visualize_ligand_signaling_graph(
         arrows=True,
         label=graph.nodes,
         node_size=node_size,
-        edge_color=[e[2]["color"] for e in graph.edges.data()]
+        edge_color=[e[2]["color"] for e in graph.edges.data()],
+        width=[e[2]["weight"] for e in graph.edges.data()]
     )
