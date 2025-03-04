@@ -8,13 +8,14 @@ from matplotlib.axes import Axes
 from collections.abc import Iterable, Collection
 from numbers import Number
 from scipy.sparse import csr_matrix
-from itertools import chain
+from itertools import chain, repeat
 
 import numpy as np
 import scipy as sc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 import pandas as pd
+import networkx as nx
 
 
 def reorder_labels(
@@ -326,10 +327,10 @@ def heatmap_2d(
     return (fig, ax)
 
 def construct_ligand_signaling_df(
-    ligands_oi:Iterable[str],
-    targets_oi:Iterable[str],
-    all_ligands:Iterable[str],
-    all_targets:Iterable[str],
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    all_ligands:Collection[str],
+    all_targets:Collection[str],
     gr:pd.DataFrame,
     ltf_matrix:csr_matrix,
     k:int
@@ -361,10 +362,10 @@ def _minmax_scaling(df):
 
 def get_ligand_signaling_path(
     ltf_matrix:csr_matrix,
-    ligands_oi:Iterable[str],
-    targets_oi:Iterable[str],
-    all_ligands:Iterable[str],
-    all_targets:Iterable[str],
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    all_ligands:Collection[str],
+    all_targets:Collection[str],
     lr_sig:pd.DataFrame,
     gr:pd.DataFrame,
     top_n_regulators:int=4,
@@ -408,3 +409,41 @@ def get_ligand_signaling_path(
         _minmax_scaling(tf_signaling)
         _minmax_scaling(tf_regulatory)
     return (tf_signaling, tf_regulatory)
+
+def visualize_ligand_signaling_graph(
+    tf_signaling:pd.DataFrame,
+    tf_regulatory:pd.DataFrame,
+    ligands_oi:Collection[str],
+    targets_oi:Collection[str],
+    node_size:int=1300,
+    arrow_size:int=10,
+    font_size:int=7
+):
+    node_size = 1300
+    arrow_size = 10
+    font_size = 7
+    graph = nx.DiGraph()
+    for fr, to, w, c in chain(
+        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
+        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
+    ):
+        graph.add_edge(fr, to, weight=w, color=c)
+    pos = nx.arf_layout(graph)
+    node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
+    nx.draw_networkx_nodes(
+        graph,
+        pos,
+        node_color=[node2color[node] for node in graph.nodes],
+        node_size=node_size
+    )
+    nx.draw_networkx_labels(graph, pos, labels=dict(zip(graph.nodes, graph.nodes)), font_size=font_size, font_color="white")
+    edges = nx.draw_networkx_edges(
+        graph,
+        pos,
+        arrowstyle="->",
+        arrowsize=arrow_size,
+        arrows=True,
+        label=graph.nodes,
+        node_size=node_size,
+        edge_color=[e[2]["color"] for e in graph.edges.data()]
+    )
