@@ -401,10 +401,9 @@ def get_ligand_signaling_path(
             pass # if it's not in there, that's great!
     tfs = {all_genes[id] for id in tfs}
     tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
-    tf_signaling = tf_signaling.groupby(["from", "to"]).sum()
-    print(gr.sort_values(by=["from", "to"]))
-    tf_regulatory = gr[[fr in combined_df["TF"] and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
-    print(tf_regulatory)
+    tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
+    combined_df_tf = set(combined_df["TF"])
+    tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
     if minmax_scaling:
         _minmax_scaling(tf_signaling)
         _minmax_scaling(tf_regulatory)
