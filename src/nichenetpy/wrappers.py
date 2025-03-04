@@ -734,3 +734,59 @@ def generate_info_tables(
             lr_network_filtered
         )
     return output
+
+def infer_supporting_datasources(
+    tf_signaling:pd.DataFrame,
+    tf_regulatory:pd.DataFrame,
+    lr_network:pd.DataFrame,
+    sig_network:pd.DataFrame,
+    gr_network:pd.DataFrame
+):
+    '''
+    Get the data sources that support the specific interactions in the extracted ligand-target signaling subnetwork. 
+
+    Parameters
+    ----------
+    tf_signaling : pandas.DataFrame
+        dataframe which contains weighted ligand-receptor and signaling interactions  (from, to, weight)
+    tf_regulatory : pandas.DataFrame
+        dataframe which contains weighted gene regulatory interactions (from, to, weight)
+    lr_network : pandas.DataFrame
+        dataframe which contains ligand-receptor interactions
+    sig_network : pandas.DataFrame
+        dataframe which contains signaling interactions
+    gr_network : pandas.DataFrame
+        dataframe which contains gene regulatory interactions
+    sig_network : pandas.DataFrame
+    gr_network : pandas.DataFrame
+
+    Returns
+    -------
+    tuple of pandas.DataFrame
+        the integrated weighted ligand-signaling and gene regulatory network data frames
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(tf_signaling) is not pd.DataFrame:
+        raise TypeError(f"tf_signaling should have type pandas.DataFrame, was {type(tf_signaling)}")
+    if type(tf_regulatory) is not pd.DataFrame:
+        raise TypeError(f"tf_regulatory should have type pandas.DataFrame, was {type(tf_regulatory)}")
+    if type(lr_network) is not pd.DataFrame:
+        raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
+    if type(sig_network) is not pd.DataFrame:
+        raise TypeError(f"sig_network should have type pandas.DataFrame, was {type(sig_network)}")
+    if type(gr_network) is not pd.DataFrame:
+        raise TypeError(f"gr_network should have type pandas.DataFrame, was {type(gr_network)}")
+    signaling_filtered = tf_signaling[["from", "to"]]
+    signaling_filtered = signaling_filtered.merge(pd.concat((lr_network, sig_network)), on=("from", "to"), how="inner")
+    signaling_filtered["layer"] = "ligand_signaling"
+    regulatory_filtered = tf_regulatory[["from", "to"]]
+    regulatory_filtered = regulatory_filtered.merge(gr_network, on=("from", "to"), how="inner")
+    regulatory_filtered["layer"] = "regulatory"
+    return pd.concat((
+        regulatory_filtered,
+        signaling_filtered
+    ))
