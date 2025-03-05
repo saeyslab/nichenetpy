@@ -1,6 +1,10 @@
 from nichenetpy.metrics import calculate_metrics
+from nichenetpy.utils import subset_matrix
 
 from collections.abc import Collection, Iterable
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import KFold
+from itertools import chain
 
 import numpy as np
 
@@ -188,4 +192,25 @@ class LigandActivityPredictor:
                 "target": targets,
                 "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand]] for target in targets]
             }
-    
+
+def assess_rf_class_probabilities(
+    round:int,
+    folds:int,
+    geneset:set[str],
+    background_expressed_genes:set[str],
+    ligands_oi:set[str],
+    predictor:LigandActivityPredictor
+):
+    background_expressed_genes_strict = np.array([[e] for e in background_expressed_genes.difference(geneset)])
+    geneset = np.array([[e] for e in geneset])
+    kf = KFold(n_splits=folds, shuffle=True)
+    for beg_split, geneset_split in zip(kf.split(background_expressed_genes_strict), kf.split(geneset)):
+        geneset_train, geneset_test = geneset_split
+        beg_strict_train, beg_strict_test = beg_split
+        beg_train = sorted(set(chain(beg_strict_train, geneset_train)))
+        beg_test = sorted(set(chain(beg_strict_test, geneset_test)))
+        rf = RandomForestClassifier()
+        rf.fit(
+            X=subset_matrix(predictor.ligand_target_matrix, cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]),
+            y=res
+        )

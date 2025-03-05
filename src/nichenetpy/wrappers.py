@@ -205,6 +205,8 @@ def run_nichenet(
                 expressed genes in the receiver
             prioritization_table : pandas.DataFrame
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
+            geneset_oi : set of str
+                the geneset of interest
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -250,6 +252,7 @@ def run_nichenet(
         min_pct=min_pct
     )
     geneset.intersection_update(predictor.get_genes())
+    output["geneset_oi"] = geneset
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
         background_expressed_genes=expressed_genes_receiver,
