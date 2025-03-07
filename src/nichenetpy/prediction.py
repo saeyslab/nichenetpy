@@ -201,16 +201,18 @@ def assess_rf_class_probabilities(
     ligands_oi:set[str],
     predictor:LigandActivityPredictor
 ):
-    background_expressed_genes_strict = np.array([[e] for e in background_expressed_genes.difference(geneset)])
+    geneset.intersection_update(predictor.row_names)
+    background_expressed_genes.intersection_update(predictor.row_names)
+    background_expressed_genes = np.array([[e] for e in background_expressed_genes.difference(geneset)])
     geneset = np.array([[e] for e in geneset])
     kf = KFold(n_splits=folds, shuffle=True)
-    for beg_split, geneset_split in zip(kf.split(background_expressed_genes_strict), kf.split(geneset)):
+    for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset)):
         geneset_train, geneset_test = geneset_split
         beg_train, beg_test = beg_split
         row_names, res = zip(
             *chain(
-                ((gene, 1) for gene in geneset_train),
-                ((gene, 0) for gene in beg_train)
+                ((str(geneset[id][0]), 1) for id in geneset_train),
+                ((str(background_expressed_genes[id][0]), 0) for id in beg_train)
             )
         )
         pred_mat = subset_matrix(
