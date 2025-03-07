@@ -206,11 +206,17 @@ def assess_rf_class_probabilities(
     kf = KFold(n_splits=folds, shuffle=True)
     for beg_split, geneset_split in zip(kf.split(background_expressed_genes_strict), kf.split(geneset)):
         geneset_train, geneset_test = geneset_split
-        beg_strict_train, beg_strict_test = beg_split
-        beg_train = sorted(set(chain(beg_strict_train, geneset_train)))
-        beg_test = sorted(set(chain(beg_strict_test, geneset_test)))
-        rf = RandomForestClassifier()
-        rf.fit(
-            X=subset_matrix(predictor.ligand_target_matrix, cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]),
-            y=res
+        beg_train, beg_test = beg_split
+        row_names, res = zip(
+            *chain(
+                ((gene, 1) for gene in geneset_train),
+                ((gene, 0) for gene in beg_train)
+            )
         )
+        pred_mat = subset_matrix(
+            predictor.ligand_target_matrix,
+            rows=[predictor.gene2index[gene] for gene in row_names],
+            cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
+        )
+        rf = RandomForestClassifier()
+        rf.fit(X=pred_mat, y=res)
