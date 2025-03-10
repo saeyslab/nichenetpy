@@ -7,6 +7,7 @@ from sklearn.model_selection import KFold
 from itertools import chain
 
 import numpy as np
+import pandas as pd
 
 
 class LigandActivityPredictor:
@@ -194,18 +195,19 @@ class LigandActivityPredictor:
             }
 
 def assess_rf_class_probabilities(
-    round:int,
     folds:int,
     geneset:set[str],
     background_expressed_genes:set[str],
     ligands_oi:set[str],
-    predictor:LigandActivityPredictor
+    predictor:LigandActivityPredictor,
+    ntrees:int=1000
 ):
     geneset.intersection_update(predictor.row_names)
     background_expressed_genes.intersection_update(predictor.row_names)
     background_expressed_genes = np.array([[e] for e in background_expressed_genes.difference(geneset)])
     geneset = np.array([[e] for e in geneset])
     kf = KFold(n_splits=folds, shuffle=True)
+    geneset_predictions_all = []
     for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset)):
         geneset_train, geneset_test = geneset_split
         beg_train, beg_test = beg_split
@@ -220,5 +222,32 @@ def assess_rf_class_probabilities(
             rows=[predictor.gene2index[gene] for gene in row_names],
             cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
         )
-        rf = RandomForestClassifier()
+        rf = RandomForestClassifier(n_estimators=ntrees)
         rf.fit(X=pred_mat, y=res)
+        row_names, res = zip(
+            *chain(
+                ((str(geneset[id][0]), 1) for id in geneset_test),
+                ((str(background_expressed_genes[id][0]), 0) for id in beg_test)
+            )
+        )
+        pred_mat = subset_matrix(
+            predictor.ligand_target_matrix,
+            rows=[predictor.gene2index[gene] for gene in row_names],
+            cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
+        )
+        pred = rf.apply(pred_mat)
+        score = []
+        for i in range(pred.shape[0]):
+            score.append([])
+            for j in range(pred.shape[1]):
+                tree_clf = rf.estimators_[j]
+                score[-1].append(tree_clf.classes_[np.argmax(tree_clf.tree_.value[pred[i, j]])])
+            score[-1] = sum(score[-1])/len(score[-1])
+        geneset_predictions_all.append(
+            pd.DataFrame({
+                "gene": row_names,
+                "response": res,
+                "prediction": score
+            })
+        )
+    return pd.concat(geneset_predictions_all)
