@@ -236,13 +236,14 @@ def assess_rf_class_probabilities(
             cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
         )
         pred = rf.apply(pred_mat)
-        score = []
-        for i in range(pred.shape[0]):
-            score.append([])
-            for j in range(pred.shape[1]):
-                tree_clf = rf.estimators_[j]
-                score[-1].append(tree_clf.classes_[np.argmax(tree_clf.tree_.value[pred[i, j]])])
-            score[-1] = sum(score[-1])/len(score[-1])
+        score = [
+            sum(
+                (
+                    rf.estimators_[j].classes_[np.argmax(rf.estimators_[j].tree_.value[pred[i, j]])]
+                    for j in range(pred.shape[1])
+                )
+            ) / pred.shape[1] for i in range(pred.shape[0])
+        ]
         geneset_predictions_all.append(
             pd.DataFrame({
                 "gene": row_names,
