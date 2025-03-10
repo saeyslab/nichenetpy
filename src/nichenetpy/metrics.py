@@ -5,7 +5,8 @@ from nichenetpy.ann_utils import _subset_layer
 from anndata import AnnData
 from collections.abc import Callable, Iterable
 from scipy.sparse import csc_matrix, csr_matrix
-from sklearn.metrics import precision_recall_curve
+from scipy.stats import pearsonr
+from sklearn.metrics import precision_recall_curve, roc_curve
 from numbers import Number
 
 import numpy as np
@@ -86,6 +87,38 @@ def calculate_aupr(
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
 
+def calculate_auroc(
+        response:list[float]|tuple[float],
+        prediction:list[float]|tuple[float]
+    ) -> float:
+    '''
+    Calculates the area under the roc-curve using the trapezoid rule. 
+
+    Parameters
+    ----------
+    response : list or tuple of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    prediction : list or tuple of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+
+    Returns
+    -------
+    float
+        the area under the roc-curve
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(response) is not list and type(response) is not tuple:
+        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple:
+        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    fp, tp, _ = roc_curve(response, prediction)
+    fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0], reverse=True))
+    return _auc_reverse(fp, tp)
+
 def calculate_metrics(
     prediction:list[float]|tuple[float],
     response:list[float]|tuple[float]
@@ -105,7 +138,7 @@ def calculate_metrics(
 
     Returns
     -------
-    dict[float]
+    dict[str, float]
         dictionary with as keys the names of the supported metrics and as values the computed metrics
     
     Raises
@@ -118,7 +151,11 @@ def calculate_metrics(
     if type(prediction) is not list and type(prediction) is not tuple:
         raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
     aupr = calculate_aupr(response, prediction)
+    auroc = calculate_auroc(response, prediction)
+    pcc = pearsonr(response, prediction).statistic
     return {
+        "auroc": auroc,
+        "pearson": pcc,
         "aupr": aupr,
         "aupr_corrected": aupr - sum(response)/len(response)
     }
