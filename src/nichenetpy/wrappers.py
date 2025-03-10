@@ -793,3 +793,16 @@ def infer_supporting_datasources(
         regulatory_filtered,
         signaling_filtered
     ))
+
+def calculate_fraction_top_predicted(affected_gene_predictions, quantile_cutoff = 0.95):
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
+        prediction >= np.quantile(prediction, quantile_cutoff)
+    ].groupby("response").count()
+    predicted_positive.index.name = "true_target"
+    predicted_positive.reset_index(inplace=True)
+    all = affected_gene_predictions[["response", "prediction"]].rename(columns={"response": "true_target", "prediction": "n"}).groupby("true_target").count()
+    all.reset_index(inplace=True)
+    all = all.merge(predicted_positive, on="true_target", how="inner")
+    all["fraction_positive_predicted"] = all["positive_prediction"]/all["n"]
+    return all
