@@ -31,6 +31,7 @@ from pycirclize import Circos
 from pycirclize.utils import ColorCycler
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
+from scipy.stats import fisher_exact
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -794,7 +795,10 @@ def infer_supporting_datasources(
         signaling_filtered
     ))
 
-def calculate_fraction_top_predicted(affected_gene_predictions, quantile_cutoff = 0.95):
+def calculate_fraction_top_predicted(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+):
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
         prediction >= np.quantile(prediction, quantile_cutoff)
@@ -806,3 +810,24 @@ def calculate_fraction_top_predicted(affected_gene_predictions, quantile_cutoff 
     all = all.merge(predicted_positive, on="true_target", how="inner")
     all["fraction_positive_predicted"] = all["positive_prediction"]/all["n"]
     return all
+
+def calculate_fraction_top_predicted_fisher(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+):
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
+        prediction >= np.quantile(prediction, quantile_cutoff)
+    ].groupby("response").count()
+    predicted_positive.reset_index(inplace=True)
+    all = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "n"}).groupby("response").count()
+    all.reset_index(inplace=True)
+    df = all.merge(predicted_positive, on="response", how="left")
+    df["positive_prediction"] = np.nan_to_num(df["positive_prediction"])
+    true_res = df[df["response"] == 1]
+    false_res = df[df["response"] == 0]
+    tp = true_res["positive_prediction"].iloc[0]
+    fp = false_res["positive_prediction"].iloc[0]
+    fn = true_res["n"].iloc[0] - true_res["positive_prediction"].iloc[0]
+    tn = false_res["n"].iloc[0] - false_res["positive_prediction"].iloc[0]
+    return fisher_exact(np.array([[tp, fp], [fn, tn]]), alternative="greater")
