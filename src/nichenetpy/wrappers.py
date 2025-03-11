@@ -32,6 +32,7 @@ from pycirclize.utils import ColorCycler
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
 from scipy.stats import fisher_exact
+from numbers import Number
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -799,6 +800,33 @@ def calculate_fraction_top_predicted(
     affected_gene_predictions:pd.DataFrame,
     quantile_cutoff:float=0.95
 ) -> pd.DataFrame:
+    '''
+    Determine the fraction of genes belonging to the geneset or background and to the top-predicted genes.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe indicating the number of genes belonging to the gene set of interest or background (true_target column),
+        the number and fraction of genes of these groups that were part of the top predicted targets in a specific
+        cross-validation round.
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
         prediction >= np.quantile(prediction, quantile_cutoff)
@@ -816,7 +844,33 @@ def calculate_fraction_top_predicted(
 def calculate_fraction_top_predicted_fisher(
     affected_gene_predictions:pd.DataFrame,
     quantile_cutoff:float=0.95
-) -> pd.DataFrame:
+) -> object:
+    '''
+    Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
+    of the top-predicted targets.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    object
+        summary of the Fisher's exact test, has attributes "statistic" and "pvalue" (see scipy.stats.fisher_exact)
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
         prediction >= np.quantile(prediction, quantile_cutoff)
@@ -838,6 +892,33 @@ def get_top_predicted_genes(
     affected_gene_predictions:pd.DataFrame,
     quantile_cutoff:float=0.95
 ) -> pd.DataFrame:
+    '''
+    Find which genes were among the top-predicted targets genes in a specific cross-validation round and see whether these
+    genes belong to the gene set of interest as well.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe indicating for every gene whether it belongs to the geneset and whether it belongs to the top-predicted genes
+        in a specific cross-validation round.
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions.copy()
     predicted_positive["predicted_top_target"] = (prediction >= np.quantile(prediction, quantile_cutoff))

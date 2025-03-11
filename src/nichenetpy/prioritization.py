@@ -501,9 +501,9 @@ def generate_prioritization_table(
     )
     score = 0
     if "scaled_pval_adapted_ligand" in group_prioritization.columns:
-        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2 #small diff
+        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2
     if "scaled_pval_adapted_receptor" in group_prioritization.columns:
-        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2 #small diff
+        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2
     if "scaled_activity" in group_prioritization.columns:
         score += prioritizing_weights["activity_scaled"] * group_prioritization["scaled_activity"]
     if "scaled_avg_exprs_ligand" in group_prioritization.columns:

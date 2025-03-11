@@ -93,11 +93,11 @@ class LigandActivityPredictor:
         Parameters
         ----------
         geneset : Collection of str
-            the gene symbols of genes of which the expression is potentially affected by ligands from the interacting cell
+            the  genes of which the expression is potentially affected by ligands from the interacting cell
         background_expressed_genes : Iterable of str
-            the gene symbols of the background, non-affected, genes (can contain the symbols of the affected genes as well)
+            the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential ligands : Iterable of str
-            the gene symbols of the potentially active ligands for which you want to compute ligand activities
+            the potentially active ligands for which you want to compute ligand activities
 
         Returns
         -------
@@ -152,7 +152,7 @@ class LigandActivityPredictor:
         ligand : str
             the gene symbol of the potentially active ligand for which you want to find target genes
         geneset : set of str
-            the gene symbols of genes for which the expression is potentially affected by ligands from the interacting cell
+            the genes for which the expression is potentially affected by ligands from the interacting cell
         n : int
             the top n of targets per ligand that will be considered, defaults to 250
 
@@ -202,6 +202,49 @@ def assess_rf_class_probabilities(
     predictor:LigandActivityPredictor,
     ntrees:int=1000
 ):
+    '''
+    Assess probability that a target gene belongs to the geneset based on a multi-ligand random forest model (with cross-validation).
+    Target genes and background genes will be split in different groups in a stratified way.
+
+    Parameters
+    ----------
+    folds : int
+        integer describing how many folds should be used
+    geneset : set of str
+        the genes for which the expression is potentially affected by ligands from the interacting cell
+    background_expressed_genes : set of str
+        the background, non-affected, genes (can contain the symbols of the affected genes as well)
+    ligands_oi : set of str
+        a set which contains the ligands you want to build the multi-ligand random forest with
+    predictor : LigandActivityPredictor
+        the ligand-activity predictor which contains the ligand-target matrix
+    ntrees : int
+        the amount of trees in the random forest
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe with columns: "gene", "response", "prediction".
+        Response indicates whether the gene belongs to the geneset of interest, prediction gives the probability this gene
+        belongs to the geneset according to the random forest model.
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(folds) is not int:
+        raise TypeError(f"folds should have type int, was {type(folds)}")
+    if type(geneset) is not set:
+        raise TypeError(f"geneset should have type set[str], was {type(geneset)}")
+    if type(background_expressed_genes) is not set:
+        raise TypeError(f"background_expressed_genes should have type set[str], was {type(background_expressed_genes)}")
+    if type(ligands_oi) is not set:
+        raise TypeError(f"ligands_oi should have type set[str], was {type(ligands_oi)}")
+    if type(predictor) is not LigandActivityPredictor:
+        raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(LigandActivityPredictor)}")
+    if type(ntrees) is not int:
+        raise TypeError(f"ntrees should have type int, was {type(ntrees)}")
     geneset.intersection_update(predictor.row_names)
     background_expressed_genes.intersection_update(predictor.row_names)
     background_expressed_genes = np.array([[e] for e in background_expressed_genes.difference(geneset)])
