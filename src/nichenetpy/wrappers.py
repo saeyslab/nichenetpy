@@ -798,14 +798,16 @@ def infer_supporting_datasources(
 def calculate_fraction_top_predicted(
     affected_gene_predictions:pd.DataFrame,
     quantile_cutoff:float=0.95
-):
+) -> pd.DataFrame:
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
         prediction >= np.quantile(prediction, quantile_cutoff)
     ].groupby("response").count()
     predicted_positive.index.name = "true_target"
     predicted_positive.reset_index(inplace=True)
-    all = affected_gene_predictions[["response", "prediction"]].rename(columns={"response": "true_target", "prediction": "n"}).groupby("true_target").count()
+    all = affected_gene_predictions[["response", "prediction"]].rename(
+        columns={"response": "true_target", "prediction": "n"}
+    ).groupby("true_target").count()
     all.reset_index(inplace=True)
     all = all.merge(predicted_positive, on="true_target", how="inner")
     all["fraction_positive_predicted"] = all["positive_prediction"]/all["n"]
@@ -814,7 +816,7 @@ def calculate_fraction_top_predicted(
 def calculate_fraction_top_predicted_fisher(
     affected_gene_predictions:pd.DataFrame,
     quantile_cutoff:float=0.95
-):
+) -> pd.DataFrame:
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
         prediction >= np.quantile(prediction, quantile_cutoff)
@@ -831,3 +833,13 @@ def calculate_fraction_top_predicted_fisher(
     fn = true_res["n"].iloc[0] - true_res["positive_prediction"].iloc[0]
     tn = false_res["n"].iloc[0] - false_res["positive_prediction"].iloc[0]
     return fisher_exact(np.array([[tp, fp], [fn, tn]]), alternative="greater")
+
+def get_top_predicted_genes(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+) -> pd.DataFrame:
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions.copy()
+    predicted_positive["predicted_top_target"] = (prediction >= np.quantile(prediction, quantile_cutoff))
+    predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
+    return predicted_positive[["gene", "true_target", "predicted_top_target"]]
