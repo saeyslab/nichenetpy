@@ -127,7 +127,7 @@ class LigandActivityPredictor:
         predictions = ([
             dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
             for ligand in potential_ligands
-        ])
+        ]) # TODO: move this into the loop below
 
         # compute the metrics for each ligand
         for ligand, prediction in zip(potential_ligands, predictions):
@@ -137,6 +137,32 @@ class LigandActivityPredictor:
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
             output[ligand] = calculate_metrics(pred, resp)
         return output
+    
+    def predict_single_cell_ligand_activities(
+        self,
+        cells:Collection[str],
+        expression_scaled:np.ndarray,
+        expression_scaled_cols:list[str],
+        potential_ligands:Collection[str],
+        quantile_cutoff:float=0.975
+    ):
+        responses = []
+        for cell in cells:
+            response = expression_scaled[cell, :]
+            qt = np.quantile(response, quantile_cutoff)
+            responses.append(
+                dict(zip(
+                    expression_scaled_cols,
+                    (1 if e >= qt else 0 for e in response)
+                ))
+            )
+        for repsonse in responses:
+            for ligand in potential_ligands:
+                prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+                common_keys = prediction.keys() & response.keys()
+                pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
+                resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
+                #TODO
     
     def get_weighted_ligand_target_links(
         self,
