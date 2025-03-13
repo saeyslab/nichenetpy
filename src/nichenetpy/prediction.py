@@ -1,14 +1,33 @@
 from nichenetpy.metrics import calculate_metrics
-from nichenetpy.utils import subset_matrix
+from nichenetpy.utils import subset_matrix, combine_dicts
 
 from collections.abc import Collection, Iterable
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 from itertools import chain
+from functools import reduce
+from numbers import Number
 
 import numpy as np
 import pandas as pd
 
+
+def _combine_mapping(x, y):
+    x.append(y)
+    return x
+
+def _ligand_activities_to_df(ligand_activities):
+    # create a dict by combining the mappings of the output dicts into lists
+    # these lists are the mappings of a new dict which can easily be converted to a pandas dataframe
+    data = list(ligand_activities.values())
+    return pd.DataFrame(
+        data=reduce(
+            lambda x, y : combine_dicts(x, y, _combine_mapping),
+            data[2:],
+            combine_dicts(data[0], data[1], lambda x, y : [x, y])
+        ),
+        index=ligand_activities.keys()
+    )
 
 class LigandActivityPredictor:
     '''
@@ -85,24 +104,29 @@ class LigandActivityPredictor:
         self,
         geneset:Collection[str],
         background_expressed_genes:Iterable[str],
-        potential_ligands:Iterable[str]
-    ) -> dict[str, dict[str, float]]:
+        potential_ligands:Iterable[str],
+        as_dataframe:bool=False
+    ) -> dict[str, dict[str, float]]|pd.DataFrame:
         '''
-        Predict activities of ligands in regulating expression of a gene set of interest. Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according to the NicheNet model.
+        Predict activities of ligands in regulating expression of a gene set of interest.
+        Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
+        to the NicheNet model.
 
         Parameters
         ----------
         geneset : Collection of str
-            the  genes of which the expression is potentially affected by ligands from the interacting cell
+            the genes of which the expression is potentially affected by ligands from the interacting cell
         background_expressed_genes : Iterable of str
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential ligands : Iterable of str
             the potentially active ligands for which you want to compute ligand activities
+        as_dataframe : bool
+            if true, output a pandas dataframe
 
         Returns
         -------
-        dict
-            nested dictionary which contains the ligand activity for each ligand
+        dict or pandas.DataFrame
+            the ligand activity for each ligand
         
         Raises
         ------
@@ -115,6 +139,8 @@ class LigandActivityPredictor:
             raise TypeError(f"background_expressed_genes should have type Iterable, was {type(background_expressed_genes)}")
         if not isinstance(potential_ligands, Iterable):
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
+        if type(as_dataframe) is not bool:
+            raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
 
         output = dict()
 
@@ -122,47 +148,95 @@ class LigandActivityPredictor:
         response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
         for gene in geneset:
             response[gene] = 1
-        
-        # create the prediction model vector
-        predictions = ([
-            dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
-            for ligand in potential_ligands
-        ]) # TODO: move this into the loop below
 
         # compute the metrics for each ligand
-        for ligand, prediction in zip(potential_ligands, predictions):
+        for ligand in potential_ligands:
+            # create the prediction model vector
+            prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
             # we need to match the predictions with the responses so we intersect and sort by key
             common_keys = prediction.keys() & response.keys()
             pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
             output[ligand] = calculate_metrics(pred, resp)
+        if as_dataframe:
+            return _ligand_activities_to_df(output)
         return output
     
     def predict_single_cell_ligand_activities(
         self,
         cells:Collection[str],
         expression_scaled:np.ndarray,
-        expression_scaled_cols:list[str],
+        expression_scaled_rows:Iterable[str],
+        expression_scaled_cols:Iterable[str],
         potential_ligands:Collection[str],
-        quantile_cutoff:float=0.975
-    ):
-        responses = []
+        quantile_cutoff:float=0.975,
+        as_dataframe:bool=False
+    ) -> dict[tuple[str, str], dict[str, float]]|pd.DataFrame:
+        '''
+        Predict activities of ligands in regulating expression of a gene set of interest.
+        Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
+        to the NicheNet model.
+
+        Parameters
+        ----------
+        cells : Collection of str
+            the cells for which the ligand activities should be calculated
+        expression_scaled : np.ndarray
+            scaled expression matrix of single-cells
+            (scaled such that high values indicate that a gene is stronger expressed in that cell compared to others)
+        expression_scaled_rows : Iterable of str
+            the names of the rows of expression_scaled
+        expression_scaled_cols : Iterable of str
+            the names of the columns of expression_scaled
+        potential_ligands : Collection of str
+            the genes of the potentially active ligands for which you want to define ligand activities
+        quantile_cutoff : float
+            the cutoff value used to compute the response vector
+        as_dataframe : bool
+            if true, output a pandas dataframe
+
+        Returns
+        -------
+        dict or pandas.DataFrame
+            the ligand activity for each ligand
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        '''
+        if not isinstance(cells, Collection):
+            raise TypeError(f"cells should have type Collection[str], was {type(cells)}")
+        if type(expression_scaled) is not np.ndarray:
+            raise TypeError(f"expression_scaled should have type numpy.ndarray, was {type(expression_scaled)}")
+        if not isinstance(expression_scaled_rows, Iterable):
+            raise TypeError(f"expression_scaled_rows should have type Iterable[str], was {type(expression_scaled_rows)}")
+        if not isinstance(expression_scaled_cols, Iterable):
+            raise TypeError(f"expression_scaled_cols should have type Iterable[str], was {type(expression_scaled_cols)}")
+        if not isinstance(potential_ligands, Collection):
+            raise TypeError(f"potential_ligands should have type Collection[str], was {type(potential_ligands)}")
+        if not isinstance(quantile_cutoff, Number):
+            raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
+        if type(as_dataframe) is not bool:
+            raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
+        output = dict()
+        row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
         for cell in cells:
-            response = expression_scaled[cell, :]
+            response = expression_scaled[row2id[cell], :]
             qt = np.quantile(response, quantile_cutoff)
-            responses.append(
-                dict(zip(
-                    expression_scaled_cols,
-                    (1 if e >= qt else 0 for e in response)
-                ))
-            )
-        for repsonse in responses:
+            response = dict(zip(
+                expression_scaled_cols,
+                (1 if e >= qt else 0 for e in response)
+            ))
             for ligand in potential_ligands:
                 prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
                 common_keys = prediction.keys() & response.keys()
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-                #TODO
+                output[(cell, ligand)] = calculate_metrics(pred, resp)
+        if as_dataframe:
+            return _ligand_activities_to_df(output)
+        return output
     
     def get_weighted_ligand_target_links(
         self,
