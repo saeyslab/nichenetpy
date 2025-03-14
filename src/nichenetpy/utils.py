@@ -344,7 +344,7 @@ def ligand_activities_df(
         if the arguments have the wrong type
     '''
     if type(ligand_activities) is dict:
-        ligands, activities = ligand_activities.items()
+        ligands, activities = zip(*ligand_activities.items())
     elif isinstance(ligand_activities, Iterable):
         ligands, activities = zip(*ligand_activities)
     else:

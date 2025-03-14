@@ -12,23 +12,6 @@ import numpy as np
 import pandas as pd
 
 
-def _combine_mapping(x, y):
-    x.append(y)
-    return x
-
-def _ligand_activities_to_df(ligand_activities):
-    # create a dict by combining the mappings of the output dicts into lists
-    # these lists are the mappings of a new dict which can easily be converted to a pandas dataframe
-    data = list(ligand_activities.values())
-    return pd.DataFrame(
-        data=reduce(
-            lambda x, y : combine_dicts(x, y, _combine_mapping),
-            data[2:],
-            combine_dicts(data[0], data[1], lambda x, y : [x, y])
-        ),
-        index=ligand_activities.keys()
-    )
-
 class LigandActivityPredictor:
     '''
     This class facilitates the computation of ligand activities using a ligand-target matrix. 
@@ -104,9 +87,8 @@ class LigandActivityPredictor:
         self,
         geneset:Collection[str],
         background_expressed_genes:Iterable[str],
-        potential_ligands:Iterable[str],
-        as_dataframe:bool=False
-    ) -> dict[str, dict[str, float]]|pd.DataFrame:
+        potential_ligands:Iterable[str]
+    ) -> dict[str, dict[str, float]]:
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -120,12 +102,10 @@ class LigandActivityPredictor:
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential ligands : Iterable of str
             the potentially active ligands for which you want to compute ligand activities
-        as_dataframe : bool
-            if true, output a pandas dataframe
 
         Returns
         -------
-        dict or pandas.DataFrame
+        dict
             the ligand activity for each ligand
         
         Raises
@@ -139,8 +119,6 @@ class LigandActivityPredictor:
             raise TypeError(f"background_expressed_genes should have type Iterable, was {type(background_expressed_genes)}")
         if not isinstance(potential_ligands, Iterable):
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
-        if type(as_dataframe) is not bool:
-            raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
 
         output = dict()
 
@@ -158,8 +136,6 @@ class LigandActivityPredictor:
             pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
             resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
             output[ligand] = calculate_metrics(pred, resp)
-        if as_dataframe:
-            return _ligand_activities_to_df(output)
         return output
     
     def predict_single_cell_ligand_activities(
@@ -170,8 +146,7 @@ class LigandActivityPredictor:
         expression_scaled_cols:Iterable[str],
         potential_ligands:Collection[str],
         quantile_cutoff:float=0.975,
-        as_dataframe:bool=False
-    ) -> dict[tuple[str, str], dict[str, float]]|pd.DataFrame:
+    ) -> dict[tuple[str, str], dict[str, float]]:
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -192,12 +167,10 @@ class LigandActivityPredictor:
             the genes of the potentially active ligands for which you want to define ligand activities
         quantile_cutoff : float
             the cutoff value used to compute the response vector
-        as_dataframe : bool
-            if true, output a pandas dataframe
 
         Returns
         -------
-        dict or pandas.DataFrame
+        dict
             the ligand activity for each ligand
         
         Raises
@@ -217,8 +190,6 @@ class LigandActivityPredictor:
             raise TypeError(f"potential_ligands should have type Collection[str], was {type(potential_ligands)}")
         if not isinstance(quantile_cutoff, Number):
             raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
-        if type(as_dataframe) is not bool:
-            raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
         output = dict()
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
         for cell in cells:
@@ -234,8 +205,6 @@ class LigandActivityPredictor:
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
                 output[(cell, ligand)] = calculate_metrics(pred, resp)
-        if as_dataframe:
-            return _ligand_activities_to_df(output)
         return output
     
     def get_weighted_ligand_target_links(
