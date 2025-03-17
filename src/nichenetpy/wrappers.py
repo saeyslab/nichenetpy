@@ -2,7 +2,8 @@ from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import (
     combine_by_key,
-    combine_dicts
+    combine_dicts,
+    df_grouped_apply
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
@@ -23,6 +24,7 @@ from nichenetpy.prioritization import (
 )
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
+from nichenetpy.normalization import scaling_modified_zscore
 
 from itertools import cycle, chain
 from collections.abc import Iterable
@@ -924,3 +926,33 @@ def get_top_predicted_genes(
     predicted_positive["predicted_top_target"] = (prediction >= np.quantile(prediction, quantile_cutoff))
     predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
     return predicted_positive[["gene", "true_target", "predicted_top_target"]]
+
+def normalize_single_cell_ligand_activities(ligand_activities:pd.DataFrame) -> pd.DataFrame:
+    '''
+    Normalize single-cell ligand activities to make ligand activities over different cells comparable.
+
+    Parameters
+    ----------
+    ligand_activities : pandas.DataFrame
+        Output from the function "predict_single_cell_ligand_activities"
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe giving the normalized ligand activity scores for single cells.
+        Following columns in the tibble: cell, ligand, pearson, which is the normalized ligand activity value.
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(ligand_activities) is not pd.DataFrame:
+        raise TypeError(f"ligand_activities should have type pandas.DataFrame, was {type(ligand_activities)}")
+    single_ligand_activities_aupr_norm = df_grouped_apply(
+        ligand_activities[["cell", "ligand", "aupr"]],
+        groupby="cell",
+        func=lambda x : scaling_modified_zscore(np.array(x["aupr"])),
+        dest="aupr"
+    )
+    return single_ligand_activities_aupr_norm.pivot(index="cell", columns="ligand", values="aupr")
