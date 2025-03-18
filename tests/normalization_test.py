@@ -14,9 +14,8 @@ def equals_iter(xs, ys):
 def equals_ndarray(xs, ys):
     return equals_iter(xs.reshape(-1), ys.reshape(-1))
 
-def template_scale_quantile(data, cutoff, exp, equals=equals_iter):
-    res = scale_quantile(data, cutoff)
-    print(res)
+def template_scale_quantile(data, cutoff, exp, equals=equals_iter, by_row=False):
+    res = scale_quantile(data, cutoff, by_row=by_row)
     assert equals(res, exp), f"the following output is incorrect: {res}"
 
 def test_scale_quantile_list_0():
@@ -36,6 +35,31 @@ def test_scale_quantile_list_1():
         np.array([
             [0, 0, 0.066, 0.393, 0.803, 1, 1],
             [0, 0, 0.032, 0.468, 0.825, 1, 1]
+        ]),
+        equals=equals_ndarray,
+        by_row=True
+    )
+
+def test_scale_quantile_list_2():
+    template_scale_quantile(
+        [
+            [0.1, 0.2],
+            [0.25, 0.28],
+            [0.3, 0.3],
+            [0.5, 0.52],
+            [0.75, 0.7],
+            [0.9, 0.81],
+            [1.2, 1.1]
+        ],
+        0.2,
+        np.array([
+            [0, 0],
+            [0, 0],
+            [0.066, 0.032],
+            [0.393, 0.468],
+            [0.803, 0.825],
+            [1, 1],
+            [1, 1]
         ]),
         equals=equals_ndarray
     )
@@ -58,12 +82,36 @@ def test_scale_quantile_ndarray_1():
             [0, 0, 0.066, 0.393, 0.803, 1, 1],
             [0, 0, 0.032, 0.468, 0.825, 1, 1]
         ]),
+        equals=equals_ndarray,
+        by_row=True
+    )
+
+def test_scale_quantile_ndarray_2():
+    template_scale_quantile(
+        np.array([
+            [0.1, 0.2],
+            [0.25, 0.28],
+            [0.3, 0.3],
+            [0.5, 0.52],
+            [0.75, 0.7],
+            [0.9, 0.81],
+            [1.2, 1.1]
+        ]),
+        0.2,
+        np.array([
+            [0, 0],
+            [0, 0],
+            [0.066, 0.032],
+            [0.393, 0.468],
+            [0.803, 0.825],
+            [1, 1],
+            [1, 1]
+        ]),
         equals=equals_ndarray
     )
 
 def template_scale_quantile_adapted(data, cutoff, exp, equals=equals_iter):
     res = scale_quantile_adapted(data, cutoff)
-    print(res)
     assert equals(res, exp), f"the following output is incorrect: {res}"
 
 def test_scale_quantile_adapted_std_0():

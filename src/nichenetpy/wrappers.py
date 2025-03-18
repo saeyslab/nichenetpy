@@ -2,7 +2,8 @@ from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import (
     combine_by_key,
-    combine_dicts
+    combine_dicts,
+    df_grouped_apply
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
@@ -23,6 +24,7 @@ from nichenetpy.prioritization import (
 )
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
+from nichenetpy.normalization import scaling_modified_zscore
 
 from itertools import cycle, chain
 from collections.abc import Iterable
@@ -31,6 +33,8 @@ from pycirclize import Circos
 from pycirclize.utils import ColorCycler
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
+from scipy.stats import fisher_exact
+from numbers import Number
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -205,6 +209,8 @@ def run_nichenet(
                 expressed genes in the receiver
             prioritization_table : pandas.DataFrame
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
+            geneset_oi : set of str
+                the geneset of interest
         and the following additional objects for the sender-focused approach:
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
@@ -250,6 +256,7 @@ def run_nichenet(
         min_pct=min_pct
     )
     geneset.intersection_update(predictor.get_genes())
+    output["geneset_oi"] = geneset
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
         background_expressed_genes=expressed_genes_receiver,
@@ -790,3 +797,162 @@ def infer_supporting_datasources(
         regulatory_filtered,
         signaling_filtered
     ))
+
+def calculate_fraction_top_predicted(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+) -> pd.DataFrame:
+    '''
+    Determine the fraction of genes belonging to the geneset or background and to the top-predicted genes.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe indicating the number of genes belonging to the gene set of interest or background (true_target column),
+        the number and fraction of genes of these groups that were part of the top predicted targets in a specific
+        cross-validation round.
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
+        prediction >= np.quantile(prediction, quantile_cutoff)
+    ].groupby("response").count()
+    predicted_positive.index.name = "true_target"
+    predicted_positive.reset_index(inplace=True)
+    all = affected_gene_predictions[["response", "prediction"]].rename(
+        columns={"response": "true_target", "prediction": "n"}
+    ).groupby("true_target").count()
+    all.reset_index(inplace=True)
+    all = all.merge(predicted_positive, on="true_target", how="inner")
+    all["fraction_positive_predicted"] = all["positive_prediction"]/all["n"]
+    return all
+
+def calculate_fraction_top_predicted_fisher(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+) -> object:
+    '''
+    Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
+    of the top-predicted targets.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    object
+        summary of the Fisher's exact test, has attributes "statistic" and "pvalue" (see scipy.stats.fisher_exact)
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
+        prediction >= np.quantile(prediction, quantile_cutoff)
+    ].groupby("response").count()
+    predicted_positive.reset_index(inplace=True)
+    all = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "n"}).groupby("response").count()
+    all.reset_index(inplace=True)
+    df = all.merge(predicted_positive, on="response", how="left")
+    df["positive_prediction"] = np.nan_to_num(df["positive_prediction"])
+    true_res = df[df["response"] == 1]
+    false_res = df[df["response"] == 0]
+    tp = true_res["positive_prediction"].iloc[0]
+    fp = false_res["positive_prediction"].iloc[0]
+    fn = true_res["n"].iloc[0] - true_res["positive_prediction"].iloc[0]
+    tn = false_res["n"].iloc[0] - false_res["positive_prediction"].iloc[0]
+    return fisher_exact(np.array([[tp, fp], [fn, tn]]), alternative="greater")
+
+def get_top_predicted_genes(
+    affected_gene_predictions:pd.DataFrame,
+    quantile_cutoff:float=0.95
+) -> pd.DataFrame:
+    '''
+    Find which genes were among the top-predicted targets genes in a specific cross-validation round and see whether these
+    genes belong to the gene set of interest as well.
+
+    Parameters
+    ----------
+    affected_gene_predictions : pandas.DataFrame
+        dataframe which contains "response" and "prediction" columns
+    quantile_cutoff : float
+        Quantile of which genes should be considered as top-predicted targets.
+        Default: 0.95
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe indicating for every gene whether it belongs to the geneset and whether it belongs to the top-predicted genes
+        in a specific cross-validation round.
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(affected_gene_predictions) is not pd.DataFrame:
+        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+    if not isinstance(quantile_cutoff, Number):
+        raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
+    prediction = affected_gene_predictions["prediction"]
+    predicted_positive = affected_gene_predictions.copy()
+    predicted_positive["predicted_top_target"] = (prediction >= np.quantile(prediction, quantile_cutoff))
+    predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
+    return predicted_positive[["gene", "true_target", "predicted_top_target"]]
+
+def normalize_single_cell_ligand_activities(ligand_activities:pd.DataFrame) -> pd.DataFrame:
+    '''
+    Normalize single-cell ligand activities to make ligand activities over different cells comparable.
+
+    Parameters
+    ----------
+    ligand_activities : pandas.DataFrame
+        Output from the function "predict_single_cell_ligand_activities"
+
+    Returns
+    -------
+    pandas.DataFrame
+        A dataframe giving the normalized ligand activity scores for single cells.
+        Following columns in the tibble: cell, ligand, pearson, which is the normalized ligand activity value.
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(ligand_activities) is not pd.DataFrame:
+        raise TypeError(f"ligand_activities should have type pandas.DataFrame, was {type(ligand_activities)}")
+    single_ligand_activities_aupr_norm = df_grouped_apply(
+        ligand_activities[["cell", "ligand", "aupr"]],
+        groupby="cell",
+        func=lambda x : scaling_modified_zscore(np.array(x["aupr"])),
+        dest="aupr"
+    )
+    return single_ligand_activities_aupr_norm.pivot(index="cell", columns="ligand", values="aupr")

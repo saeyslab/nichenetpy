@@ -242,7 +242,11 @@ def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
                 output[key] = [val]
     return output
 
-def combine_dicts(dict1:dict, dict2:dict) -> dict:
+def combine_dicts(
+    dict1:dict,
+    dict2:dict,
+    func:Callable=None
+) -> dict:
     '''
     Combine two dictionaries by their mutual keys. 
 
@@ -252,11 +256,15 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
         one of the dictionaries to combine
     dict2 : dict
         one of the dictionaries to combine
+    func : Callable
+        a binary function that computes the new value from the old values
+        if None, the values are combined into a tuple
     
     Returns
     -------
     dict
-        a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key
+        a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key,
+        or alternatively a function is applied which combines the mappings
     
     Raises
     ------
@@ -306,11 +314,13 @@ def combine_dicts(dict1:dict, dict2:dict) -> dict:
         "c": (2, 6)
     }
     '''
+    if func is None:
+        func = lambda x, y : (x, y)
     if type(dict1) is not dict:
         raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
     if type(dict2) is not dict:
         raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
-    return dict((key, (dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
+    return dict((key, func(dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
 
 def ligand_activities_df(
     ligand_activities:dict[str, dict[str, float]]|Iterable[tuple[str, dict[str, float]]]
@@ -334,7 +344,7 @@ def ligand_activities_df(
         if the arguments have the wrong type
     '''
     if type(ligand_activities) is dict:
-        ligands, activities = ligand_activities.items()
+        ligands, activities = zip(*ligand_activities.items())
     elif isinstance(ligand_activities, Iterable):
         ligands, activities = zip(*ligand_activities)
     else:

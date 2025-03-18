@@ -1,5 +1,5 @@
 from scipy.sparse import lil_matrix, csc_matrix, csr_matrix
-
+from scipy.stats import median_abs_deviation
 from numbers import Number
 
 import numpy as np
@@ -71,7 +71,11 @@ def _scale_quantile_seq(data:list|tuple|np.ndarray, cutoff:float=0.05) -> np.nda
         output = (data - sub) / div
     return np.clip(output, 0, 1)
 
-def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> np.ndarray:
+def scale_quantile(
+    data:list|tuple|np.ndarray|pd.Series,
+    cutoff:float=0.05,
+    by_row:bool=False
+) -> np.ndarray:
     '''
     Cut off outer quantiles and rescale to a [0, 1] range. 
 
@@ -81,6 +85,8 @@ def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> n
         the data to normalize
     cutoff : float
         the quantile cutoff for outliers
+    by_row : bool
+        indicates whether to apply the computation on each row or on each column
     
     Returns
     -------
@@ -93,26 +99,36 @@ def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> n
         if the arguments have the wrong type
     ValueError
         if data is invalid
-    
-    Note
-    ----
-    Contrary to the R function dplyr::scale_quantile, this function is implemented row-by-row
     '''
     if not isinstance(cutoff, Number):
         raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
+    if type(by_row) is not bool:
+        raise TypeError(f"by_row should have type bool, was {type(by_row)}")
     if type(data) is pd.Series:
         data = data.to_numpy()
     if type(data) is list or type(data) is tuple:
         if len(data) > 0:
             if type(data[0]) is list or type(data[0]) is tuple:
-                return np.concatenate([_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data], axis=0)
+                if by_row:
+                    return np.concatenate([_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data], axis=0)
+                else:
+                    return np.concatenate([_scale_quantile_seq(col, cutoff=cutoff).reshape(-1, 1) for col in zip(*data)], axis=1)
             elif type(data[0]) is float or type(data[0]) is int:
                 return _scale_quantile_seq(data, cutoff=cutoff)
             else:
                 raise ValueError(f"data should be a 1-dimensional or 2-dimensional array of numbers")
     elif type(data) is np.ndarray:
         if len(data.shape) == 2:
-            return np.concatenate([_scale_quantile_seq(data[i, :], cutoff=cutoff).reshape(1, -1) for i in range(data.shape[0])], axis=0)
+            if by_row:
+                return np.concatenate(
+                    [_scale_quantile_seq(data[i, :], cutoff=cutoff).reshape(1, -1) for i in range(data.shape[0])],
+                    axis=0
+                )
+            else:
+                return np.concatenate(
+                    [_scale_quantile_seq(data[:, i], cutoff=cutoff).reshape(-1, 1) for i in range(data.shape[1])],
+                    axis=1
+                )
         elif len(data.shape) == 1:
             return _scale_quantile_seq(data, cutoff=cutoff)
         else:
@@ -120,7 +136,11 @@ def scale_quantile(data:list|tuple|np.ndarray|pd.Series, cutoff:float=0.05) -> n
     else:
         raise TypeError(f"data should be of type list, tuple, numpy.ndarray or pandas.Series, was {type(data)}")
 
-def scale_quantile_adapted(data:list|tuple|np.ndarray|pd.Series, cutoff=0) -> np.ndarray:
+def scale_quantile_adapted(
+    data:list|tuple|np.ndarray|pd.Series,
+    cutoff=0,
+    by_row:bool=False
+) -> np.ndarray:
     '''
     Normalize values in a vector by quantile scaling. Add a pseudovalue of 0.001 to avoid having a score of 0 for the lowest value.
 
@@ -130,6 +150,8 @@ def scale_quantile_adapted(data:list|tuple|np.ndarray|pd.Series, cutoff=0) -> np
         the data to normalize
     cutoff : float
         the quantile cutoff for outliers
+    by_row : bool
+        indicates whether to apply the computation on each row or on each column
     
     Returns
     -------
@@ -142,29 +164,78 @@ def scale_quantile_adapted(data:list|tuple|np.ndarray|pd.Series, cutoff=0) -> np
         if data has the wrong type
     ValueError
         if data is invalid
-    
-    Note
-    ----
-    Contrary to the R function nichenetr::scale_quantile_adapted, this function is implemented row-by-row
     '''
-    return scale_quantile(data, cutoff=cutoff) + 0.001
+    return scale_quantile(data, cutoff=cutoff, by_row=by_row) + 0.001
 
-def scaling_zscore(data:list[float]) -> list[float]:
+def scaling_zscore(data:list[float]|np.ndarray) -> list[float]|np.ndarray:
     '''
     Normalize values in a vector by the z-score method.
 
     Parameters
     ----------
-    data : list of float
+    data : list of float or numpy.ndarray
         the data to normalize
     
     Returns
     -------
-    list of float
+    list of float or numpy.ndarray
         the normalized data
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     '''
-    if len(data) == 1:
-        return [0]
-    sd = np.std(data)
-    avg = np.mean(data)
-    return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
+    if type(data) is list:
+        if len(data) == 1:
+            return [0]
+        sd = np.std(data)
+        avg = np.mean(data)
+        return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
+    elif type(data) is np.ndarray:
+        if len(data) == 1:
+            return np.array([0])
+        sd = np.std(data)
+        avg = np.mean(data)
+        return (data - avg) / sd if sd > 0 else data - avg
+    else:
+        raise TypeError(f"data should have type list[float] or numpy.ndarray, was {type(data)}")
+
+def scaling_modified_zscore(
+    data:list[float]|np.ndarray,
+    scale_factor:float=0.6744907594765952
+) -> list[float]|np.ndarray:
+    '''
+    Normalize values in a vector by the z-score method.
+
+    Parameters
+    ----------
+    data : list of float or numpy.ndarray
+        the data to normalize
+    
+    Returns
+    -------
+    list of float or numpy.ndarray
+        the normalized data
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(data) is list:
+        md = np.median(data)
+        if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
+            return [0.6745 * (x - md) for x in data]
+        else:
+            mad = median_abs_deviation(data, scale=scale_factor)
+            return [0.6745 * (x - md) / mad for x in data]
+    elif type(data) is np.ndarray:
+        md = np.median(data)
+        if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
+            return 0.6745 * (data - md)
+        else:
+            mad = median_abs_deviation(data, scale=scale_factor)
+            return 0.6745 * (data - md) / mad
+    else:
+        raise TypeError(f"data should have type list[float] or numpy.ndarray, was {type(data)}")

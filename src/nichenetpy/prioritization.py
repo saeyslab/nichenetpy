@@ -433,7 +433,8 @@ def generate_prioritization_table(
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
     ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
         ligand_activity_prioritization["activity"].transpose(),
-        cutoff=0.01
+        cutoff=0.01,
+        by_row=True
     ).transpose()
     ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
     ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]]
@@ -441,7 +442,7 @@ def generate_prioritization_table(
     ligand_celltype_specificity_prioritization = df_grouped_apply(
         ligand_celltype_specificity_prioritization,
         groupby="ligand",
-        func=lambda group : scale_quantile_adapted(group["avg_ligand"]),
+        func=lambda group : scale_quantile_adapted(group["avg_ligand"], by_row=True),
         dest="scaled_avg_exprs_ligand"
     )
     ligand_celltype_specificity_prioritization.sort_values(
@@ -454,7 +455,7 @@ def generate_prioritization_table(
     receptor_celltype_specificity_prioritization = df_grouped_apply(
         receptor_celltype_specificity_prioritization,
         groupby="receptor",
-        func=lambda group : scale_quantile_adapted(group["avg_receptor"]),
+        func=lambda group : scale_quantile_adapted(group["avg_receptor"], by_row=True),
         dest="scaled_avg_exprs_receptor"
     )
     receptor_celltype_specificity_prioritization.sort_values(
@@ -501,9 +502,9 @@ def generate_prioritization_table(
     )
     score = 0
     if "scaled_pval_adapted_ligand" in group_prioritization.columns:
-        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2 #small diff
+        score += prioritizing_weights["de_ligand"] * group_prioritization["scaled_pval_adapted_ligand"] / 2
     if "scaled_pval_adapted_receptor" in group_prioritization.columns:
-        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2 #small diff
+        score += prioritizing_weights["de_receptor"] * group_prioritization["scaled_pval_adapted_receptor"] / 2
     if "scaled_activity" in group_prioritization.columns:
         score += prioritizing_weights["activity_scaled"] * group_prioritization["scaled_activity"]
     if "scaled_avg_exprs_ligand" in group_prioritization.columns:
