@@ -129,7 +129,7 @@ analyses:
 -   [Inferring ligand-to-target signaling
     paths](notebooks/ligand_target_signaling_path.ipynb)
 -   [Assess how well top-ranked ligands can predict a gene set of
-    interest](notebooks/target_prediction_evaluation_gene_set.ipynb)
+    interest](notebooks/target_prediction_evaluation_geneset.ipynb)
 -   [Single-cell NicheNet’s ligand activity
     analysis](notebooks/ligand_activity_single_cell.ipynb)
 
