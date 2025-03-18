@@ -99,10 +99,10 @@ feature can be found in the introduction to nichenetpy.
 
 ![](images/figure1.svg) <br><br>
 
-## Learning to use nichenetr
+## Learning to use nichenetpy
 
 The following notebooks contain the explanation on how to perform a
-basic NicheNet analysis on a Seurat object. This includes prioritizing
+basic NicheNet analysis on an AnnData object. This includes prioritizing
 ligands and predicting target genes of prioritized ligands. We recommend
 starting with the step-by-step analysis, but we also demonstrate the use
 of a single wrapper function. 
@@ -115,7 +115,7 @@ of a single wrapper function.
 
 Case study on HNSCC tumor which demonstrates the flexibility of
 NicheNet. Here, the gene set of interest was determined by the original
-authors, and the expression data is a matrix rather than a Seurat
+authors, and the expression data is a matrix rather than an AnnData
 object.
 
 -   [NicheNet’s ligand activity analysis on a gene set of
@@ -129,7 +129,7 @@ analyses:
 -   [Inferring ligand-to-target signaling
     paths](notebooks/ligand_target_signaling_path.ipynb)
 -   [Assess how well top-ranked ligands can predict a gene set of
-    interest](notebooks/target_prediction_evaluation_geneset.ipynb)
+    interest](notebooks/target_prediction_evaluation_gene_set.ipynb)
 -   [Single-cell NicheNet’s ligand activity
     analysis](notebooks/ligand_activity_single_cell.ipynb)
 
@@ -143,6 +143,7 @@ People interested in building their own models or benchmarking their own
 models against NicheNet can read one of the following notebooks:
 
 -   [Model construction](notebooks/model_construction.ipynb)
+
 TODO?
 ## FAQ
 
