@@ -267,7 +267,7 @@ def assess_rf_class_probabilities(
     folds:int,
     geneset:set[str],
     background_expressed_genes:set[str],
-    ligands_oi:set[str],
+    ligands_oi:Iterable[str],
     predictor:LigandActivityPredictor,
     ntrees:int=1000
 ):
@@ -283,8 +283,8 @@ def assess_rf_class_probabilities(
         the genes for which the expression is potentially affected by ligands from the interacting cell
     background_expressed_genes : set of str
         the background, non-affected, genes (can contain the symbols of the affected genes as well)
-    ligands_oi : set of str
-        a set which contains the ligands you want to build the multi-ligand random forest with
+    ligands_oi : Iterable of str
+        the ligands you want to build the multi-ligand random forest with
     predictor : LigandActivityPredictor
         the ligand-activity predictor which contains the ligand-target matrix
     ntrees : int
@@ -308,8 +308,8 @@ def assess_rf_class_probabilities(
         raise TypeError(f"geneset should have type set[str], was {type(geneset)}")
     if type(background_expressed_genes) is not set:
         raise TypeError(f"background_expressed_genes should have type set[str], was {type(background_expressed_genes)}")
-    if type(ligands_oi) is not set:
-        raise TypeError(f"ligands_oi should have type set[str], was {type(ligands_oi)}")
+    if not isinstance(ligands_oi, Iterable):
+        raise TypeError(f"ligands_oi should have type Iterable[str], was {type(ligands_oi)}")
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(LigandActivityPredictor)}")
     if type(ntrees) is not int:

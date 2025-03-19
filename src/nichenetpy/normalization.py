@@ -167,18 +167,18 @@ def scale_quantile_adapted(
     '''
     return scale_quantile(data, cutoff=cutoff, by_row=by_row) + 0.001
 
-def scaling_zscore(data:list[float]|np.ndarray) -> list[float]|np.ndarray:
+def scaling_zscore(data:list[float]|np.ndarray|pd.Series) -> list[float]|np.ndarray|pd.Series:
     '''
     Normalize values in a vector by the z-score method.
 
     Parameters
     ----------
-    data : list of float or numpy.ndarray
+    data : list of float or numpy.ndarray or pandas.Series
         the data to normalize
     
     Returns
     -------
-    list of float or numpy.ndarray
+    list of float or numpy.ndarray or pandas.Series
         the normalized data
     
     Raises
@@ -192,30 +192,30 @@ def scaling_zscore(data:list[float]|np.ndarray) -> list[float]|np.ndarray:
         sd = np.std(data)
         avg = np.mean(data)
         return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
-    elif type(data) is np.ndarray:
+    elif type(data) is np.ndarray or type(data) is pd.Series:
         if len(data) == 1:
             return np.array([0])
         sd = np.std(data)
         avg = np.mean(data)
         return (data - avg) / sd if sd > 0 else data - avg
     else:
-        raise TypeError(f"data should have type list[float] or numpy.ndarray, was {type(data)}")
+        raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
 
 def scaling_modified_zscore(
-    data:list[float]|np.ndarray,
+    data:list[float]|np.ndarray|pd.Series,
     scale_factor:float=0.6744907594765952
-) -> list[float]|np.ndarray:
+) -> list[float]|np.ndarray|pd.Series:
     '''
     Normalize values in a vector by the z-score method.
 
     Parameters
     ----------
-    data : list of float or numpy.ndarray
+    data : list of float or numpy.ndarray or pandas.Series
         the data to normalize
     
     Returns
     -------
-    list of float or numpy.ndarray
+    list of float or numpy.ndarray or pandas.Series
         the normalized data
     
     Raises
@@ -230,7 +230,7 @@ def scaling_modified_zscore(
         else:
             mad = median_abs_deviation(data, scale=scale_factor)
             return [0.6745 * (x - md) / mad for x in data]
-    elif type(data) is np.ndarray:
+    elif type(data) is np.ndarray or type(data) is pd.Series:
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return 0.6745 * (data - md)
@@ -238,4 +238,4 @@ def scaling_modified_zscore(
             mad = median_abs_deviation(data, scale=scale_factor)
             return 0.6745 * (data - md) / mad
     else:
-        raise TypeError(f"data should have type list[float] or numpy.ndarray, was {type(data)}")
+        raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
