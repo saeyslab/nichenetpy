@@ -400,3 +400,35 @@ def df_grouped_apply(
         group[dest] = func(group)
         groups.append(group)
     return pd.concat(groups)
+
+def ncycle(
+    it:Iterable,
+    n:int
+) -> Iterable:
+    '''
+    A combination of itertools.repeat and itertools.cycle,
+    iterate over it n times. 
+
+    Parameters
+    ----------
+    it : Iterable
+        the iterable
+    n : int
+        the amount of times to cycle through the iterable
+    
+    Returns
+    -------
+    Iterable
+        it chained n times
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if not isinstance(it, Iterable):
+        raise TypeError(f"it should have type Iterable, was {it}")
+    if type(n) is not int:
+        TypeError(f"n should have type int, was {n}")
+    for _ in range(n):
+        yield from it

@@ -1,4 +1,4 @@
-from nichenetpy.utils import subset_matrix
+from nichenetpy.utils import subset_matrix, ncycle
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.graph import get_reachable_nodes
@@ -544,7 +544,7 @@ def visualize_ligand_signaling_graph(
 
 def assign_ligands_to_celltype(
     ann:AnnData,
-    ligands:Iterable[str],
+    ligands:Collection[str],
     celltype_col:str="celltype",
     condition_oi:str=None,
     condition_col:str=None,
@@ -577,17 +577,37 @@ def assign_ligands_to_celltype(
         if layer == "data":
             mat = np.expm1(mat)
         mat = mat.tocsr()
-        avg_expression_ligands.append(mat.mean(axis=0).A.reshape((-1,))) #check if axis correct
+        avg_expression_ligands.append(mat.mean(axis=0).A.reshape((-1,)))
     avg_expression_ligands = np.array(avg_expression_ligands)
     assig = np.mean(avg_expression_ligands, axis=0)
     assig += np.std(avg_expression_ligands, mean=assig, axis=0)
-    print(assig)
     sender_ligand_assignment = {
-        celltype: [
+        celltype: {
             ann_sub.var_names[j]
-            for j, e in enumerate(avg_expression_ligands[:, i])
-            if e > assig[i]
-        ]
+            for j, e in enumerate(avg_expression_ligands[i, :])
+            if e > assig[j]
+        }
         for i, celltype in enumerate(celltypes)
     }
-    return sender_ligand_assignment
+    count = dict()
+    for e in chain(*sender_ligand_assignment.values()):
+        if e in count:
+            count[e] += 1
+        else:
+            count[e] = 1
+    unique_ligands = {k for k, v in count.items() if v == 1}
+    general_ligands = (
+        ligands if type(ligands) is set else set(ligands)
+    ).difference(unique_ligands)
+    return pd.DataFrame({
+        "ligand_type": chain(
+            chain(
+                ncycle(k, len(sender_ligand_assignment[k])) for k in sender_ligand_assignment.keys()
+            ),
+            repeat("General", len(general_ligands))
+        ),
+        "ligand": chain(
+            chain(v.difference(general_ligands) for v in sender_ligand_assignment.values()),
+            general_ligands
+        )
+    })
