@@ -1,4 +1,4 @@
-from nichenetpy.utils import subset_matrix, ncycle
+from nichenetpy.utils import subset_matrix
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.graph import get_reachable_nodes
@@ -599,15 +599,17 @@ def assign_ligands_to_celltype(
     general_ligands = (
         ligands if type(ligands) is set else set(ligands)
     ).difference(unique_ligands)
+    for e in sender_ligand_assignment.values():
+        e.difference_update(general_ligands)
     return pd.DataFrame({
         "ligand_type": chain(
             chain(
-                ncycle(k, len(sender_ligand_assignment[k])) for k in sender_ligand_assignment.keys()
+                *(repeat(k, len(sender_ligand_assignment[k])) for k in sender_ligand_assignment.keys())
             ),
             repeat("General", len(general_ligands))
         ),
         "ligand": chain(
-            chain(v.difference(general_ligands) for v in sender_ligand_assignment.values()),
+            chain(*sender_ligand_assignment.values()),
             general_ligands
         )
     })
