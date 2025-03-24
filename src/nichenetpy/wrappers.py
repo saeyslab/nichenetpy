@@ -128,14 +128,13 @@ def run_nichenet(
     condition_oi:str,
     condition_ref:str,
     sender_celltypes:Iterable[str]=None,
-    get_expressed_genes_pct:float=0.05,
     layer:str="data",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
     min_abs_lfc:float=0.25,
-    min_pct:float=0.05,
+    expression_pct:float=0.1,
     ligands_top_n:int=30,
-    targets_top_n:int=100,
+    targets_top_n:int=200,
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
@@ -163,8 +162,6 @@ def run_nichenet(
         the reference condition
     sender_celltypes : Iterable[str]
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
-    get_expressed_genes_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str
@@ -173,8 +170,8 @@ def run_nichenet(
         the upper bound for pval_adj
     min_abs_lfc : float
         the lower bound for lfc
-    min_pct : float
-        the lower bound for the pct
+    expression_pct : float
+        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -236,7 +233,7 @@ def run_nichenet(
     '''
     output = dict()
     expressed_genes_receiver = set(
-        get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
+        get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col)
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
@@ -253,7 +250,7 @@ def run_nichenet(
         condition_col=condition_col,
         max_pval_adj=max_pval_adj,
         min_abs_lfc=min_abs_lfc,
-        min_pct=min_pct
+        min_pct=expression_pct
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
@@ -283,7 +280,7 @@ def run_nichenet(
             get_expressed_genes(
                 ct,
                 ann,
-                pct=get_expressed_genes_pct,
+                pct=expression_pct,
                 celltype_col=celltype_col
             ) for ct in sender_celltypes
         ]
