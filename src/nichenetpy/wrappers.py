@@ -564,7 +564,7 @@ def create_lfc_heatmap(
     ax.xaxis.set_label_position('top') 
     plt.show()
 
-def create_ligand_receptor_links_circos_plot(
+def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
     receivers:Iterable[str],
     ligands:Iterable[str],
@@ -624,7 +624,7 @@ def create_ligand_receptor_links_circos_plot(
             link_count_in[key_in]
         ))
     circos = Circos(
-    sectors={
+        sectors={
             key: count
             for key, count in chain(link_count_in.items(), link_count_out.items())
         },
@@ -634,6 +634,90 @@ def create_ligand_receptor_links_circos_plot(
     colors = dict(zip(celltypes, ColorCycler.get_color_list(len(celltypes))))
     for sector in circos.sectors:
         celltype, gene, _ = sector.name.split("_")
+        sector.text(gene, size=10, orientation="vertical")
+        track = sector.add_track((95, 100))
+        track.axis(fc=colors[celltype])
+    for sender, receiver, send_pos, rec_pos in links:
+        celltype = sender.split("_")[0]
+        circos.link_line(
+            (sender, send_pos - 0.5),
+            (receiver, rec_pos - 0.5,),
+            direction=1,
+            color=colors[celltype]
+        )
+    fig = circos.plotfig()
+    circos.ax.legend(
+        handles=[
+            Patch(color=color, label=celltype)
+            for celltype, color in colors.items()
+        ],
+        bbox_to_anchor=(0, 1.1),
+        loc="right",
+        ncols=1,
+    )
+    return fig
+
+def create_ligand_links_circos_plot(
+    circos_links:pd.DataFrame,
+    colors:dict[str, str],
+    dest_name:str
+) -> Figure:
+    '''
+    Creates a circos plot showing the links between ligands and targets. 
+
+    Parameters
+    ----------
+    circos_links : pandas.DataFrame
+        dataframe with columns 'ligand', 'target' and 'ligand_type'
+    colors : dict
+        color mapping for the ligands, should include a 'General' and 'target' mapping as well
+    dest_name : str
+        name of the receiving type
+    
+    Returns
+    -------
+    matplotlib.Figure
+        the plotted figure
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(circos_links) is not pd.DataFrame:
+        raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
+    if type(colors) is not dict:
+        raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
+    link_count_in = dict()
+    link_count_out = dict()
+    links = []
+    for ligand, dest, celltype in zip(circos_links["ligand"], circos_links[dest_name], circos_links["ligand_type"]):
+        key_out = f"{celltype}_{ligand}"
+        if key_out in link_count_out:
+            link_count_out[key_out] += 1
+        else:
+            link_count_out[key_out] = 1
+        key_in = f"{dest_name}_{dest}"
+        if key_in in link_count_in:
+            link_count_in[key_in] += 1
+        else:
+            link_count_in[key_in] = 1
+        links.append((
+            key_out,
+            key_in,
+            link_count_out[key_out],
+            link_count_in[key_in]
+        ))
+    circos = Circos(
+        sectors={
+            key: count
+            for key, count in chain(link_count_in.items(), link_count_out.items())
+        },
+        space=1
+    )
+    circos.sectors.sort(key=lambda x:x.name)
+    for sector in circos.sectors:
+        celltype, gene = sector.name.split("_")
         sector.text(gene, size=10, orientation="vertical")
         track = sector.add_track((95, 100))
         track.axis(fc=colors[celltype])
