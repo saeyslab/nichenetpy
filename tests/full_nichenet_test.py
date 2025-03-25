@@ -36,6 +36,7 @@ err_bound = 1e-3
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
 
+# nichenetr output
 top_10_ligand_activities = [
     ("Ifna1", 0.34233796),
     ("Ifnl3", 0.31641473),
@@ -47,6 +48,66 @@ top_10_ligand_activities = [
     ("Ebi3", 0.17898331),
     ("Ifnl2", 0.16908673),
     ("Ifna2", 0.16606369)
+]
+top_10_active_ligand_target_links = [
+    ("Il27", "Irf1", 0.3393635),
+    ("Ifng", "Irf1", 0.2864755),
+    ("Ifng", "Stat1", 0.2846630),
+    ("Ifna1", "Stat1", 0.2828309),
+    ("Ifna1", "Ifit2", 0.2794132),
+    ("Ifna1", "Ifi35", 0.2789524),
+    ("Ifna1", "Irf7", 0.2785550),
+    ("Tnf", "Irf1", 0.2769230),
+    ("Tnf", "Irf7", 0.2753571),
+    ("Ifna1", "Stat2", 0.2731093)
+]
+top_10_ligand_receptor_links = [
+    ("Ifng", "Ifngr1", 1.5938121),
+    ("Ifna1", "Ifnar1", 1.5579253),
+    ("H2-M3", "Cd8a", 1.4430922),
+    ("Ifna1", "Ifnar2", 1.3783434),
+    ("Ifnb1", "Ifnar1", 1.3397792),
+    ("Il27", "Il27ra", 1.2787938),
+    ("Ifna11", "Ifnar1", 1.2454250),
+    ("Ifna12", "Ifnar1", 1.2454250),
+    ("Ifna13", "Ifnar1", 1.2454250),
+    ("Ifna14", "Ifnar1", 1.2454250)
+]
+top_10_ligand_activities_focused = [
+    ("Il27", 0.37815298),
+    ("Ebi3", 0.25450822),
+    ("Tnf", 0.20293124),
+    ("Ptprc", 0.19252890),
+    ("H2-Eb1", 0.18794662),
+    ("H2-M3", 0.18779040),
+    ("Vsig10", 0.18617285),
+    ("Clcf1", 0.16842415),
+    ("H2-M2", 0.16706825),
+    ("H2-T10", 0.16706825)
+]
+top_10_active_ligand_target_links_focused = [
+    ("Il27", "Irf1", 0.33936348),
+    ("Tnf", "Irf1", 0.27692301),
+    ("Tnf", "Irf7", 0.27535714),
+    ("Il27", "Stat1", 0.25249051),
+    ("Tnf", "Tap1", 0.25076038),
+    ("Il27", "Ifit3", 0.24560454),
+    ("Tnf", "Ddx58", 0.24433255),
+    ("Tnf", "Gbp2", 0.24165079),
+    ("Il27", "Stat2", 0.23349733),
+    ("Il27", "Ifi35", 0.22961687)
+]
+top_10_ligand_receptor_links_focused = [
+    ("Il2", "Il2rb", 1.4541219),
+    ("H2-D1", "Cd8a", 1.4430922),
+    ("H2-K1", "Cd8a", 1.4430922),
+    ("H2-M3", "Cd8a", 1.4430922),
+    ("H2-Q4", "Cd8a", 1.4430922),
+    ("H2-Q6", "Cd8a", 1.4430922),
+    ("H2-Q7", "Cd8a", 1.4430922),
+    ("Il27", "Il27ra", 1.2787938),
+    ("Ptprc", "Cd247", 1.1547412),
+    ("H2-M2", "Cd8a", 1.1484508)
 ]
 
 def equals(x, y):
@@ -144,3 +205,103 @@ def test_steps():
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         top_10_ligand_activities
     )
+    best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:30]]
+    active_ligand_target_links = [
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+        for ligand in best_upstream_ligands
+    ]
+    # combine weighted ligand-target links of different ligands
+    active_ligand_target_links = list(
+        chain(
+            *(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)
+        )
+    )
+    assert len(active_ligand_target_links) == 579
+    assert equals_iter(
+        sorted(active_ligand_target_links, key=lambda x : x[2], reverse=True)[:10],
+        top_10_active_ligand_target_links
+    )
+    ligand_receptor_links = get_weighted_ligand_receptor_links(
+        best_upstream_ligands,
+        expressed_receptors,
+        lr_network,
+        lr_sig
+    )
+    print(ligand_receptor_links._mapping)
+    assert len(ligand_receptor_links) == 52
+    assert equals_iter(
+        sorted(ligand_receptor_links._mapping, key=lambda x : x[2], reverse=True)[:10],
+        top_10_ligand_receptor_links
+    )
+    ligand_activities_all = ligand_activities.copy()
+    best_upstream_ligands_all = best_upstream_ligands.copy()
+    ligand_activities = dict(
+        (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
+    )
+    ligand_activities_sorted = sorted(
+        ligand_activities.items(),
+        key=lambda x : x[1]["aupr_corrected"],
+        reverse=True
+    )
+    assert len(ligand_activities) == 122
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
+        top_10_ligand_activities_focused
+    )
+    best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:30]]
+    active_ligand_target_links = [
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=100)
+        for ligand in best_upstream_ligands
+    ]
+    active_ligand_target_links = list(
+        chain(
+            *(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)
+        )
+    )
+    assert len(active_ligand_target_links) == 313
+    assert equals_iter(
+        sorted(active_ligand_target_links, key=lambda x : x[2], reverse=True)[:10],
+        top_10_active_ligand_target_links_focused
+    )
+    ligand_receptor_links = get_weighted_ligand_receptor_links(
+        best_upstream_ligands,
+        expressed_receptors,
+        lr_network,
+        lr_sig
+    )
+    assert len(ligand_receptor_links) == 54
+    assert equals_iter(
+        sorted(ligand_receptor_links._mapping, key=lambda x : x[2], reverse=True)[:10],
+        top_10_ligand_receptor_links_focused
+    )
+    sub_ann = subset_ann(
+        ann,
+        val=sender_celltypes,
+        val_col="celltype",
+        layers=["data"]
+    )
+    sub_ann.var = ann.var
+    sub_ann.X = sub_ann.layers["data"]
+    lfcs = combine_by_key(*(
+        get_lfc_celltype(
+            ann,
+            celltype,
+            "aggregate",
+            condition_oi="LCMV",
+            condition_ref="SS",
+            layer="data",
+            features=best_upstream_ligands
+        )
+        for celltype in sender_celltypes
+    ))
+    # sort by ligand activity
+    ligands, vals = zip(*(
+        (ligand, metrics_vals[1])
+        for ligand, metrics_vals in
+        sorted(
+            combine_dicts(ligand_activities, lfcs).items(),
+            key=lambda x : x[1][0]["aupr_corrected"],
+            reverse=True
+        )
+    ))
+    #TODO
