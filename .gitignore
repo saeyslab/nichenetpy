@@ -3,3 +3,4 @@ __pycache__
 .Rhistory
 src/nichenetpy.egg-info/*
 notebooks/tutorial_files/*
+tests/data/tutorial_files/*
