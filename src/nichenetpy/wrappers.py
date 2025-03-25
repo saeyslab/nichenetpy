@@ -128,14 +128,13 @@ def run_nichenet(
     condition_oi:str,
     condition_ref:str,
     sender_celltypes:Iterable[str]=None,
-    get_expressed_genes_pct:float=0.05,
     layer:str="data",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
     min_abs_lfc:float=0.25,
-    min_pct:float=0.05,
+    expression_pct:float=0.1,
     ligands_top_n:int=30,
-    targets_top_n:int=100,
+    targets_top_n:int=200,
     lr_sig:WeightedNetwork=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
@@ -163,8 +162,6 @@ def run_nichenet(
         the reference condition
     sender_celltypes : Iterable[str]
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
-    get_expressed_genes_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str
@@ -173,8 +170,8 @@ def run_nichenet(
         the upper bound for pval_adj
     min_abs_lfc : float
         the lower bound for lfc
-    min_pct : float
-        the lower bound for the pct
+    expression_pct : float
+        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -236,7 +233,7 @@ def run_nichenet(
     '''
     output = dict()
     expressed_genes_receiver = set(
-        get_expressed_genes(receiver, ann, pct=get_expressed_genes_pct, celltype_col=celltype_col)
+        get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col)
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
@@ -253,7 +250,7 @@ def run_nichenet(
         condition_col=condition_col,
         max_pval_adj=max_pval_adj,
         min_abs_lfc=min_abs_lfc,
-        min_pct=min_pct
+        min_pct=expression_pct
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
@@ -283,7 +280,7 @@ def run_nichenet(
             get_expressed_genes(
                 ct,
                 ann,
-                pct=get_expressed_genes_pct,
+                pct=expression_pct,
                 celltype_col=celltype_col
             ) for ct in sender_celltypes
         ]
@@ -567,7 +564,7 @@ def create_lfc_heatmap(
     ax.xaxis.set_label_position('top') 
     plt.show()
 
-def create_ligand_receptor_links_circos_plot(
+def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
     receivers:Iterable[str],
     ligands:Iterable[str],
@@ -627,7 +624,7 @@ def create_ligand_receptor_links_circos_plot(
             link_count_in[key_in]
         ))
     circos = Circos(
-    sectors={
+        sectors={
             key: count
             for key, count in chain(link_count_in.items(), link_count_out.items())
         },
@@ -637,6 +634,90 @@ def create_ligand_receptor_links_circos_plot(
     colors = dict(zip(celltypes, ColorCycler.get_color_list(len(celltypes))))
     for sector in circos.sectors:
         celltype, gene, _ = sector.name.split("_")
+        sector.text(gene, size=10, orientation="vertical")
+        track = sector.add_track((95, 100))
+        track.axis(fc=colors[celltype])
+    for sender, receiver, send_pos, rec_pos in links:
+        celltype = sender.split("_")[0]
+        circos.link_line(
+            (sender, send_pos - 0.5),
+            (receiver, rec_pos - 0.5,),
+            direction=1,
+            color=colors[celltype]
+        )
+    fig = circos.plotfig()
+    circos.ax.legend(
+        handles=[
+            Patch(color=color, label=celltype)
+            for celltype, color in colors.items()
+        ],
+        bbox_to_anchor=(0, 1.1),
+        loc="right",
+        ncols=1,
+    )
+    return fig
+
+def create_ligand_links_circos_plot(
+    circos_links:pd.DataFrame,
+    colors:dict[str, str],
+    dest_name:str
+) -> Figure:
+    '''
+    Creates a circos plot showing the links between ligands and targets. 
+
+    Parameters
+    ----------
+    circos_links : pandas.DataFrame
+        dataframe with columns 'ligand', 'target' and 'ligand_type'
+    colors : dict
+        color mapping for the ligands, should include a 'General' and 'target' mapping as well
+    dest_name : str
+        name of the receiving type
+    
+    Returns
+    -------
+    matplotlib.Figure
+        the plotted figure
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(circos_links) is not pd.DataFrame:
+        raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
+    if type(colors) is not dict:
+        raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
+    link_count_in = dict()
+    link_count_out = dict()
+    links = []
+    for ligand, dest, celltype in zip(circos_links["ligand"], circos_links[dest_name], circos_links["ligand_type"]):
+        key_out = f"{celltype}_{ligand}"
+        if key_out in link_count_out:
+            link_count_out[key_out] += 1
+        else:
+            link_count_out[key_out] = 1
+        key_in = f"{dest_name}_{dest}"
+        if key_in in link_count_in:
+            link_count_in[key_in] += 1
+        else:
+            link_count_in[key_in] = 1
+        links.append((
+            key_out,
+            key_in,
+            link_count_out[key_out],
+            link_count_in[key_in]
+        ))
+    circos = Circos(
+        sectors={
+            key: count
+            for key, count in chain(link_count_in.items(), link_count_out.items())
+        },
+        space=1
+    )
+    circos.sectors.sort(key=lambda x:x.name)
+    for sector in circos.sectors:
+        celltype, gene = sector.name.split("_")
         sector.text(gene, size=10, orientation="vertical")
         track = sector.add_track((95, 100))
         track.axis(fc=colors[celltype])

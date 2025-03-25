@@ -9,6 +9,8 @@ from collections.abc import Iterable, Collection
 from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
+from anndata import AnnData
+from nichenetpy.ann_utils import subset_ann
 
 import numpy as np
 import scipy as sc
@@ -539,3 +541,75 @@ def visualize_ligand_signaling_graph(
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()]
     )
+
+def assign_ligands_to_celltype(
+    ann:AnnData,
+    ligands:Collection[str],
+    celltype_col:str="celltype",
+    condition_oi:str=None,
+    condition_col:str=None,
+    layer="data"
+):
+    if condition_col is None:
+        ann_sub = subset_ann(
+            ann,
+            genes=ligands,
+            layers=[layer]
+        )
+    else:
+        ann_sub = subset_ann(
+            ann,
+            genes=ligands,
+            val_col=condition_col,
+            val=condition_oi,
+            layers=[layer]
+        )
+    celltypes = sorted(set(ann_sub.obs[celltype_col]))
+    avg_expression_ligands = []
+    for celltype in celltypes:
+        ann_celltype = subset_ann(
+            ann_sub,
+            val_col="celltype",
+            val=celltype,
+            layers=[layer]
+        )
+        mat = ann_celltype.layers[layer]
+        if layer == "data":
+            mat = np.expm1(mat)
+        mat = mat.tocsr()
+        avg_expression_ligands.append(mat.mean(axis=0).A.reshape((-1,)))
+    avg_expression_ligands = np.array(avg_expression_ligands)
+    assig = np.mean(avg_expression_ligands, axis=0)
+    assig += np.std(avg_expression_ligands, mean=assig, axis=0)
+    sender_ligand_assignment = {
+        celltype: {
+            ann_sub.var_names[j]
+            for j, e in enumerate(avg_expression_ligands[i, :])
+            if e > assig[j]
+        }
+        for i, celltype in enumerate(celltypes)
+    }
+    count = dict()
+    for e in chain(*sender_ligand_assignment.values()):
+        if e in count:
+            count[e] += 1
+        else:
+            count[e] = 1
+    unique_ligands = {k for k, v in count.items() if v == 1}
+    general_ligands = (
+        ligands if type(ligands) is set else set(ligands)
+    ).difference(unique_ligands)
+    for e in sender_ligand_assignment.values():
+        e.difference_update(general_ligands)
+    return pd.DataFrame({
+        "ligand_type": chain(
+            chain(
+                *(repeat(k, len(sender_ligand_assignment[k])) for k in sender_ligand_assignment.keys())
+            ),
+            repeat("General", len(general_ligands))
+        ),
+        "ligand": chain(
+            chain(*sender_ligand_assignment.values()),
+            general_ligands
+        )
+    })
