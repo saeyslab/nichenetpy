@@ -1,9 +1,4 @@
-from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.utils import (
-    combine_by_key,
-    combine_dicts
-)
+from nichenetpy.utils import combine_by_key
 from nichenetpy.extraction import (
     get_expressed_genes,
     subset_ann,
@@ -11,26 +6,18 @@ from nichenetpy.extraction import (
     get_lfc_celltype
 )
 from nichenetpy.gene_symbol import mouse_alias_info
-from nichenetpy.visualization import (
-    prepare_ligand_target_visualization,
-    prepare_ligand_receptor_visualization,
-    heatmap_2d,
-    heatmap_1d
-)
 from nichenetpy.metrics import group_metrics
-from nichenetpy.io import read_ligand_target_matrix
+from nichenetpy.wrappers import run_nichenet
 
 from itertools import cycle, chain
 from numbers import Number
 from collections.abc import Iterable
 
 import anndata
-import scanpy as sc
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import requests
 import pickle
+import pandas as pd
 
 err_bound = 1e-3
 root_path = os.path.normpath("./tests/data/tutorial_files")
@@ -74,16 +61,16 @@ top_10_ligand_receptor_links = [
     ("Ifna14", "Ifnar1", 1.2454250)
 ]
 top_10_ligand_activities_focused = [
-    ("Il27", 0.37815298),
-    ("Ebi3", 0.25450822),
-    ("Tnf", 0.20293124),
-    ("Ptprc", 0.19252890),
-    ("H2-Eb1", 0.18794662),
-    ("H2-M3", 0.18779040),
-    ("Vsig10", 0.18617285),
-    ("Clcf1", 0.16842415),
-    ("H2-M2", 0.16706825),
-    ("H2-T10", 0.16706825)
+    ("Il27", 0.30262806),
+    ("Ebi3", 0.17898331),
+    ("Tnf", 0.12740633),
+    ("Ptprc", 0.11700399),
+    ("H2-Eb1", 0.11242171),
+    ("H2-M3", 0.11226548),
+    ("Vsig10", 0.11064793),
+    ("Clcf1", 0.09289923),
+    ("H2-M2", 0.09154333),
+    ("H2-T10", 0.09154333)
 ]
 top_10_active_ligand_target_links_focused = [
     ("Il27", "Irf1", 0.33936348),
@@ -200,7 +187,11 @@ def test_steps():
         background_expressed_genes=expressed_genes_receiver,
         potential_ligands=potential_ligands
     )
-    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
+    ligand_activities_sorted = sorted(
+        ligand_activities.items(),
+        key=lambda x : (-x[1]["aupr_corrected"], x[0]),
+    )
+    assert len(ligand_activities_sorted) == 475
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         top_10_ligand_activities
@@ -227,23 +218,19 @@ def test_steps():
         lr_network,
         lr_sig
     )
-    print(ligand_receptor_links._mapping)
     assert len(ligand_receptor_links) == 52
     assert equals_iter(
         sorted(ligand_receptor_links._mapping, key=lambda x : x[2], reverse=True)[:10],
         top_10_ligand_receptor_links
     )
-    ligand_activities_all = ligand_activities.copy()
-    best_upstream_ligands_all = best_upstream_ligands.copy()
     ligand_activities = dict(
         (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
     )
     ligand_activities_sorted = sorted(
         ligand_activities.items(),
-        key=lambda x : x[1]["aupr_corrected"],
-        reverse=True
+        key=lambda x : (-x[1]["aupr_corrected"], x[0])
     )
-    assert len(ligand_activities) == 122
+    assert len(ligand_activities_sorted) == 122
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         top_10_ligand_activities_focused
@@ -294,14 +281,89 @@ def test_steps():
         )
         for celltype in sender_celltypes
     ))
-    # sort by ligand activity
-    ligands, vals = zip(*(
-        (ligand, metrics_vals[1])
-        for ligand, metrics_vals in
-        sorted(
-            combine_dicts(ligand_activities, lfcs).items(),
-            key=lambda x : x[1][0]["aupr_corrected"],
-            reverse=True
-        )
-    ))
-    #TODO
+    df = pd.DataFrame(data=lfcs)
+    df.rename(index=dict(enumerate(sender_celltypes)), inplace=True)
+    assert equals(df["Il27"]["CD4 T"], 1.3103791)
+    assert equals(df["Ebi3"]["Treg"], 4.22547764)
+    assert equals(df["Tnf"]["Mono"], 1.24955145)
+    assert equals(df["H2-Eb1"]["NK"], -1.5845094)
+    assert equals(df["Ptprc"]["B"], 0.44807439)
+    assert equals(df["Il2"]["DC"], 1.3173053)
+
+def test_wrapper():
+    get_model_pickle("mouse")
+    get_anndata_file("annData3531889.h5")
+    ann = anndata.io.read_h5ad(os.path.join(ann_path, "annData3531889.h5"))
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    with open(os.path.join(root_path, "nichenet_mouse.pkl"), "rb") as file:
+        model = pickle.loads(file.read())
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
+    res = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        "CD8 T",
+        "aggregate",
+        "LCMV",
+        "SS",
+        sender_celltypes=sender_celltypes,
+        lr_sig=lr_sig,
+        get_ltl=True,
+        get_lfc=True,
+        expression_pct=0.05,
+        targets_top_n=100
+    )
+    ligand_activities_sorted = res["ligand_activities_sorted"]
+    active_ligand_target_links = res["active_ligand_target_links"]
+    ligand_receptor_links = res["ligand_receptor_links"]
+    ligand_activities_sorted_focused = res["ligand_activities_sorted_focused"]
+    active_ligand_target_links_focused = res["active_ligand_target_links_focused"]
+    ligand_receptor_links_focused = res["ligand_receptor_links_focused"]
+    lfcs = res["lfcs"]
+    geneset = res["geneset_oi"]
+    expressed_genes_receiver = res["expressed_genes_receiver"]
+    assert len(geneset) == 241
+    assert len(expressed_genes_receiver) == 3903
+    assert len(ligand_activities_sorted) == 475
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
+        top_10_ligand_activities
+    )
+    assert len(active_ligand_target_links) == 579
+    assert equals_iter(
+        sorted(active_ligand_target_links, key=lambda x : x[2], reverse=True)[:10],
+        top_10_active_ligand_target_links
+    )
+    assert len(ligand_receptor_links) == 52
+    assert equals_iter(
+        sorted(ligand_receptor_links._mapping, key=lambda x : x[2], reverse=True)[:10],
+        top_10_ligand_receptor_links
+    )
+    assert len(ligand_activities_sorted_focused) == 122
+    print([(ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted_focused[:10]])
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted_focused[:10]),
+        top_10_ligand_activities_focused
+    )
+    assert len(active_ligand_target_links_focused) == 313
+    assert equals_iter(
+        sorted(active_ligand_target_links_focused, key=lambda x : x[2], reverse=True)[:10],
+        top_10_active_ligand_target_links_focused
+    )
+    assert len(ligand_receptor_links_focused) == 54
+    assert equals_iter(
+        sorted(ligand_receptor_links_focused._mapping, key=lambda x : x[2], reverse=True)[:10],
+        top_10_ligand_receptor_links_focused
+    )
+    df = pd.DataFrame(data=combine_by_key(*lfcs))
+    df.rename(index=dict(enumerate(sender_celltypes)), inplace=True)
+    assert equals(df["Il27"]["CD4 T"], 1.3103791)
+    assert equals(df["Ebi3"]["Treg"], 4.22547764)
+    assert equals(df["Tnf"]["Mono"], 1.24955145)
+    assert equals(df["H2-Eb1"]["NK"], -1.5845094)
+    assert equals(df["Ptprc"]["B"], 0.44807439)
+    assert equals(df["Il2"]["DC"], 1.3173053)
