@@ -1,4 +1,7 @@
-from nichenetpy.utils import combine_by_key
+from nichenetpy.utils import (
+    combine_by_key,
+    read_csv_cols
+)
 from nichenetpy.extraction import (
     get_expressed_genes,
     subset_ann,
@@ -23,11 +26,10 @@ from nichenetpy.utils import (
 )
 from nichenetpy.normalization import scale_quantile
 from nichenetpy.prioritization import (
-    generate_prioritization_table,
-    process_table_to_ic,
-    calculate_de,
-    get_avg_exp
+    generate_prioritization_table
 )
+from nichenetpy.visualization import get_ligand_signaling_path
+from nichenetpy.prediction import assess_rf_class_probabilities
 
 from itertools import cycle, chain
 from numbers import Number
@@ -47,6 +49,7 @@ err_bound = 1e-2
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
+network_path = os.path.join(root_path, "model_construction", "human")
 
 BASIC_top_10_ligand_activities = [
     ("Ifna1", 0.34233796),
@@ -156,6 +159,43 @@ LAG_top_10_ligand_receptor_links = [
     ("INHBA", "ACVR2A", 0.9669868),
     ("CFH", "CFB", 0.9611272)
 ]
+LTSP_top_10_tf_signaling = [
+    ("SMAD4", "SMAD3", 1.7500000),
+    ("SMAD3", "SMAD4", 1.6443880),
+    ("TGFBR2", "SMAD3", 1.5239365),
+    ("TGFB2", "TGFBR2", 1.4895029),
+    ("SP1", "SMAD3", 1.3610625),
+    ("TGFB2", "SMAD3", 1.3594946),
+    ("SMAD3", "SP1", 1.3544942),
+    ("SMAD3", "TGFBR2", 1.3185690),
+    ("SMAD4", "SP1", 1.2399626),
+    ("TGFBR2", "SMAD4", 1.1920359)
+]
+LTSP_tf_regulatory = [
+    ("SP1", "COL1A1", 1.7500000),
+    ("SMAD3", "SERPINE1", 1.6759015),
+    ("SP1", "SERPINE1", 1.6137685),
+    ("SMAD4", "SERPINE1", 1.5588446),
+    ("TGFB2", "COL1A1", 1.4040920),
+    ("TGFB2", "SERPINE1", 1.4021392),
+    ("NFKB1", "COL1A1", 1.0721552),
+    ("NFKB1", "SERPINE1", 1.0010732),
+    ("SMAD3", "COL1A1", 0.9130368),
+    ("TGFBR2", "SERPINE1", 0.8196570),
+    ("SMAD4", "COL1A1", 0.7500000)
+]
+TPEG_top_10_gene_predictions_0 = [
+    ("Trim12a", 0, 0.961),
+    ("Trim30c", 1, 0.961),
+    ("Gbp8", 1, 0.955),
+    ("Gbp6", 1, 0.955),
+    ("Rpl34-ps1", 0, 0.953),
+    ("Gimap9", 0, 0.950),
+    ("Ms4a4c", 1, 0.950),
+    ("Ly6c2", 1, 0.950),
+    ("H2-Q4", 0, 0.941),
+    ("H2-D1", 1, 0.941)
+]
 
 def equals(x, y):
     if isinstance(x, Number) and isinstance(y, Number):
@@ -209,6 +249,20 @@ def get_hnscc_file():
         file_path = os.path.join(hnscc_path, filename)
         if not os.path.exists(file_path):
             res = requests.get(f"https://zenodo.org/records/14859451/files/{filename}")
+            with open(file_path, "wb") as file:
+                file.write(res.content)
+
+def get_network_files():
+    if not os.path.exists(network_path):
+        os.makedirs(network_path)
+    for filename in (
+        "gr_human.csv",
+        "lr_network_human.csv",
+        "lr_sig_human.csv"
+    ):
+        file_path = os.path.join(network_path, filename)
+        if not os.path.exists(file_path):
+            res = requests.get(f"https://zenodo.org/records/14929618/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -742,3 +796,140 @@ def test_steps_prioritization():
     assert equals(row["scaled_pval_receptor_group"], 0.80303030)
     assert equals(row["scaled_lfc_pval_receptor_group"], 0.8636364)
     assert equals(row["scaled_pval_adapted_receptor_group"], 0.83333333)
+
+def test_ligand_target_signaling_path():
+    if not os.path.exists(root_path):
+        os.makedirs(root_path)
+    for filename in (
+        ["ltf_matrix.pkl", "nichenet_human.pkl"]
+    ):
+        file_path = os.path.join(root_path, filename)
+        if not os.path.exists(file_path):
+            res = requests.get(f"https://zenodo.org/records/14944315/files/{filename}")
+            with open(file_path, "wb") as file:
+                file.write(res.content)
+    get_network_files()
+    with open(os.path.join(root_path, "ltf_matrix.pkl"), "rb") as file:
+        ltf_matrix = pickle.loads(file.read())
+    row_names = ltf_matrix["row_names"]
+    col_names = ltf_matrix["col_names"]
+    ltf_matrix = ltf_matrix["mat"]
+    with open(os.path.join(root_path, "nichenet_human.pkl"), "rb") as file:
+        model = pickle.loads(file.read())
+    lr_sig = pd.DataFrame(model["lr_sig"]._mapping, columns=["from", "to", "weight"])
+    gr = pd.DataFrame(model["gr"]._mapping, columns=["from", "to", "weight"])
+    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
+    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
+    ligands_oi = ["TGFB2"]
+    targets_oi = ["SERPINE1", "COL1A1"]
+    tf_signaling, tf_regulatory = get_ligand_signaling_path(
+        ltf_matrix,
+        ligands_oi,
+        targets_oi,
+        row_names,
+        col_names,
+        lr_sig,
+        gr,
+        top_n_regulators=4,
+        minmax_scaling=True
+    )
+    assert equals_iter(
+        tf_signaling.sort_values(by="weight", ascending=False).head(10).to_numpy(),
+        LTSP_top_10_tf_signaling
+    )
+    assert equals_iter(
+        tf_regulatory.sort_values(by="weight", ascending=False).to_numpy(),
+        LTSP_tf_regulatory
+    )
+
+# not deterministic
+'''def test_target_prediction_evaluation_geneset():
+    model = get_model_pickle("mouse")
+    ann = get_anndata_file("annData3531889.h5")
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    receiver = "CD8 T"
+    sender_celltypes = ["CD4 T","Treg", "Mono", "NK", "B", "DC"]
+    output = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        lr_sig=lr_sig,
+        receiver=receiver,
+        sender_celltypes=sender_celltypes,
+        condition_col="aggregate",
+        condition_oi="LCMV",
+        condition_ref="SS",
+        expression_pct=0.05,
+        targets_top_n=100
+    )
+    geneset_oi = output["geneset_oi"]
+    expressed_genes_receiver = output["expressed_genes_receiver"]
+    ligands_oi = output["best_upstream_ligands"]
+    n = 2
+    k = 3
+    gene_predictions_top30_list = [
+        assess_rf_class_probabilities(
+            folds=k,
+            geneset=geneset_oi,
+            background_expressed_genes=expressed_genes_receiver,
+            ligands_oi=ligands_oi,
+            predictor=predictor
+        ) for _ in range(n)
+    ]
+    assert equals_iter(
+        gene_predictions_top30_list[0].sort_values(by="prediction", ascending=False).head(10).to_numpy(),
+        TPEG_top_10_gene_predictions_0
+    )'''
+
+def test_ligand_activity_single_cell():
+    model = get_model_pickle("human")
+    get_hnscc_file()
+    exp_mat, exp_mat_rows, exp_mat_cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
+    #cols = human_alias_info.alias_to_symbol(cols)
+    sample_info_col_names, sample_info = read_csv_rows(os.path.join(hnscc_path, "sample_info.csv"))
+    sample_info = [
+        [
+            int(processed_by_Maxima_enzyme),
+            int(Lymph_node),
+            int(classified_as_cancer_cell),
+            int(classified_as_non_cancer_cells),
+            non_cancer_cell_type,
+            cell,
+            tumor
+        ]
+        for
+            processed_by_Maxima_enzyme,
+            Lymph_node,
+            classified_as_cancer_cell,
+            classified_as_non_cancer_cells,
+            non_cancer_cell_type,
+            cell,
+            tumor
+        in sample_info
+    ]
+    tumors_remove = {"HN10","HN","HN12", "HN13", "HN24", "HN7", "HN8","HN23"}
+    CAF_cells = [e[5] for e in sample_info if e[1] == 0 and e[4] == "CAF" and e[6] not in tumors_remove]
+    malignant_cells = [e[5] for e in sample_info if e[1] == 0 and e[2] == 1 and e[6] not in tumors_remove]
+    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows))))
+    exp_mat = np.array(exp_mat.todense())
+    expressed_genes_CAFs = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in CAF_cells]), exp_mat_cols)
+    expressed_genes_malignant = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in malignant_cells]), exp_mat_cols)
+    assert len(expressed_genes_CAFs) == 404
+    assert len(expressed_genes_malignant) == 1388
+    ligands = lr_network.get_ligands()
+    expressed_ligands = ligands.intersection(expressed_genes_CAFs)
+    assert len(expressed_ligands) == 329
+    receptors = lr_network.get_receptors()
+    expressed_receptors = receptors.intersection(expressed_genes_malignant)
+    assert len(expressed_receptors) == 198
+    potential_ligands = {
+        ligand
+        for ligand, receptor in lr_network
+        if ligand in expressed_ligands and receptor in expressed_receptors
+    }
+    assert len(potential_ligands) == 203
