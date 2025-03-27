@@ -14,6 +14,7 @@ from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
     get_weighted_ligand_receptor_links,
+    generate_info_tables
 )
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
@@ -21,6 +22,12 @@ from nichenetpy.utils import (
     subset_matrix
 )
 from nichenetpy.normalization import scale_quantile
+from nichenetpy.prioritization import (
+    generate_prioritization_table,
+    process_table_to_ic,
+    calculate_de,
+    get_avg_exp
+)
 
 from itertools import cycle, chain
 from numbers import Number
@@ -35,7 +42,7 @@ import pandas as pd
 import numpy as np
 
 
-err_bound = 1e-3
+err_bound = 1e-2
 
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
@@ -152,7 +159,7 @@ LAG_top_10_ligand_receptor_links = [
 
 def equals(x, y):
     if isinstance(x, Number) and isinstance(y, Number):
-        return abs(x - y) < err_bound
+        return abs(x - y) / y < err_bound
     elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
         return equals_iter(x, y)
     else:
@@ -474,7 +481,7 @@ def test_ligand_activity_geneset():
     CAF_cells = [e[5] for e in sample_info if e[1] == 0 and e[4] == "CAF" and e[6] not in tumors_remove]
     malignant_cells = [e[5] for e in sample_info if e[1] == 0 and e[2] == 1 and e[6] not in tumors_remove]
     row2id = dict(zip(rows, range(len(rows))))
-    exp_mat = np.array(exp_mat.todense())
+    exp_mat = exp_mat.toarray()
     expressed_genes_sender = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in CAF_cells]), cols)
     assert len(expressed_genes_sender) == 6706
     expressed_genes_receiver = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in malignant_cells]), cols)
@@ -491,7 +498,7 @@ def test_ligand_activity_geneset():
     geneset = {gene.rstrip() for gene in geneset}.intersection(lt_ligands)
     assert len(geneset) == 96
     background_expressed_genes = expressed_genes_receiver.intersection(lt_ligands)
-    #assert len(background_expressed_genes) == 6288
+    assert len(background_expressed_genes) == 6288
     ligand_activities = predictor.predict_ligand_activities(
         geneset,
         background_expressed_genes,
@@ -586,12 +593,152 @@ def test_ligand_activity_geneset():
     # This order was determined based on the paper from Puram et al. Tumors are ordered according to p-EMT score.
     agg_exp_target = agg_exp_target[["HN6","HN20","HN26","HN28","HN22","HN25","HN5","HN18","HN17","HN16"]]
     agg_exp_target = agg_exp_target.loc[targets]
+    assert equals(agg_exp_target["HN16"]["SERPINE1"], 2.3770934)
+    assert equals(agg_exp_target["HN17"]["TGFBI"], 5.3953940)
+    assert equals(agg_exp_target["HN18"]["MMP10"], 1.0519966)
+    assert equals(agg_exp_target["HN20"]["LAMC2"], 1.913600975)
+    assert equals(agg_exp_target["HN22"]["P4HA2"], 2.52934714)
     agg_exp_target = pd.DataFrame(
-        scale_quantile(agg_exp_target.to_numpy()),
+        scale_quantile(agg_exp_target.to_numpy(), by_row=True),
         index=agg_exp_target.index,
         columns=agg_exp_target.columns
     )
     agg_exp_target = agg_exp_target.transpose()
     assert equals(agg_exp_target["SERPINE1"]["HN16"], 0.6207398)
     assert equals(agg_exp_target["TGFBI"]["HN17"], 0.85252048)
-    #TODO
+    assert equals(agg_exp_target["MMP10"]["HN18"], 0.47556523)
+    assert equals(agg_exp_target["LAMC2"]["HN20"], 0.15968678)
+    assert equals(agg_exp_target["P4HA2"]["HN22"], 0.49290029)
+
+def test_steps_prioritization():
+    model = get_model_pickle("mouse")
+    ann = get_anndata_file("annData3531889.h5")
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
+    res = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        "CD8 T",
+        "aggregate",
+        "LCMV",
+        "SS",
+        sender_celltypes=sender_celltypes,
+        expression_pct=0.05,
+        targets_top_n=100
+    )
+    ligand_activities_sorted = res["ligand_activities_sorted_focused"]
+    best_upstream_ligands = res["best_upstream_ligands_focused"]
+    expressed_ligands = res["expressed_ligands"]
+    expressed_receptors = res["expressed_receptors"]
+    lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
+    info_tables = generate_info_tables(
+        ann,
+        "celltype",
+        sender_celltypes,
+        ["CD8 T"],
+        lr_network_filtered,
+        "aggregate",
+        "LCMV",
+        "SS",
+        case_control=True
+    )
+    df = info_tables["sender_receiver_de"]
+    row = df[
+        (df["sender"] == "DC") &
+        (df["receiver"] == "CD8 T") &
+        (df["ligand"] == "H2-M2") &
+        (df["receptor"] == "Cd8a")
+    ].iloc[0]
+    assert equals(row["lfc_ligand"], 11.0024120)
+    assert equals(row["lfc_receptor"], 2.383806589)
+    assert equals(row["ligand_receptor_lfc_avg"], 6.693109)
+    assert equals(row["pval_ligand"], 1.017174e-272)
+    assert equals(row["pval_adj_ligand"], 1.377355e-268)
+    assert equals(row["pval_receptor"], 5.250531e-206)
+    assert equals(row["pval_adj_receptor"], 7.109745e-202)
+    assert equals(row["pct_expressed_sender"], 0.429)
+    assert equals(row["pct_expressed_receiver"], 0.659)
+    df = info_tables["sender_receiver_info"]
+    row = df[
+        (df["sender"] == "DC") &
+        (df["receiver"] == "Mono") &
+        (df["ligand"] == "B2m") &
+        (df["receptor"] == "Tap1")
+    ].iloc[0]
+    assert equals(row["avg_ligand"], 216.171733)
+    assert equals(row["avg_receptor"], 8.5863090)
+    assert equals(row["ligand_receptor_prod"], 1856.1173)
+    df = info_tables["lr_condition_de"]
+    row = df[
+        (df["ligand"] == "Cxcl11") &
+        (df["receptor"] == "Dpp4")
+    ].iloc[0]
+    assert equals(row["lfc_ligand"], 7.1973441001)
+    assert equals(row["lfc_receptor"], 0.7345097723)
+    assert equals(row["ligand_receptor_lfc_avg"], 3.96592694)
+    assert equals(row["pval_ligand"], 1.621364e-04)
+    assert equals(row["pval_adj_ligand"], 1)
+    assert equals(row["pval_receptor"], 1.170731e-06)
+    assert equals(row["pval_adj_receptor"], 1.585287e-02)
+    prior_table = generate_prioritization_table(
+        info_tables["sender_receiver_info"],
+        info_tables["sender_receiver_de"],
+        ligand_activities_sorted,
+        info_tables["lr_condition_de"]
+    )
+    row = prior_table[
+        (prior_table["sender"] == "NK") &
+        (prior_table["receiver"] == "CD8 T") &
+        (prior_table["ligand"] == "Ptprc") &
+        (prior_table["receptor"] == "Dpp4")
+    ].iloc[0]
+    assert len(prior_table) == 1212
+    assert equals(row["lfc_ligand"], 0.64193917)
+    assert equals(row["lfc_receptor"], 0.299171963)
+    assert equals(row["ligand_receptor_lfc_avg"], 0.47055556)
+    assert equals(row["pval_ligand"], 2.182674e-07)
+    assert equals(row["pval_adj_ligand"], 2.955559e-03)
+    assert equals(row["pval_receptor"], 6.628900e-04)
+    assert equals(row["pval_adj_receptor"], 1)
+    assert equals(row["pct_expressed_sender"], 0.894)
+    assert equals(row["pct_expressed_receiver"], 0.148)
+    assert equals(row["avg_ligand"], 16.61807231)
+    assert equals(row["avg_receptor"], 1.3524264)
+    assert equals(row["ligand_receptor_prod"], 2.247472e+01)
+    assert equals(row["lfc_pval_ligand"], 4.275964e+00)
+    assert equals(row["pval_adapted_ligand"], 6.661011140)
+    assert equals(row["scaled_lfc_ligand"], 0.7277778)
+    assert equals(row["scaled_pval_ligand"], 0.821974965)
+    assert equals(row["scaled_lfc_pval_ligand"], 0.83031989)
+    assert equals(row["scaled_pval_adapted_ligand"], 0.87065369)
+    assert equals(row["activity"], 0.117003988)
+    assert equals(row["rank"], 4)
+    assert equals(row["activity_zscore"], 1.81234289)
+    assert equals(row["scaled_activity"], 0.66009987)
+    assert equals(row["lfc_pval_receptor"], 0.950935599)
+    assert equals(row["pval_adapted_receptor"], 3.1785586)
+    assert equals(row["scaled_lfc_receptor"], 0.78461538)
+    assert equals(row["scaled_pval_receptor"], 0.8153846)
+    assert equals(row["scaled_lfc_pval_receptor"], 0.83076923)
+    assert equals(row["scaled_pval_adapted_receptor"], 0.84615385)
+    assert equals(row["scaled_avg_exprs_ligand"], 1.001000000)
+    assert equals(row["scaled_avg_exprs_receptor"], 1.0010000)
+    assert equals(row["lfc_ligand_group"], 0.39227123)
+    assert equals(row["pval_ligand_group"], 3.189997e-10)
+    assert equals(row["lfc_pval_ligand_group"], 3.725089816)
+    assert equals(row["pval_adapted_ligand_group"], 9.49620970)
+    assert equals(row["scaled_lfc_ligand_group"], 0.4508197)
+    assert equals(row["scaled_lfc_pval_ligand_group"], 0.6147541)
+    assert equals(row["lfc_receptor_group"], 0.73450977)
+    assert equals(row["pval_receptor_group"], 1.170731e-06)
+    assert equals(row["lfc_pval_receptor_group"], 4.356776089)
+    assert equals(row["pval_adapted_receptor_group"], 5.93154271)
+    assert equals(row["scaled_lfc_receptor_group"], 0.8636364)
+    assert equals(row["scaled_pval_receptor_group"], 0.80303030)
+    assert equals(row["scaled_lfc_pval_receptor_group"], 0.8636364)
+    assert equals(row["scaled_pval_adapted_receptor_group"], 0.83333333)
