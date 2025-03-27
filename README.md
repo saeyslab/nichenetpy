@@ -137,7 +137,7 @@ If you want to make a circos plot visualization of the NicheNet output
 to show active ligand-target links between interacting cells, you can
 check following notebooks:
 
-TODO
+-   [circos visualization](notebooks/circos.ipynb)
 
 People interested in building their own models or benchmarking their own
 models against NicheNet can read one of the following notebooks:
