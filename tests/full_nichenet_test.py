@@ -1,6 +1,6 @@
 from nichenetpy.utils import (
     combine_by_key,
-    read_csv_cols
+    ligand_activities_df
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
@@ -17,11 +17,13 @@ from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
     get_weighted_ligand_receptor_links,
-    generate_info_tables
+    generate_info_tables,
+    normalize_single_cell_ligand_activities
 )
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
     read_csv_rows,
+    read_csv_cols,
     subset_matrix
 )
 from nichenetpy.normalization import scale_quantile
@@ -30,11 +32,16 @@ from nichenetpy.prioritization import (
 )
 from nichenetpy.visualization import get_ligand_signaling_path
 from nichenetpy.prediction import assess_rf_class_probabilities
+from nichenetpy.model_construction import (
+    construct_weighted_networks,
+    apply_hub_correction
+)
 
-from itertools import cycle, chain
+from itertools import cycle, chain, repeat
 from numbers import Number
 from collections.abc import Iterable
 from math import log
+from scipy.stats import pearsonr
 
 import anndata
 import os
@@ -45,6 +52,7 @@ import numpy as np
 
 
 err_bound = 1e-2
+zero_bound = 1e-100
 
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
@@ -196,10 +204,92 @@ TPEG_top_10_gene_predictions_0 = [
     ("H2-Q4", 0, 0.941),
     ("H2-D1", 1, 0.941)
 ]
+LASC_scaled_expression_4_5 = [
+    0.88919062,
+    0.02170838,
+    0,
+    0,
+    0,
+    0.64007038,
+    0.04018212,
+    0,
+    0,
+    0,
+    0.10484696,
+    0,
+    0,
+    0,
+    0,
+    0.82183122,
+    0,
+    0.58461674,
+    0.728983487,
+    0.18617532
+]
+LASC_top_10_ligand_activities = [
+    ("HNSCC5_p3_HNSCC5_P3_H01", "ANGPTL4", 0.6454203, 0.06823189, 0.1249527032),
+    ("HNSCC5_p3_HNSCC5_P3_H01", "FGF7", 0.6603868, 0.06610786, 0.1176608430),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "TGFB2", 0.5077907, 0.06588319, 0.0004083035),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "ANGPTL2", 0.5080898, 0.06565360, 0.0102401022),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "APP", 0.4959796, 0.06504474, 0.0198369284),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "IL24", 0.4959934, 0.06501017, 0.0013083112),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "CLCF1", 0.5100628, 0.06495958, 0.0023989515),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "ANXA2", 0.4846088, 0.06448384, 0.0050817067),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "JAG1", 0.4932325, 0.06444520, 0.0089657196),
+    ("HNSCC5_p3_HNSCC5_P3_G07", "CLU", 0.4883133, 0.06377363, -0.0011606326)
+]
+LASC_cell_scores = [
+    ("HNSCC5_p3_HNSCC5_P3_F07", 1),
+    ("HNSCC5_p3_HNSCC5_P3_E03", 0.9910366),
+    ("HNSCC5_p3_HNSCC5_P3_G07", 0.9346274),
+    ("HNSCC5_p3_HNSCC5_P3_H01", 0.8563181),
+    ("HNSCC5_p9_HNSCC5_P9_D08", 0.8466327),
+    ("HNSCC5_p3_HNSCC5_P3_A04", 0.7845420),
+    ("HNSCC5_p3_HNSCC5_P3_D10", 0.7150538),
+    ("HNSCC5_p9_HNSCC5_P9_B10", 0.6803033),
+    ("HNSCC5_p9_HNSCC5_P9_D03", 0.6274404),
+    ("HNSCC5_p3_HNSCC5_P3_C11", 0.5479999)
+]
+LASC_top_10_output_correlation = [
+    ("OGN", 0.829840982),
+    ("ANGPTL2", 0.740343113),
+    ("CXCL10", 0.582682959),
+    ("NID1", 0.576785251),
+    ("MMP14", 0.571631596),
+    ("CXCL12", 0.560159409),
+    ("COL11A1", 0.554847989),
+    ("BGN", 0.549549614),
+    ("CLCF1", 0.526221930),
+    ("TFPI", 0.509691274)
+]
+MC_top_10_lr_sig = [
+    ("GSK3B", "FRAT1", 2.364072),
+    ("MAPK14", "MAPKAPK2", 2.225577),
+    ("MAPK1", "ELK1", 2.224897),
+    ("LCK", "LCP2", 2.193538),
+    ("CSNK1E", "PER2", 2.193134),
+    ("LCK", "ITK", 2.186991),
+    ("STK11", "STRADA", 2.185282),
+    ("MAPK1", "DUSP1", 2.182768),
+    ("LCK", "VAV1", 2.165965),
+    ("PTK6", "STAP2", 2.152541)
+]
+MC_top_10_gr = [
+    ("TP53", "CDKN1A", 2.474588),
+    ("ESR1", "GREB1", 2.410098),
+    ("MYC", "CDK4", 2.383487),
+    ("MYC", "TERT", 2.338537),
+    ("STAT3", "SOCS3", 2.293794),
+    ("EGR1", "NAB2", 2.292260),
+    ("STAT3", "BCL6", 2.280768),
+    ("MYC", "PAICS", 2.252887),
+    ("MYC", "FASN", 2.238074),
+    ("MYC", "SRM", 2.231288)
+]
 
 def equals(x, y):
     if isinstance(x, Number) and isinstance(y, Number):
-        return abs(x - y) / y < err_bound
+        return abs(x) < zero_bound if y == 0 else abs(x - y) / y < err_bound
     elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
         return equals_iter(x, y)
     else:
@@ -258,7 +348,9 @@ def get_network_files():
     for filename in (
         "gr_human.csv",
         "lr_network_human.csv",
-        "lr_sig_human.csv"
+        "lr_sig_human.csv",
+        "optimized_source_weights.csv",
+        "annotation_data_sources.csv"
     ):
         file_path = os.path.join(network_path, filename)
         if not os.path.exists(file_path):
@@ -478,7 +570,6 @@ def test_wrapper():
         BASIC_top_10_ligand_receptor_links
     )
     assert len(ligand_activities_sorted_focused) == 122
-    print([(ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted_focused[:10]])
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted_focused[:10]),
         BASIC_top_10_ligand_activities_focused
@@ -808,7 +899,6 @@ def test_ligand_target_signaling_path():
             res = requests.get(f"https://zenodo.org/records/14944315/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
-    get_network_files()
     with open(os.path.join(root_path, "ltf_matrix.pkl"), "rb") as file:
         ltf_matrix = pickle.loads(file.read())
     row_names = ltf_matrix["row_names"]
@@ -818,9 +908,6 @@ def test_ligand_target_signaling_path():
         model = pickle.loads(file.read())
     lr_sig = pd.DataFrame(model["lr_sig"]._mapping, columns=["from", "to", "weight"])
     gr = pd.DataFrame(model["gr"]._mapping, columns=["from", "to", "weight"])
-    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
-    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
-    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
     ligands_oi = ["TGFB2"]
     targets_oi = ["SERPINE1", "COL1A1"]
     tf_signaling, tf_regulatory = get_ligand_signaling_path(
@@ -888,6 +975,9 @@ def test_ligand_target_signaling_path():
 
 def test_ligand_activity_single_cell():
     model = get_model_pickle("human")
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
     get_hnscc_file()
     exp_mat, exp_mat_rows, exp_mat_cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
     #cols = human_alias_info.alias_to_symbol(cols)
@@ -919,8 +1009,8 @@ def test_ligand_activity_single_cell():
     exp_mat = np.array(exp_mat.todense())
     expressed_genes_CAFs = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in CAF_cells]), exp_mat_cols)
     expressed_genes_malignant = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in malignant_cells]), exp_mat_cols)
-    assert len(expressed_genes_CAFs) == 404
-    assert len(expressed_genes_malignant) == 1388
+    assert len(expressed_genes_CAFs) == 6706
+    assert len(expressed_genes_malignant) == 6351
     ligands = lr_network.get_ligands()
     expressed_ligands = ligands.intersection(expressed_genes_CAFs)
     assert len(expressed_ligands) == 329
@@ -933,3 +1023,132 @@ def test_ligand_activity_single_cell():
         if ligand in expressed_ligands and receptor in expressed_receptors
     }
     assert len(potential_ligands) == 203
+    background_expressed_genes = expressed_genes_malignant.intersection(predictor.row_names)
+    assert len(background_expressed_genes) == 5891
+    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows))))
+    col2id = dict(zip(exp_mat_cols, range(len(exp_mat_cols))))
+    expression_scaled_col_ids, expression_scaled_cols = zip(*sorted((col2id[e], e) for e in background_expressed_genes))
+    expression_scaled = scale_quantile(
+        subset_matrix(
+            exp_mat,
+            rows=[row2id[e] for e in malignant_cells],
+            cols=expression_scaled_col_ids
+        )
+    )
+    assert equals_iter(
+        expression_scaled[:4, :5].reshape((-1,)),
+        LASC_scaled_expression_4_5
+    )
+    malignant_hn5_cells = [e[5] for e in sample_info if e[6] == "HN5" and e[1] == 0 and e[2] == 1][:10]
+    ligand_activities = predictor.predict_single_cell_ligand_activities(
+        malignant_hn5_cells,
+        expression_scaled,
+        malignant_cells,
+        expression_scaled_cols,
+        potential_ligands
+    )
+    ligand_activities = ligand_activities_df(ligand_activities)
+    ligand_activities.sort_index(inplace=True)
+    ligand_activities.reset_index(inplace=True)
+    ligand_activities.rename(columns={"level_0": "cell", "level_1": "ligand"}, inplace=True)
+    assert len(ligand_activities) == 2030
+    assert equals_iter(
+        ligand_activities[["cell", "ligand", "auroc", "aupr", "pearson"]].sort_values(by="aupr", ascending=False).head(10).to_numpy(),
+        LASC_top_10_ligand_activities
+    )
+    row2id = dict(zip(malignant_cells, range(len(malignant_cells))))
+    cell_scores = pd.DataFrame({
+        "cell": malignant_hn5_cells,
+        "score": subset_matrix(
+            expression_scaled,
+            rows=[row2id[e] for e in malignant_hn5_cells],
+            cols=[expression_scaled_cols.index("TGFBI")]
+        ).reshape((-1,))
+    })
+    assert len(cell_scores) == 10
+    assert equals_iter(
+        cell_scores.sort_values(by="score", ascending=False).to_numpy(),
+        LASC_cell_scores
+    )
+    normalized_ligand_activities = normalize_single_cell_ligand_activities(ligand_activities)
+    normalized_ligand_activities.reset_index(inplace=True)
+    normalized_ligand_activities.columns.name = None
+    assert normalized_ligand_activities.shape[1] == 204
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_A04"]["A2M"].iloc[0],
+        0.2382057
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_C11"]["ADAM10"].iloc[0],
+        -0.842991150
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_D10"]["ADAM12"].iloc[0],
+        -0.87919944
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_E03"]["ADAM15"].iloc[0],
+        -0.531216348
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_F07"]["ADAM17"].iloc[0],
+        0.5201329
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_G07"]["ADAM9"].iloc[0],
+        -0.20499353
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p3_HNSCC5_P3_H01"]["ADM"].iloc[0],
+        1.2439335
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p9_HNSCC5_P9_B10"]["ANG"].iloc[0],
+        0.4335136
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p9_HNSCC5_P9_D03"]["ANGPTL1"].iloc[0],
+        -0.57912971
+    )
+    assert equals(
+        normalized_ligand_activities[normalized_ligand_activities["cell"] == "HNSCC5_p9_HNSCC5_P9_D08"]["ANGPTL2"].iloc[0],
+        1.0040180
+    )
+    combined = normalized_ligand_activities.merge(cell_scores)
+    res = np.array(combined["score"])
+    preds = combined.drop(columns=["score", "cell"])
+    output_correlation_analysis = pd.DataFrame({
+        "ligand": preds.columns,
+        "pearson": (pearsonr(preds.iloc[:, i], res).statistic for i in range(preds.shape[1]))
+    })
+    assert equals_iter(
+        output_correlation_analysis.sort_values(by="pearson", ascending=False).to_numpy(),
+        LASC_top_10_output_correlation
+    )
+
+def test_model_construction():
+    get_network_files()
+    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
+    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
+    source_weights = dict(zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1)))
+    weighted_networks = construct_weighted_networks(
+        lr_network,
+        sig_network,
+        gr_network,
+        source_weights
+    )
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
+    assert len(weighted_networks["lr_sig"]) == 3923501
+    print(weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy())
+    assert equals_iter(
+        weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+        MC_top_10_lr_sig
+    )
+    print(weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy())
+    assert len(weighted_networks["gr"]) == 4640268
+    assert equals_iter(
+        weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+        MC_top_10_gr
+    )
