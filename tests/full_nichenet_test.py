@@ -34,7 +34,8 @@ from nichenetpy.visualization import get_ligand_signaling_path
 from nichenetpy.prediction import assess_rf_class_probabilities
 from nichenetpy.model_construction import (
     construct_weighted_networks,
-    apply_hub_correction
+    apply_hub_correction,
+    construct_ligand_target_matrix
 )
 
 from itertools import cycle, chain, repeat
@@ -262,7 +263,31 @@ LASC_top_10_output_correlation = [
     ("CLCF1", 0.526221930),
     ("TFPI", 0.509691274)
 ]
-MC_top_10_lr_sig = [
+MC_top_10_lr_sig_0 = [
+    ("GSK3B", "FRAT1", 8.362857),
+    ("LCK", "LCP2", 7.723804),
+    ("LCK", "ITK", 7.578648),
+    ("LCK", "ZAP70", 7.523063),
+    ("IL4", "IL4R", 7.485833),
+    ("PTK6", "STAP2", 7.412247),
+    ("LCK", "VAV1", 7.408178),
+    ("MYD88", "IRAK4", 7.379728),
+    ("CSNK1E", "PER2", 7.184271),
+    ("TBK1", "IRF3", 7.176711)
+]
+MC_top_10_gr_0 = [
+    ("EGR1", "NAB2", 9.121336),
+    ("TP53", "CDKN1A", 8.876599),
+    ("ESR1", "GREB1", 8.407263),
+    ("MYC", "ODC1", 8.011052),
+    ("MYC", "CDK4", 7.863986),
+    ("GATA1", "HEMGN", 7.845768),
+    ("ESR1", "TFF1", 7.794308),
+    ("HNF4A", "HNF1A", 7.705854),
+    ("GATA1", "EPOR", 7.620628),
+    ("MYC", "PAICS", 7.556020)
+]
+MC_top_10_lr_sig_1 = [
     ("GSK3B", "FRAT1", 2.364072),
     ("MAPK14", "MAPKAPK2", 2.225577),
     ("MAPK1", "ELK1", 2.224897),
@@ -274,7 +299,7 @@ MC_top_10_lr_sig = [
     ("LCK", "VAV1", 2.165965),
     ("PTK6", "STAP2", 2.152541)
 ]
-MC_top_10_gr = [
+MC_top_10_gr_1 = [
     ("TP53", "CDKN1A", 2.474588),
     ("ESR1", "GREB1", 2.410098),
     ("MYC", "CDK4", 2.383487),
@@ -1141,14 +1166,22 @@ def test_model_construction():
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
     weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
     assert len(weighted_networks["lr_sig"]) == 3923501
-    print(weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy())
     assert equals_iter(
         weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
-        MC_top_10_lr_sig
+        MC_top_10_lr_sig_0
     )
-    print(weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy())
     assert len(weighted_networks["gr"]) == 4640268
     assert equals_iter(
         weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
-        MC_top_10_gr
+        MC_top_10_gr_0
     )
+    ligands = [["TNF"], ["TNF", "IL6"]]
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    #TODO
