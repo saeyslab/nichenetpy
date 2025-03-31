@@ -52,9 +52,6 @@ import pandas as pd
 import numpy as np
 
 
-err_bound = 1e-2
-zero_bound = 1e-100
-
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
@@ -311,23 +308,74 @@ MC_top_10_gr_1 = [
     ("MYC", "FASN", 2.238074),
     ("MYC", "SRM", 2.231288)
 ]
+MC_top_10_ligand_target_matrix_PPR_0 = [
+    (0, 0),
+    (1.095173e-02, 1.216394e-02),
+    (5.084809e-03, 5.172813e-03),
+    (1.249955e-02, 1.348655e-02),
+    (3.030508e-01, 2.451550e-01),
+    (3.341745e-03, 3.556587e-03),
+    (1.549648e-01, 8.327667e-02),
+    (4.062058e-03, 6.028271e-03),
+    (4.627761e-03, 5.194608e-03),
+    (1.554942e-01, 9.057184e-02),
+]
+MC_top_10_ligand_target_matrix_SPL_0 = [
+    (0, 0),
+    (183.030059, 189.253667),
+    (93.526666, 101.429093),
+    (267.723330, 267.135023),
+    (528.769601, 521.107878),
+    (83.730980, 83.682842),
+    (189.540212, 200.824258),
+    (46.706778, 50.200017),
+    (102.604214, 112.111570),
+    (312.282657, 335.296730),
+]
+MC_top_10_ligand_target_matrix_direct_0 = [
+    (0, 0),
+    (26.6568522, 19.1356107),
+    (10.9007838, 6.8273971),
+    (32.6182852, 22.4380537),
+    (93.1365089, 80.5938133),
+    (9.7052011, 6.7828120),
+    (34.0457086, 21.1353234),
+    (9.9244653, 9.8564317),
+    (9.8125185, 7.1930697),
+    (45.6791846, 36.4299388),
+]
 
-def equals(x, y):
+def equals(
+    x,
+    y,
+    err_bound=1e-2,
+    zero_bound=1e-100
+):
     if isinstance(x, Number) and isinstance(y, Number):
         return abs(x) < zero_bound if y == 0 else abs(x - y) / y < err_bound
     elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
-        return equals_iter(x, y)
+        return equals_iter(x, y, err_bound, zero_bound)
     else:
         return x == y
 
-def equals_iter(xs, ys):
+def equals_iter(
+    xs,
+    ys,
+    err_bound=1e-2,
+    zero_bound=1e-100
+):
     for x, y in zip(xs, ys):
-        if not equals(x, y):
+        if not equals(x, y, err_bound, zero_bound):
             return False
     return True
 
-def equals_ndarray(xs, ys):
-    return equals_iter(xs.reshape(-1), ys.reshape(-1))
+def equals_ndarray(
+    xs,
+    ys,
+    err_bound=1e-2,
+    zero_bound=1e-100
+):
+    return equals_iter(xs.reshape(-1), ys.reshape(-1), err_bound, zero_bound)
 
 def get_model_pickle(type="mouse"):
     if not os.path.exists(root_path):
@@ -1181,7 +1229,40 @@ def test_model_construction():
         lr_network,
         ligands,
         damping_factor=0.789,
-        ltf_cutoff=0.926,
+        ltf_cutoff=0.926
     )
     df = pd.DataFrame(mat, index=row_names, columns=col_names)
-    #TODO
+    assert len(df) == 33354
+    print(df.head(10).to_numpy())
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_PPR_0
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="SPL"
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    assert len(df) == 33354
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_SPL_0
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="direct"
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    assert len(df) == 33354
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_direct_0
+    )
