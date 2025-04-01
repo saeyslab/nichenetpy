@@ -242,7 +242,8 @@ def construct_ligand_tf_matrix(
         for _ligands in ligands:
             partial_matrix = []
             for ligand in _ligands:
-                pv[gene2id[ligand]] = 1 # TODO: check if this needs a reset
+                pv.fill(0)
+                pv[gene2id[ligand]] = 1
                 partial_matrix.append(pr.fit_predict(lr_sig_mat, weights=pv))
             ppr_matrix = np.array(partial_matrix)
             ppr_matrix = ppr_matrix.reshape((
@@ -281,11 +282,15 @@ def construct_ligand_tf_matrix(
             _quantile_clip(spl_matrix, ltf_cutoff)
             complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
-        lig_lig = lr_sig[["from", "weight"]].groupby("from", as_index=False).apply(lambda x : x.sort_values(by="weight", ascending=False).head(1))
-        lig_lig.drop_duplicates(inplace=True)
         all_ligands = set(chain(*ligands))
-        lig_lig = lig_lig.merge(pd.DataFrame(data=(all_ligands, all_ligands), columns=("from", "to")), on="from", how="inner")
+        lig_lig = (
+            lr_sig[["from", "weight"]][[fr in all_ligands for fr in lr_sig["from"]]]
+            .groupby("from", as_index=False)
+            .max()
+        )
         lig_lig.drop_duplicates(inplace=True)
+        all_ligands_lst = list(all_ligands)
+        lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
         lr_sig = pd.concat((lr_sig, lig_lig))
         lr_sig_mat = csr_matrix(
             (
