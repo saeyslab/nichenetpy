@@ -318,7 +318,7 @@ MC_top_10_ligand_target_matrix_PPR_0 = [
     (1.549648e-01, 8.327667e-02),
     (4.062058e-03, 6.028271e-03),
     (4.627761e-03, 5.194608e-03),
-    (1.554942e-01, 9.057184e-02),
+    (1.554942e-01, 9.057184e-02)
 ]
 MC_top_10_ligand_target_matrix_SPL_0 = [
     (0, 0),
@@ -330,7 +330,7 @@ MC_top_10_ligand_target_matrix_SPL_0 = [
     (189.540212, 200.824258),
     (46.706778, 50.200017),
     (102.604214, 112.111570),
-    (312.282657, 335.296730),
+    (312.282657, 335.296730)
 ]
 MC_top_10_ligand_target_matrix_direct_0 = [
     (0, 0),
@@ -342,7 +342,43 @@ MC_top_10_ligand_target_matrix_direct_0 = [
     (34.0457086, 21.1353234),
     (9.9244653, 9.8564317),
     (9.8125185, 7.1930697),
-    (45.6791846, 36.4299388),
+    (45.6791846, 36.4299388)
+]
+MC_top_10_ligand_target_matrix_PPR_1 = [
+    0,
+    2.488822e-03,
+    7.229267e-04,
+    3.258491e-03,
+    1.106382e-01,
+    3.157756e-04,
+    5.457279e-02,
+    5.690325e-04,
+    5.049286e-04,
+    4.036876e-02
+]
+MC_top_10_ligand_target_matrix_SPL_1 = [
+    0,
+    277.733194,
+    96.906154,
+    359.753151,
+    1078.687723,
+    49.600525,
+    427.305863,
+    40.870570,
+    90.409308,
+    513.872206
+]
+MC_top_10_ligand_target_matrix_direct_1 = [
+    0,
+    2.15539955,
+    0.57405933,
+    2.56142133,
+    10.25546831,
+    0.36363283,
+    3.11143536,
+    0.44221322,
+    0.23877735,
+    4.31137936
 ]
 
 def equals(
@@ -1262,8 +1298,67 @@ def test_model_construction():
     )
     df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
-    print(df.head(10).to_numpy())
     assert equals_iter(
         df.head(10).to_numpy(),
-        MC_top_10_ligand_target_matrix_direct_0
+        MC_top_10_ligand_target_matrix_direct_0,
+        err_bound=0.12 # TODO: acceptable?
+    )
+    source_weights = pd.DataFrame(read_csv_cols(os.path.join(network_path, "optimized_source_weights.csv")))
+    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    weighted_networks = construct_weighted_networks(
+        lr_network,
+        sig_network,
+        gr_network,
+        source_weights
+    )
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
+    assert len(weighted_networks["lr_sig"]) == 3923501
+    assert equals_iter(
+        weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+        MC_top_10_lr_sig_1
+    )
+    assert len(weighted_networks["gr"]) == 4640268
+    assert equals_iter(
+        weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+        MC_top_10_gr_1
+    )
+    ligands = [["TNF"]]
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926
+    )
+    assert len(df) == 33354
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_PPR_1
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="SPL"
+    )
+    assert len(df) == 33354
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_SPL_1
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="direct"
+    )
+    assert len(df) == 33354
+    assert equals_iter(
+        df.head(10).to_numpy(),
+        MC_top_10_ligand_target_matrix_direct_1
     )

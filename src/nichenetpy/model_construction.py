@@ -157,7 +157,7 @@ def construct_ligand_tf_matrix(
     algorithm:str="PPR",
     damping_factor:float=0.5,
     ligands_as_cols:bool=False
-) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+) -> tuple[list[str], list[str], np.ndarray]:
     '''
     Convert integrated weighted networks into a matrix containg ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
@@ -205,17 +205,17 @@ def construct_ligand_tf_matrix(
         if the arguments are invalid
     '''
     if type(weighted_networks) is not dict:
-        return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
+        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if not isinstance(ligands, Iterable):
-        return TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
-        return TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
+        raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
-        return TypeError(f"algorithm should have type str, was {type(algorithm)}")
+        raise TypeError(f"algorithm should have type str, was {type(algorithm)}")
     if not isinstance(damping_factor, Number):
-        return TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
+        raise TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
     if type(ligands_as_cols) is not bool:
-        return TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
+        raise TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
     if ltf_cutoff < 0 or ltf_cutoff > 1:
         raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
@@ -307,7 +307,7 @@ def construct_ligand_tf_matrix(
             _quantile_clip(ltf_matrix, ltf_cutoff)
             complete_matrix.append(ltf_matrix.mean(axis=0))
     else:
-        raise ValueError(f"algorithm should be 'PPR', 'SPL' or direct', was {algorithm}")
+        raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix)
     row_names = ["-".join(_ligands) for _ligands in ligands]
     col_names = all_genes
@@ -350,11 +350,11 @@ def construct_tf_target_matrix(
         if the arguments have the wrong type
     '''
     if type(weighted_networks) is not dict:
-        return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
+        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(tfs_as_cols) is not bool:
-        return TypeError(f"tfs_as_cols should have type bool, was {type(tfs_as_cols)}")
+        raise TypeError(f"tfs_as_cols should have type bool, was {type(tfs_as_cols)}")
     if type(standalone_output) is not bool:
-        return TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
+        raise TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
@@ -459,21 +459,21 @@ def construct_ligand_target_matrix(
         if the arguments are invalid
     '''
     if type(weighted_networks) is not dict:
-        return TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
+        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if not isinstance(ligands, Iterable):
-        return TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
-        return TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
+        raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
-        return TypeError(f"algorithm should have type str, was {type(algorithm)}")
+        raise TypeError(f"algorithm should have type str, was {type(algorithm)}")
     if not isinstance(damping_factor, Number):
-        return TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
+        raise TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
     if type(secondary_targets) is not bool:
         raise TypeError(f"secondary_targets should have type bool, was {type(secondary_targets)}")
     if type(ligands_as_cols) is not bool:
-        return TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
+        raise TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
     if type(remove_direct_links) is not str:
         raise TypeError(f"remove_direct_links should have type str, was {type(remove_direct_links)}")
     if ltf_cutoff < 0 or ltf_cutoff > 1:
