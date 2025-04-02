@@ -45,12 +45,14 @@ pyCirclize==1.9.0
 Pygments==2.18.0
 pynndescent==0.5.13
 pyparsing==3.2.0
+pytest==8.3.4
 python-dateutil==2.9.0.post0
 pytz==2024.2
 pyzmq==26.2.0
 requests==2.32.3
 scanpy==1.10.4
 scikit-learn==1.5.2
+scikit-network==0.33.1
 scipy==1.14.1
 session_info==1.0.0
 six==1.16.0
