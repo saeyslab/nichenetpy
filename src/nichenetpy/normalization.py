@@ -34,7 +34,8 @@ def relative_counts(
         raise TypeError(f"data should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
-    mp = [scale_factor/float(e) for e in data.sum(axis=1)]
+    #mp = [scale_factor/e[0, 0] for e in data.sum(axis=1)]
+    mp = scale_factor/np.array(data.sum(axis=1)).reshape((-1,))
     mp_mat = lil_matrix((len(mp), len(mp)))
     mp_mat.setdiag(mp)
     return mp_mat * data

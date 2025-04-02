@@ -259,7 +259,10 @@ def run_nichenet(
         background_expressed_genes=expressed_genes_receiver,
         potential_ligands=potential_ligands
     )
-    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x : x[1]["aupr_corrected"], reverse=True)
+    ligand_activities_sorted = sorted(
+        ligand_activities.items(),
+        key=lambda x : (-x[1]["aupr_corrected"], x[0])
+    )
     output["ligand_activities_sorted"] = ligand_activities_sorted
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
     output["best_upstream_ligands"] = best_upstream_ligands
@@ -293,8 +296,7 @@ def run_nichenet(
         )
         ligand_activities_sorted_focused = sorted(
             ligand_activities_focused.items(),
-            key=lambda x : x[1]["aupr_corrected"],
-            reverse=True
+            key=lambda x : (-x[1]["aupr_corrected"], x[0])
         )
         output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]

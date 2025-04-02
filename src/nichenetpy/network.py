@@ -56,6 +56,9 @@ class Network:
         start, count = self._index[key]
         return set(item[1] for item in self._mapping[start:start+count])
     
+    def __len__(self):
+        return len(self._mapping)
+    
     def __iter__(self):
         return self._mapping.__iter__()
     

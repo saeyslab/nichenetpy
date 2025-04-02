@@ -242,14 +242,25 @@ class LigandActivityPredictor:
             raise TypeError(f"geneset should have type set, was {type(geneset)}")
         if type(n) is not int:
             raise TypeError(f"n should have type int, was {type(n)}")
-        targets = set(
-            e[0] for e in sorted(
-                zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]),
-                key=lambda x : x[1],
+        if n < self.ligand_target_matrix.shape[1]:
+            top_n_score = sorted(
+                self.ligand_target_matrix[:, self.ligand2index[ligand]],
                 reverse=True
-            )[:n]
-        ).intersection(geneset)
-        targets = sorted(targets)
+            )[n-1]
+        else:
+            top_n_score = min(
+                sorted(
+                    self.ligand_target_matrix[:, self.ligand2index[ligand]],
+                    reverse=True
+                )[:n]
+            )
+        targets = sorted(
+            set(
+                e[0]
+                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]])
+                if e[1] >= top_n_score
+            ).intersection(geneset)
+        )
         if len(targets) == 0:
             return {
                 "ligand": ligand,
