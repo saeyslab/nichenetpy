@@ -260,54 +260,78 @@ LASC_top_10_output_correlation = [
     ("CLCF1", 0.526221930),
     ("TFPI", 0.509691274)
 ]
-MC_top_10_lr_sig_0 = [
-    ("GSK3B", "FRAT1", 8.362857),
-    ("LCK", "LCP2", 7.723804),
-    ("LCK", "ITK", 7.578648),
-    ("LCK", "ZAP70", 7.523063),
-    ("IL4", "IL4R", 7.485833),
-    ("PTK6", "STAP2", 7.412247),
-    ("LCK", "VAV1", 7.408178),
-    ("MYD88", "IRAK4", 7.379728),
-    ("CSNK1E", "PER2", 7.184271),
-    ("TBK1", "IRF3", 7.176711)
-]
-MC_top_10_gr_0 = [
-    ("EGR1", "NAB2", 9.121336),
-    ("TP53", "CDKN1A", 8.876599),
-    ("ESR1", "GREB1", 8.407263),
-    ("MYC", "ODC1", 8.011052),
-    ("MYC", "CDK4", 7.863986),
-    ("GATA1", "HEMGN", 7.845768),
-    ("ESR1", "TFF1", 7.794308),
-    ("HNF4A", "HNF1A", 7.705854),
-    ("GATA1", "EPOR", 7.620628),
-    ("MYC", "PAICS", 7.556020)
-]
-MC_top_10_lr_sig_1 = [
-    ("GSK3B", "FRAT1", 2.364072),
-    ("MAPK14", "MAPKAPK2", 2.225577),
-    ("MAPK1", "ELK1", 2.224897),
-    ("LCK", "LCP2", 2.193538),
-    ("CSNK1E", "PER2", 2.193134),
-    ("LCK", "ITK", 2.186991),
-    ("STK11", "STRADA", 2.185282),
-    ("MAPK1", "DUSP1", 2.182768),
-    ("LCK", "VAV1", 2.165965),
-    ("PTK6", "STAP2", 2.152541)
-]
-MC_top_10_gr_1 = [
-    ("TP53", "CDKN1A", 2.474588),
-    ("ESR1", "GREB1", 2.410098),
-    ("MYC", "CDK4", 2.383487),
-    ("MYC", "TERT", 2.338537),
-    ("STAT3", "SOCS3", 2.293794),
-    ("EGR1", "NAB2", 2.292260),
-    ("STAT3", "BCL6", 2.280768),
-    ("MYC", "PAICS", 2.252887),
-    ("MYC", "FASN", 2.238074),
-    ("MYC", "SRM", 2.231288)
-]
+MC_top_10_lr_sig_0 = {
+    ("GSK3B", "FRAT1"): 8.362857,
+    ("LCK", "LCP2"): 7.723804,
+    ("LCK", "ITK"): 7.578648,
+    ("LCK", "ZAP70"): 7.523063,
+    ("IL4", "IL4R"): 7.485833,
+    ("PTK6", "STAP2"): 7.412247,
+    ("LCK", "VAV1"): 7.408178,
+    ("MYD88", "IRAK4"): 7.379728,
+    ("CSNK1E", "PER2"): 7.184271,
+    ("TBK1", "IRF3"): 7.176711
+}
+MC_top_10_gr_0 = {
+    ("EGR1", "NAB2"): 9.121336,
+    ("TP53", "CDKN1A"): 8.876599,
+    ("ESR1", "GREB1"): 8.407263,
+    ("MYC", "ODC1"): 8.011052,
+    ("MYC", "CDK4"): 7.863986,
+    ("GATA1", "HEMGN"): 7.845768,
+    ("ESR1", "TFF1"): 7.794308,
+    ("HNF4A", "HNF1A"): 7.705854,
+    ("GATA1", "EPOR"): 7.620628,
+    ("MYC", "PAICS"): 7.556020
+}
+MC_top_10_lr_sig_1 = {
+    ("GSK3B", "FRAT1"): 2.364072,
+    ("MAPK14", "MAPKAPK2"): 2.225577,
+    ("MAPK1", "ELK1"): 2.224897,
+    ("LCK", "LCP2"): 2.193538,
+    ("CSNK1E", "PER2"): 2.193134,
+    ("LCK", "ITK"): 2.186991,
+    ("STK11", "STRADA"): 2.185282,
+    ("MAPK1", "DUSP1"): 2.182768,
+    ("LCK", "VAV1"): 2.165965,
+    ("PTK6", "STAP2"): 2.152541
+}
+MC_top_10_gr_1 = {
+    ("TP53", "CDKN1A"): 2.474588,
+    ("ESR1", "GREB1"): 2.410098,
+    ("MYC", "CDK4"): 2.383487,
+    ("MYC", "TERT"): 2.338537,
+    ("STAT3", "SOCS3"): 2.293794,
+    ("EGR1", "NAB2"): 2.292260,
+    ("STAT3", "BCL6"): 2.280768,
+    ("MYC", "PAICS"): 2.252887,
+    ("MYC", "FASN"): 2.238074,
+    ("MYC", "SRM"): 2.231288
+}
+MC_top_10_lr_sig_2 = {
+    ("LY86", "CD180"): 5.541908,
+    ("IRAK1", "IRAK3"): 5.483837,
+    ("GSK3B", "FRAT1"): 5.340887,
+    ("CDC7", "DBF4"): 5.323177,
+    ("RSPO1", "RNF43"): 5.289391,
+    ("CLCF1", "CRLF1"): 5.265573,
+    ("LCK", "ITK"): 5.174903,
+    ("EGFR", "GPNMB"): 5.173386,
+    ("CSF1", "CSF1R"): 5.076013,
+    ("KIT", "SH2B3"): 5.059568
+}
+MC_top_10_gr_2 = {
+    ("GATA1", "HEMGN"): 6.804552,
+    ("ESR1", "GREB1"): 6.621335,
+    ("ESR1", "RARA"): 6.202072,
+    ("REST", "GRIN1"): 6.171134,
+    ("EGR1", "NAB2"): 6.135783,
+    ("MYC", "CDK4"): 6.114949,
+    ("REST", "GLRA1"): 6.039138,
+    ("ESR1", "TFF1"): 6.006676,
+    ("GATA1", "GFI1B"): 5.973500,
+    ("SPI1", "NCF2"): 5.964865
+}
 MC_top_10_ligand_target_matrix_PPR_0 = [
     (0, 0),
     (1.095173e-02, 1.216394e-02),
@@ -380,6 +404,42 @@ MC_top_10_ligand_target_matrix_direct_1 = [
     0.23877735,
     4.31137936
 ]
+MC_top_10_ligand_target_matrix_PPR_2 = [
+    0.0082132096,
+    0.0049895962,
+    0.0082667868,
+    0.0185473962,
+    0.0028839713,
+    0.0076032847,
+    0.0043716716,
+    0.0044186443,
+    0.1559356676,
+    0.0017981498
+]
+MC_top_10_ligand_target_matrix_SPL_2 = [
+    80.510371,
+    62.470823,
+    105.588839,
+    245.624279,
+    60.187512,
+    115.459780,
+    44.534696,
+    62.472138,
+    191.286479,
+    41.827194
+]
+MC_top_10_ligand_target_matrix_direct_2 = [
+    6.9358440,
+    5.0016499,
+    10.1736364,
+    26.6262723,
+    3.5195458,
+    9.7560967,
+    5.8818588,
+    5.6810110,
+    14.9366186,
+    1.6602571
+]
 
 def equals(
     x,
@@ -412,6 +472,18 @@ def equals_ndarray(
     zero_bound=1e-100
 ):
     return equals_iter(xs.reshape(-1), ys.reshape(-1), err_bound, zero_bound)
+
+def equals_dict(x, y):
+    for key, val in y.items():
+        if not equals(x[key], val):
+            return False
+    return True
+
+def df2dict(df, key_cols, val_col):
+    return dict(zip(
+        zip(*(df[col] for col in key_cols)),
+        df[val_col]
+    ))
 
 def get_model_pickle(type="mouse"):
     if not os.path.exists(root_path):
@@ -1250,13 +1322,13 @@ def test_model_construction():
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
     weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
     assert len(weighted_networks["lr_sig"]) == 3923501
-    assert equals_iter(
-        weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+    assert equals_dict(
+        df2dict(weighted_networks["lr_sig"], ("from", "to"), "weight"),
         MC_top_10_lr_sig_0
     )
     assert len(weighted_networks["gr"]) == 4640268
-    assert equals_iter(
-        weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+    assert equals_dict(
+        df2dict(weighted_networks["gr"], ("from", "to"), "weight"),
         MC_top_10_gr_0
     )
     ligands = [["TNF"], ["TNF", "IL6"]]
@@ -1303,24 +1375,24 @@ def test_model_construction():
         MC_top_10_ligand_target_matrix_direct_0,
         err_bound=0.12 # TODO: acceptable?
     )
-    source_weights = pd.DataFrame(read_csv_cols(os.path.join(network_path, "optimized_source_weights.csv")))
-    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    optimized_source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
+    optimized_source_weights = dict(zip(optimized_source_weights[0], [float(e) for e in optimized_source_weights[1]]))
     weighted_networks = construct_weighted_networks(
         lr_network,
         sig_network,
         gr_network,
-        source_weights
+        optimized_source_weights
     )
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
     weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
     assert len(weighted_networks["lr_sig"]) == 3923501
-    assert equals_iter(
-        weighted_networks["lr_sig"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+    assert equals_dict(
+        df2dict(weighted_networks["lr_sig"], ("from", "to"), "weight"),
         MC_top_10_lr_sig_1
     )
     assert len(weighted_networks["gr"]) == 4640268
-    assert equals_iter(
-        weighted_networks["gr"].sort_values(by="weight", ascending=False).head(10).to_numpy(),
+    assert equals_dict(
+        df2dict(weighted_networks["gr"], ("from", "to"), "weight"),
         MC_top_10_gr_1
     )
     ligands = [["TNF"]]
@@ -1331,9 +1403,10 @@ def test_model_construction():
         damping_factor=0.789,
         ltf_cutoff=0.926
     )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
     assert equals_iter(
-        df.head(10).to_numpy(),
+        df.head(10).to_numpy().reshape((-1,)),
         MC_top_10_ligand_target_matrix_PPR_1
     )
     row_names, col_names, mat = construct_ligand_target_matrix(
@@ -1344,9 +1417,10 @@ def test_model_construction():
         ltf_cutoff=0.926,
         algorithm="SPL"
     )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
     assert equals_iter(
-        df.head(10).to_numpy(),
+        df.head(10).to_numpy().reshape((-1,)),
         MC_top_10_ligand_target_matrix_SPL_1
     )
     row_names, col_names, mat = construct_ligand_target_matrix(
@@ -1357,8 +1431,75 @@ def test_model_construction():
         ltf_cutoff=0.926,
         algorithm="direct"
     )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
     assert equals_iter(
-        df.head(10).to_numpy(),
+        df.head(10).to_numpy().reshape((-1,)),
         MC_top_10_ligand_target_matrix_direct_1
+    )
+    annotations = pd.DataFrame(read_csv_cols(os.path.join(network_path, "annotation_data_sources.csv")))
+    data_sources_to_keep = set(annotations[[e in ["literature", "comprehensive_db", "ChIP"] for e in annotations["type_db"]]]["source"])
+    new_source_weights = dict((key, val) for key, val in source_weights.items() if key in data_sources_to_keep)
+    new_lr_network = lr_network[[e in data_sources_to_keep for e in lr_network["source"]]]
+    new_sig_network = sig_network[[e in data_sources_to_keep for e in sig_network["source"]]]
+    new_gr_network = gr_network[[e in data_sources_to_keep for e in gr_network["source"]]]
+    weighted_networks = construct_weighted_networks(
+        new_lr_network,
+        new_sig_network,
+        new_gr_network,
+        new_source_weights
+    )
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
+    assert len(weighted_networks["lr_sig"]) == 2765375
+    assert equals_dict(
+        df2dict(weighted_networks["lr_sig"], ("from", "to"), "weight"),
+        MC_top_10_lr_sig_2
+    )
+    assert len(weighted_networks["gr"]) == 3645365
+    assert equals_dict(
+        df2dict(weighted_networks["gr"], ("from", "to"), "weight"),
+        MC_top_10_gr_2
+    )
+    ligands = [["TNF"]]
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        new_lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    assert len(df) == 28821
+    assert equals_iter(
+        df.head(10).to_numpy().reshape((-1)),
+        MC_top_10_ligand_target_matrix_PPR_2
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        new_lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="SPL"
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    assert len(df) == 28821
+    assert equals_iter(
+        df.head(10).to_numpy().reshape((-1)),
+        MC_top_10_ligand_target_matrix_SPL_2
+    )
+    row_names, col_names, mat = construct_ligand_target_matrix(
+        weighted_networks,
+        new_lr_network,
+        ligands,
+        damping_factor=0.789,
+        ltf_cutoff=0.926,
+        algorithm="direct"
+    )
+    df = pd.DataFrame(mat, index=row_names, columns=col_names)
+    assert len(df) == 28821
+    assert equals_iter(
+        df.head(10).to_numpy().reshape((-1)),
+        MC_top_10_ligand_target_matrix_direct_2
     )
