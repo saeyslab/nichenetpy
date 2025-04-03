@@ -204,6 +204,8 @@ def run_nichenet(
                 the expressed receptors
             expressed_genes_receiver : set of str
                 expressed genes in the receiver
+            background_expressed_genes : set of str
+                the background expressed genes
             prioritization_table : pandas.DataFrame
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
             geneset_oi : set of str
@@ -237,6 +239,7 @@ def run_nichenet(
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
+    output["background_expressed_genes"] = background_expressed_genes
     output["expressed_receptors"] = expressed_receptors
     potential_ligands = set(
         key for key, group in lr_network.item_iter()
@@ -254,9 +257,10 @@ def run_nichenet(
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
+    background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
-        background_expressed_genes=expressed_genes_receiver,
+        background_expressed_genes=background_expressed_genes,
         potential_ligands=potential_ligands
     )
     ligand_activities_sorted = sorted(

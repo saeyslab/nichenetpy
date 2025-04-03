@@ -592,9 +592,11 @@ def test_steps():
     geneset.intersection_update(predictor.get_genes())
     assert len(geneset) == 241
     assert len(expressed_genes_receiver) == 3903
+    background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
+    assert len(background_expressed_genes) == 3182
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
-        background_expressed_genes=expressed_genes_receiver,
+        background_expressed_genes=background_expressed_genes,
         potential_ligands=potential_ligands
     )
     ligand_activities_sorted = sorted(
@@ -820,7 +822,7 @@ def test_ligand_activity_geneset():
     assert len(potential_ligands) == 212
     with open(os.path.join(hnscc_path, "pemt_signature.txt")) as file:
         geneset = file.readlines()
-    lt_ligands = set(predictor.row_names)
+    lt_ligands = predictor.get_genes()
     geneset = {gene.rstrip() for gene in geneset}.intersection(lt_ligands)
     assert len(geneset) == 96
     background_expressed_genes = expressed_genes_receiver.intersection(lt_ligands)
