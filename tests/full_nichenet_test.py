@@ -1075,11 +1075,11 @@ def test_ligand_target_signaling_path():
     if not os.path.exists(root_path):
         os.makedirs(root_path)
     for filename in (
-        ["ltf_matrix.pkl", "nichenet_human.pkl"]
+        ["ltf_matrix_human.pkl", "nichenet_human.pkl"]
     ):
         file_path = os.path.join(root_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/14944315/files/{filename}")
+            res = requests.get(f"https://zenodo.org/records/15131577/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
     with open(os.path.join(root_path, "ltf_matrix.pkl"), "rb") as file:
