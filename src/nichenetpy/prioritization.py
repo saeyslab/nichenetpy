@@ -10,6 +10,7 @@ from collections.abc import Iterable, Collection
 
 import pandas as pd
 import numpy as np
+import scanpy as sc
 
 
 def calculate_de(
@@ -18,10 +19,11 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:Iterable[str]=None
+    features:Iterable[str]=None,
+    use_scanpy:bool=False
 ) -> pd.DataFrame:
     '''
-    Calculate differential expression of one cell type versus all other cell types using group_metrics.
+    Calculate differential expression of one cell type versus all other cell types.
     If condition_oi is provided, only consider cells from that condition.
 
     Parameters
@@ -38,6 +40,8 @@ def calculate_de(
         the layer of the AnnData object to use
     features : Iterable of str
         the genes to consider
+    use_scanpy : bool
+        if True, use scanpy.rank_genes_groups
     
     Returns
     -------
@@ -61,15 +65,46 @@ def calculate_de(
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[str], was {type(features)}")
+    if not type(use_scanpy) is bool:
+        raise TypeError(f"use_scanpy should have type bool, was {type(use_scanpy)}")
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    group_metrics(
-        ann,
-        groupby=celltype_col,
-        layer=layer,
-        pval_thresh=1,
-        features=features
-    )
-    return ann.uns["group_metrics"]
+    if use_scanpy:
+        sc.tl.rank_genes_groups(
+            ann,
+            groupby=celltype_col,
+            method="wilcoxon",
+            layer=layer,
+            pts=True
+        )
+        res = ann.uns["rank_genes_groups"]
+        output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
+        for col in ["pvals", "pvals_adj", "logfoldchanges"]:
+            temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
+            temp.drop(columns={"celltype"}, inplace=True)
+            output = output.join(temp, how="inner")
+        temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
+        temp.index.name = "gene"
+        temp.reset_index(inplace=True)
+        output = output.merge(temp, on=["gene", "celltype"], how="inner")
+        output.rename(
+            columns={
+                "logfoldchanges": "lfc",
+                "pvals": "pval",
+                "pvals_adj": "pval_adj",
+                "pts": "pct"
+            },
+            inplace=True
+        )
+        return output
+    else:
+        group_metrics(
+            ann,
+            groupby=celltype_col,
+            layer=layer,
+            pval_thresh=1,
+            features=features
+        )
+        return ann.uns["group_metrics"]
 
 def get_avg_exp(
     ann:AnnData,

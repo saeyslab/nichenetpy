@@ -7,6 +7,7 @@ from anndata import AnnData
 from collections.abc import Iterable, Callable
 from numbers import Number
 
+import scanpy as sc
 import numpy as np
 import pandas as pd
 
@@ -120,7 +121,8 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    features:Iterable[str]=None
+    features:Iterable[str]=None,
+    scanpy_lfc:bool=False
 ) -> tuple[list[str], list[float]]:
     '''
     Get log fold change of genes between two conditions in cell type of interest from an AnnData object.
@@ -143,6 +145,8 @@ def get_lfc_celltype(
         the name of the column in obs that contains the cell types
     features : Iterable of str or None
         the genes to consider, consider all genes if None
+    scanpy_lfc : bool
+        if true, use scanpy.rank_genes_groups to compute the logfoldchanges
     
     Returns
     -------
@@ -170,6 +174,8 @@ def get_lfc_celltype(
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
     if features is not None and not isinstance(features, Iterable):
         raise TypeError(f"features should be an Iterable of strings, was {type(features)}")
+    if type(scanpy_lfc) is not bool:
+        raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
     ann_sender = subset_ann(
         ann,
         celltype,
@@ -177,18 +183,33 @@ def get_lfc_celltype(
         val_col=celltype_col,
         genes=features
     )
-    group_metrics(
-        ann_sender,
-        groupby=condition_col,
-        group_oi=condition_oi,
-        group_ref=condition_ref,
-        layer=layer
-    )
-    res = ann_sender.uns["group_metrics"]
-    return (
-        list(res["gene"]),
-        list(res["lfc"])
-    )
+    if scanpy_lfc:
+        sc.tl.rank_genes_groups(
+            ann_sender,
+            groupby=condition_col,
+            method="wilcoxon",
+            layer=layer,
+            groups=[condition_oi], 
+            reference=condition_ref
+        )
+        res = ann_sender.uns["rank_genes_groups"]
+        return (
+            [e[0] for e in res["names"]],
+            [e[0] for e in res["logfoldchanges"]]
+        )
+    else:
+        group_metrics(
+            ann_sender,
+            groupby=condition_col,
+            group_oi=condition_oi,
+            group_ref=condition_ref,
+            layer=layer
+        )
+        res = ann_sender.uns["group_metrics"]
+        return (
+            list(res["gene"]),
+            list(res["lfc"])
+        )
 
 def average_expression(
     ann:AnnData,
