@@ -7,6 +7,7 @@ from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
 from collections.abc import Iterable, Collection
+from numbers import Number
 
 import pandas as pd
 import numpy as np
@@ -20,6 +21,9 @@ def calculate_de(
     condition_col:str,
     layer="data",
     features:Iterable[str]=None,
+    min_abs_lfc:float=0,
+    min_pct:float=0,
+    pval_thresh:float=1,
     use_scanpy:bool=False
 ) -> pd.DataFrame:
     '''
@@ -40,6 +44,12 @@ def calculate_de(
         the layer of the AnnData object to use
     features : Iterable of str
         the genes to consider
+    min_abs_lfc : float
+        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+    min_pct : float
+        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    pval_thresh : float
+        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     use_scanpy : bool
         if True, use scanpy.rank_genes_groups
     
@@ -65,6 +75,12 @@ def calculate_de(
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[str], was {type(features)}")
+    if not isinstance(min_abs_lfc, Number):
+        raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
+    if not isinstance(min_pct, Number):
+        raise TypeError(f"min_pct should have type float, was {type(min_pct)}")
+    if not isinstance(pval_thresh, Number):
+        raise TypeError(f"pval_thresh should have type float, was {type(pval_thresh)}")
     if not type(use_scanpy) is bool:
         raise TypeError(f"use_scanpy should have type bool, was {type(use_scanpy)}")
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
@@ -101,7 +117,9 @@ def calculate_de(
             ann,
             groupby=celltype_col,
             layer=layer,
-            pval_thresh=1,
+            min_abs_lfc=min_abs_lfc,
+            min_pct=min_pct,
+            pval_thresh=pval_thresh,
             features=features
         )
         return ann.uns["group_metrics"]
@@ -111,7 +129,8 @@ def get_avg_exp(
     celltype_col:str,
     condition_oi:str=None,
     condition_col:str=None,
-    layer:str="counts"
+    layer:str="counts",
+    features:Iterable[str]=None
 ) -> pd.DataFrame:
     '''
     Calculate the average gene expression per cell type.
@@ -129,6 +148,8 @@ def get_avg_exp(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
+    features : Iterable[str]
+        the genes to use, if None, use all genes from the AnnData object
     
     Returns
     -------
@@ -150,8 +171,12 @@ def get_avg_exp(
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
+    if features is not None and not isinstance(features, Iterable):
+        raise TypeError(f"features should have type Iterable[str], was {type(features)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
+    if features is not None:
+        ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
     avg_celltype = average_expression(
         ann,
@@ -444,8 +469,8 @@ def generate_prioritization_table(
             "ligand_condition_specificity",
             "receptor_condition_specificity"
         ):
-            if key not in lr_condition_de:
-                raise ValueError(f"{key} key missing in lr_condition_de")
+            if key not in prioritizing_weights:
+                raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
         ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
     sender_ligand_prioritization = _prioritization(

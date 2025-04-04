@@ -239,8 +239,9 @@ def run_nichenet(
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
-    output["background_expressed_genes"] = background_expressed_genes
     output["expressed_receptors"] = expressed_receptors
+    background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
+    output["background_expressed_genes"] = background_expressed_genes
     potential_ligands = set(
         key for key, group in lr_network.item_iter()
         if len(group.intersection(expressed_receptors)) > 0

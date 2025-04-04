@@ -945,7 +945,6 @@ def test_steps_prioritization():
     mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
     res = run_nichenet(
         ann,
@@ -960,7 +959,6 @@ def test_steps_prioritization():
         targets_top_n=100
     )
     ligand_activities_sorted = res["ligand_activities_sorted_focused"]
-    best_upstream_ligands = res["best_upstream_ligands_focused"]
     expressed_ligands = res["expressed_ligands"]
     expressed_receptors = res["expressed_receptors"]
     lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
