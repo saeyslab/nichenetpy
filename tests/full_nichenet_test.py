@@ -12,13 +12,16 @@ from nichenetpy.gene_symbol import (
     mouse_alias_info,
     human_alias_info
 )
-from nichenetpy.metrics import group_metrics
+from nichenetpy.metrics import group_metrics, calculate_metrics
 from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
     get_weighted_ligand_receptor_links,
     generate_info_tables,
-    normalize_single_cell_ligand_activities
+    normalize_single_cell_ligand_activities,
+    calculate_fraction_top_predicted,
+    calculate_fraction_top_predicted_fisher,
+    get_top_predicted_genes
 )
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
@@ -439,6 +442,12 @@ MC_top_10_ligand_target_matrix_direct_2 = [
     5.6810110,
     14.9366186,
     1.6602571
+]
+TPEG_target_prediction_performances_discrete = [
+    (0, 2950, 56, 0.01898305),
+    (1, 241, 104, 0.43153527),
+    (0, 2950, 50, 0.01694915),
+    (1, 241, 110, 0.45643154)
 ]
 
 def equals(
@@ -1503,3 +1512,83 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1)),
         MC_top_10_ligand_target_matrix_direct_2
     )
+
+def test_target_prediction_evaluation_geneset():
+    # not deterministic, so allow for some variance
+    non_deterministic_err_bound = 0.1
+    ann = get_anndata_file("annData3531889.h5")
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    model = get_model_pickle("mouse")
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    receiver = "CD8 T"
+    sender_celltypes = ["CD4 T","Treg", "Mono", "NK", "B", "DC"]
+    output = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        lr_sig=lr_sig,
+        receiver=receiver,
+        sender_celltypes=sender_celltypes,
+        condition_col="aggregate",
+        condition_oi="LCMV",
+        condition_ref="SS",
+        expression_pct=0.05,
+        targets_top_n=100
+    )
+    geneset_oi = output["geneset_oi"]
+    expressed_genes_receiver = output["expressed_genes_receiver"]
+    ligands_oi = output["best_upstream_ligands"]
+    n = 2
+    k = 3
+    gene_predictions_top30_list = [
+        assess_rf_class_probabilities(
+            folds=k,
+            geneset=geneset_oi,
+            background_expressed_genes=expressed_genes_receiver,
+            ligands_oi=ligands_oi,
+            predictor=predictor
+        ) for _ in range(n)
+    ]
+    target_prediction_performances = []
+    for df in gene_predictions_top30_list:
+        met = calculate_metrics(list(df["prediction"]), list(df["response"]))
+        target_prediction_performances.append(pd.DataFrame([list(met.values())], columns=met.keys()))
+    target_prediction_performances = pd.concat(target_prediction_performances)
+    target_prediction_performances.reset_index(drop=True, inplace=True)
+    tpp_mean = target_prediction_performances.mean()
+    assert equals(tpp_mean["auroc"], 0.8025248, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["pearson"], 0.5338662, err_bound=non_deterministic_err_bound)
+    target_prediction_performances_discrete = pd.concat([calculate_fraction_top_predicted(df) for df in gene_predictions_top30_list])
+    assert equals_iter(
+        target_prediction_performances_discrete.to_numpy(),
+        TPEG_target_prediction_performances_discrete,
+        err_bound=non_deterministic_err_bound
+    )
+    assert equals(
+        target_prediction_performances_discrete[
+            target_prediction_performances_discrete["true_target"] == 1
+        ]["fraction_positive_predicted"].mean(),
+        0.4439834,
+        err_bound=non_deterministic_err_bound
+    )
+    assert equals(
+        target_prediction_performances_discrete[
+            target_prediction_performances_discrete["true_target"] == 0
+        ]["fraction_positive_predicted"].mean(),
+        0.0179661,
+        err_bound=non_deterministic_err_bound
+    )
+    target_prediction_performances_discrete_fisher = [
+        calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list
+    ]
+    '''
+    assert equals(
+        sum(target_prediction_performances_discrete_fisher)/len(target_prediction_performances_discrete_fisher),
+        1.058085e-85,
+        err_bound=non_deterministic_err_bound
+    )
+    ''' # unable to test this, too much variance
