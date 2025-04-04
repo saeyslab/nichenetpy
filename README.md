@@ -143,6 +143,7 @@ People interested in building their own models or benchmarking their own
 models against NicheNet can read one of the following notebooks:
 
 -   [Model construction](notebooks/model_construction.ipynb)
+-   [Model evaluation: target gene and ligand activity prediction](notebooks/target_prediction_evaluation_geneset.ipynb)
 
 TODO?
 ## FAQ
