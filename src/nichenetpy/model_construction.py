@@ -395,7 +395,7 @@ def _set_min(mat):
 def construct_ligand_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     lr_network:pd.DataFrame,
-    ligands:Iterable[str],
+    ligands:Iterable[str|Iterable[str]],
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
@@ -411,7 +411,7 @@ def construct_ligand_target_matrix(
     ----------
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
-    ligands : Iterable of str
+    ligands : Iterable[str|Iterable[str]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
@@ -463,7 +463,7 @@ def construct_ligand_target_matrix(
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[str|Iterable[str]], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -488,6 +488,7 @@ def construct_ligand_target_matrix(
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+    ligands = [(_ligands,) if type(_ligands) is str else _ligands for _ligands in ligands]
     ltf_rows, _, ltf_matrix = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
     _, grn_cols, grn_matrix = construct_tf_target_matrix(weighted_networks)
     ligand2target = ltf_matrix * grn_matrix
