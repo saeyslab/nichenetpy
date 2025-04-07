@@ -402,7 +402,7 @@ def construct_ligand_target_matrix(
     secondary_targets:bool=False,
     ligands_as_cols:bool=True,
     remove_direct_links:str="no"
-) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+) -> tuple[np.ndarray|csr_matrix, list[str], list[str]]:
     '''
     Convert integrated weighted networks into a matrix containg ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
@@ -444,12 +444,12 @@ def construct_ligand_target_matrix(
     
     Returns
     -------
+    numpy.ndarray
+        a matrix containing tf-target regulatory weights
     list of str
         the names of the rows of the matrix
     list of str
         the name of the columns of the matrix
-    numpy.ndarray
-        a matrix containing tf-target regulatory weights
     
     Raises
     ------
@@ -498,5 +498,5 @@ def construct_ligand_target_matrix(
         _set_min(ligand2target_secondary)
         ligand2target = (ligand2target**-1 + ligand2target_secondary**-1)**-1
     if ligands_as_cols:
-        return (grn_cols, ltf_rows, ligand2target.transpose())
-    return (ltf_rows, grn_cols, ligand2target)
+        return (ligand2target.transpose(), grn_cols, ltf_rows)
+    return (ligand2target, ltf_rows, grn_cols)
