@@ -432,3 +432,20 @@ def ncycle(
         TypeError(f"n should have type int, was {n}")
     for _ in range(n):
         yield from it
+
+def decomplexify(
+    df:pd.DataFrame,
+    from_col:str="ligand",
+    to_col:str="receptor"
+) -> pd.DataFrame:
+    frs = []
+    tos = []
+    for fr, to in zip(df[from_col], df[to_col]):
+        for nfr in fr.split("_"):
+            for nto in to.split("_"):
+                frs.append(nfr)
+                tos.append(nto)
+    return pd.DataFrame({
+        from_col: frs,
+        to_col: tos
+    })

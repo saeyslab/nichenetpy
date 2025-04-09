@@ -233,7 +233,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         # preference vector
         pv = np.zeros(shape=lr_sig_mat.shape[0])
@@ -263,7 +264,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         complete_matrix = []
         for _ligands in ligands:
@@ -299,7 +301,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         complete_matrix = []
         for _ligands in ligands:
@@ -367,7 +370,8 @@ def construct_tf_target_matrix(
                 fr,
                 [gene2id[e] for e in gr["to"]]
             )
-        )
+        ),
+        shape=(len(gene2id), len(gene2id))
     )
     row_names = all_genes
     col_names = all_genes
