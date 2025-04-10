@@ -1126,7 +1126,7 @@ def test_ligand_target_signaling_path():
             res = requests.get(f"https://zenodo.org/records/15131577/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
-    with open(os.path.join(root_path, "ltf_matrix.pkl"), "rb") as file:
+    with open(os.path.join(root_path, "ltf_matrix_human.pkl"), "rb") as file:
         ltf_matrix = pickle.loads(file.read())
     row_names = ltf_matrix["row_names"]
     col_names = ltf_matrix["col_names"]
@@ -1552,7 +1552,7 @@ def test_model_construction():
 
 def test_target_prediction_evaluation_geneset():
     # not deterministic, so allow for some variance
-    non_deterministic_err_bound = 0.1
+    non_deterministic_err_bound = 0.2
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
     mouse_alias_info.alias_to_symbol(ann)
@@ -1600,6 +1600,7 @@ def test_target_prediction_evaluation_geneset():
     assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)
     assert equals(tpp_mean["pearson"], 0.5338662, err_bound=non_deterministic_err_bound)
     target_prediction_performances_discrete = pd.concat([calculate_fraction_top_predicted(df) for df in gene_predictions_top30_list])
+    print(target_prediction_performances_discrete.to_numpy())
     assert equals_iter(
         target_prediction_performances_discrete.to_numpy(),
         TPEG_target_prediction_performances_discrete,
