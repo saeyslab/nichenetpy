@@ -1600,7 +1600,6 @@ def test_target_prediction_evaluation_geneset():
     assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)
     assert equals(tpp_mean["pearson"], 0.5338662, err_bound=non_deterministic_err_bound)
     target_prediction_performances_discrete = pd.concat([calculate_fraction_top_predicted(df) for df in gene_predictions_top30_list])
-    print(target_prediction_performances_discrete.to_numpy())
     assert equals_iter(
         target_prediction_performances_discrete.to_numpy(),
         TPEG_target_prediction_performances_discrete,
