@@ -7,9 +7,11 @@ from nichenetpy.ann_utils import subset_ann
 
 from anndata import AnnData
 from collections.abc import Iterable, Collection
+from numbers import Number
 
 import pandas as pd
 import numpy as np
+import scanpy as sc
 
 
 def calculate_de(
@@ -18,10 +20,14 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:Iterable[str]=None
+    features:Iterable[str]=None,
+    min_abs_lfc:float=0,
+    min_pct:float=0,
+    pval_thresh:float=1,
+    use_scanpy:bool=False
 ) -> pd.DataFrame:
     '''
-    Calculate differential expression of one cell type versus all other cell types using group_metrics.
+    Calculate differential expression of one cell type versus all other cell types.
     If condition_oi is provided, only consider cells from that condition.
 
     Parameters
@@ -38,6 +44,14 @@ def calculate_de(
         the layer of the AnnData object to use
     features : Iterable of str
         the genes to consider
+    min_abs_lfc : float
+        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+    min_pct : float
+        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+    pval_thresh : float
+        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+    use_scanpy : bool
+        if True, use scanpy.rank_genes_groups
     
     Returns
     -------
@@ -61,22 +75,62 @@ def calculate_de(
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[str], was {type(features)}")
+    if not isinstance(min_abs_lfc, Number):
+        raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
+    if not isinstance(min_pct, Number):
+        raise TypeError(f"min_pct should have type float, was {type(min_pct)}")
+    if not isinstance(pval_thresh, Number):
+        raise TypeError(f"pval_thresh should have type float, was {type(pval_thresh)}")
+    if not type(use_scanpy) is bool:
+        raise TypeError(f"use_scanpy should have type bool, was {type(use_scanpy)}")
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    group_metrics(
-        ann,
-        groupby=celltype_col,
-        layer=layer,
-        pval_thresh=1,
-        features=features
-    )
-    return ann.uns["group_metrics"]
+    if use_scanpy:
+        sc.tl.rank_genes_groups(
+            ann,
+            groupby=celltype_col,
+            method="wilcoxon",
+            layer=layer,
+            pts=True
+        )
+        res = ann.uns["rank_genes_groups"]
+        output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
+        for col in ["pvals", "pvals_adj", "logfoldchanges"]:
+            temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
+            temp.drop(columns={"celltype"}, inplace=True)
+            output = output.join(temp, how="inner")
+        temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
+        temp.index.name = "gene"
+        temp.reset_index(inplace=True)
+        output = output.merge(temp, on=["gene", "celltype"], how="inner")
+        output.rename(
+            columns={
+                "logfoldchanges": "lfc",
+                "pvals": "pval",
+                "pvals_adj": "pval_adj",
+                "pts": "pct"
+            },
+            inplace=True
+        )
+        return output
+    else:
+        group_metrics(
+            ann,
+            groupby=celltype_col,
+            layer=layer,
+            min_abs_lfc=min_abs_lfc,
+            min_pct=min_pct,
+            pval_thresh=pval_thresh,
+            features=features
+        )
+        return ann.uns["group_metrics"]
 
 def get_avg_exp(
     ann:AnnData,
     celltype_col:str,
     condition_oi:str=None,
     condition_col:str=None,
-    layer:str="counts"
+    layer:str="counts",
+    features:Iterable[str]=None
 ) -> pd.DataFrame:
     '''
     Calculate the average gene expression per cell type.
@@ -94,6 +148,8 @@ def get_avg_exp(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
+    features : Iterable[str]
+        the genes to use, if None, use all genes from the AnnData object
     
     Returns
     -------
@@ -115,8 +171,12 @@ def get_avg_exp(
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
+    if features is not None and not isinstance(features, Iterable):
+        raise TypeError(f"features should have type Iterable[str], was {type(features)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
+    if features is not None:
+        ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
     avg_celltype = average_expression(
         ann,
@@ -409,8 +469,8 @@ def generate_prioritization_table(
             "ligand_condition_specificity",
             "receptor_condition_specificity"
         ):
-            if key not in lr_condition_de:
-                raise ValueError(f"{key} key missing in lr_condition_de")
+            if key not in prioritizing_weights:
+                raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
         ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
     sender_ligand_prioritization = _prioritization(

@@ -1,6 +1,7 @@
 from nichenetpy.io import read_network, read_weighted_network
 
 from collections.abc import Collection
+from itertools import chain
 
 
 class Network:
@@ -95,6 +96,17 @@ class Network:
             the "from" values in the mapping and a list of corresponding "to" values
         '''
         return ((key, self[key]) for key in self.key_iter())
+    
+    def get_all(self) -> set:
+        '''
+        Return all values that are present in the network. 
+        
+        Yields
+        ------
+        set
+            all values present in the network
+        '''
+        return set(chain(*zip(*self._mapping)))
     
     def subset(self, from_to:Collection[tuple[str, str]]):
         '''

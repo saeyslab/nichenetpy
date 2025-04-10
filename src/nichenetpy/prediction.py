@@ -79,7 +79,7 @@ class LigandActivityPredictor:
         Returns
         -------
         set
-            all geness in the ligand-target matrix
+            all genes in the ligand-target matrix
         '''
         return set(self.gene2index.keys())
 

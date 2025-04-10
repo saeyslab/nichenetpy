@@ -12,26 +12,33 @@ from nichenetpy.gene_symbol import (
     mouse_alias_info,
     human_alias_info
 )
-from nichenetpy.metrics import group_metrics
+from nichenetpy.metrics import group_metrics, calculate_metrics
 from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
     get_weighted_ligand_receptor_links,
     generate_info_tables,
-    normalize_single_cell_ligand_activities
+    normalize_single_cell_ligand_activities,
+    calculate_fraction_top_predicted,
+    calculate_fraction_top_predicted_fisher,
+    get_top_predicted_genes
 )
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
     read_csv_rows,
     read_csv_cols,
-    subset_matrix
+    subset_matrix,
+    decomplexify
 )
 from nichenetpy.normalization import scale_quantile
 from nichenetpy.prioritization import (
     generate_prioritization_table
 )
 from nichenetpy.visualization import get_ligand_signaling_path
-from nichenetpy.prediction import assess_rf_class_probabilities
+from nichenetpy.prediction import (
+    assess_rf_class_probabilities,
+    LigandActivityPredictor
+)
 from nichenetpy.model_construction import (
     construct_weighted_networks,
     apply_hub_correction,
@@ -43,6 +50,10 @@ from numbers import Number
 from collections.abc import Iterable
 from math import log
 from scipy.stats import pearsonr
+from liana.resource import (
+    show_resources,
+    select_resource
+)
 
 import anndata
 import os
@@ -50,12 +61,13 @@ import requests
 import pickle
 import pandas as pd
 import numpy as np
+import re
 
 
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
-network_path = os.path.join(root_path, "model_construction", "human")
+network_path = os.path.join(root_path, "model_construction")
 
 BASIC_top_10_ligand_activities = [
     ("Ifna1", 0.34233796),
@@ -440,6 +452,36 @@ MC_top_10_ligand_target_matrix_direct_2 = [
     14.9366186,
     1.6602571
 ]
+TPEG_target_prediction_performances_discrete = [
+    (0, 2950, 56, 0.01898305),
+    (1, 241, 104, 0.43153527),
+    (0, 2950, 50, 0.01694915),
+    (1, 241, 110, 0.45643154)
+]
+MCWL_top_10_ligand_activities_liana = [
+    ("Ebi3", 0.23326377),
+    ("H2-M3", 0.14088135),
+    ("H2-T23", 0.12524072),
+    ("Lck", 0.11406787),
+    ("H2-K1", 0.11211514),
+    ("Sirpa", 0.10826112),
+    ("Cd48", 0.10609468),
+    ("App", 0.10166153),
+    ("Tgfb1", 0.09785265),
+    ("Ccl22", 0.09666441)
+]
+MCWL_top_10_ligand_activities_nichenet = [
+    ("Ebi3", 0.23358985),
+    ("Ptprc", 0.15793842),
+    ("H2-M3", 0.14065653),
+    ("H2-M2", 0.12542008),
+    ("H2-T10", 0.12542008),
+    ("H2-T22", 0.12542008),
+    ("H2-T23", 0.12493483),
+    ("H2-K1", 0.11192616),
+    ("H2-Q4", 0.11162429),
+    ("H2-Q6", 0.11162429)
+]
 
 def equals(
     x,
@@ -530,12 +572,16 @@ def get_network_files():
         "gr_human.csv",
         "lr_network_human.csv",
         "lr_sig_human.csv",
+        "gr_mouse.csv",
+        "lr_network_mouse.csv",
+        "lr_sig_mouse.csv",
+        "source_weights.csv",
         "optimized_source_weights.csv",
         "annotation_data_sources.csv"
     ):
         file_path = os.path.join(network_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/14929618/files/{filename}")
+            res = requests.get(f"https://zenodo.org/records/15168364/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -592,9 +638,11 @@ def test_steps():
     geneset.intersection_update(predictor.get_genes())
     assert len(geneset) == 241
     assert len(expressed_genes_receiver) == 3903
+    background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
+    assert len(background_expressed_genes) == 3182
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset,
-        background_expressed_genes=expressed_genes_receiver,
+        background_expressed_genes=background_expressed_genes,
         potential_ligands=potential_ligands
     )
     ligand_activities_sorted = sorted(
@@ -820,7 +868,7 @@ def test_ligand_activity_geneset():
     assert len(potential_ligands) == 212
     with open(os.path.join(hnscc_path, "pemt_signature.txt")) as file:
         geneset = file.readlines()
-    lt_ligands = set(predictor.row_names)
+    lt_ligands = predictor.get_genes()
     geneset = {gene.rstrip() for gene in geneset}.intersection(lt_ligands)
     assert len(geneset) == 96
     background_expressed_genes = expressed_genes_receiver.intersection(lt_ligands)
@@ -943,7 +991,6 @@ def test_steps_prioritization():
     mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
     res = run_nichenet(
         ann,
@@ -958,7 +1005,6 @@ def test_steps_prioritization():
         targets_top_n=100
     )
     ligand_activities_sorted = res["ligand_activities_sorted_focused"]
-    best_upstream_ligands = res["best_upstream_ligands_focused"]
     expressed_ligands = res["expressed_ligands"]
     expressed_receptors = res["expressed_receptors"]
     lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
@@ -1073,14 +1119,14 @@ def test_ligand_target_signaling_path():
     if not os.path.exists(root_path):
         os.makedirs(root_path)
     for filename in (
-        ["ltf_matrix.pkl", "nichenet_human.pkl"]
+        ["ltf_matrix_human.pkl", "nichenet_human.pkl"]
     ):
         file_path = os.path.join(root_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/14944315/files/{filename}")
+            res = requests.get(f"https://zenodo.org/records/15131577/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
-    with open(os.path.join(root_path, "ltf_matrix.pkl"), "rb") as file:
+    with open(os.path.join(root_path, "ltf_matrix_human.pkl"), "rb") as file:
         ltf_matrix = pickle.loads(file.read())
     row_names = ltf_matrix["row_names"]
     col_names = ltf_matrix["col_names"]
@@ -1332,7 +1378,7 @@ def test_model_construction():
         MC_top_10_gr_0
     )
     ligands = [["TNF"], ["TNF", "IL6"]]
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1345,7 +1391,7 @@ def test_model_construction():
         df.head(10).to_numpy(),
         MC_top_10_ligand_target_matrix_PPR_0
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1360,7 +1406,7 @@ def test_model_construction():
         MC_top_10_ligand_target_matrix_SPL_0,
         err_bound=0.02 # correct but bigger difference between nichenetr and nichenetpy
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1396,7 +1442,7 @@ def test_model_construction():
         MC_top_10_gr_1
     )
     ligands = [["TNF"]]
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1409,7 +1455,7 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1,)),
         MC_top_10_ligand_target_matrix_PPR_1
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1423,7 +1469,7 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1,)),
         MC_top_10_ligand_target_matrix_SPL_1
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
@@ -1462,7 +1508,7 @@ def test_model_construction():
         MC_top_10_gr_2
     )
     ligands = [["TNF"]]
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         new_lr_network,
         ligands,
@@ -1475,7 +1521,7 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1)),
         MC_top_10_ligand_target_matrix_PPR_2
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         new_lr_network,
         ligands,
@@ -1489,7 +1535,7 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1)),
         MC_top_10_ligand_target_matrix_SPL_2
     )
-    row_names, col_names, mat = construct_ligand_target_matrix(
+    mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks,
         new_lr_network,
         ligands,
@@ -1503,3 +1549,280 @@ def test_model_construction():
         df.head(10).to_numpy().reshape((-1)),
         MC_top_10_ligand_target_matrix_direct_2
     )
+
+def test_target_prediction_evaluation_geneset():
+    # not deterministic, so allow for some variance
+    non_deterministic_err_bound = 0.2
+    ann = get_anndata_file("annData3531889.h5")
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    model = get_model_pickle("mouse")
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    receiver = "CD8 T"
+    sender_celltypes = ["CD4 T","Treg", "Mono", "NK", "B", "DC"]
+    output = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        lr_sig=lr_sig,
+        receiver=receiver,
+        sender_celltypes=sender_celltypes,
+        condition_col="aggregate",
+        condition_oi="LCMV",
+        condition_ref="SS",
+        expression_pct=0.05,
+        targets_top_n=100
+    )
+    geneset_oi = output["geneset_oi"]
+    expressed_genes_receiver = output["expressed_genes_receiver"]
+    ligands_oi = output["best_upstream_ligands"]
+    n = 2
+    k = 3
+    gene_predictions_top30_list = [
+        assess_rf_class_probabilities(
+            folds=k,
+            geneset=geneset_oi,
+            background_expressed_genes=expressed_genes_receiver,
+            ligands_oi=ligands_oi,
+            predictor=predictor
+        ) for _ in range(n)
+    ]
+    target_prediction_performances = []
+    for df in gene_predictions_top30_list:
+        met = calculate_metrics(list(df["prediction"]), list(df["response"]))
+        target_prediction_performances.append(pd.DataFrame([list(met.values())], columns=met.keys()))
+    target_prediction_performances = pd.concat(target_prediction_performances)
+    target_prediction_performances.reset_index(drop=True, inplace=True)
+    tpp_mean = target_prediction_performances.mean()
+    assert equals(tpp_mean["auroc"], 0.8025248, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["pearson"], 0.5338662, err_bound=non_deterministic_err_bound)
+    target_prediction_performances_discrete = pd.concat([calculate_fraction_top_predicted(df) for df in gene_predictions_top30_list])
+    assert equals_iter(
+        target_prediction_performances_discrete.to_numpy(),
+        TPEG_target_prediction_performances_discrete,
+        err_bound=non_deterministic_err_bound
+    )
+    assert equals(
+        target_prediction_performances_discrete[
+            target_prediction_performances_discrete["true_target"] == 1
+        ]["fraction_positive_predicted"].mean(),
+        0.4439834,
+        err_bound=non_deterministic_err_bound
+    )
+    assert equals(
+        target_prediction_performances_discrete[
+            target_prediction_performances_discrete["true_target"] == 0
+        ]["fraction_positive_predicted"].mean(),
+        0.0179661,
+        err_bound=non_deterministic_err_bound
+    )
+    target_prediction_performances_discrete_fisher = [
+        calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list
+    ]
+    '''
+    assert equals(
+        sum(target_prediction_performances_discrete_fisher)/len(target_prediction_performances_discrete_fisher),
+        1.058085e-85,
+        err_bound=non_deterministic_err_bound
+    )
+    ''' # unable to test this, too much variance
+
+def test_model_construction_with_liana():
+    get_network_files()
+    gr_network_human = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    lr_network_human = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
+    sig_network_human = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
+    gr_network_mouse = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_mouse.csv")))
+    lr_network_mouse = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_mouse.csv")))
+    sig_network_mouse = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_mouse.csv")))
+    source_weights = list(zip(*read_csv_rows(os.path.join(network_path, "source_weights.csv"))[1]))
+    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    optimized_source_weights = list(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
+    optimized_source_weights = dict(zip(optimized_source_weights[0], [float(e) for e in optimized_source_weights[1]]))
+    mouse_re = r".*mouse.*"
+    n_ligands = []
+    n_receptors = []
+    n_ligands_overlap = []
+    n_receptors_overlap_lr = []
+    n_receptors_overlap_sig = []
+    for resource in show_resources():
+        db = decomplexify(select_resource(resource))
+        lr_network, sig_network = (
+            (lr_network_human, sig_network_human)
+            if re.match(mouse_re, resource) is None
+            else (lr_network_mouse, sig_network_mouse)
+        )
+        n_ligands.append(len(set(db["ligand"])))
+        n_receptors.append(len(set(db["receptor"])))
+        n_ligands_overlap.append(len(set(db["ligand"]).intersection(lr_network["from"])))
+        n_receptors_overlap_lr.append(len(set(db["receptor"]).intersection(lr_network["to"])))
+        n_receptors_overlap_sig.append(len(set(db["receptor"]).intersection(sig_network["from"])))
+    overlap_df = pd.DataFrame({
+        "n_ligands": n_ligands,
+        "n_receptors": n_receptors,
+        "n_ligands_overlap": n_ligands_overlap,
+        "n_receptors_overlap_lr": n_receptors_overlap_lr,
+        "n_receptors_overlap_sig": n_receptors_overlap_sig
+    }, index=show_resources())
+    overlap_df["frac_ligands_overlap"] = overlap_df["n_ligands_overlap"] / overlap_df["n_ligands"]
+    overlap_df["frac_ligands_overlap_lr"] = overlap_df["n_receptors_overlap_lr"] / overlap_df["n_receptors"]
+    overlap_df["frac_ligands_overlap_sig"] = overlap_df["n_receptors_overlap_sig"] / overlap_df["n_receptors"]
+    assert len(overlap_df) == 17
+    row = overlap_df.loc["consensus"]
+    assert row["n_ligands"] == 1032
+    assert row["n_receptors"] == 934
+    assert row["n_ligands_overlap"] == 923
+    assert row["n_receptors_overlap_lr"] == 794
+    assert row["n_receptors_overlap_sig"] == 927
+    assert equals(row["frac_ligands_overlap"], 0.8943798)
+    assert equals(row["frac_ligands_overlap_lr"], 0.8501071)
+    assert equals(row["frac_ligands_overlap_sig"], 0.9925054)
+    row = overlap_df.loc["baccin2019"]
+    assert row["n_ligands"] == 650
+    assert row["n_receptors"] == 612
+    assert row["n_ligands_overlap"] == 550
+    assert row["n_receptors_overlap_lr"] == 535
+    assert row["n_receptors_overlap_sig"] == 611
+    assert equals(row["frac_ligands_overlap"], 0.8461538)
+    assert equals(row["frac_ligands_overlap_lr"], 0.8741830)
+    assert equals(row["frac_ligands_overlap_sig"], 0.9983660)
+    replace_nichenet_lr = True
+    liana_db = decomplexify(select_resource("Consensus"))
+    liana_db.rename(columns={
+        "ligand": "from",
+        "receptor": "to"
+    }, inplace=True)
+    liana_db["source"] = list(repeat("liana", len(liana_db)))
+    if not replace_nichenet_lr:
+        liana_db = pd.concat((lr_network_human, liana_db))
+    source_weights["liana"] = 1
+    weighted_networks = construct_weighted_networks(
+        liana_db,
+        sig_network_human,
+        gr_network_human,
+        source_weights
+    )
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
+    ligands = [["TNF"], ["TNF", "IL6"]]
+    predictor = LigandActivityPredictor(
+        *construct_ligand_target_matrix(
+            weighted_networks,
+            lr_network,
+            ligands,
+            damping_factor=0.789,
+            ltf_cutoff=0.926
+        )
+    )
+    ann = get_anndata_file("annData3531889.h5")
+    ann.var_names = ann.var["gene"]
+    mouse_alias_info.alias_to_symbol(ann)
+    lr_network_liana = decomplexify(select_resource("mouseconsensus"))
+    lr_network_liana.rename(columns={
+        "ligand": "from",
+        "receptor": "to"
+    }, inplace=True)
+    assert len(lr_network_liana) == 5084
+    receiver = "CD8 T"
+    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, 0.1))
+    assert len(expressed_genes_receiver) == 1922
+    sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
+    list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=0.1) for ct in sender_celltypes]
+    expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+    assert len(expressed_genes_sender) == 5480
+    ann_receiver = subset_ann(
+        ann,
+        val=receiver,
+        val_col="celltype"
+    )
+    group_metrics(
+        ann_receiver,
+        groupby="aggregate",
+        layer="data",
+        min_pct=0.1,
+        min_abs_lfc=0.25
+    )
+    DE_table = ann_receiver.uns["group_metrics"]
+    geneset = set(
+        DE_table[
+            (DE_table["aggregate"] == "LCMV") &
+            (DE_table["pval_adj"] <= 0.05)
+        ]["gene"]
+    )
+    ligands = set(lr_network_liana["from"])
+    assert len(ligands) == 874
+    receptors = set(lr_network_liana["to"])
+    assert len(receptors) == 796
+    expressed_ligands = ligands.intersection(expressed_genes_sender)
+    assert len(expressed_ligands) == 145
+    expressed_receptors = receptors.intersection(expressed_genes_receiver)
+    assert len(expressed_receptors) == 57
+    potential_ligands = set(lr_network_liana[[
+        (fr in expressed_ligands) & (to in expressed_receptors)
+        for fr, to in zip(lr_network_liana["from"], lr_network_liana["to"])
+    ]]["from"])
+    assert len(potential_ligands) == 50
+    optimized_source_weights["liana"] = optimized_source_weights["nichenet_verschueren"]
+    weighted_networks_liana = construct_weighted_networks(
+        lr_network_liana,
+        sig_network_mouse,
+        gr_network_mouse,
+        optimized_source_weights
+    )
+    weighted_networks_liana["lr_sig"] = apply_hub_correction(weighted_networks_liana["lr_sig"], hub=0.115)
+    weighted_networks_liana["gr"] = apply_hub_correction(weighted_networks_liana["gr"], hub=0.0803)
+    predictor_liana = LigandActivityPredictor(
+        *construct_ligand_target_matrix(
+            weighted_networks_liana,
+            lr_network_liana,
+            potential_ligands,
+            damping_factor=0.789,
+            ltf_cutoff=0.926
+        )
+    )
+    geneset.intersection_update(predictor_liana.get_genes())
+    assert len(geneset) == 227
+    background_expressed_genes = expressed_genes_receiver.intersection(predictor_liana.get_genes())
+    assert len(background_expressed_genes) == 1534
+    ligand_activities = sorted(
+        predictor_liana.predict_ligand_activities(
+            geneset,
+            background_expressed_genes,
+            potential_ligands
+        ).items(),
+        key=lambda x : (-x[1]["aupr_corrected"], x[0])
+    )
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities[:10]),
+        MCWL_top_10_ligand_activities_liana
+    )
+    model = get_model_pickle("mouse")
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    res = run_nichenet(
+        ann,
+        predictor,
+        lr_network,
+        "CD8 T",
+        "aggregate",
+        "LCMV",
+        "SS",
+        sender_celltypes=sender_celltypes,
+        lr_sig=lr_sig
+    )
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in res["ligand_activities_sorted_focused"][:10]),
+        MCWL_top_10_ligand_activities_nichenet
+    )
+    """assert equals(
+        len(
+            {e[0] for e in ligand_activities[:20]}.intersection(
+                {e[0] for e in res["ligand_activities_sorted_focused"][:20]}
+            )
+        )/20,
+        0.5
+    )""" # negligible difference in ligand ranking

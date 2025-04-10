@@ -233,7 +233,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         # preference vector
         pv = np.zeros(shape=lr_sig_mat.shape[0])
@@ -263,7 +264,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         complete_matrix = []
         for _ligands in ligands:
@@ -299,7 +301,8 @@ def construct_ligand_tf_matrix(
                     [gene2id[e] for e in lr_sig["from"]],
                     [gene2id[e] for e in lr_sig["to"]]
                 )
-            )
+            ),
+            shape=(len(gene2id), len(gene2id))
         )
         complete_matrix = []
         for _ligands in ligands:
@@ -367,7 +370,8 @@ def construct_tf_target_matrix(
                 fr,
                 [gene2id[e] for e in gr["to"]]
             )
-        )
+        ),
+        shape=(len(gene2id), len(gene2id))
     )
     row_names = all_genes
     col_names = all_genes
@@ -395,14 +399,14 @@ def _set_min(mat):
 def construct_ligand_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     lr_network:pd.DataFrame,
-    ligands:Iterable[str],
+    ligands:Iterable[str|Iterable[str]],
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
     secondary_targets:bool=False,
     ligands_as_cols:bool=True,
     remove_direct_links:str="no"
-) -> tuple[list[str], list[str], np.ndarray|csr_matrix]:
+) -> tuple[np.ndarray|csr_matrix, list[str], list[str]]:
     '''
     Convert integrated weighted networks into a matrix containg ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
@@ -411,7 +415,7 @@ def construct_ligand_target_matrix(
     ----------
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
-    ligands : Iterable of str
+    ligands : Iterable[str|Iterable[str]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
@@ -444,12 +448,12 @@ def construct_ligand_target_matrix(
     
     Returns
     -------
+    numpy.ndarray
+        a matrix containing tf-target regulatory weights
     list of str
         the names of the rows of the matrix
     list of str
         the name of the columns of the matrix
-    numpy.ndarray
-        a matrix containing tf-target regulatory weights
     
     Raises
     ------
@@ -463,7 +467,7 @@ def construct_ligand_target_matrix(
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[str|Iterable[str]], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -488,6 +492,7 @@ def construct_ligand_target_matrix(
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+    ligands = [(_ligands,) if type(_ligands) is str else _ligands for _ligands in ligands]
     ltf_rows, _, ltf_matrix = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
     _, grn_cols, grn_matrix = construct_tf_target_matrix(weighted_networks)
     ligand2target = ltf_matrix * grn_matrix
@@ -498,5 +503,5 @@ def construct_ligand_target_matrix(
         _set_min(ligand2target_secondary)
         ligand2target = (ligand2target**-1 + ligand2target_secondary**-1)**-1
     if ligands_as_cols:
-        return (grn_cols, ltf_rows, ligand2target.transpose())
-    return (ltf_rows, grn_cols, ligand2target)
+        return (ligand2target.transpose(), grn_cols, ltf_rows)
+    return (ligand2target, ltf_rows, grn_cols)

@@ -140,9 +140,10 @@ check following notebooks:
 -   [circos visualization](notebooks/circos.ipynb)
 
 People interested in building their own models or benchmarking their own
-models against NicheNet can read one of the following notebooks:
+models against NicheNet can read the following notebooks:
 
 -   [Model construction](notebooks/model_construction.ipynb)
+-   [Using LIANA ligand-receptor databases to construct the ligand-target model](notebooks/model_construction_with_liana.ipynb)
 
 TODO?
 ## FAQ
