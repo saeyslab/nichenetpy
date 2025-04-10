@@ -65,7 +65,7 @@ def get_expressed_genes(
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
     exps = gene_expression_pct(exprs_m)
-    return [ann.var_names[gene] for gene, val in enumerate(exps) if val > pct]
+    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
 
 def get_weighted_ligand_receptor_links(
     best_upstream_ligands:Iterable[str],
