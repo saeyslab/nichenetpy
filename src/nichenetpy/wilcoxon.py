@@ -1,6 +1,7 @@
 from nichenetpy.utils import subset_matrix
 
 from scipy.sparse import csc_matrix
+from scipy.stats import t
 from anndata import AnnData
 from itertools import chain
 from collections.abc import Iterable
@@ -194,3 +195,40 @@ def wilcoxon_rank_sum_test(
         pvals = pd.DataFrame(pvals, index=genes)
         pvals.index.name = "gene"
     return pvals
+
+def wilcoxon_rank_sum_test_with_correlation(
+    index,
+    statistics,
+    correlation,
+    df
+):
+    '''
+    Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
+    
+    Notes
+    -----
+    implementation based on https://github.com/gangwug/limma/blob/master/R/rankSumTestWithCorrelation.R
+    '''
+    n = len(statistics)
+    r = pd.DataFrame(statistics).rank(method="average")
+    r1 = r.iloc[index]
+    n1 = len(r1)
+    n2 = n - n1
+    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
+    mu = n1 * n2 / 2
+    if correlation == 0 or n1 == 1:
+        sigma2 = n1 * n2 * (n + 1) / 12
+
+    else:
+        sigma2 = (
+            1.57079633 * n1 * n2 +
+            0.523598776 * n1 * n2 * (n2 - 1) +
+            np.arcsin(correlation / 2) * n1 * (n1 - 1) * n2 * (n2 - 1) +
+            np.arcsin((correlation + 1) / 2) * n1 * (n1 - 1) * n2
+        ) / (2 * np.pi)
+    ties = r.groupby("rank").count()
+    adjustment = sum(ties * (ties + 1) * (ties - 1)) / n * (n + 1) * (n - 1)
+    sigma2 *= 1 - adjustment
+    zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
+    zuppertail = (u - 0.5 - mu) / sqrt(sigma2)
+    return (t.cdf(zlowertail, df), 1 - t.cdf(zuppertail, df))
