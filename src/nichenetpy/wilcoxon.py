@@ -6,6 +6,7 @@ from anndata import AnnData
 from itertools import chain
 from collections.abc import Iterable
 from math import sqrt, erfc
+from numbers import Number
 
 import pandas as pd
 import numpy as np
@@ -25,6 +26,7 @@ def _rank_cells(
     group_mat = []
     nrows, ncols = mat.shape
     tie_stat = np.zeros(shape=(ncols,))
+    # for each gene
     for ci in range(ncols):
         ranks = []
         indices_non_zero = mat.indices[mat.indptr[ci]:mat.indptr[ci+1]]
@@ -62,6 +64,7 @@ def _rank_cells(
         # original rank for a value of 0 (ranks will be translated to get a 0-rank for 0-values)
         # compute average using gaussian summation (the +1 has been moved into the division)
         zero_rank = 0 if n_zero == 0 else n_neg + (n_zero + 1)/2
+        # compute the rank of each cell
         # negative 
         i = 0
         while i < n_neg:
@@ -163,6 +166,7 @@ def wilcoxon_rank_sum_test(
         tie_correction=tie_correction
     )
     rank_sums = dict()
+    # for each gene
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
         rank_sums.clear()
         for rank, group in zip(ranking, groups):
@@ -171,6 +175,7 @@ def wilcoxon_rank_sum_test(
             else:
                 rank_sums[group] = float(rank)
         total_rank = sum(rank_sums.values())
+        # for each group
         for group in rank_sums.keys():
             # test statistic
             n_group = group_sizes[group]
@@ -197,28 +202,59 @@ def wilcoxon_rank_sum_test(
     return pvals
 
 def wilcoxon_rank_sum_test_with_correlation(
-    index,
-    statistics,
-    correlation,
-    df
+    index:Iterable[int]|Iterable[bool],
+    statistics:Iterable[float],
+    correlation:float=0,
+    df:float=np.inf
 ):
     '''
     Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
+
+    Parameters
+    ----------
+    index : Iterable of int or Iterable of bool
+        indices or mask of the test group
+    statistics : Iterable[float]
+        the values of the test statistic
+    correlation : float
+        The average correlation between cases in the test group.
+        Cases in the second group are assumed independent of each other and other the first group.
+    df : float
+        the degrees of freedom which the correlation has been estimated
+    
+    Returns
+    -------
+    float
+        lower tail p-value
+    float
+        upper tail p-value
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
     
     Notes
     -----
     implementation based on https://github.com/gangwug/limma/blob/master/R/rankSumTestWithCorrelation.R
     '''
+    if not isinstance(index, Iterable):
+        raise TypeError(f"index should have type Iterable[int] or Iterable[bool], was {type(index)}")
+    if not isinstance(statistics, Iterable):
+        raise TypeError(f"statistics should have type Iterable[float], was {type(statistics)}")
+    if not isinstance(correlation, Number):
+        raise TypeError(f"correlation should have type float, was {type(correlation)}")
+    if not isinstance(df, Number):
+        raise TypeError(f"df should have type float, was {type(df)}")
     n = len(statistics)
     r = pd.DataFrame(statistics).rank(method="average")
-    r1 = r.iloc[index]
+    r1 = r[index] if type(index[0]) is bool else r.iloc[index]
     n1 = len(r1)
     n2 = n - n1
     u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
     mu = n1 * n2 / 2
     if correlation == 0 or n1 == 1:
         sigma2 = n1 * n2 * (n + 1) / 12
-
     else:
         sigma2 = (
             1.57079633 * n1 * n2 +
@@ -227,6 +263,7 @@ def wilcoxon_rank_sum_test_with_correlation(
             np.arcsin((correlation + 1) / 2) * n1 * (n1 - 1) * n2
         ) / (2 * np.pi)
     ties = r.groupby("rank").count()
+    print(ties)
     adjustment = sum(ties * (ties + 1) * (ties - 1)) / n * (n + 1) * (n - 1)
     sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
