@@ -50,13 +50,7 @@ def _rank_cells(
         indices_non_zero = set(indices_non_zero)
         # reorder the groups of the cells so it matches the ranking
         group_mat.append(
-            list(
-                chain(
-                    groups_sorted[:n_neg],
-                    (cell_groups[i] for i in range(nrows) if i not in indices_non_zero),# bottleneck
-                    groups_sorted[n_neg:]
-                )
-            )
+            groups_sorted
         )
         # original rank for a value of 0 (ranks will be translated to get a 0-rank for 0-values)
         # compute average using gaussian summation (the +1 has been moved into the division)
@@ -74,9 +68,6 @@ def _rank_cells(
             for _ in range(n_tied):
                 ranks.append(rank)
             i += n_tied
-        # zero
-        for _ in range(n_zero):
-            ranks.append(0)
         # positive
         i = n_neg
         while i < len(non_zero):
