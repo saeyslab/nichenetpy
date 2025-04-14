@@ -248,10 +248,11 @@ def wilcoxon_rank_sum_test_with_correlation(
         raise TypeError(f"df should have type float, was {type(df)}")
     n = len(statistics)
     r = pd.DataFrame(statistics).rank(method="average")
-    r1 = r[index] if type(index[0]) is bool else r.iloc[index]
+    r.index = index.index
+    r1 = r[index] if type(index.iloc[0]) is bool or type(index.iloc[0]) is np.bool else r.iloc[index]
     n1 = len(r1)
     n2 = n - n1
-    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
+    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1[0])
     mu = n1 * n2 / 2
     if correlation == 0 or n1 == 1:
         sigma2 = n1 * n2 * (n + 1) / 12
@@ -262,8 +263,7 @@ def wilcoxon_rank_sum_test_with_correlation(
             np.arcsin(correlation / 2) * n1 * (n1 - 1) * n2 * (n2 - 1) +
             np.arcsin((correlation + 1) / 2) * n1 * (n1 - 1) * n2
         ) / (2 * np.pi)
-    ties = r.groupby("rank").count()
-    print(ties)
+    ties = r.groupby(0).count()
     adjustment = sum(ties * (ties + 1) * (ties - 1)) / n * (n + 1) * (n - 1)
     sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)

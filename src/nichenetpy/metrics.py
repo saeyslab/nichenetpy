@@ -403,13 +403,25 @@ def group_metrics(
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
     if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
-        pvals = []
         mat = ann.layers[layer]
-        masks = {}
+        groups = set(ann.obs[groupby])
+        pvals = {group: [] for group in groups}
         # for each gene
         for i in range(mat.shape[1]):
-            for mask in masks:
-                pval = min(2 * min(wilcoxon_rank_sum_test_with_correlation(mask, mat[:, i]).todense()), 1)
+            for group in groups:
+                pvals[group].append(
+                    min(
+                        2 * min(
+                            wilcoxon_rank_sum_test_with_correlation(
+                                ann.obs[groupby] == group,
+                                mat[:, i].todense()
+                            )
+                        ),
+                        1
+                    )
+                )
+        pvals = pd.DataFrame(pvals, index=genes)
+        pvals.index.name = "gene"
     else:
         # TODO: check if group_oi and group_ref can be used for speedup
         pvals = wilcoxon_rank_sum_test(
