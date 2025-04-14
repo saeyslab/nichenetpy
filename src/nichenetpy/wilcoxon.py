@@ -247,7 +247,7 @@ def wilcoxon_rank_sum_test_with_correlation(
     if not isinstance(df, Number):
         raise TypeError(f"df should have type float, was {type(df)}")
     n = len(statistics)
-    r = pd.DataFrame(statistics).rank(method="average")
+    r = pd.DataFrame(statistics).rank(method="average", ascending=True)
     r.index = index.index
     r1 = r[index] if type(index.iloc[0]) is bool or type(index.iloc[0]) is np.bool else r.iloc[index]
     n1 = len(r1)
