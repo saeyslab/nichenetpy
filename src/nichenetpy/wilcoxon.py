@@ -154,12 +154,10 @@ def wilcoxon_rank_sum_test(
     )
     rank_sums = dict()
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
-        rank_sums.clear()
+        for group in group_sizes.keys():
+            rank_sums[group] = 0.0
         for rank, group in zip(ranking, groups):
-            if group in rank_sums:
-                rank_sums[group] += rank
-            else:
-                rank_sums[group] = float(rank)
+            rank_sums[group] += rank
         total_rank = sum(rank_sums.values())
         for group in rank_sums.keys():
             # test statistic
