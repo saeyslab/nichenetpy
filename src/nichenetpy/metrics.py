@@ -408,13 +408,14 @@ def group_metrics(
         pvals = {group: [] for group in groups}
         # for each gene
         for i in range(mat.shape[1]):
+            col = mat[:, i].todense()
             for group in groups:
                 pvals[group].append(
                     min(
                         2 * min(
                             wilcoxon_rank_sum_test_with_correlation(
                                 ann.obs[groupby] == group,
-                                mat[:, i].todense()
+                                col
                             )
                         ),
                         1
