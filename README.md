@@ -144,6 +144,7 @@ models against NicheNet can read the following notebooks:
 
 -   [Model construction](notebooks/model_construction.ipynb)
 -   [Using LIANA ligand-receptor databases to construct the ligand-target model](notebooks/model_construction_with_liana.ipynb)
+-   [Model evaluation: target gene and ligand activity prediction](notebooks/model_evaluation.ipynb)
 
 TODO?
 ## FAQ
