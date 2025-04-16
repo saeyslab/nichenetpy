@@ -1,5 +1,7 @@
 from nichenetpy.prediction import LigandActivityPredictor
 
+from collections.abc import Iterable
+
 import warnings
 
 
@@ -12,4 +14,18 @@ def convert_expression_settings_evaluation(setting:dict):
         "name": setting["name"],
         "from": setting["from"],
         "response": dict(zip(setting["diffexp"]["gene"], diffexp))
+    }
+
+def convert_settings_ligand_prediction(
+    settings:dict,
+    all_ligands:Iterable[str]
+):
+    return {
+        k: {
+            "name": v["name"],
+            "ligand": v["from"],
+            "from": ligand,
+            "response": v["response"]
+        }
+        for k, v in settings.items() for ligand in all_ligands
     }
