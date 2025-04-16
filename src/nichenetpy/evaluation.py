@@ -1,3 +1,5 @@
+from nichenetpy.prediction import LigandActivityPredictor
+
 import warnings
 
 
@@ -9,8 +11,5 @@ def convert_expression_settings_evaluation(setting:dict):
     return {
         "name": setting["name"],
         "from": setting["from"],
-        "response": diffexp
+        "response": dict(zip(setting["diffexp"]["gene"], diffexp))
     }
-
-def evaluate_target_prediction():
-    pass

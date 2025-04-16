@@ -82,6 +82,45 @@ class LigandActivityPredictor:
             all genes in the ligand-target matrix
         '''
         return set(self.gene2index.keys())
+    
+    def evaluate_target_prediction(
+        self,
+        ligand:str,
+        response:dict[str, int]
+    ):
+        '''
+        Evaluate how well the model (i.e. the inferred ligand-target probability scores) is able to predict the observed response
+        to a ligand (e.g. the set of DE genes after treatment of cells by a ligand). It shows several classification evaluation
+        metrics for the prediction. 
+
+        Parameters
+        ----------
+        ligand : str
+            the ligand of interest
+        response : dict[str, int]
+            a dictionary indicating whether a target is a true target of the possibly active ligand
+
+        Returns
+        -------
+        dict
+            the evaluation metrics
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        '''
+        if type(ligand) is not str:
+            raise TypeError(f"ligand should have type str, was {type(ligand)}")
+        if type(response) is not dict:
+            raise TypeError(f"response should have type dict, was {type(response)}")
+        # create the prediction model vector
+        prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+        # we need to match the predictions with the responses so we intersect and sort by key
+        common_keys = prediction.keys() & response.keys()
+        pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
+        resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
+        return calculate_metrics(pred, resp)
 
     def predict_ligand_activities(
         self,
@@ -119,23 +158,14 @@ class LigandActivityPredictor:
             raise TypeError(f"background_expressed_genes should have type Iterable, was {type(background_expressed_genes)}")
         if not isinstance(potential_ligands, Iterable):
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
-
         output = dict()
-
         # create the expected gene expression response vector
         response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
         for gene in geneset:
             response[gene] = 1
-
         # compute the metrics for each ligand
         for ligand in potential_ligands:
-            # create the prediction model vector
-            prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
-            # we need to match the predictions with the responses so we intersect and sort by key
-            common_keys = prediction.keys() & response.keys()
-            pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
-            resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-            output[ligand] = calculate_metrics(pred, resp)
+            output[ligand] = self.evaluate_target_prediction(ligand, response)
         return output
     
     def predict_single_cell_ligand_activities(
