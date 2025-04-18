@@ -2,6 +2,7 @@ from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.metrics import calculate_metrics
 
 from collections.abc import Iterable
+from itertools import repeat
 
 import warnings
 import pandas as pd
@@ -58,24 +59,26 @@ def get_single_ligand_importances(
     return ligand_importances
 
 def evaluate_single_importances_ligand_prediction(
-    importances:pd.DataFrame
+    importances:pd.DataFrame,
+    group:str
 ):
-    added = importances["test_ligand"], importances["test_ligand"] == importances["true_ligand"]
+    importances = importances[importances["setting"] == group]
+    metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
+    added = importances["test_ligand"] == importances["true_ligand"]
     # compute metrics for multiple prediction/response pairs and store them in a dataframe
-    return pd.DataFrame(
+    output = pd.DataFrame(
         dict(zip(
-            ("aupr", "aupr_corrected", "auroc", "pearson"),
+            metrics,
             zip(*(
                 list(zip(*sorted(
-                    calculate_metrics(list(pred), list(added)).items(),
+                    calculate_metrics(list(importances[metric]), list(added)).items(),
                     key=lambda x : x[0]
                 )))[1]
-                for pred in (
-                    importances["aupr"],
-                    importances["aupr_corrected"],
-                    importances["auroc"],
-                    importances["pearson"]
-                )
+                for metric in metrics
             ))
         ))
     )
+    output["metric"] = metrics
+    output["group"] = list(repeat(group, len(metrics)))
+    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(metrics)))
+    return output
