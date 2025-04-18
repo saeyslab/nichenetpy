@@ -44,6 +44,12 @@ from nichenetpy.model_construction import (
     apply_hub_correction,
     construct_ligand_target_matrix
 )
+from nichenetpy.evaluation import (
+    convert_expression_settings_evaluation,
+    convert_settings_ligand_prediction,
+    get_single_ligand_importances,
+    evaluate_single_importances_ligand_prediction
+)
 
 from itertools import cycle, chain, repeat
 from numbers import Number
@@ -62,12 +68,14 @@ import pickle
 import pandas as pd
 import numpy as np
 import re
+import json
 
 
 root_path = os.path.normpath("./tests/data/tutorial_files")
 ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
 network_path = os.path.join(root_path, "model_construction")
+eval_path = os.path.join(root_path, "model_evaluation")
 
 BASIC_top_10_ligand_activities = [
     ("Ifna1", 0.34233796),
@@ -582,6 +590,19 @@ def get_network_files():
         file_path = os.path.join(network_path, filename)
         if not os.path.exists(file_path):
             res = requests.get(f"https://zenodo.org/records/15168364/files/{filename}")
+            with open(file_path, "wb") as file:
+                file.write(res.content)
+
+def get_evaluation_files():
+    if not os.path.exists(eval_path):
+        os.makedirs(eval_path)
+    for filename in (
+        #"cytosig_settings.json",
+        "expression_settings_validation.json",
+    ):
+        file_path = os.path.join(eval_path, filename)
+        if not os.path.exists(file_path):
+            res = requests.get(f"https://zenodo.org/records/15228527/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -1826,3 +1847,69 @@ def test_model_construction_with_liana():
         )/20,
         0.5
     )""" # negligible difference in ligand ranking
+
+def test_model_evaluation():
+    model = get_model_pickle("human")
+    predictor = model["predictor"]
+    get_evaluation_files()
+    with open(os.path.join(eval_path, "expression_settings_validation.json"), "rb") as file:
+        expression_settings_validation = json.loads(file.read())
+    settings = {
+        v["name"]: convert_expression_settings_evaluation(v)
+        for v in expression_settings_validation.values()
+        if type(v["from"]) is str or len(v["from"]) == 1
+    }
+    performances = {
+        k: predictor.evaluate_target_prediction(v["from"], v["response"])
+        for k, v in settings.items()
+    }
+    perf = performances["bmp4_Bmp4"]
+    assert equals(perf["auroc"], 0.9780427)
+    assert equals(perf["aupr"], 0.25601437)
+    assert equals(perf["aupr_corrected"], 0.24365215)
+    assert equals(perf["pearson"], 0.4514624)
+    settings = {
+        v["name"]: convert_expression_settings_evaluation(v)
+        for v in expression_settings_validation.values()
+        if type(v["from"]) is str or len(v["from"]) == 1
+    }
+    all_ligands = set(chain(*(
+        [setting["from"]] if type(setting["from"]) is str else setting["from"]
+        for setting in settings.values()
+    )))
+    settings_ligand_prediction = convert_settings_ligand_prediction(settings, all_ligands)
+    ligand_importances = get_single_ligand_importances(predictor, settings_ligand_prediction)
+    row = ligand_importances[
+        (ligand_importances["setting"] == "Nodal_nodal") &
+        (ligand_importances["test_ligand"] == "TNF") &
+        (ligand_importances["true_ligand"] == "NODAL")
+    ].iloc[0]
+    assert equals(row["auroc"], 0.6546306)
+    assert equals(row["aupr"], 0.03906434, err_bound=0.04)
+    assert equals(row["aupr_corrected"], 0.015198568, err_bound=0.04)
+    assert equals(row["pearson"], 0.046197919, err_bound=0.04)
+    evaluation_ligand_prediction = pd.concat(
+        evaluate_single_importances_ligand_prediction(ligand_importances, group)
+        for group in set(ligand_importances["setting"])
+    )
+    rows = evaluation_ligand_prediction[evaluation_ligand_prediction["group"] == "bmp2_Bmp2_timeseries"]
+    row = rows[rows["metric"] == "auroc"].iloc[0]
+    assert equals(row["auroc"], 1)
+    assert equals(row["aupr"], 1)
+    assert equals(row["aupr_corrected"], 0.97872340)
+    assert equals(row["pearson"], 0.8007495)
+    row = rows[rows["metric"] == "aupr"].iloc[0]
+    assert equals(row["auroc"], 1)
+    assert equals(row["aupr"], 1)
+    assert equals(row["aupr_corrected"], 0.97872340)
+    assert equals(row["pearson"], 0.9311739)
+    row = rows[rows["metric"] == "aupr_corrected"].iloc[0]
+    assert equals(row["auroc"], 1)
+    assert equals(row["aupr"], 1)
+    assert equals(row["aupr_corrected"], 0.97872340)
+    assert equals(row["pearson"], 0.9311739)
+    row = rows[rows["metric"] == "pearson"].iloc[0]
+    assert equals(row["auroc"], 1)
+    assert equals(row["aupr"], 1)
+    assert equals(row["aupr_corrected"], 0.97872340)
+    assert equals(row["pearson"], 0.8084805)
