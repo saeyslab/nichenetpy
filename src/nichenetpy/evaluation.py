@@ -50,9 +50,6 @@ def get_single_ligand_importances(
             ))
         ))
     )
-    '''ligand_importances["test_ligand"] = [setting["from"] for setting in settings]
-    ligand_importances["true_ligand"] = [setting["ligand"] for setting in settings]
-    ligand_importances["setting"] = [setting["name"] for setting in settings]'''
     ligand_importances["setting"], ligand_importances["test_ligand"], ligand_importances["true_ligand"] = (
         zip(*((setting["name"], setting["from"], setting["ligand"]) for setting in settings))
     )
