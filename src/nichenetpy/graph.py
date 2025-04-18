@@ -55,7 +55,31 @@ def dijkstra_spl(
 def get_reachable_nodes(
     graph:csr_matrix,
     src:int
-):
+) -> set[int]:
+    '''
+    Returns all nodes in the graph which are reachable from the specified source node. 
+
+    Parameters
+    ----------
+    graph : csr_matrix
+        the graph (as adjacency matrix)
+    src : int
+        the source node
+    
+    Returns
+    -------
+    set of int
+        the set of reachable nodes
+    
+    Raises
+    ------
+    TypeError
+        if the arguments are not of the correct type
+    '''
+    if type(graph) is not csr_matrix:
+        raise TypeError(f"graph should have type csr_matrix, was {type(graph)}")
+    if type(src) is not int:
+        raise TypeError(f"src should have type int, was {type(src)}")
     output = {src}
     q = [src]
     while len(q) > 0:

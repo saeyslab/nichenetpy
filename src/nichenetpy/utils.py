@@ -438,6 +438,36 @@ def decomplexify(
     from_col:str="ligand",
     to_col:str="receptor"
 ) -> pd.DataFrame:
+    '''
+    Helper Function to 'decomplexify' ligands and receptors into individual subunits. (function from LIANA R)
+
+    Splits "from" and "to" in subunits and takes all combinations. 
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        data frame which has columns from_col and to_col
+    from_col : str
+        the "from" column
+    to_col : str
+        the "to" column
+
+    Returns
+    -------
+    pandas.DataFrame
+        data frame which has columns from_col and to_col after which contain all combinations of subunits
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(df) is not pd.DataFrame:
+        raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
+    if type(from_col) is not str:
+        raise TypeError(f"from_col should have type str, was {type(from_col)}")
+    if type(to_col) is not str:
+        raise TypeError(f"to_col should have type str, was {type(to_col)}")
     frs = []
     tos = []
     for fr, to in zip(df[from_col], df[to_col]):
