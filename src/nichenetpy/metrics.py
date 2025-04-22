@@ -116,8 +116,8 @@ def calculate_auroc(
     if type(prediction) is not list and type(prediction) is not tuple:
         raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
-    fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0], reverse=True))
-    return _auc_reverse(fp, tp)
+    fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
+    return -_auc_reverse(fp, tp)
 
 def calculate_metrics(
     prediction:list[float]|tuple[float],
@@ -128,6 +128,8 @@ def calculate_metrics(
     currently supported metrics are:
         AUPR
         corrected AUPR
+        AUROC
+        Pearson correlation
 
     Parameters
     ----------
