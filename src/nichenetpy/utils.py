@@ -1,6 +1,7 @@
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 
 from collections.abc import Iterable, Callable
+from anndata import AnnData
 
 import numpy as np
 import pandas as pd
@@ -479,3 +480,51 @@ def decomplexify(
         from_col: frs,
         to_col: tos
     })
+
+def rank_genes_groups_to_dataframe(
+    ann:AnnData,
+    groupby:str
+) -> pd.DataFrame:
+    '''
+    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object (ann.uns["rank_genes_groups"] needs to be defined by using scanpy.tl.rank_genes_groups)
+    groupby : str
+        the "groupby" argument that was passed to scanpy.tl.rank_genes_groups
+
+    Returns
+    -------
+    pandas.DataFrame
+        the data frame which contains the output of scanpy.tl.rank_genes_groups
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
+    res = ann.uns["rank_genes_groups"]
+    output = pd.melt(pd.DataFrame(res["names"]), var_name=groupby, value_name="gene")
+    for col in ["pvals", "pvals_adj", "logfoldchanges"]:
+        temp = pd.melt(pd.DataFrame(res[col]), var_name=groupby, value_name=col)
+        temp.drop(columns={groupby}, inplace=True)
+        output = output.join(temp, how="inner")
+    temp = pd.melt(res["pts"], var_name=groupby, value_name="pts", ignore_index=False)
+    temp.index.name = "gene"
+    temp.reset_index(inplace=True)
+    output = output.merge(temp, on=["gene", groupby], how="inner")
+    output.rename(
+        columns={
+            "logfoldchanges": "lfc",
+            "pvals": "pval",
+            "pvals_adj": "pval_adj",
+            "pts": "pct"
+        },
+        inplace=True
+    )
+    ann.uns["rank_genes_groups"] = output
+    return output

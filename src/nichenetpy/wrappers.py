@@ -1,9 +1,13 @@
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+from nichenetpy.network import (
+    LigandReceptorNetwork,
+    WeightedNetwork
+)
 from nichenetpy.utils import (
     combine_by_key,
     combine_dicts,
-    df_grouped_apply
+    df_grouped_apply,
+    rank_genes_groups_to_dataframe
 )
 from nichenetpy.extraction import (
     get_expressed_genes,
@@ -39,6 +43,7 @@ from numbers import Number
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import scanpy as sc
 
 
 def get_geneset_oi(
@@ -49,7 +54,10 @@ def get_geneset_oi(
     layer:str="data",
     max_pval_adj:float=0.05,
     min_abs_lfc:float=0.25,
-    min_pct:float=0.05
+    min_pct:float=0.05,
+    use_scanpy:bool=False,
+    scanpy_corr_method:str="benjamini-hochberg",
+    scanpy_tie_correct:bool=False
 ) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
@@ -72,11 +80,22 @@ def get_geneset_oi(
         the lower bound for lfc,
     min_pct : float
         the lower bound for the pct
+    use_scanpy : bool
+        if true, use scanpy.tl.rank_genes_groups to compute the metrics
+    scanpy_corr_method : str
+        corr_method argument passed to scanpy.tl.rank_genes_groups
+    scanpy_tie_correct : bool
+        tie_correct argument passed to scanpy.tl.rank_genes_groups
     
     Returns
     -------
     list
         the geneset of interest
+    
+    Notes
+    -----
+    With use_scanpy=True, scanpy_corr_method="bonferroni" and scanpy_tie_correct=True
+    only the log fold changes will be different compared to use_scanpy=False
     '''
     ann_receiver = subset_ann(
         ann,
@@ -84,14 +103,31 @@ def get_geneset_oi(
         layers=[layer],
         val_col="celltype"
     )
-    group_metrics(
-        ann_receiver,
-        groupby=condition_col,
-        layer=layer,
-        min_pct=min_pct,
-        min_abs_lfc=min_abs_lfc
-    )
-    DE_table = ann_receiver.uns["group_metrics"]
+    if use_scanpy: # lfc will be different
+        sc.tl.rank_genes_groups(
+            ann_receiver,
+            groupby=condition_col,
+            layer=layer,
+            pts=True,
+            method="wilcoxon",
+            corr_method=scanpy_corr_method,
+            tie_correct=scanpy_tie_correct
+        )
+        DE_table = rank_genes_groups_to_dataframe(ann_receiver, condition_col)
+        DE_table = DE_table[
+            (DE_table["pval_adj"] <= max_pval_adj) &
+            (abs(DE_table["lfc"]) >= min_abs_lfc) &
+            (DE_table["pct"] >= min_pct)
+        ]
+    else:
+        group_metrics(
+            ann_receiver,
+            groupby=condition_col,
+            layer=layer,
+            min_pct=min_pct,
+            min_abs_lfc=min_abs_lfc
+        )
+        DE_table = ann_receiver.uns["group_metrics"]
     return set(
         DE_table[
             (DE_table[condition_col] == condition_oi) &
@@ -139,7 +175,8 @@ def run_nichenet(
     get_ltl:bool=False,
     get_lfc:bool=False,
     get_prioritization_table:bool=False,
-    case_control:bool=True
+    case_control:bool=True,
+    use_scanpy:bool=False
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -187,6 +224,8 @@ def run_nichenet(
         if true, the prioritization table is computed and returned
     case_control : bool
         the case_control argument for generate_info_tables
+    use_scanpy : bool
+        if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
     
     Returns
     -------
@@ -254,7 +293,8 @@ def run_nichenet(
         condition_col=condition_col,
         max_pval_adj=max_pval_adj,
         min_abs_lfc=min_abs_lfc,
-        min_pct=expression_pct
+        min_pct=expression_pct,
+        use_scanpy=use_scanpy
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
@@ -353,7 +393,8 @@ def run_nichenet(
             condition_col,
             condition_oi,
             condition_ref,
-            case_control
+            case_control,
+            use_scanpy=use_scanpy
         )
         output["prioritization_table"] = generate_prioritization_table(
             info_tables["sender_receiver_info"],
@@ -757,7 +798,8 @@ def generate_info_tables(
     condition_col:str,
     condition_oi:str,
     condition_ref:str,#TODO
-    case_control:bool=False
+    case_control:bool=False,
+    use_scanpy:bool=False
 ) -> dict[str, pd.DataFrame]:
     '''
     Calculate differential expression, average expression, and condition specificity of ligands and receptors. 
@@ -781,7 +823,9 @@ def generate_info_tables(
     condition_ref : str
         the reference condition
     case_control : bool
-        if True, calculate condition specificity, else only calculate cell type specificity.
+        if True, calculate condition specificity, else only calculate cell type specificity
+    use_scanpy : bool
+        if true, use scanpy.rank_genes_groups to compute the metrics
     
     Returns
     -------
@@ -798,7 +842,8 @@ def generate_info_tables(
                 celltype_col,
                 condition_oi,
                 condition_col,
-                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
+                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors()),
+                use_scanpy=use_scanpy
             ),
             "celltype_DE",
             lr_network_filtered,

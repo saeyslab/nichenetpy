@@ -1,7 +1,15 @@
 from nichenetpy.extraction import average_expression
-from nichenetpy.normalization import relative_counts, scaling_zscore, scale_quantile_adapted
+from nichenetpy.normalization import (
+    relative_counts,
+    scaling_zscore,
+    scale_quantile_adapted
+)
 from nichenetpy.network import LigandReceptorNetwork
-from nichenetpy.utils import ligand_activities_df, df_grouped_apply
+from nichenetpy.utils import (
+    ligand_activities_df,
+    df_grouped_apply,
+    rank_genes_groups_to_dataframe
+)
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 
@@ -92,26 +100,7 @@ def calculate_de(
             layer=layer,
             pts=True
         )
-        res = ann.uns["rank_genes_groups"]
-        output = pd.melt(pd.DataFrame(res["names"]), var_name="celltype", value_name="gene")
-        for col in ["pvals", "pvals_adj", "logfoldchanges"]:
-            temp = pd.melt(pd.DataFrame(res[col]), var_name="celltype", value_name=col)
-            temp.drop(columns={"celltype"}, inplace=True)
-            output = output.join(temp, how="inner")
-        temp = pd.melt(res["pts"], var_name="celltype", value_name="pts", ignore_index=False)
-        temp.index.name = "gene"
-        temp.reset_index(inplace=True)
-        output = output.merge(temp, on=["gene", "celltype"], how="inner")
-        output.rename(
-            columns={
-                "logfoldchanges": "lfc",
-                "pvals": "pval",
-                "pvals_adj": "pval_adj",
-                "pts": "pct"
-            },
-            inplace=True
-        )
-        return output
+        return rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
     else:
         group_metrics(
             ann,
