@@ -117,7 +117,7 @@ def convert_settings_ligand_prediction(
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
-    settings:dict
+    settings:Iterable[dict]
 ) -> pd.DataFrame:
     '''
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict
@@ -128,7 +128,7 @@ def get_single_ligand_importances(
     Parameters
     ----------
     settings : dict
-        A dictionary who's values have the following keys: 
+        An Iterable of dictionaries that have the following keys: 
         
             name: the name of the setting
 
@@ -155,8 +155,8 @@ def get_single_ligand_importances(
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
-    if type(settings) is not dict:
-        raise TypeError(f"settings should have type dict, was {type(settings)}")
+    if not isinstance(settings, Iterable):
+        raise TypeError(f"settings should have type Iterable[dict], was {type(settings)}")
     # compute metrics for multiple prediction/response pairs and store them in a dataframe
     ligand_importances = pd.DataFrame(
         dict(zip(
