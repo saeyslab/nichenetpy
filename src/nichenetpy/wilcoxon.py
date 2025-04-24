@@ -236,12 +236,13 @@ def wilcoxon_rank_sum_test_with_correlation(
     if not isinstance(df, Number):
         raise TypeError(f"df should have type float, was {type(df)}")
     n = len(statistics)
-    r = pd.DataFrame(statistics).rank(method="average", ascending=True)
-    r.index = index.index
-    r1 = r[index] if type(index.iloc[0]) is bool or type(index.iloc[0]) is np.bool else r.iloc[index]
+    r = pd.DataFrame(statistics, columns=("rank",)).rank(method="average", ascending=True)
+    if type(index) is not list and type(index) is not tuple:
+        index = list(index)
+    r1 = r[index] if type(index[0]) is bool or type(index[0]) is np.bool else r.iloc[index]
     n1 = len(r1)
     n2 = n - n1
-    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1[0])
+    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
     mu = n1 * n2 / 2
     if correlation == 0 or n1 == 1:
         sigma2 = n1 * n2 * (n + 1) / 12
@@ -252,9 +253,10 @@ def wilcoxon_rank_sum_test_with_correlation(
             np.arcsin(correlation / 2) * n1 * (n1 - 1) * n2 * (n2 - 1) +
             np.arcsin((correlation + 1) / 2) * n1 * (n1 - 1) * n2
         ) / (2 * np.pi)
-    ties = r.groupby(0).count()
-    adjustment = sum(ties * (ties + 1) * (ties - 1)) / n * (n + 1) * (n - 1)
-    sigma2 *= 1 - adjustment
+    ties = r.groupby("rank").size()
+    adjustment = sum(ties * (ties + 1) * (ties - 1)) / (n * (n + 1) * (n - 1))
+    if adjustment < 1:
+        sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
     zuppertail = (u - 0.5 - mu) / sqrt(sigma2)
     return (t.cdf(zlowertail, df), 1 - t.cdf(zuppertail, df))
