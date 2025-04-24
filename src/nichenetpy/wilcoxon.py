@@ -53,13 +53,7 @@ def _rank_cells(
         indices_non_zero = set(indices_non_zero)
         # reorder the groups of the cells so it matches the ranking
         group_mat.append(
-            list(
-                chain(
-                    groups_sorted[:n_neg],
-                    (cell_groups[i] for i in range(nrows) if i not in indices_non_zero),# bottleneck
-                    groups_sorted[n_neg:]
-                )
-            )
+            groups_sorted
         )
         # original rank for a value of 0 (ranks will be translated to get a 0-rank for 0-values)
         # compute average using gaussian summation (the +1 has been moved into the division)
@@ -78,9 +72,6 @@ def _rank_cells(
             for _ in range(n_tied):
                 ranks.append(rank)
             i += n_tied
-        # zero
-        for _ in range(n_zero):
-            ranks.append(0)
         # positive
         i = n_neg
         while i < len(non_zero):
@@ -168,12 +159,10 @@ def wilcoxon_rank_sum_test(
     rank_sums = dict()
     # for each gene
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
-        rank_sums.clear()
+        for group in group_sizes.keys():
+            rank_sums[group] = 0.0
         for rank, group in zip(ranking, groups):
-            if group in rank_sums:
-                rank_sums[group] += rank
-            else:
-                rank_sums[group] = float(rank)
+            rank_sums[group] += rank
         total_rank = sum(rank_sums.values())
         # for each group
         for group in rank_sums.keys():

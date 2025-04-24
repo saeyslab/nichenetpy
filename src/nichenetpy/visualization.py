@@ -548,8 +548,50 @@ def assign_ligands_to_celltype(
     celltype_col:str="celltype",
     condition_oi:str=None,
     condition_col:str=None,
-    layer="data"
+    layer:str="data"
 ):
+    '''
+    Assign ligands to a sender cell type, based on the strongest expressing cell type of that ligand.
+    Ligands are only assigned to a cell type if that cell type is the only one to show an expression
+    that is higher than the average + SD. Otherwise, it is assigned to "General".
+
+    Parameters
+    ----------
+    ann : anndata.AnnData
+        the AnnData object
+    ligands : Collection of str
+        the ligands to assign to cell types
+    celltype_col : str
+        the name of the column in ann.obs which contains the cell types
+    condition_oi : str
+        the condition of interest
+    condition_col : str
+        the name of the column in ann.obs which contains the conditions
+    layer : str
+        the layer in ann to use
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Returns
+    -------
+    pandas.DataFrame
+        A data frame with two columns, the cell type the ligand has been assigned to (ligand_type) and the ligand name (ligand)
+    '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
+    if not isinstance(ligands, Collection):
+        raise TypeError(f"ligands should have type Collection[str], was {type(ligands)}")
+    if type(celltype_col) is not str:
+        raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
+    if condition_oi is not None and type(condition_oi) is not str:
+        raise TypeError(f"condition_oi should have type str, was {type(condition_oi)}")
+    if condition_col is not None and type(condition_col) is not str:
+        raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
+    if type(layer) is not str:
+        raise TypeError(f"layer should have type str, was {type(layer)}")
     if condition_col is None:
         ann_sub = subset_ann(
             ann,

@@ -1,6 +1,7 @@
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 
 from collections.abc import Iterable, Callable
+from anndata import AnnData
 
 import numpy as np
 import pandas as pd
@@ -438,6 +439,36 @@ def decomplexify(
     from_col:str="ligand",
     to_col:str="receptor"
 ) -> pd.DataFrame:
+    '''
+    Helper Function to 'decomplexify' ligands and receptors into individual subunits. (function from LIANA R)
+
+    Splits "from" and "to" in subunits and takes all combinations. 
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        data frame which has columns from_col and to_col
+    from_col : str
+        the "from" column
+    to_col : str
+        the "to" column
+
+    Returns
+    -------
+    pandas.DataFrame
+        data frame which has columns from_col and to_col after which contain all combinations of subunits
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(df) is not pd.DataFrame:
+        raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
+    if type(from_col) is not str:
+        raise TypeError(f"from_col should have type str, was {type(from_col)}")
+    if type(to_col) is not str:
+        raise TypeError(f"to_col should have type str, was {type(to_col)}")
     frs = []
     tos = []
     for fr, to in zip(df[from_col], df[to_col]):
@@ -449,3 +480,51 @@ def decomplexify(
         from_col: frs,
         to_col: tos
     })
+
+def rank_genes_groups_to_dataframe(
+    ann:AnnData,
+    groupby:str
+) -> pd.DataFrame:
+    '''
+    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object (ann.uns["rank_genes_groups"] needs to be defined by using scanpy.tl.rank_genes_groups)
+    groupby : str
+        the "groupby" argument that was passed to scanpy.tl.rank_genes_groups
+
+    Returns
+    -------
+    pandas.DataFrame
+        the data frame which contains the output of scanpy.tl.rank_genes_groups
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
+    res = ann.uns["rank_genes_groups"]
+    output = pd.melt(pd.DataFrame(res["names"]), var_name=groupby, value_name="gene")
+    for col in ["pvals", "pvals_adj", "logfoldchanges"]:
+        temp = pd.melt(pd.DataFrame(res[col]), var_name=groupby, value_name=col)
+        temp.drop(columns={groupby}, inplace=True)
+        output = output.join(temp, how="inner")
+    temp = pd.melt(res["pts"], var_name=groupby, value_name="pts", ignore_index=False)
+    temp.index.name = "gene"
+    temp.reset_index(inplace=True)
+    output = output.merge(temp, on=["gene", groupby], how="inner")
+    output.rename(
+        columns={
+            "logfoldchanges": "lfc",
+            "pvals": "pval",
+            "pvals_adj": "pval_adj",
+            "pts": "pct"
+        },
+        inplace=True
+    )
+    ann.uns["rank_genes_groups"] = output
+    return output
