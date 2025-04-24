@@ -148,7 +148,7 @@ models against NicheNet can read the following notebooks:
 
 For a comparison between Seurat's FindAllMarkers (which is ported into nichenetpy) and Scanpy's rank_genes_groups, see the following notebook:
 
--   [Model evaluation: target gene and ligand activity prediction](notebooks/model_evaluation.ipynb)
+-   [Comparison: Seurat vs Scanpy](notebooks/seuratVSscanpy.ipynb)
 
 TODO?
 ## FAQ
