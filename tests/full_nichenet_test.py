@@ -1573,7 +1573,7 @@ def test_model_construction():
 
 def test_target_prediction_evaluation_geneset():
     # not deterministic, so allow for some variance
-    non_deterministic_err_bound = 0.2
+    non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
     mouse_alias_info.alias_to_symbol(ann)

@@ -146,6 +146,10 @@ models against NicheNet can read the following notebooks:
 -   [Using LIANA ligand-receptor databases to construct the ligand-target model](notebooks/model_construction_with_liana.ipynb)
 -   [Model evaluation: target gene and ligand activity prediction](notebooks/model_evaluation.ipynb)
 
+For a comparison between Seurat's FindAllMarkers (which is ported into nichenetpy) and Scanpy's rank_genes_groups, see the following notebook:
+
+-   [Comparison: Seurat vs Scanpy](notebooks/seuratVSscanpy.ipynb)
+
 TODO?
 ## FAQ
 

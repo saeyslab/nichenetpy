@@ -1,5 +1,8 @@
 from nichenetpy.utils import subset_matrix
-from nichenetpy.wilcoxon import wilcoxon_rank_sum_test
+from nichenetpy.wilcoxon import (
+    wilcoxon_rank_sum_test,
+    wilcoxon_rank_sum_test_with_correlation
+)
 from nichenetpy.ann_utils import _subset_layer
 
 from anndata import AnnData
@@ -278,7 +281,8 @@ def group_metrics(
     features:Iterable[str]=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
-    pval_thresh:float=None # 0.01 in seurat
+    pval_thresh:float=None, # 0.01 in seurat
+    wilcoxon_limma:bool=False
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -309,6 +313,8 @@ def group_metrics(
         genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
     pval_thresh : float
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+    wilcoxon_limma : bool
+        use wilcoxon-limma (reproduces results from seuratv4)
     
     Raises
     ------
@@ -398,14 +404,37 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
-    pvals = wilcoxon_rank_sum_test(
-        ann,
-        groupby=groupby,
-        as_dataframe=True,
-        tie_correction=tie_correction,
-        layer=layer,
-        genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
-    )
+    if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
+        mat = ann.layers[layer]
+        groups = set(ann.obs[groupby])
+        pvals = {group: [] for group in groups}
+        # for each gene
+        for i in range(mat.shape[1]):
+            col = mat[:, i].todense()
+            for group in groups:
+                pvals[group].append(
+                    min(
+                        2 * min(
+                            wilcoxon_rank_sum_test_with_correlation(
+                                ann.obs[groupby] == group,
+                                col
+                            )
+                        ),
+                        1
+                    )
+                )
+        pvals = pd.DataFrame(pvals, index=genes)
+        pvals.index.name = "gene"
+    else:
+        # TODO: check if group_oi and group_ref can be used for speedup
+        pvals = wilcoxon_rank_sum_test(
+            ann,
+            groupby=groupby,
+            as_dataframe=True,
+            tie_correction=tie_correction,
+            layer=layer,
+            genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
+        )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     if pval_thresh is not None:
         pvals = pvals[pvals["pval"] < pval_thresh]
