@@ -7,3 +7,4 @@ tests/data/tutorial_files/*
 scripts/*
 SeuratVSscanpy/*
 temp/*
+docs/*
