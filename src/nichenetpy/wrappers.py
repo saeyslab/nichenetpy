@@ -230,13 +230,17 @@ def run_nichenet(
     Returns
     -------
     dict
-        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments) for the sender-agnostic approach:
+        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments)
+
+        for the sender-agnostic approach:
+
             best_upstream_ligands : list of str
                 the top scoring ligands in the sender-agnostic approach
             ligand_activities_sorted : dict
                 the computed metrics for each ligand in the sender-agnostic approach
             active_ligand_target_links : list of tuple
-                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
+                list of (ligand, target, weight) tuples representing the ligand-target
+                links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
             expressed_receptors : set of str
@@ -249,22 +253,28 @@ def run_nichenet(
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
             geneset_oi : set of str
                 the geneset of interest
+        
         and the following additional objects for the sender-focused approach:
+
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
             ligand_activities_sorted_focused : dict
                 the computed metrics for each ligand in the sender-focused approach
             active_ligand_target_links_focused : list of tuple
-                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-focused approach
+                list of (ligand, target, weight) tuples representing the ligand-target links
+                in the sender-focused approach
             ligand_receptor_links_focused : WeightedNetwork
                 the weighted ligand-receptor links in the sender-focused approach
             ann_focused : AnnData
                 the AnnData object used in the sender-focused approach (new object derived from ann)
             lfcs : list of tuple
-                the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+                the log fold changes as a list of tuples of lists where the first list of each tuple contains
+                the ligands and second list contains the values
             expressed_ligands : set of str
                 the expressed ligands
+
         if get_prioritization_table is True, additionally
+
             prioritization_table : pandas.DataFrame
     
     Raises
