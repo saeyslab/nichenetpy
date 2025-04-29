@@ -3,7 +3,7 @@ from anndata import AnnData
 from collections.abc import Iterable
 
 
-root = os.path.dirname(__file__)
+_root = os.path.dirname(__file__)
 
 class GeneAliasInfo:
     '''
@@ -84,12 +84,12 @@ class GeneAliasInfo:
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
-mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
+mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
 '''
 gene alias info for mice (3845 kb)
 '''
 
-human_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_human.csv"))
+human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_human.csv"))
 '''
 gene alias info for humans (3845 kb)
 '''
