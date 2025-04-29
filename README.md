@@ -55,7 +55,7 @@ target genes are affected by each ligand, and which signaling mediators
 may be involved. By generating these novel types of hypotheses, NicheNet
 can drive an improved functional understanding of a CCC process of
 interest. We provide a pre-built prior model, it is
-also possible to construct your own model (see vignettes below).
+also possible to construct your own model (see notebooks below).
 
 <img src="images/nichenet_prior_model.png"
 style="width:70.0%" />
@@ -82,7 +82,7 @@ visualizations of the main predictions (e.g., via circos plots as shown
 here below).
 
 <br><br>
-<img src="images/circos_plot.png" width="600" />
+<img src="images/circos.png" width="600" />
 
 </details>
 
