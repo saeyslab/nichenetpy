@@ -490,6 +490,42 @@ MCWL_top_10_ligand_activities_nichenet = [
     ("H2-Q4", 0.11162429),
     ("H2-Q6", 0.11162429)
 ]
+DE_top_10_ligand_activities = [
+    ("Tgfb1", 0.051856232),
+    ("Orm1", 0.040032290),
+    ("Tgm2", 0.037219290),
+    ("Jam2", 0.035958280),
+    ("Wnt2", 0.034722351),
+    ("Hrg", 0.033544508),
+    ("Angptl3", 0.033367450),
+    ("Hpx", 0.032826867),
+    ("Hbegf", 0.032625716),
+    ("Sema4c", 0.032494604)
+]
+DE_top_10_active_ligand_target_links = [
+    ("Tgfb1", "Sgk1", 0.296242723),
+    ("Tgfb1", "Hmox1", 0.272684907),
+    ("Tgfb1", "Klf7", 0.235562332),
+    ("Tgfb1", "Lbh", 0.218292241),
+    ("Tgfb1", "Tgm2", 0.210997543),
+    ("Tgfb1", "Maf", 0.204017964),
+    ("Cxcl12", "Hmox1", 0.202240401),
+    ("Bmp2", "Mafb", 0.186339946),
+    ("Bmp2", "Kctd12", 0.186217271),
+    ("Tgfb1", "Hbegf", 0.181276555)
+]
+DE_top_10_ligand_receptor_links = [
+    ("Tgfb1", "Tgfbr1", 1.4514879),
+    ("Hp", "Cd163", 1.3991302),
+    ("Tgfb1", "Tgfbr2", 1.3678693),
+    ("Bmp2", "Bmpr2", 1.2482671),
+    ("Cd55", "Adgre5", 1.0896640),
+    ("Adam17", "Notch1", 1.0465043),
+    ("Angptl3", "Lpl", 1.0395698),
+    ("Hbegf", "Cd9", 1.0040770),
+    ("Tgfb1", "Acvrl1", 0.9546549),
+    ("F2", "F8", 0.9509897)
+]
 
 def equals(
     x,
@@ -553,7 +589,7 @@ def get_anndata_file(filename):
         os.makedirs(ann_path)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/14859451/files/{filename}")
+        res = requests.get(f"https://zenodo.org/records/15350595/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     return anndata.io.read_h5ad(file_path)
@@ -1913,3 +1949,113 @@ def test_model_evaluation():
     assert equals(row["aupr"], 1)
     assert equals(row["aupr_corrected"], 0.97872340)
     assert equals(row["pearson"], 0.8084805)
+
+def test_differentation_example():
+    model = get_model_pickle("mouse")
+    ann = get_anndata_file("subset_integrated_zonation.h5")
+    mouse_alias_info.alias_to_symbol(ann)
+    predictor = model["predictor"]
+    lr_network = model["lr_network"]
+    lr_sig = model["lr_sig"]
+    receiver = "KCs"
+    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, 0.1))
+    assert len(expressed_genes_receiver) == 5298
+    all_receptors = lr_network.get_receptors()
+    assert len(all_receptors) == 1084
+    expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
+    assert len(expressed_receptors) == 207
+    sender_celltypes = ("LSECs_portal", "Hepatocytes_portal", "Stellate cells_portal")
+    other_niche_celltypes = ("Cholangiocytes", "Fibroblast 2", "Capsule fibroblasts", "Mesothelial cells")
+    expressed_genes_sender = set()
+    for sender_celltype in sender_celltypes:
+        DE_genes = []
+        for other_niche_celltype in other_niche_celltypes:
+            group_metrics(
+                ann,
+                group_oi=sender_celltype,
+                group_ref=other_niche_celltype,
+                groupby="celltype",
+                layer="data",
+                min_pct=0.1,
+                min_abs_lfc=0.25
+            )
+            metrics = ann.uns["group_metrics"]
+            genes = metrics[
+                metrics["pval_adj"] <= 0.05
+            ]["gene"]
+            DE_genes.append(set(genes))
+        expressed_genes_sender.update(set.intersection(*DE_genes))
+    potential_ligands = set(lr_network.subset_sep(expressed_genes_sender, expressed_receptors).get_ligands())
+    assert len(potential_ligands) == 122
+    group_metrics(
+        ann,
+        group_oi=receiver,
+        group_ref="MoMac1",
+        groupby="celltype",
+        layer="data",
+        min_pct=0.1,
+        min_abs_lfc=0.25
+    )
+    DE_MoMac1 = ann.uns["group_metrics"]
+    group_metrics(
+        ann,
+        group_oi=receiver,
+        group_ref="MoMac2",
+        groupby="celltype",
+        layer="data",
+        min_pct=0.1,
+        min_abs_lfc=0.25
+    )
+    DE_MoMac2 = ann.uns["group_metrics"]
+    geneset = set(
+        DE_MoMac1[
+            (DE_MoMac1["pval_adj"] <= 0.05)
+        ]["gene"]
+    ).intersection(
+        DE_MoMac2[
+            (DE_MoMac2["pval_adj"] <= 0.05)
+        ]["gene"]
+    )
+    assert len(geneset) == 480
+    background_expressed_genes = expressed_genes_receiver
+    ligand_activities = predictor.predict_ligand_activities(
+        geneset=geneset,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands
+    )
+    ligand_activities = sorted(
+        ligand_activities.items(),
+        key=lambda x : (-x[1]["aupr_corrected"], x[0])
+    )
+    assert len(ligand_activities) == 122
+    assert equals_iter(
+        ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities[:10]),
+        DE_top_10_ligand_activities
+    )
+    best_upstream_ligands = [e[0] for e in ligand_activities[:30]]
+    active_ligand_target_links = [
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=200)
+        for ligand in best_upstream_ligands
+    ]
+    # combine weighted ligand-target links of different ligands
+    active_ligand_target_links = list(
+        chain(
+            *(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)
+        )
+    )
+    assert len(active_ligand_target_links) == 271
+    assert equals_iter(
+        sorted(active_ligand_target_links, key=lambda x : x[2], reverse=True)[:10],
+        DE_top_10_active_ligand_target_links
+    )
+    ligand_receptor_links = get_weighted_ligand_receptor_links(
+        best_upstream_ligands,
+        expressed_receptors,
+        lr_network,
+        lr_sig
+    )
+    assert len(ligand_receptor_links) == 72
+    assert equals_iter(
+        sorted(ligand_receptor_links._mapping, key=lambda x : x[2], reverse=True)[:10],
+        DE_top_10_ligand_receptor_links
+    )

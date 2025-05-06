@@ -20,15 +20,16 @@ seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT")
 #)
 #seuratObj@assays[["RNA"]]@layers$counts@Dimnames <- old@assays[["RNA"]]$counts@Dimnames
 #seuratObj@assays[["RNA"]]@layers$data@Dimnames <- old@assays[["RNA"]]$data@Dimnames
-seuratObj[["RNA"]]@meta.data$gene <- old@assays[["RNA"]]$counts@Dimnames[[1]]
-seuratObj[["SCT"]]@meta.data$gene <- old@assays[["SCT"]]$counts@Dimnames[[1]]
+#seuratObj[["RNA"]]@meta.data$gene = old@assays[["RNA"]]$counts@Dimnames[[1]]
+#seuratObj[["SCT"]]@meta.data$gene = old@assays[["SCT"]]$counts@Dimnames[[1]]
 ann <- anndataR::from_Seurat(
   seuratObj,
   "InMemoryAnnData"
 )
-#anndataR::from_Seurat(
-#  seuratObj,
-#  "HDF5AnnData",
-#  file="./annData/seurat_obj_subset_integrated_zonation.h5",
-#  mode="w"
-#)
+anndataR::from_Seurat(
+  seuratObj,
+  "HDF5AnnData",
+  file="./annData/subset_integrated_zonation.h5",
+  mode="w",
+  assay_name="SCT"
+)
