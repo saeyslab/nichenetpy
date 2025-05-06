@@ -1,9 +1,8 @@
 from nichenetpy.utils import subset_matrix
 
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 from scipy.stats import t
 from anndata import AnnData
-from itertools import chain
 from collections.abc import Iterable
 from math import sqrt, erfc
 from numbers import Number
@@ -13,7 +12,7 @@ import numpy as np
 
 
 def _rank_cells(
-    mat:csc_matrix,
+    mat:csc_matrix|csr_matrix|np.ndarray,
     cell_groups:Iterable[str],
     tie_correction:bool=True
 ):
@@ -21,7 +20,10 @@ def _rank_cells(
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = list(cell_groups)
     if type(mat) is not csc_matrix:
-        raise TypeError(f"mat should have type scipy.csc_matrix, was {type(mat)}")
+        try:
+            mat = csc_matrix(mat)
+        except TypeError:
+            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}")
     output = []
     group_mat = []
     nrows, ncols = mat.shape
