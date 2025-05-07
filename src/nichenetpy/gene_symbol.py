@@ -79,6 +79,8 @@ class GeneAliasInfo:
             return output
         elif type(obj) is AnnData:
             obj.var_names = self.alias_to_symbol(obj.var_names)
+            if "gene" in obj.var:
+                obj.var["gene"] = self.alias_to_symbol(obj.var["gene"])
         elif isinstance(obj, Iterable):
             return self.alias_to_symbol(list(obj))
         else:
