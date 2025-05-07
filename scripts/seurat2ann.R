@@ -29,7 +29,7 @@ ann <- anndataR::from_Seurat(
 anndataR::from_Seurat(
   seuratObj,
   "HDF5AnnData",
-  file="./annData/subset_integrated_zonation.h5",
+  file="./annData/subset_integrated_zonation_RNA.h5",
   mode="w",
-  assay_name="SCT"
+  assay_name="RNA"
 )

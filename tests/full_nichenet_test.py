@@ -61,6 +61,7 @@ from liana.resource import (
     select_resource
 )
 
+import pytest
 import anndata
 import os
 import requests
@@ -1950,15 +1951,20 @@ def test_model_evaluation():
     assert equals(row["aupr_corrected"], 0.97872340)
     assert equals(row["pearson"], 0.8084805)
 
-def test_differentation_example():
+@pytest.mark.large_download
+def test_differentiation_example():
     model = get_model_pickle("mouse")
-    ann = get_anndata_file("subset_integrated_zonation.h5")
-    mouse_alias_info.alias_to_symbol(ann)
+    ann = {
+        "RNA": get_anndata_file("subset_integrated_zonation_RNA.h5"),
+        "SCT": get_anndata_file("subset_integrated_zonation_SCT.h5")
+    }
+    for anndata in ann.values():
+        mouse_alias_info.alias_to_symbol(anndata)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
     lr_sig = model["lr_sig"]
     receiver = "KCs"
-    expressed_genes_receiver = set(get_expressed_genes(receiver, ann, 0.1))
+    expressed_genes_receiver = set(get_expressed_genes(receiver, ann["RNA"], 0.1))
     assert len(expressed_genes_receiver) == 5298
     all_receptors = lr_network.get_receptors()
     assert len(all_receptors) == 1084
@@ -1971,7 +1977,7 @@ def test_differentation_example():
         DE_genes = []
         for other_niche_celltype in other_niche_celltypes:
             group_metrics(
-                ann,
+                ann["SCT"],
                 group_oi=sender_celltype,
                 group_ref=other_niche_celltype,
                 groupby="celltype",
@@ -1979,7 +1985,7 @@ def test_differentation_example():
                 min_pct=0.1,
                 min_abs_lfc=0.25
             )
-            metrics = ann.uns["group_metrics"]
+            metrics = ann["SCT"].uns["group_metrics"]
             genes = metrics[
                 metrics["pval_adj"] <= 0.05
             ]["gene"]
@@ -1988,7 +1994,7 @@ def test_differentation_example():
     potential_ligands = set(lr_network.subset_sep(expressed_genes_sender, expressed_receptors).get_ligands())
     assert len(potential_ligands) == 122
     group_metrics(
-        ann,
+        ann["SCT"],
         group_oi=receiver,
         group_ref="MoMac1",
         groupby="celltype",
@@ -1996,9 +2002,9 @@ def test_differentation_example():
         min_pct=0.1,
         min_abs_lfc=0.25
     )
-    DE_MoMac1 = ann.uns["group_metrics"]
+    DE_MoMac1 = ann["SCT"].uns["group_metrics"]
     group_metrics(
-        ann,
+        ann["SCT"],
         group_oi=receiver,
         group_ref="MoMac2",
         groupby="celltype",
@@ -2006,7 +2012,7 @@ def test_differentation_example():
         min_pct=0.1,
         min_abs_lfc=0.25
     )
-    DE_MoMac2 = ann.uns["group_metrics"]
+    DE_MoMac2 = ann["SCT"].uns["group_metrics"]
     geneset = set(
         DE_MoMac1[
             (DE_MoMac1["pval_adj"] <= 0.05)
