@@ -7,7 +7,7 @@ old <- readRDS("./seurat/seurat_obj_subset_integrated_zonation.rds")
 seuratObj <- old
 seuratObj$RNA <- ScaleData(old$RNA)
 seuratObj$SCT <- ScaleData(old$SCT)
-seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT")
+#seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT")
 #seuratObj <- CreateSeuratObject(
 #  counts = GetAssayData(old, layer="counts"),
 #  data = GetAssayData(old, layer="data"),
@@ -29,7 +29,7 @@ ann <- anndataR::from_Seurat(
 anndataR::from_Seurat(
   seuratObj,
   "HDF5AnnData",
-  file="./annData/subset_integrated_zonation_RNA.h5",
+  file="./annData/temp.h5",
   mode="w",
-  assay_name="RNA"
+  assay_name="SCT"
 )

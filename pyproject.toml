@@ -46,3 +46,8 @@ classifiers = [
 
 [project.urls]
 "Source" = "https://github.com/saeyslab/nichenetpy"
+
+[tool.pytest.ini_options]
+markers = [
+    "large_download",
+]
