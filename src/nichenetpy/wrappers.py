@@ -628,7 +628,8 @@ def _create_circos_plot(
     inter_space:float=5,
     intra_space:float=1,
     opacity:Iterable[float]=None,
-    separate_sender_receiver:bool=True
+    separate_sender_receiver:bool=True,
+    sender_receiver_space:float=0
 ) -> Figure:
     link_count_in = dict()
     link_count_out = dict()
@@ -636,6 +637,8 @@ def _create_circos_plot(
     if not type(circos_links) is list or type(circos_links) is tuple:
         circos_links = tuple(circos_links)
     max_weight = 1 if opacity is None else max(opacity)
+    # define unique identifiers for each rectangle and create a list of links between rectangles
+    # the opacity and start/end positions of the links are also specified
     for link in (circos_links if opacity is None else zip(circos_links, opacity)):
         sender, receiver = link if opacity is None else link[0]
         weight = 1 if opacity is None else link[1]
@@ -660,6 +663,7 @@ def _create_circos_plot(
         ))
     groups = dict()
     group_sizes = dict()
+    # group the rectangles into sectors and keep track of the size of each group
     for key, count in chain(link_count_in.items(), link_count_out.items()):
         if separate_sender_receiver:
             role, group, elem = key.split("_")
@@ -674,19 +678,28 @@ def _create_circos_plot(
             group_sizes[group] += count + intra_space
         else:
             group_sizes[group] = count
-    unit = 360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space)
+    # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
+    rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
+    if separate_sender_receiver:
+        group_sizes = sorted(group_sizes.items(), key=None)#TODO
+        if sender_receiver_space > 0:
+            for i in (0, rec_sector_count - 1):
+                group, size = group_sizes[i]
+                group_sizes[i] = (group, size + sender_receiver_space)
+            group_sizes = dict(group_sizes)
     circos = Circos(
         sectors=group_sizes,
-        space=(inter_space * unit)
+        space=(inter_space * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space)))
     )
     link_count = dict(chain(link_count_in.items(), link_count_out.items()))
     rects = dict()
-    for sector in circos.sectors:
+    # create a track for each sector and add the rectangles
+    for i, sector in enumerate(circos.sectors):
         group = sector.name
         sub_rects = dict()
         rects[group] = sub_rects
         track = sector.add_track((95, 100))
-        start = 0
+        start = (sender_receiver_space if i == rec_sector_count - 1 else 0)
         for elem in groups[group]:
             end = start + link_count[f"{group}_{elem}"]
             track.rect(
@@ -703,6 +716,7 @@ def _create_circos_plot(
                 orientation="vertical"
             )
             start = end + intra_space
+    # link the rectangles
     for sender, receiver, weight, send_pos, rec_pos in links:
         if separate_sender_receiver:
             _, sender_group, sender = sender.split("_")
@@ -727,6 +741,7 @@ def _create_circos_plot(
             color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
             alpha=weight
         )
+    # add a legend to the plot
     fig = circos.plotfig()
     circos.ax.legend(
         handles=[
@@ -747,7 +762,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     colors:dict[str, str],
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None
+    opacity:Iterable[float]=None,
+    sender_receiver_space:float=0
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and receptors. 
@@ -772,6 +788,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         space between genes
     opacity : Iterable of float
         the opacity of each link
+    sender_receiver_space : float
+        the extra space between sender and receiver sector groups
     
     Returns
     -------
@@ -804,7 +822,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         colors=colors,
         inter_space=inter_space,
         intra_space=intra_space,
-        opacity=opacity
+        opacity=opacity,
+        sender_receiver_space=sender_receiver_space
     )
 
 def create_ligand_links_circos_plot(
@@ -813,7 +832,8 @@ def create_ligand_links_circos_plot(
     dest_name:str,
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None
+    opacity:Iterable[float]=None,
+    sender_receiver_space:float=0
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and targets. 
@@ -832,6 +852,8 @@ def create_ligand_links_circos_plot(
         space between genes
     opacity : Iterable of float
         the opacity of each link
+    sender_receiver_space : float
+        the extra space between sender and receiver sector groups
     
     Returns
     -------
@@ -863,7 +885,8 @@ def create_ligand_links_circos_plot(
         colors,
         inter_space,
         intra_space,
-        opacity=opacity
+        opacity=opacity,
+        sender_receiver_space=sender_receiver_space
     )
 
 def generate_info_tables(
