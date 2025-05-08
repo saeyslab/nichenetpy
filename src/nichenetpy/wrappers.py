@@ -623,18 +623,21 @@ def create_lfc_heatmap(
     plt.show()
 
 def _create_circos_plot(
-    circos_links:Iterable[tuple[tuple[str, str], tuple[str, str], float]],
+    circos_links:Iterable[tuple[tuple[str, str], tuple[str, str]]],
     colors:dict[str, str],
     inter_space:float=5,
-    intra_space:float=1
+    intra_space:float=1,
+    opacity:Iterable[float]=None
 ) -> Figure:
     link_count_in = dict()
     link_count_out = dict()
     links = []
     if not type(circos_links) is list or type(circos_links) is tuple:
         circos_links = tuple(circos_links)
-    max_weight = max((e[2] for e in circos_links))
-    for sender, receiver, weight in circos_links:
+    max_weight = 1 if opacity is None else max(opacity)
+    for link in (circos_links if opacity is None else zip(circos_links, opacity)):
+        sender, receiver = link if opacity is None else link[0]
+        weight = 1 if opacity is None else link[1]
         sender_group, sender = sender
         receiver_group, receiver = receiver
         key_out = f"{sender_group}_{sender}"
@@ -650,7 +653,9 @@ def _create_circos_plot(
         links.append((
             key_out,
             key_in,
-            weight/max_weight
+            weight/max_weight,
+            link_count_out[key_out],
+            link_count_in[key_in]
         ))
     groups = dict()
     group_sizes = dict()
@@ -681,7 +686,7 @@ def _create_circos_plot(
         for sender in groups[sender_group]:
             end = start + link_count[f"{sender_group}_{sender}"]
             track.rect(start, end, fc=colors[sender_group])
-            sub_rects[sender] = (start, end)
+            sub_rects[sender] = start
             track.text(
                 sender,
                 (end + start) / 2,
@@ -690,19 +695,19 @@ def _create_circos_plot(
                 orientation="vertical"
             )
             start = end + intra_space
-    for sender, receiver, weight in links:
+    for sender, receiver, weight, send_pos, rec_pos in links:
         sender_group, sender = sender.split("_")
         receiver_celltype, receiver_gene = receiver.split("_")
         circos.link(
             (
                 sender_group,
-                rects[sender_group][sender][0],
-                rects[sender_group][sender][1]
+                rects[sender_group][sender] + send_pos - 1,
+                rects[sender_group][sender] + send_pos
             ),
             (
                 receiver_celltype,
-                rects[receiver_celltype][receiver_gene][0],
-                rects[receiver_celltype][receiver_gene][1]
+                rects[receiver_celltype][receiver_gene] + rec_pos - 1,
+                rects[receiver_celltype][receiver_gene] + rec_pos
             ),
             direction=1,
             color=colors[sender_group],
@@ -725,10 +730,10 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     receivers:Iterable[str],
     ligands:Iterable[str],
     receptors:Iterable[str],
-    weights:Iterable[float],
     colors:dict[str, str],
     inter_space:float=5,
-    intra_space:float=1
+    intra_space:float=1,
+    opacity:Iterable[float]=None
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and receptors. 
@@ -751,6 +756,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         space between celltypes
     intra_space : float
         space between genes
+    opacity : Iterable of float
+        the opacity of each link
     
     Returns
     -------
@@ -776,12 +783,14 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
     if not isinstance(intra_space, Number):
         raise TypeError(f"intra_space should have type float, was {type(intra_space)}")
-    celltypes = set(chain(senders, receivers))
+    if opacity is not None and not isinstance(opacity, Iterable):
+        raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
     return _create_circos_plot(
-        zip(zip(senders, ligands), zip(receivers, receptors), weights),
-        colors=dict(zip(celltypes, colors)),
+        zip(zip(senders, ligands), zip(receivers, receptors)),
+        colors=colors,
         inter_space=inter_space,
-        intra_space=intra_space
+        intra_space=intra_space,
+        opacity=opacity
     )
 
 def create_ligand_links_circos_plot(
@@ -789,7 +798,8 @@ def create_ligand_links_circos_plot(
     colors:dict[str, str],
     dest_name:str,
     inter_space:float=5,
-    intra_space:float=1
+    intra_space:float=1,
+    opacity:Iterable[float]=None
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and targets. 
@@ -806,6 +816,8 @@ def create_ligand_links_circos_plot(
         space between celltypes
     intra_space : float
         space between genes
+    opacity : Iterable of float
+        the opacity of each link
     
     Returns
     -------
@@ -827,15 +839,17 @@ def create_ligand_links_circos_plot(
         raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
     if not isinstance(intra_space, Number):
         raise TypeError(f"intra_space should have type float, was {type(intra_space)}")
+    if opacity is not None and not isinstance(opacity, Iterable):
+        raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
     return _create_circos_plot(
         zip(
             zip(circos_links["ligand_type"], circos_links["ligand"]),
-            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name]),
-            circos_links["weight"]
+            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name])
         ),
         colors,
         inter_space,
-        intra_space
+        intra_space,
+        opacity=opacity
     )
 
 def generate_info_tables(
