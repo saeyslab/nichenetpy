@@ -627,7 +627,8 @@ def _create_circos_plot(
     colors:dict[str, str],
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None
+    opacity:Iterable[float]=None,
+    separate_sender_receiver:bool=True
 ) -> Figure:
     link_count_in = dict()
     link_count_out = dict()
@@ -640,12 +641,12 @@ def _create_circos_plot(
         weight = 1 if opacity is None else link[1]
         sender_group, sender = sender
         receiver_group, receiver = receiver
-        key_out = f"{sender_group}_{sender}"
+        key_out = f"{"send_" if separate_sender_receiver else ""}{sender_group}_{sender}"
         if key_out in link_count_out:
             link_count_out[key_out] += 1
         else:
             link_count_out[key_out] = 1
-        key_in = f"{receiver_group}_{receiver}"
+        key_in = f"{"rec_" if separate_sender_receiver else ""}{receiver_group}_{receiver}"
         if key_in in link_count_in:
             link_count_in[key_in] += 1
         else:
@@ -660,44 +661,57 @@ def _create_circos_plot(
     groups = dict()
     group_sizes = dict()
     for key, count in chain(link_count_in.items(), link_count_out.items()):
-        sender_group, sender = key.split("_")
-        if sender_group in groups:
-            groups[sender_group].add(sender)
+        if separate_sender_receiver:
+            role, group, elem = key.split("_")
+            group = f"{role}_{group}"
         else:
-            groups[sender_group] = {sender}
-        if sender_group in group_sizes:
-            group_sizes[sender_group] += count + intra_space
+            group, elem = key.split("_")
+        if group in groups:
+            groups[group].add(elem)
         else:
-            group_sizes[sender_group] = count
+            groups[group] = {elem}
+        if group in group_sizes:
+            group_sizes[group] += count + intra_space
+        else:
+            group_sizes[group] = count
     unit = 360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space)
     circos = Circos(
         sectors=group_sizes,
         space=(inter_space * unit)
     )
-    circos.sectors.sort(key=lambda x:x.name)
     link_count = dict(chain(link_count_in.items(), link_count_out.items()))
     rects = dict()
     for sector in circos.sectors:
-        sender_group = sector.name
+        group = sector.name
         sub_rects = dict()
-        rects[sender_group] = sub_rects
+        rects[group] = sub_rects
         track = sector.add_track((95, 100))
         start = 0
-        for sender in groups[sender_group]:
-            end = start + link_count[f"{sender_group}_{sender}"]
-            track.rect(start, end, fc=colors[sender_group])
-            sub_rects[sender] = start
+        for elem in groups[group]:
+            end = start + link_count[f"{group}_{elem}"]
+            track.rect(
+                start,
+                end,
+                fc=colors[group.split("_")[1] if separate_sender_receiver else group]
+            )
+            sub_rects[elem] = start
             track.text(
-                sender,
+                elem,
                 (end + start) / 2,
-                r=track.r_center + track.r_size + len(sender) + 4,
+                r=track.r_center + track.r_size + len(elem) + 4,
                 size=6,
                 orientation="vertical"
             )
             start = end + intra_space
     for sender, receiver, weight, send_pos, rec_pos in links:
-        sender_group, sender = sender.split("_")
-        receiver_celltype, receiver_gene = receiver.split("_")
+        if separate_sender_receiver:
+            _, sender_group, sender = sender.split("_")
+            _, receiver_group, receiver_gene = receiver.split("_")
+            sender_group = f"send_{sender_group}"
+            receiver_group = f"rec_{receiver_group}"
+        else:
+            sender_group, sender = sender.split("_")
+            receiver_group, receiver_gene = receiver.split("_")
         circos.link(
             (
                 sender_group,
@@ -705,12 +719,12 @@ def _create_circos_plot(
                 rects[sender_group][sender] + send_pos
             ),
             (
-                receiver_celltype,
-                rects[receiver_celltype][receiver_gene] + rec_pos - 1,
-                rects[receiver_celltype][receiver_gene] + rec_pos
+                receiver_group,
+                rects[receiver_group][receiver_gene] + rec_pos - 1,
+                rects[receiver_group][receiver_gene] + rec_pos
             ),
             direction=1,
-            color=colors[sender_group],
+            color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
             alpha=weight
         )
     fig = circos.plotfig()
