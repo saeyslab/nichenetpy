@@ -681,12 +681,14 @@ def _create_circos_plot(
     # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
     rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
     if separate_sender_receiver:
-        group_sizes = sorted(group_sizes.items(), key=None)#TODO
         if sender_receiver_space > 0:
+            group_sizes = list(group_sizes.items())
             for i in (0, rec_sector_count - 1):
                 group, size = group_sizes[i]
                 group_sizes[i] = (group, size + sender_receiver_space)
-            group_sizes = dict(group_sizes)
+        else:
+            group_sizes = group_sizes.items()
+        group_sizes = dict(sorted(group_sizes, key=lambda x : x[0]))
     circos = Circos(
         sectors=group_sizes,
         space=(inter_space * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space)))
@@ -694,12 +696,12 @@ def _create_circos_plot(
     link_count = dict(chain(link_count_in.items(), link_count_out.items()))
     rects = dict()
     # create a track for each sector and add the rectangles
+    start = (sender_receiver_space if separate_sender_receiver else 0)
     for i, sector in enumerate(circos.sectors):
         group = sector.name
         sub_rects = dict()
         rects[group] = sub_rects
         track = sector.add_track((95, 100))
-        start = (sender_receiver_space if i == rec_sector_count - 1 else 0)
         for elem in groups[group]:
             end = start + link_count[f"{group}_{elem}"]
             track.rect(
@@ -716,6 +718,7 @@ def _create_circos_plot(
                 orientation="vertical"
             )
             start = end + intra_space
+        start = 0
     # link the rectangles
     for sender, receiver, weight, send_pos, rec_pos in links:
         if separate_sender_receiver:
