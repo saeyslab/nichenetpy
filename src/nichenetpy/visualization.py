@@ -474,7 +474,8 @@ def visualize_ligand_signaling_graph(
     targets_oi:Collection[str],
     node_size:int=1300,
     arrow_size:int=10,
-    label_size:int=7
+    label_size:int=7,
+    seed:int|None=0
 ):
     '''
     Visualize extracted ligand-target signaling network. 
@@ -521,7 +522,7 @@ def visualize_ligand_signaling_graph(
         zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
     ):
         graph.add_edge(fr, to, weight=w, color=c)
-    pos = nx.arf_layout(graph)
+    pos = nx.arf_layout(graph, seed=seed)
     node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
     nx.draw_networkx_nodes(
         graph,
