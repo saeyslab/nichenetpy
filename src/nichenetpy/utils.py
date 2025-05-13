@@ -528,3 +528,40 @@ def rank_genes_groups_to_dataframe(
     )
     ann.uns["rank_genes_groups"] = output
     return output
+
+def get_ties(
+    it:Iterable,
+    key:Callable
+):
+    '''
+    Group the indices of the tied elements of an Iterable. 
+
+    Parameters
+    ----------
+    it : Iterable
+        the values to get the ties from
+    key : Callable
+        function to call on elements of it which returns the values of interest
+
+    Returns
+    -------
+    dict
+        a dictionary which maps tied values to groups of indices whose corresponging values equal the key
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if not isinstance(it, Iterable):
+        raise TypeError(f"it should have type Iterable, was {type(it)}")
+    if not isinstance(key, Callable):
+        raise TypeError(f"key should have type Callable, was {type(key)}")
+    output = dict()
+    for i, v in enumerate(it):
+        v = key(v)
+        if v in output:
+            output[v].append(i)
+        else:
+            output[v] = [i]
+    return output
