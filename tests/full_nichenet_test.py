@@ -590,7 +590,7 @@ def get_anndata_file(filename):
         os.makedirs(ann_path)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/15357277/files/{filename}")
+        res = requests.get(f"https://zenodo.org/records/15516713/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     return anndata.io.read_h5ad(file_path)
@@ -1989,6 +1989,7 @@ def test_differentiation_example():
             ]["gene"]
             DE_genes.append(set(genes))
         expressed_genes_sender.update(set.intersection(*DE_genes))
+    assert len(expressed_genes_sender) == 2306
     potential_ligands = set(lr_network.subset_sep(expressed_genes_sender, expressed_receptors).get_ligands())
     assert len(potential_ligands) == 122
     group_metrics(

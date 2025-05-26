@@ -1,4 +1,4 @@
-remotes::install_github("scverse/anndataR")
+#remotes::install_github("scverse/anndataR")
 library("Seurat")
 library("SeuratObject")
 library("hdf5r")
@@ -22,14 +22,32 @@ seuratObj$SCT <- ScaleData(old$SCT)
 #seuratObj@assays[["RNA"]]@layers$data@Dimnames <- old@assays[["RNA"]]$data@Dimnames
 #seuratObj[["RNA"]]@meta.data$gene = old@assays[["RNA"]]$counts@Dimnames[[1]]
 #seuratObj[["SCT"]]@meta.data$gene = old@assays[["SCT"]]$counts@Dimnames[[1]]
-ann <- anndataR::from_Seurat(
+seuratObj <- UpdateSeuratObject(seuratObj)
+DefaultAssay(seuratObj) <- "SCT"
+Idents(seuratObj) <- seuratObj$celltype
+'seuratObj@misc = list(
+  cell_attr=SCTResults(object = seuratObj[["SCT"]], slot = "cell.attributes"),
+  model_pars_fit=lapply(
+    X = SCTResults(object = seuratObj[["SCT"]], slot = "feature.attributes"),
+    FUN = function(x) x[, c("theta", "(Intercept)", "log_umi")]
+  ),
+  arguments=SCTResults(object = seuratObj[["SCT"]], slot = "arguments")
+)'
+seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT", verbose = TRUE)
+ann <- anndataR::as_AnnData(
   seuratObj,
-  "InMemoryAnnData"
+  output_class="InMemory",
+  assay_name="SCT"
 )
-anndataR::from_Seurat(
+anndataR::write_h5ad(
+  ann,
+  path="./annData/temp.h5",
+  mode="w"
+)
+'anndataR::from_Seurat(
   seuratObj,
   "HDF5AnnData",
   file="./annData/temp.h5",
   mode="w",
   assay_name="SCT"
-)
+)'
