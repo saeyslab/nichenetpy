@@ -34,7 +34,6 @@ from itertools import cycle, chain, repeat
 from collections.abc import Iterable
 from anndata import AnnData
 from pycirclize import Circos
-from pycirclize.utils import ColorCycler
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
 from scipy.stats import fisher_exact
