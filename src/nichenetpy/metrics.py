@@ -3,7 +3,7 @@ from nichenetpy.wilcoxon import (
     wilcoxon_rank_sum_test,
     wilcoxon_rank_sum_test_with_correlation
 )
-from nichenetpy.ann_utils import _subset_layer
+from nichenetpy.ann_utils import _subset_layer, subset_ann
 
 from anndata import AnnData
 from collections.abc import Callable, Iterable
@@ -404,6 +404,9 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
+    ann_orig = ann
+    if group_oi is not None and group_ref is not None:
+        ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
     if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])
@@ -442,4 +445,4 @@ def group_metrics(
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
-    ann.uns["group_metrics"] = output
+    ann_orig.uns["group_metrics"] = output
