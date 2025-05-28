@@ -33,7 +33,7 @@ Idents(seuratObj) <- seuratObj$celltype
   ),
   arguments=SCTResults(object = seuratObj[["SCT"]], slot = "arguments")
 )'
-seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT", verbose = TRUE)
+#seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT", verbose = TRUE)
 ann <- anndataR::as_AnnData(
   seuratObj,
   output_class="InMemory",
