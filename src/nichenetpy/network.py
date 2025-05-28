@@ -10,9 +10,9 @@ class Network:
 
     Parameters
     ----------
-    mapping : list
+    mapping : list or None
         sorted list of tuples (from, to)
-    filename : str
+    filename : str or None
         name of the file to read the network from
 
     Raises
@@ -33,7 +33,7 @@ class Network:
     -----
     You must pass a list SORTED by "from" as mapping or the name of a file to read from. 
     '''
-    def __init__(self, mapping:list=None, filename:str=None) -> None:
+    def __init__(self, mapping:list|None=None, filename:str|None=None) -> None:
         if mapping is not None:
             if type(mapping) is not list:
                 raise TypeError(f"mapping should have type list, was {type(mapping)}")
@@ -215,9 +215,9 @@ class WeightedNetwork(Network):
 
     Parameters
     ----------
-    mapping : list
+    mapping : list or None
         sorted list of tuples (from, to, weight)
-    filename : str
+    filename : str or None
         name of the file to read the network from
     
     Raises

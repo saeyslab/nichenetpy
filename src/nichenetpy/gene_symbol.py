@@ -45,7 +45,7 @@ class GeneAliasInfo:
 
         Parameters
         ----------
-        obj : Iterable or AnnData
+        obj : Iterable or AnnData or None
             an object that contains gene symbols
         
         Returns

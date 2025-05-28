@@ -192,8 +192,8 @@ def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork)
 def heatmap_1d(
     vals:Iterable[float],
     labels:Collection[str],
-    title:str=None,
-    cbar_label:str=None,
+    title:str|None=None,
+    cbar_label:str|None=None,
     cmap:str="Greys",
     figsize:tuple[float]=(8, 8)
 ) -> tuple[Figure, Axes]:
@@ -206,9 +206,9 @@ def heatmap_1d(
         the values to plot
     labels : Collection of str
         the labels of the values
-    title : str
+    title : str or None
         the title of the plot
-    cbar_label : str
+    cbar_label : str or None
         the label of the color bar
     cmap : str
         the name of the color map
@@ -255,9 +255,9 @@ def heatmap_2d(
     mat:list[list[float]]|np.ndarray,
     xlabels:Collection[str],
     ylabels:Collection[str],
-    xtitle:str=None,
-    ytitle:str=None,
-    cbar_label:str=None,
+    xtitle:str|None=None,
+    ytitle:str|None=None,
+    cbar_label:str|None=None,
     cbar_position:str="top",
     cbar_orientation:str="horizontal",
     cmap:str="Greys",
@@ -274,11 +274,11 @@ def heatmap_2d(
         the labels of the x values
     ylabels : Collection of str
         the labels of the y values
-    xtitle : str
+    xtitle : str or None
         the title of the x-axis
-    ytitle : str
+    ytitle : str or None
         the title of the y-axis
-    cbar_label : str
+    cbar_label : str or None
         the label of the color bar
     cbar_position : str
         the position of the color bar ("top", "bottom", "left" or "right")
@@ -512,6 +512,8 @@ def visualize_ligand_signaling_graph(
         the size of the arrows in the visualized network
     label_size : int
         the size of the node labels in the visualized network
+    seed : int or None
+        the random seed
 
     Raises
     ------
@@ -532,6 +534,8 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"arrow_size should have type int, was {type(arrow_size)}")
     if type(label_size) is not int:
         raise TypeError(f"font_size should have type int, was {type(label_size)}")
+    if type(seed) is not int:
+        raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
         zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
@@ -563,8 +567,8 @@ def assign_ligands_to_celltype(
     ann:AnnData,
     ligands:Collection[str],
     celltype_col:str="celltype",
-    condition_oi:str=None,
-    condition_col:str=None,
+    condition_oi:str|None=None,
+    condition_col:str|None=None,
     layer:str="data"
 ):
     '''
@@ -580,9 +584,9 @@ def assign_ligands_to_celltype(
         the ligands to assign to cell types
     celltype_col : str
         the name of the column in ann.obs which contains the cell types
-    condition_oi : str
+    condition_oi : str or None
         the condition of interest
-    condition_col : str
+    condition_col : str or None
         the name of the column in ann.obs which contains the conditions
     layer : str
         the layer in ann to use

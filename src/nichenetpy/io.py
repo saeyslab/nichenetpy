@@ -21,10 +21,10 @@ def _write_chunks(filename, *chunks, data=None):
 
 def write_ligand_target_matrix(
     filename:str,
-    predictor:LigandActivityPredictor=None,
-    mat:np.ndarray=None,
-    row_names:list[str]=None,
-    col_names:list[str]=None
+    predictor:LigandActivityPredictor|None=None,
+    mat:np.ndarray|None=None,
+    row_names:list[str]|None=None,
+    col_names:list[str]|None=None
 ):
     '''
     Writes a ligand-target matrix to a file. 
@@ -33,13 +33,13 @@ def write_ligand_target_matrix(
     ----------
     filename : str
         the name of the file to write to
-    predictor : LigandActvivityPredictor
+    predictor : LigandActvivityPredictor or None
         the predictor which contains the matrix
-    mat : numpy.ndarray
+    mat : numpy.ndarray or None
         the ligand-target matrix
-    row_names : list of str
+    row_names : list of str or None
         the names of the rows
-    col_names : list of str
+    col_names : list of str or None
         the names of the columns
     
     Raises

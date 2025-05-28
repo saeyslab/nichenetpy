@@ -124,8 +124,8 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
 
 def subset_matrix(
     mat:np.ndarray|csc_matrix|csr_matrix,
-    rows:list[int|bool]|tuple[int|bool]|np.ndarray=None,
-    cols:list[int|bool]|tuple[int|bool]|np.ndarray=None
+    rows:list[int|bool]|tuple[int|bool]|np.ndarray|None=None,
+    cols:list[int|bool]|tuple[int|bool]|np.ndarray|None=None
 ) -> np.ndarray|csc_matrix|csr_matrix:
     '''
     Subsets a matrix. 
@@ -134,9 +134,9 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the matrix to subset
-    rows : list or tuple of int or bool
+    rows : None or list or tuple of int or bool
         list of row indices to keep or list of booleans indicating which rows to keep
-    cols : list or tuple of int or bool
+    cols : None or list or tuple of int or bool
         list of column indices to keep or list of booleans indicating which columns to keep
     
     Returns
@@ -246,7 +246,7 @@ def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
 def combine_dicts(
     dict1:dict,
     dict2:dict,
-    func:Callable=None
+    func:Callable|None=None
 ) -> dict:
     '''
     Combine two dictionaries by their mutual keys. 
@@ -257,7 +257,7 @@ def combine_dicts(
         one of the dictionaries to combine
     dict2 : dict
         one of the dictionaries to combine
-    func : Callable
+    func : Callable or None
         a binary function that computes the new value from the old values
         if None, the values are combined into a tuple
     

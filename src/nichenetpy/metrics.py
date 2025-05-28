@@ -52,9 +52,9 @@ def _auc_reverse(x:list[float], y:list[float]) -> float:
     return sum((x[i-1] - x[i])*(y[i] + y[i-1]) for i in range(1, len(x))) / 2
 
 def calculate_aupr(
-        response:list[float]|tuple[float],
-        prediction:list[float]|tuple[float]
-    ) -> float:
+    response:list[float]|tuple[float],
+    prediction:list[float]|tuple[float]
+) -> float:
     '''
     Calculates the area under the precision-recall curve using the trapezoid rule. 
 
@@ -91,9 +91,9 @@ def calculate_aupr(
     return _auc_reverse(recall, precision)
 
 def calculate_auroc(
-        response:list[float]|tuple[float],
-        prediction:list[float]|tuple[float]
-    ) -> float:
+    response:list[float]|tuple[float],
+    prediction:list[float]|tuple[float]
+) -> float:
     '''
     Calculates the area under the roc-curve using the trapezoid rule. 
 
@@ -273,15 +273,15 @@ def _single_group_metrics(
 def group_metrics(
     ann:AnnData,
     groupby:str,
-    group_oi:str=None,
-    group_ref:str=None,
+    group_oi:str|None=None,
+    group_ref:str|None=None,
     layer:str="data",
     lfc_pseudocount:float=1,
     tie_correction:bool=True,
-    features:Iterable[str]=None,
+    features:Iterable[str]|None=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
-    pval_thresh:float=None, # 0.01 in seurat
+    pval_thresh:float|None=None, # 0.01 in seurat
     wilcoxon_limma:bool=False
 ):
     '''
@@ -295,9 +295,9 @@ def group_metrics(
         the AnnData object
     groupby : str
         the column in ann.obs to group by
-    group_oi : str
+    group_oi : str or None
         the group of interest
-    group_ref : str
+    group_ref : str or None
         the reference group
     layer : str
         the layer in the AnnData object to use
@@ -305,13 +305,13 @@ def group_metrics(
         the pseudocount to use in the computation of the log fold changes
     tie_correction : bool
         if True, tie correction is performed through averaging
-    features : Iterable of str
+    features : Iterable of str or None
         the genes to consider
     min_abs_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
     min_pct : float
         genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
-    pval_thresh : float
+    pval_thresh : float or None
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     wilcoxon_limma : bool
         use wilcoxon-limma (reproduces results from seuratv4)

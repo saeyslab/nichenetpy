@@ -10,7 +10,7 @@ def _subset_layer(
     ann:AnnData,
     layer:str,
     features:Iterable[str],
-    gene2index:dict[str, int]=None
+    gene2index:dict[str, int]|None=None
 ) -> tuple[np.ndarray, list[str]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
@@ -21,9 +21,9 @@ def _subset_layer(
 
 def subset_ann(
     ann:AnnData,
-    val:str|Iterable[str]=None,
-    genes:Iterable[str]=None,
-    layers:Iterable[str]=None,
+    val:str|Iterable[str]|None=None,
+    genes:Iterable[str]|None=None,
+    layers:Iterable[str]|None=None,
     val_col:str="celltype"
 ) -> AnnData|None:
     '''
@@ -33,9 +33,9 @@ def subset_ann(
     ----------
     ann : AnnData
         the AnnData object to subset
-    val : str or Iterable of str
+    val : str or Iterable of str or None
         the values to subset by
-    genes : Iterable of str
+    genes : Iterable of str or None
         the genes to select
     layers : Iterable of str or None
         the layers to subset (additionally to subsetting obs), if None all layers are subsetted

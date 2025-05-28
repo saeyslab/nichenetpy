@@ -96,7 +96,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe:bool=False,
     tie_correction:bool=True,
     layer:str="data",
-    genes:list[str]|tuple[str]=None
+    genes:list[str]|tuple[str]|None=None
 ):
     '''
     perform the wilcoxon rank sum test and return the p-values
@@ -113,7 +113,7 @@ def wilcoxon_rank_sum_test(
         if True, tie correction is performed
     layer : str
         the layer of the AnnData object to use
-    genes : list of str or tuple of str
+    genes : list of str or tuple of str or None
         if provided, only consider these genes
     
     Returns

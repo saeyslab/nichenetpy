@@ -162,7 +162,7 @@ def run_nichenet(
     condition_col:str,
     condition_oi:str,
     condition_ref:str,
-    sender_celltypes:Iterable[str]=None,
+    sender_celltypes:Iterable[str]|None=None,
     layer:str="data",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
@@ -170,7 +170,7 @@ def run_nichenet(
     expression_pct:float=0.1,
     ligands_top_n:int=30,
     targets_top_n:int=200,
-    lr_sig:WeightedNetwork=None,
+    lr_sig:WeightedNetwork|None=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
     get_prioritization_table:bool=False,
@@ -196,7 +196,7 @@ def run_nichenet(
         the condition of interest
     condition_ref : str
         the reference condition
-    sender_celltypes : Iterable[str]
+    sender_celltypes : Iterable[str] or None
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
     layer : str
         the layer in the AnnData object which contains the data matrix
@@ -212,7 +212,7 @@ def run_nichenet(
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
         the number of target genes to consider per ligand when performing the target gene inference
-    lr_sig : WeightedNetwork
+    lr_sig : WeightedNetwork or None
         a weighted network containing the ligand-receptor interactions and their weights
         if None, the ligand receptor links are not computed
     get_ltl : bool
@@ -626,7 +626,7 @@ def _create_circos_plot(
     colors:dict[str, str],
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None,
+    opacity:Iterable[float]|None=None,
     separate_sender_receiver:bool=True,
     sender_receiver_space:float=0
 ) -> Figure:
@@ -764,7 +764,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     colors:dict[str, str],
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None,
+    opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
 ) -> Figure:
     '''
@@ -788,7 +788,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         space between celltypes
     intra_space : float
         space between genes
-    opacity : Iterable of float
+    opacity : Iterable of float or None
         the opacity of each link
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
@@ -834,7 +834,7 @@ def create_ligand_links_circos_plot(
     dest_name:str,
     inter_space:float=5,
     intra_space:float=1,
-    opacity:Iterable[float]=None,
+    opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
 ) -> Figure:
     '''
@@ -852,7 +852,7 @@ def create_ligand_links_circos_plot(
         space between celltypes
     intra_space : float
         space between genes
-    opacity : Iterable of float
+    opacity : Iterable of float or None
         the opacity of each link
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
@@ -899,7 +899,7 @@ def generate_info_tables(
     lr_network_filtered:LigandReceptorNetwork,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,#TODO
+    condition_ref:str,
     case_control:bool=False,
     use_scanpy:bool=False
 ) -> dict[str, pd.DataFrame]:
