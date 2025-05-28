@@ -429,7 +429,6 @@ def group_metrics(
         pvals = pd.DataFrame(pvals, index=genes)
         pvals.index.name = "gene"
     else:
-        # TODO: check if group_oi and group_ref can be used for speedup
         pvals = wilcoxon_rank_sum_test(
             ann,
             groupby=groupby,
