@@ -76,7 +76,7 @@ def get_anndata_file(filename):
         os.makedirs(ann_path)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/15516713/files/{filename}")
+        res = requests.get(f"https://zenodo.org/records/15574665/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     return anndata.io.read_h5ad(file_path)

@@ -548,7 +548,6 @@ DE_top_10_ligand_receptor_links = [
 def test_steps():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -704,7 +703,6 @@ def test_steps():
 def test_wrapper():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -940,7 +938,6 @@ def test_ligand_activity_geneset():
 def test_steps_prioritization():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1114,7 +1111,6 @@ def test_ligand_target_signaling_path():
 '''def test_target_prediction_evaluation_geneset():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1506,7 +1502,6 @@ def test_target_prediction_evaluation_geneset():
     # not deterministic, so allow for some variance
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     model = get_model_pickle("mouse")
     predictor = model["predictor"]
@@ -1670,7 +1665,6 @@ def test_model_construction_with_liana():
         )
     )
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     lr_network_liana = decomplexify(select_resource("mouseconsensus"))
     lr_network_liana.rename(columns={
