@@ -61,6 +61,7 @@ from liana.resource import (
     select_resource
 )
 
+import pytest
 import anndata
 import os
 import requests
@@ -490,6 +491,42 @@ MCWL_top_10_ligand_activities_nichenet = [
     ("H2-Q4", 0.11162429),
     ("H2-Q6", 0.11162429)
 ]
+DE_top_10_ligand_activities = [
+    ("Tgfb1", 0.051856232),
+    ("Orm1", 0.040032290),
+    ("Tgm2", 0.037219290),
+    ("Jam2", 0.035958280),
+    ("Wnt2", 0.034722351),
+    ("Hrg", 0.033544508),
+    ("Angptl3", 0.033367450),
+    ("Hpx", 0.032826867),
+    ("Hbegf", 0.032625716),
+    ("Sema4c", 0.032494604)
+]
+DE_top_10_active_ligand_target_links = [
+    ("Tgfb1", "Sgk1", 0.296242723),
+    ("Tgfb1", "Hmox1", 0.272684907),
+    ("Tgfb1", "Klf7", 0.235562332),
+    ("Tgfb1", "Lbh", 0.218292241),
+    ("Tgfb1", "Tgm2", 0.210997543),
+    ("Tgfb1", "Maf", 0.204017964),
+    ("Cxcl12", "Hmox1", 0.202240401),
+    ("Bmp2", "Mafb", 0.186339946),
+    ("Bmp2", "Kctd12", 0.186217271),
+    ("Tgfb1", "Hbegf", 0.181276555)
+]
+DE_top_10_ligand_receptor_links = [
+    ("Tgfb1", "Tgfbr1", 1.4514879),
+    ("Hp", "Cd163", 1.3991302),
+    ("Tgfb1", "Tgfbr2", 1.3678693),
+    ("Bmp2", "Bmpr2", 1.2482671),
+    ("Cd55", "Adgre5", 1.0896640),
+    ("Adam17", "Notch1", 1.0465043),
+    ("Angptl3", "Lpl", 1.0395698),
+    ("Hbegf", "Cd9", 1.0040770),
+    ("Tgfb1", "Acvrl1", 0.9546549),
+    ("F2", "F8", 0.9509897)
+]
 
 def equals(
     x,
@@ -553,7 +590,7 @@ def get_anndata_file(filename):
         os.makedirs(ann_path)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/14859451/files/{filename}")
+        res = requests.get(f"https://zenodo.org/records/15516713/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     return anndata.io.read_h5ad(file_path)
@@ -617,7 +654,7 @@ def test_steps():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
-    mouse_alias_info.alias_to_symbol(ann)
+    #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
     lr_sig = model["lr_sig"]
@@ -773,7 +810,7 @@ def test_wrapper():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
-    mouse_alias_info.alias_to_symbol(ann)
+    #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
     lr_sig = model["lr_sig"]
@@ -1009,7 +1046,7 @@ def test_steps_prioritization():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
-    mouse_alias_info.alias_to_symbol(ann)
+    #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
@@ -1228,7 +1265,6 @@ def test_ligand_activity_single_cell():
     lr_sig = model["lr_sig"]
     get_hnscc_file()
     exp_mat, exp_mat_rows, exp_mat_cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
-    #cols = human_alias_info.alias_to_symbol(cols)
     sample_info_col_names, sample_info = read_csv_rows(os.path.join(hnscc_path, "sample_info.csv"))
     sample_info = [
         [
@@ -1576,7 +1612,7 @@ def test_target_prediction_evaluation_geneset():
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
-    mouse_alias_info.alias_to_symbol(ann)
+    #mouse_alias_info.alias_to_symbol(ann)
     model = get_model_pickle("mouse")
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1740,7 +1776,7 @@ def test_model_construction_with_liana():
     )
     ann = get_anndata_file("annData3531889.h5")
     ann.var_names = ann.var["gene"]
-    mouse_alias_info.alias_to_symbol(ann)
+    #mouse_alias_info.alias_to_symbol(ann)
     lr_network_liana = decomplexify(select_resource("mouseconsensus"))
     lr_network_liana.rename(columns={
         "ligand": "from",

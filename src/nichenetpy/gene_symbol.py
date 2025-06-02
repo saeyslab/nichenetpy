@@ -3,7 +3,7 @@ from anndata import AnnData
 from collections.abc import Iterable
 
 
-root = os.path.dirname(__file__)
+_root = os.path.dirname(__file__)
 
 class GeneAliasInfo:
     '''
@@ -45,7 +45,7 @@ class GeneAliasInfo:
 
         Parameters
         ----------
-        obj : Iterable or AnnData
+        obj : Iterable or AnnData or None
             an object that contains gene symbols
         
         Returns
@@ -78,18 +78,20 @@ class GeneAliasInfo:
                 output[i] = obj[i]
             return output
         elif type(obj) is AnnData:
-            obj.var["gene"] = self.alias_to_symbol(obj.var["gene"])
+            obj.var_names = self.alias_to_symbol(obj.var_names)
+            if "gene" in obj.var:
+                obj.var["gene"] = self.alias_to_symbol(obj.var["gene"])
         elif isinstance(obj, Iterable):
             return self.alias_to_symbol(list(obj))
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
-mouse_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
+mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
 '''
 gene alias info for mice (3845 kb)
 '''
 
-human_alias_info = GeneAliasInfo(os.path.join(root, "../../data/gene_alias/geneinfo_alias_human.csv"))
+human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_human.csv"))
 '''
 gene alias info for humans (3845 kb)
 '''

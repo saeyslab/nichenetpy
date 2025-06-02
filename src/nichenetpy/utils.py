@@ -124,8 +124,8 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
 
 def subset_matrix(
     mat:np.ndarray|csc_matrix|csr_matrix,
-    rows:list[int|bool]|tuple[int|bool]|np.ndarray=None,
-    cols:list[int|bool]|tuple[int|bool]|np.ndarray=None
+    rows:list[int|bool]|tuple[int|bool]|np.ndarray|None=None,
+    cols:list[int|bool]|tuple[int|bool]|np.ndarray|None=None
 ) -> np.ndarray|csc_matrix|csr_matrix:
     '''
     Subsets a matrix. 
@@ -134,9 +134,9 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the matrix to subset
-    rows : list or tuple of int or bool
+    rows : None or list or tuple of int or bool
         list of row indices to keep or list of booleans indicating which rows to keep
-    cols : list or tuple of int or bool
+    cols : None or list or tuple of int or bool
         list of column indices to keep or list of booleans indicating which columns to keep
     
     Returns
@@ -246,7 +246,7 @@ def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
 def combine_dicts(
     dict1:dict,
     dict2:dict,
-    func:Callable=None
+    func:Callable|None=None
 ) -> dict:
     '''
     Combine two dictionaries by their mutual keys. 
@@ -257,7 +257,7 @@ def combine_dicts(
         one of the dictionaries to combine
     dict2 : dict
         one of the dictionaries to combine
-    func : Callable
+    func : Callable or None
         a binary function that computes the new value from the old values
         if None, the values are combined into a tuple
     
@@ -527,4 +527,41 @@ def rank_genes_groups_to_dataframe(
         inplace=True
     )
     ann.uns["rank_genes_groups"] = output
+    return output
+
+def get_ties(
+    it:Iterable,
+    key:Callable
+):
+    '''
+    Group the indices of the tied elements of an Iterable. 
+
+    Parameters
+    ----------
+    it : Iterable
+        the values to get the ties from
+    key : Callable
+        function to call on elements of it which returns the values of interest
+
+    Returns
+    -------
+    dict
+        a dictionary which maps tied values to groups of indices whose corresponging values equal the key
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if not isinstance(it, Iterable):
+        raise TypeError(f"it should have type Iterable, was {type(it)}")
+    if not isinstance(key, Callable):
+        raise TypeError(f"key should have type Callable, was {type(key)}")
+    output = dict()
+    for i, v in enumerate(it):
+        v = key(v)
+        if v in output:
+            output[v].append(i)
+        else:
+            output[v] = [i]
     return output

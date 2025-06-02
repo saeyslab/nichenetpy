@@ -1,9 +1,8 @@
 from nichenetpy.utils import subset_matrix
 
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 from scipy.stats import t
 from anndata import AnnData
-from itertools import chain
 from collections.abc import Iterable
 from math import sqrt, erfc
 from numbers import Number
@@ -13,7 +12,7 @@ import numpy as np
 
 
 def _rank_cells(
-    mat:csc_matrix,
+    mat:csc_matrix|csr_matrix|np.ndarray,
     cell_groups:Iterable[str],
     tie_correction:bool=True
 ):
@@ -21,7 +20,10 @@ def _rank_cells(
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = list(cell_groups)
     if type(mat) is not csc_matrix:
-        raise TypeError(f"mat should have type scipy.csc_matrix, was {type(mat)}")
+        try:
+            mat = csc_matrix(mat)
+        except TypeError:
+            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}")
     output = []
     group_mat = []
     nrows, ncols = mat.shape
@@ -94,7 +96,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe:bool=False,
     tie_correction:bool=True,
     layer:str="data",
-    genes:list[str]|tuple[str]=None
+    genes:list[str]|tuple[str]|None=None
 ):
     '''
     perform the wilcoxon rank sum test and return the p-values
@@ -111,7 +113,7 @@ def wilcoxon_rank_sum_test(
         if True, tie correction is performed
     layer : str
         the layer of the AnnData object to use
-    genes : list of str or tuple of str
+    genes : list of str or tuple of str or None
         if provided, only consider these genes
     
     Returns

@@ -34,11 +34,12 @@ def convert_expression_settings_evaluation(setting:dict) -> dict:
     dict
         a dictionary with the following keys:
 
-            name: the name of the stting
+            name: the name of the setting
 
             from: the name of the ligand which is active in the setting of interest
 
-            response: a logical vector indicating whether the gene's transcription was influenced by the active ligand(s) in the setting of interest
+            response:   a logical vector indicating whether the gene's transcription was
+                        influenced by the active ligand(s) in the setting of interest
     
     Raises
     ------
@@ -79,7 +80,8 @@ def convert_settings_ligand_prediction(
         
             from: the name of the ligand which is active in the setting of interest
         
-            response: the observed target response, indicates for a gene whether it was a target or not in the setting of interest
+            response:   the observed target response, indicates for a gene whether
+                        it was a target or not in the setting of interest
     all_ligands : Iterable of str
         the possible ligands that will be considered for the ligand activity state prediction
 
@@ -94,7 +96,8 @@ def convert_settings_ligand_prediction(
 
             from: the ligand that will be tested for activity prediction
 
-            response: a logical vector indicating whether the gene's transcription was influenced by the active ligand(s) in the setting of interest
+            response:   a logical vector indicating whether the gene's transcription was influenced by
+                        the active ligand(s) in the setting of interest
     
     Raises
     ------
@@ -136,7 +139,8 @@ def get_single_ligand_importances(
         
             from:  the name of the ligand of which the predictive performance need to be assessed
         
-            response: the observed target response, indicates for a gene whether it was a target or not in the setting of interest
+            response:   the observed target response, indicates for a gene whether it was a target
+                        or not in the setting of interest
     predictor : LigandActivityPredictor
         the ligand activity predictor
 

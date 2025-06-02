@@ -7,24 +7,24 @@ import numpy as np
 import struct
 
 
-INT_SIZE = 8
-DOUBLE_SIZE = 8
+_INT_SIZE = 8
+_DOUBLE_SIZE = 8
 
 def _write_chunks(filename, *chunks, data=None):
     if data is None:
         data = bytearray()
     for chunk in chunks:
-        data.extend(len(chunk).to_bytes(length=INT_SIZE))
+        data.extend(len(chunk).to_bytes(length=_INT_SIZE))
         data.extend(chunk)
     with open(filename, "wb") as file:
         file.write(data)
 
 def write_ligand_target_matrix(
     filename:str,
-    predictor:LigandActivityPredictor=None,
-    mat:np.ndarray=None,
-    row_names:list[str]=None,
-    col_names:list[str]=None
+    predictor:LigandActivityPredictor|None=None,
+    mat:np.ndarray|None=None,
+    row_names:list[str]|None=None,
+    col_names:list[str]|None=None
 ):
     '''
     Writes a ligand-target matrix to a file. 
@@ -33,13 +33,13 @@ def write_ligand_target_matrix(
     ----------
     filename : str
         the name of the file to write to
-    predictor : LigandActvivityPredictor
+    predictor : LigandActvivityPredictor or None
         the predictor which contains the matrix
-    mat : numpy.ndarray
+    mat : numpy.ndarray or None
         the ligand-target matrix
-    row_names : list of str
+    row_names : list of str or None
         the names of the rows
-    col_names : list of str
+    col_names : list of str or None
         the names of the columns
     
     Raises
@@ -93,9 +93,9 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
-        row_names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        col_names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        mat = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))))
+        row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
     row_names = row_names.decode("ascii").split()
     col_names = col_names.decode("ascii").split()
     mat = mat.reshape((len(row_names), len(col_names)))
@@ -147,11 +147,11 @@ def _read_sparse_matrix(
     filename
 ):
     with open(filename, "rb") as file:
-        row_names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        col_names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        data = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))))
-        indices = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))), dtype=np.int32)
-        indptr = np.frombuffer(file.read(int.from_bytes(file.read(INT_SIZE))), dtype=np.int32)
+        row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        data = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
+        indices = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
+        indptr = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
     row_names = row_names.decode("ascii").split()
     col_names = col_names.decode("ascii").split()
     return (data, indices, indptr, row_names, col_names)
@@ -253,14 +253,14 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
     data = bytearray()
     for fr, tos in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
-        data.extend(len(tos).to_bytes(length=INT_SIZE))
+        data.extend(len(tos).to_bytes(length=_INT_SIZE))
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
     _write_chunks(
         filename,
         "\n".join(name2id.keys()).encode("ascii"),
         data,
-        data=bytearray(id_size.to_bytes(INT_SIZE))
+        data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
 def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
@@ -298,7 +298,7 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
     data = bytearray()
     for fr, group in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
-        data.extend(len(group).to_bytes(length=INT_SIZE))
+        data.extend(len(group).to_bytes(length=_INT_SIZE))
         for to, w in group:
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
@@ -306,7 +306,7 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
         filename,
         "\n".join(name2id.keys()).encode("ascii"),
         data,
-        data=bytearray(id_size.to_bytes(INT_SIZE))
+        data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
 def read_network(filename:str) -> list[tuple[str, str]]:
@@ -331,9 +331,9 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
-        id_size = int.from_bytes(file.read(INT_SIZE))
-        names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        mapping = file.read(int.from_bytes(file.read(INT_SIZE)))
+        id_size = int.from_bytes(file.read(_INT_SIZE))
+        names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
     names = names.decode("ascii").split()
     id2name = dict(enumerate(names))
     output = []
@@ -341,8 +341,8 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     while i < len(mapping):
         fr = id2name[int.from_bytes(mapping[i:i+id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+INT_SIZE])
-        i += INT_SIZE
+        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        i += _INT_SIZE
         for _ in range(k):
             output.append((fr, id2name[int.from_bytes(mapping[i:i+id_size])]))
             i += id_size
@@ -370,9 +370,9 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
-        id_size = int.from_bytes(file.read(INT_SIZE))
-        names = file.read(int.from_bytes(file.read(INT_SIZE)))
-        mapping = file.read(int.from_bytes(file.read(INT_SIZE)))
+        id_size = int.from_bytes(file.read(_INT_SIZE))
+        names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
     names = names.decode("ascii").split()
     id2name = dict(enumerate(names))
     output = []
@@ -380,13 +380,13 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     while i < len(mapping):
         fr = id2name[int.from_bytes(mapping[i:i+id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+INT_SIZE])
-        i += INT_SIZE
+        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        i += _INT_SIZE
         for _ in range(k):
             output.append((
                 fr,
                 id2name[int.from_bytes(mapping[i:i+id_size])],
-                struct.unpack("d", mapping[i+id_size:i+id_size+DOUBLE_SIZE])[0]
+                struct.unpack("d", mapping[i+id_size:i+id_size+_DOUBLE_SIZE])[0]
             ))
-            i += id_size + DOUBLE_SIZE
+            i += id_size + _DOUBLE_SIZE
     return output

@@ -206,12 +206,15 @@ def scaling_modified_zscore(
     scale_factor:float=0.6744907594765952
 ) -> list[float]|np.ndarray|pd.Series:
     '''
-    Normalize values in a vector by the z-score method.
+    Normalize values by the modified z-score method (uses median and median absolute deviation instead mean)
 
     Parameters
     ----------
     data : list of float or numpy.ndarray or pandas.Series
         the data to normalize
+    
+    scale_factor : float
+        the scale factor used in the computation
     
     Returns
     -------
@@ -235,7 +238,7 @@ def scaling_modified_zscore(
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return 0.6745 * (data - md)
         else:
-            mad = median_abs_deviation(data, scale=scale_factor)
+            mad = median_abs_deviation(data, scale=scale_factor) # TODO: check if multiplication can be removed and scale set to 1
             return 0.6745 * (data - md) / mad
     else:
         raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")

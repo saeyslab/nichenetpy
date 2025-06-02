@@ -1,11 +1,27 @@
-from nichenetpy.utils import subset_matrix
+from nichenetpy.utils import (
+    subset_matrix,
+    get_ties
+)
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.graph import get_reachable_nodes
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-from collections.abc import Iterable, Collection
+from matplotlib.lines import Line2D
+from matplotlib.patches import (
+    Circle,
+    Rectangle,
+    Wedge
+)
+from matplotlib.collections import PatchCollection
+from matplotlib.text import Text
+from matplotlib.colors import colorConverter
+from math import isnan
+from collections.abc import (
+    Iterable,
+    Collection
+)
 from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
@@ -176,8 +192,8 @@ def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork)
 def heatmap_1d(
     vals:Iterable[float],
     labels:Collection[str],
-    title:str=None,
-    cbar_label:str=None,
+    title:str|None=None,
+    cbar_label:str|None=None,
     cmap:str="Greys",
     figsize:tuple[float]=(8, 8)
 ) -> tuple[Figure, Axes]:
@@ -190,9 +206,9 @@ def heatmap_1d(
         the values to plot
     labels : Collection of str
         the labels of the values
-    title : str
+    title : str or None
         the title of the plot
-    cbar_label : str
+    cbar_label : str or None
         the label of the color bar
     cmap : str
         the name of the color map
@@ -239,9 +255,9 @@ def heatmap_2d(
     mat:list[list[float]]|np.ndarray,
     xlabels:Collection[str],
     ylabels:Collection[str],
-    xtitle:str=None,
-    ytitle:str=None,
-    cbar_label:str=None,
+    xtitle:str|None=None,
+    ytitle:str|None=None,
+    cbar_label:str|None=None,
     cbar_position:str="top",
     cbar_orientation:str="horizontal",
     cmap:str="Greys",
@@ -258,11 +274,11 @@ def heatmap_2d(
         the labels of the x values
     ylabels : Collection of str
         the labels of the y values
-    xtitle : str
+    xtitle : str or None
         the title of the x-axis
-    ytitle : str
+    ytitle : str or None
         the title of the y-axis
-    cbar_label : str
+    cbar_label : str or None
         the label of the color bar
     cbar_position : str
         the position of the color bar ("top", "bottom", "left" or "right")
@@ -474,7 +490,8 @@ def visualize_ligand_signaling_graph(
     targets_oi:Collection[str],
     node_size:int=1300,
     arrow_size:int=10,
-    label_size:int=7
+    label_size:int=7,
+    seed:int|None=0
 ):
     '''
     Visualize extracted ligand-target signaling network. 
@@ -495,6 +512,8 @@ def visualize_ligand_signaling_graph(
         the size of the arrows in the visualized network
     label_size : int
         the size of the node labels in the visualized network
+    seed : int or None
+        the random seed
 
     Raises
     ------
@@ -515,13 +534,15 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"arrow_size should have type int, was {type(arrow_size)}")
     if type(label_size) is not int:
         raise TypeError(f"font_size should have type int, was {type(label_size)}")
+    if type(seed) is not int:
+        raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
         zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
         zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
     ):
         graph.add_edge(fr, to, weight=w, color=c)
-    pos = nx.arf_layout(graph)
+    pos = nx.arf_layout(graph, seed=seed)
     node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
     nx.draw_networkx_nodes(
         graph,
@@ -546,8 +567,8 @@ def assign_ligands_to_celltype(
     ann:AnnData,
     ligands:Collection[str],
     celltype_col:str="celltype",
-    condition_oi:str=None,
-    condition_col:str=None,
+    condition_oi:str|None=None,
+    condition_col:str|None=None,
     layer:str="data"
 ):
     '''
@@ -563,9 +584,9 @@ def assign_ligands_to_celltype(
         the ligands to assign to cell types
     celltype_col : str
         the name of the column in ann.obs which contains the cell types
-    condition_oi : str
+    condition_oi : str or None
         the condition of interest
-    condition_col : str
+    condition_col : str or None
         the name of the column in ann.obs which contains the conditions
     layer : str
         the layer in ann to use
@@ -655,3 +676,260 @@ def assign_ligands_to_celltype(
             general_ligands
         )
     })
+
+def _plot_ties(
+    ties,
+    x_col,
+    max_ligands,
+    r_tie,
+    top_offset,
+    ax,
+    ymax,
+    tie_color
+):
+    for group in ties.values():
+        if len(group) > 1 and all((e < max_ligands for e in group)):
+            start = min(group) + 1
+            end = max(group) + 1
+            ax.add_collection(
+                PatchCollection(
+                    (
+                        Rectangle(
+                            xy=(x_col - r_tie, (start + top_offset)/ymax),
+                            width=2*r_tie,
+                            height=(end-start)/ymax
+                        ),
+                        Wedge(
+                            (x_col, (start + top_offset)/ymax),
+                            r_tie,
+                            theta1=180,
+                            theta2=360
+                        ),
+                        Wedge(
+                            (x_col, (end + top_offset)/ymax),
+                            r_tie,
+                            theta1=0,
+                            theta2=180
+                        )
+                    ),
+                    fc=tie_color
+                )
+            )
+
+def create_barcode_plot(
+    ligand_activities_agnostic:Iterable,
+    ligand_activities_focused:Iterable,
+    x_col_barcode:float=0.1,
+    x_col_rank:float=0.4,
+    x_col_agnostic:float=0.6,
+    x_col_focused:float=0.9,
+    r:float=0.005,
+    max_ligands:int=20,
+    figsize:tuple[float, float]=(10, 10)
+) -> tuple[Figure, Axes]:
+    if type(ligand_activities_agnostic) is dict:
+        ligand_activities_agnostic = ligand_activities_agnostic.items()
+    elif not isinstance(ligand_activities_agnostic, Iterable):
+        raise TypeError(f"ligand_activities_agnostic should be a dictionary or an iterable of (key, value) tuples, was {type(ligand_activities_agnostic)}")
+    if type(ligand_activities_focused) is dict:
+        ligand_activities_focused = ligand_activities_focused.items()
+    elif not isinstance(ligand_activities_focused, Iterable):
+        raise TypeError(f"ligand_activities_focused should be a dictionary or an iterable of (key, value) tuples, was {type(ligand_activities_focused)}")
+    if not isinstance(x_col_barcode, Number):
+        raise TypeError(f"x_col_barcode should have type float, was {type(x_col_barcode)}")
+    if not isinstance(x_col_rank, Number):
+        raise TypeError(f"x_col_rank should have type float, was {type(x_col_rank)}")
+    if not isinstance(x_col_agnostic, Number):
+        raise TypeError(f"x_col_agnostic should have type float, was {type(x_col_agnostic)}")
+    if not isinstance(x_col_focused, Number):
+        raise TypeError(f"x_col_focused should have type float, was {type(x_col_focused)}")
+    if not isinstance(r, Number):
+        raise TypeError(f"r should have type float, was {type(r)}")
+    if type(max_ligands) is not int:
+        raise TypeError(f"max_ligands should have type iny, was {type(max_ligands)}")
+    columns = ("rank", "ligand")
+    scores1 = sorted(
+        ((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_agnostic),
+        key=lambda x : (-x[1], x[0])
+    )
+    ranking1 = pd.DataFrame(
+        zip(
+            range(1, len(scores1)),
+            (e[0] for e in scores1)
+        ),
+        columns=columns
+    )
+    scores2 = sorted(
+        ((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_focused),
+        key=lambda x : (-x[1], x[0])
+    )
+    ranking2 = pd.DataFrame(
+        zip(
+            range(1, len(scores2)),
+            (e[0] for e in scores2)
+        ),
+        columns=columns
+    )
+    ranking = ranking1.merge(
+        ranking2,
+        on="ligand",
+        how="outer",
+        suffixes=("_agnostic", "_focused")
+    )
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_axis_off()
+    top_offset = max_ligands/6
+    bot_offset = 0.5
+    ymax = max_ligands + top_offset + bot_offset
+    ax.set_ylim(
+        ymin=0,
+        ymax=1
+    )
+    ax.invert_yaxis()
+    ax.add_artist(Text(
+        x_col_rank,
+        top_offset/ymax,
+        "Rank",
+        horizontalalignment="center",
+        size=12
+    ))
+    ax.add_artist(Text(
+        x_col_agnostic,
+        top_offset/ymax,
+        "Agnostic",
+        horizontalalignment="center",
+        size=12
+    ))
+    ax.add_artist(Text(
+        x_col_focused,
+        top_offset/ymax,
+        "Focused",
+        horizontalalignment="center",
+        size=12
+    ))
+    # add marks and lines
+    for ligand, rank_agnostic, rank_focused in zip(ranking["ligand"], ranking["rank_agnostic"], ranking["rank_focused"]):
+        xy1 = (x_col_agnostic, (rank_agnostic + top_offset)/ymax)
+        xy2 = (x_col_focused, (rank_focused + top_offset)/ymax)
+        if isnan(rank_focused):
+            color="red"
+        else:
+            color="black"
+            if rank_focused <= max_ligands:
+                ax.add_line(
+                    Line2D(
+                        (xy1[0], xy2[0]),
+                        (xy1[1], xy2[1]),
+                        color=color
+                    )
+                )
+                ax.add_patch(Circle(xy2, r, fc=color))
+                ax.add_artist(Text(
+                    xy2[0]+0.01,
+                    xy2[1],
+                    ligand,
+                    color=color,
+                    verticalalignment="center"
+                ))
+        if rank_agnostic <= max_ligands:
+            ax.add_artist(Text(
+                x_col_rank,
+                (rank_agnostic + top_offset)/ymax,
+                rank_agnostic,
+                horizontalalignment="center",
+                verticalalignment="center"
+            ))
+            ax.add_patch(Circle(xy1, r, fc=color))
+            ax.add_artist(Text(
+                xy1[0]-0.01,
+                xy1[1],
+                ligand,
+                horizontalalignment="right",
+                verticalalignment="center",
+                color=color
+            ))
+    # add ties
+    tie_color = colorConverter.to_rgba("0.3", alpha=0.5)
+    r_tie = r * 1.6
+    _plot_ties(
+        get_ties(
+            scores1,
+            key=lambda x : x[1]
+        ),
+        x_col=x_col_agnostic,
+        max_ligands=max_ligands,
+        r_tie=r_tie,
+        top_offset=top_offset,
+        ax=ax,
+        ymax=ymax,
+        tie_color=tie_color
+    )
+    _plot_ties(
+        get_ties(
+            scores2,
+            key=lambda x : x[1]
+        ),
+        x_col=x_col_focused,
+        max_ligands=max_ligands,
+        r_tie=r_tie,
+        top_offset=top_offset,
+        ax=ax,
+        ymax=ymax,
+        tie_color=tie_color
+    )
+    # add legend
+    legend_width = 0.28
+    legend_height = 0.07
+    legend_center = ((x_col_rank + x_col_focused)/2, top_offset/ymax * 0.35)
+    legend_xy = (legend_center[0] - legend_width/2, legend_center[1] - legend_height/2)
+    legend_r = legend_height*0.12
+    ax.add_patch(Circle(
+        (legend_xy[0] + legend_r, legend_center[1]),
+        radius=legend_r,
+        fc="red"
+    ))
+    ax.add_artist(Text(
+        legend_xy[0] + legend_r*2.5,
+        legend_center[1],
+        "Only agnostic",
+        horizontalalignment="left",
+        verticalalignment="center"
+    ))
+    ax.add_patch(Rectangle(
+        (legend_center[0] + 0.06*legend_width, legend_center[1] - legend_r),
+        width=legend_r*2,
+        height=legend_r*2,
+        fc=tie_color
+    ))
+    ax.add_artist(Text(
+        legend_center[0] + 0.06*legend_width + legend_r*2.5,
+        legend_center[1],
+        "Tied",
+        horizontalalignment="left",
+        verticalalignment="center"
+    ))
+    # add barcode plot
+    top_offset = ranking.shape[0]/6
+    ymax = ranking.shape[0] + top_offset + bot_offset
+    runs = []
+    run_length = 1
+    group = isnan(ranking["rank_focused"][0])
+    ranking.sort_values(by="rank_agnostic", ascending=True, inplace=True)
+    for rank in ranking["rank_focused"][1:]:
+        if isnan(rank) == group:
+            run_length += 1
+        else:
+            runs.append((group, run_length))
+            group = isnan(rank)
+            run_length = 1
+    pos = 0
+    for group, run_length in runs:
+        segment_height = run_length/ymax
+        ax.add_patch(Rectangle(
+            (x_col_barcode, top_offset/ymax + pos),
+            width=x_col_rank - x_col_barcode - 0.1,
+            height=segment_height,
+            color="red" if group else "black"
+        ))
+        pos += segment_height
+    return (fig, ax)

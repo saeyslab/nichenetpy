@@ -28,7 +28,7 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:Iterable[str]=None,
+    features:Iterable[str]|None=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
     pval_thresh:float=1,
@@ -50,7 +50,7 @@ def calculate_de(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
-    features : Iterable of str
+    features : Iterable of str or None
         the genes to consider
     min_abs_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
@@ -116,10 +116,10 @@ def calculate_de(
 def get_avg_exp(
     ann:AnnData,
     celltype_col:str,
-    condition_oi:str=None,
-    condition_col:str=None,
+    condition_oi:str|None=None,
+    condition_col:str|None=None,
     layer:str="counts",
-    features:Iterable[str]=None
+    features:Iterable[str]|None=None
 ) -> pd.DataFrame:
     '''
     Calculate the average gene expression per cell type.
@@ -131,13 +131,13 @@ def get_avg_exp(
         the AnnData object
     celltype_col : str
         the column in ann.obs which contains the celltypes
-    condition_oi : str
+    condition_oi : str or None
         The condition of interest
-    condition_col : str
+    condition_col : str or None
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
-    features : Iterable[str]
+    features : Iterable[str] or None
         the genes to use, if None, use all genes from the AnnData object
     
     Returns
@@ -187,8 +187,8 @@ def process_table_to_ic(
     tab:pd.DataFrame,
     table_type:str,
     lr_network:LigandReceptorNetwork,
-    senders_oi:Collection[str]=None,
-    receivers_oi:Collection[str]=None
+    senders_oi:Collection[str]|None=None,
+    receivers_oi:Collection[str]|None=None
 ):
     '''
     First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
@@ -203,9 +203,9 @@ def process_table_to_ic(
         indicates whether the table contains expression, celltype markers, or condition-specific information
     lr_network : LigandReceptorNetwork
         prior knowledge Ligand-Receptor network
-    senders_oi : Collection of str
+    senders_oi : Collection of str or None
         the sender celltypes of interest
-    receivers_oi : Collection of str
+    receivers_oi : Collection of str or None
         the receiver celltypes of interest
     
     Returns
@@ -347,7 +347,7 @@ def process_table_to_ic(
 def _prioritization(
     de:pd.DataFrame,
     lig_rec:str,
-    send_rcvr:str=None
+    send_rcvr:str|None=None
 ):
     output = de[
         [lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
@@ -375,8 +375,8 @@ def generate_prioritization_table(
     sender_receiver_info:pd.DataFrame,
     sender_receiver_de:pd.DataFrame,
     ligand_activities:pd.DataFrame|dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]],
-    lr_condition_de:pd.DataFrame=None,
-    prioritizing_weights:dict[str, float]=None
+    lr_condition_de:pd.DataFrame|None=None,
+    prioritizing_weights:dict[str, float]|None=None
 ):
     '''
     User can choose the importance attached to each of the following prioritization criteria:
@@ -392,9 +392,9 @@ def generate_prioritization_table(
         processed output of calculate_de
     ligand_activities : pandas.DataFrame
         output of predict_ligand_activities
-    lr_condition_de : pandas.DataFrame
+    lr_condition_de : pandas.DataFrame or None
         processed output of group_metrics
-    prioritizing_weights : dict
+    prioritizing_weights : dict or None
         a dictionary indicating the relative weights of each prioritization criterion
         If provided, the dictionary must contain the following names:
             "de_ligand",

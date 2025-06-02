@@ -121,7 +121,7 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    features:Iterable[str]=None,
+    features:Iterable[str]|None=None,
     scanpy_lfc:bool=False
 ) -> tuple[list[str], list[float]]:
     '''
@@ -214,9 +214,9 @@ def get_lfc_celltype(
 def average_expression(
     ann:AnnData,
     groupby:str,
-    keys:Iterable[str]=None,
+    keys:Iterable[str]|None=None,
     layer:str="counts",
-    norm_f:Callable=None
+    norm_f:Callable|None=None
 ):
     '''
     Computes averaged expression values for each group. Similar to seurat's AverageExpression. 
@@ -227,11 +227,11 @@ def average_expression(
         the AnnData object for which to compute averaged expression values
     groupby : str
         the column in ann.obs to group by
-    keys : Iterable of str
+    keys : Iterable of str or None
         the values to group by, all values in the groupby column by default
     layer : str
         the layer to compute average expression values from, this layer should contain counts
-    norm_f : Callable
+    norm_f : Callable or None
         the normalization function (normalization prior to the computation)
     
     Returns

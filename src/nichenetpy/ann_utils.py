@@ -10,7 +10,7 @@ def _subset_layer(
     ann:AnnData,
     layer:str,
     features:Iterable[str],
-    gene2index:dict[str, int]=None
+    gene2index:dict[str, int]|None=None
 ) -> tuple[np.ndarray, list[str]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
@@ -21,9 +21,9 @@ def _subset_layer(
 
 def subset_ann(
     ann:AnnData,
-    val:str|Iterable[str]=None,
-    genes:Iterable[str]=None,
-    layers:Iterable[str]=None,
+    val:str|Iterable[str]|None=None,
+    genes:Iterable[str]|None=None,
+    layers:Iterable[str]|None=None,
     val_col:str="celltype"
 ) -> AnnData|None:
     '''
@@ -33,9 +33,9 @@ def subset_ann(
     ----------
     ann : AnnData
         the AnnData object to subset
-    val : str or Iterable of str
+    val : str or Iterable of str or None
         the values to subset by
-    genes : Iterable of str
+    genes : Iterable of str or None
         the genes to select
     layers : Iterable of str or None
         the layers to subset (additionally to subsetting obs), if None all layers are subsetted
@@ -104,3 +104,31 @@ def subset_ann(
         output.var_names = ann.var_names.reindex(genes)[0]
     output.var_names.name = "gene"
     return output
+
+def prepare_ann(
+    ann:AnnData
+):
+    '''
+    Makes sure the AnnData object is suitable for a nichenet analysis. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object to subset
+    
+    Raises
+    ------
+    TypeError
+        if the AnnData object has the wrong type
+    ValueError
+        if the AnnData object is not suitable for a nichenet analysis and it is not possible to fix the issues
+    '''
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
+    if ann.var_names is None:
+        if "gene" in ann.var:
+            ann.var_names = ann.var["gene"]
+        else:
+            raise ValueError("var_names and var['gene'] are both missing from the AnnData object")
+    elif "gene" not in ann.var:
+        ann.var["gene"] = ann.var_names

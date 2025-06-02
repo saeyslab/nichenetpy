@@ -30,11 +30,10 @@ from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.normalization import scaling_modified_zscore
 
-from itertools import cycle, chain
+from itertools import cycle, chain, repeat
 from collections.abc import Iterable
 from anndata import AnnData
 from pycirclize import Circos
-from pycirclize.utils import ColorCycler
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
 from scipy.stats import fisher_exact
@@ -163,7 +162,7 @@ def run_nichenet(
     condition_col:str,
     condition_oi:str,
     condition_ref:str,
-    sender_celltypes:Iterable[str]=None,
+    sender_celltypes:Iterable[str]|None=None,
     layer:str="data",
     celltype_col:str="celltype",
     max_pval_adj:float=0.05,
@@ -171,7 +170,7 @@ def run_nichenet(
     expression_pct:float=0.1,
     ligands_top_n:int=30,
     targets_top_n:int=200,
-    lr_sig:WeightedNetwork=None,
+    lr_sig:WeightedNetwork|None=None,
     get_ltl:bool=False,
     get_lfc:bool=False,
     get_prioritization_table:bool=False,
@@ -197,7 +196,7 @@ def run_nichenet(
         the condition of interest
     condition_ref : str
         the reference condition
-    sender_celltypes : Iterable[str]
+    sender_celltypes : Iterable[str] or None
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
     layer : str
         the layer in the AnnData object which contains the data matrix
@@ -213,7 +212,7 @@ def run_nichenet(
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
         the number of target genes to consider per ligand when performing the target gene inference
-    lr_sig : WeightedNetwork
+    lr_sig : WeightedNetwork or None
         a weighted network containing the ligand-receptor interactions and their weights
         if None, the ligand receptor links are not computed
     get_ltl : bool
@@ -230,13 +229,17 @@ def run_nichenet(
     Returns
     -------
     dict
-        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments) for the sender-agnostic approach:
+        a dictionary which contains the output of the analysis, it contains the following objects (depending on certain arguments)
+
+        for the sender-agnostic approach:
+
             best_upstream_ligands : list of str
                 the top scoring ligands in the sender-agnostic approach
             ligand_activities_sorted : dict
                 the computed metrics for each ligand in the sender-agnostic approach
             active_ligand_target_links : list of tuple
-                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-agnostic approach
+                list of (ligand, target, weight) tuples representing the ligand-target
+                links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
             expressed_receptors : set of str
@@ -249,22 +252,28 @@ def run_nichenet(
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
             geneset_oi : set of str
                 the geneset of interest
+        
         and the following additional objects for the sender-focused approach:
+
             best_upstream_ligands_focused : list of str
                 the top scoring ligands in the sender-focused approach
             ligand_activities_sorted_focused : dict
                 the computed metrics for each ligand in the sender-focused approach
             active_ligand_target_links_focused : list of tuple
-                list of (ligand, target, weight) tuples representing the ligand-target links in the sender-focused approach
+                list of (ligand, target, weight) tuples representing the ligand-target links
+                in the sender-focused approach
             ligand_receptor_links_focused : WeightedNetwork
                 the weighted ligand-receptor links in the sender-focused approach
             ann_focused : AnnData
                 the AnnData object used in the sender-focused approach (new object derived from ann)
             lfcs : list of tuple
-                the log fold changes as a list of tuples of lists where the first list of each tuple contains the ligands and second list contains the values
+                the log fold changes as a list of tuples of lists where the first list of each tuple contains
+                the ligands and second list contains the values
             expressed_ligands : set of str
                 the expressed ligands
+
         if get_prioritization_table is True, additionally
+
             prioritization_table : pandas.DataFrame
     
     Raises
@@ -612,11 +621,151 @@ def create_lfc_heatmap(
     ax.xaxis.set_label_position('top') 
     plt.show()
 
+def _create_circos_plot(
+    circos_links:Iterable[tuple[tuple[str, str], tuple[str, str]]],
+    colors:dict[str, str],
+    inter_space:float=5,
+    intra_space:float=1,
+    opacity:Iterable[float]|None=None,
+    separate_sender_receiver:bool=True,
+    sender_receiver_space:float=0
+) -> Figure:
+    link_count_in = dict()
+    link_count_out = dict()
+    links = []
+    if not type(circos_links) is list or type(circos_links) is tuple:
+        circos_links = tuple(circos_links)
+    max_weight = 1 if opacity is None else max(opacity)
+    # define unique identifiers for each rectangle and create a list of links between rectangles
+    # the opacity and start/end positions of the links are also specified
+    for link in (circos_links if opacity is None else zip(circos_links, opacity)):
+        sender, receiver = link if opacity is None else link[0]
+        weight = 1 if opacity is None else link[1]
+        sender_group, sender = sender
+        receiver_group, receiver = receiver
+        key_out = f"{"send_" if separate_sender_receiver else ""}{sender_group}_{sender}"
+        if key_out in link_count_out:
+            link_count_out[key_out] += 1
+        else:
+            link_count_out[key_out] = 1
+        key_in = f"{"rec_" if separate_sender_receiver else ""}{receiver_group}_{receiver}"
+        if key_in in link_count_in:
+            link_count_in[key_in] += 1
+        else:
+            link_count_in[key_in] = 1
+        links.append((
+            key_out,
+            key_in,
+            weight/max_weight,
+            link_count_out[key_out],
+            link_count_in[key_in]
+        ))
+    groups = dict()
+    group_sizes = dict()
+    # group the rectangles into sectors and keep track of the size of each group
+    for key, count in chain(link_count_in.items(), link_count_out.items()):
+        if separate_sender_receiver:
+            role, group, elem = key.split("_")
+            group = f"{role}_{group}"
+        else:
+            group, elem = key.split("_")
+        if group in groups:
+            groups[group].add(elem)
+        else:
+            groups[group] = {elem}
+        if group in group_sizes:
+            group_sizes[group] += count + intra_space
+        else:
+            group_sizes[group] = count
+    # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
+    rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
+    if separate_sender_receiver:
+        if sender_receiver_space > 0:
+            group_sizes = list(group_sizes.items())
+            for i in (0, rec_sector_count - 1):
+                group, size = group_sizes[i]
+                group_sizes[i] = (group, size + sender_receiver_space)
+        else:
+            group_sizes = group_sizes.items()
+        group_sizes = dict(sorted(group_sizes, key=lambda x : x[0]))
+    circos = Circos(
+        sectors=group_sizes,
+        space=(inter_space * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space)))
+    )
+    link_count = dict(chain(link_count_in.items(), link_count_out.items()))
+    rects = dict()
+    # create a track for each sector and add the rectangles
+    start = (sender_receiver_space if separate_sender_receiver else 0)
+    for i, sector in enumerate(circos.sectors):
+        group = sector.name
+        sub_rects = dict()
+        rects[group] = sub_rects
+        track = sector.add_track((95, 100))
+        for elem in groups[group]:
+            end = start + link_count[f"{group}_{elem}"]
+            track.rect(
+                start,
+                end,
+                fc=colors[group.split("_")[1] if separate_sender_receiver else group]
+            )
+            sub_rects[elem] = start
+            track.text(
+                elem,
+                (end + start) / 2,
+                r=track.r_center + track.r_size + len(elem) + 4,
+                size=6,
+                orientation="vertical"
+            )
+            start = end + intra_space
+        start = 0
+    # link the rectangles
+    for sender, receiver, weight, send_pos, rec_pos in links:
+        if separate_sender_receiver:
+            _, sender_group, sender = sender.split("_")
+            _, receiver_group, receiver_gene = receiver.split("_")
+            sender_group = f"send_{sender_group}"
+            receiver_group = f"rec_{receiver_group}"
+        else:
+            sender_group, sender = sender.split("_")
+            receiver_group, receiver_gene = receiver.split("_")
+        circos.link(
+            (
+                sender_group,
+                rects[sender_group][sender] + send_pos - 1,
+                rects[sender_group][sender] + send_pos
+            ),
+            (
+                receiver_group,
+                rects[receiver_group][receiver_gene] + rec_pos - 1,
+                rects[receiver_group][receiver_gene] + rec_pos
+            ),
+            direction=1,
+            color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
+            alpha=weight
+        )
+    # add a legend to the plot
+    fig = circos.plotfig()
+    circos.ax.legend(
+        handles=[
+            Patch(color=color, label=celltype)
+            for celltype, color in colors.items()
+        ],
+        bbox_to_anchor=(0, 1.1),
+        loc="right",
+        ncols=1,
+    )
+    return fig
+
 def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
     receivers:Iterable[str],
     ligands:Iterable[str],
-    receptors:Iterable[str]
+    receptors:Iterable[str],
+    colors:dict[str, str],
+    inter_space:float=5,
+    intra_space:float=1,
+    opacity:Iterable[float]|None=None,
+    sender_receiver_space:float=0
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and receptors. 
@@ -631,6 +780,18 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the ligands
     receptors : Iterable of str
         the receptors
+    weights : Iterable of float
+        the weights of the links
+    colors : dict
+        color mapping for the ligands, should include a 'General' and 'target' mapping as well
+    inter_space : float
+        space between celltypes
+    intra_space : float
+        space between genes
+    opacity : Iterable of float or None
+        the opacity of each link
+    sender_receiver_space : float
+        the extra space between sender and receiver sector groups
     
     Returns
     -------
@@ -650,65 +811,31 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
     if not isinstance(receptors, Iterable):
         raise TypeError(f"receptors should have type Iterable[str], was {type(receptors)}")
-    celltypes = set(chain(senders, receivers))
-    link_count_in = dict()
-    link_count_out = dict()
-    links = []
-    for sender, receiver, ligand, receptor in zip(senders, receivers, ligands, receptors):
-        key_out = f"{sender}_{ligand}_out"
-        if key_out in link_count_out:
-            link_count_out[key_out] += 1
-        else:
-            link_count_out[key_out] = 1
-        key_in = f"{receiver}_{receptor}_in"
-        if key_in in link_count_in:
-            link_count_in[key_in] += 1
-        else:
-            link_count_in[key_in] = 1
-        links.append((
-            key_out,
-            key_in,
-            link_count_out[key_out],
-            link_count_in[key_in]
-        ))
-    circos = Circos(
-        sectors={
-            key: count
-            for key, count in chain(link_count_in.items(), link_count_out.items())
-        },
-        space=1
+    if type(colors) is not dict:
+        raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
+    if not isinstance(inter_space, Number):
+        raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
+    if not isinstance(intra_space, Number):
+        raise TypeError(f"intra_space should have type float, was {type(intra_space)}")
+    if opacity is not None and not isinstance(opacity, Iterable):
+        raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
+    return _create_circos_plot(
+        zip(zip(senders, ligands), zip(receivers, receptors)),
+        colors=colors,
+        inter_space=inter_space,
+        intra_space=intra_space,
+        opacity=opacity,
+        sender_receiver_space=sender_receiver_space
     )
-    ColorCycler.set_cmap("Set1")
-    colors = dict(zip(celltypes, ColorCycler.get_color_list(len(celltypes))))
-    for sector in circos.sectors:
-        celltype, gene, _ = sector.name.split("_")
-        sector.text(gene, size=10, orientation="vertical")
-        track = sector.add_track((95, 100))
-        track.axis(fc=colors[celltype])
-    for sender, receiver, send_pos, rec_pos in links:
-        celltype = sender.split("_")[0]
-        circos.link_line(
-            (sender, send_pos - 0.5),
-            (receiver, rec_pos - 0.5,),
-            direction=1,
-            color=colors[celltype]
-        )
-    fig = circos.plotfig()
-    circos.ax.legend(
-        handles=[
-            Patch(color=color, label=celltype)
-            for celltype, color in colors.items()
-        ],
-        bbox_to_anchor=(0, 1.1),
-        loc="right",
-        ncols=1,
-    )
-    return fig
 
 def create_ligand_links_circos_plot(
     circos_links:pd.DataFrame,
     colors:dict[str, str],
-    dest_name:str
+    dest_name:str,
+    inter_space:float=5,
+    intra_space:float=1,
+    opacity:Iterable[float]|None=None,
+    sender_receiver_space:float=0
 ) -> Figure:
     '''
     Creates a circos plot showing the links between ligands and targets. 
@@ -716,11 +843,19 @@ def create_ligand_links_circos_plot(
     Parameters
     ----------
     circos_links : pandas.DataFrame
-        dataframe with columns 'ligand', 'target' and 'ligand_type'
+        dataframe with columns 'ligand', 'target', 'weight' and 'ligand_type'
     colors : dict
         color mapping for the ligands, should include a 'General' and 'target' mapping as well
     dest_name : str
         name of the receiving type
+    inter_space : float
+        space between celltypes
+    intra_space : float
+        space between genes
+    opacity : Iterable of float or None
+        the opacity of each link
+    sender_receiver_space : float
+        the extra space between sender and receiver sector groups
     
     Returns
     -------
@@ -736,58 +871,25 @@ def create_ligand_links_circos_plot(
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
     if type(colors) is not dict:
         raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
-    link_count_in = dict()
-    link_count_out = dict()
-    links = []
-    for ligand, dest, celltype in zip(circos_links["ligand"], circos_links[dest_name], circos_links["ligand_type"]):
-        key_out = f"{celltype}_{ligand}"
-        if key_out in link_count_out:
-            link_count_out[key_out] += 1
-        else:
-            link_count_out[key_out] = 1
-        key_in = f"{dest_name}_{dest}"
-        if key_in in link_count_in:
-            link_count_in[key_in] += 1
-        else:
-            link_count_in[key_in] = 1
-        links.append((
-            key_out,
-            key_in,
-            link_count_out[key_out],
-            link_count_in[key_in]
-        ))
-    circos = Circos(
-        sectors={
-            key: count
-            for key, count in chain(link_count_in.items(), link_count_out.items())
-        },
-        space=1
+    if type(dest_name) is not str:
+        raise TypeError(f"dest_name should have type str, was {type(dest_name)}")
+    if not isinstance(inter_space, Number):
+        raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
+    if not isinstance(intra_space, Number):
+        raise TypeError(f"intra_space should have type float, was {type(intra_space)}")
+    if opacity is not None and not isinstance(opacity, Iterable):
+        raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
+    return _create_circos_plot(
+        zip(
+            zip(circos_links["ligand_type"], circos_links["ligand"]),
+            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name])
+        ),
+        colors,
+        inter_space,
+        intra_space,
+        opacity=opacity,
+        sender_receiver_space=sender_receiver_space
     )
-    circos.sectors.sort(key=lambda x:x.name)
-    for sector in circos.sectors:
-        celltype, gene = sector.name.split("_")
-        sector.text(gene, size=10, orientation="vertical")
-        track = sector.add_track((95, 100))
-        track.axis(fc=colors[celltype])
-    for sender, receiver, send_pos, rec_pos in links:
-        celltype = sender.split("_")[0]
-        circos.link_line(
-            (sender, send_pos - 0.5),
-            (receiver, rec_pos - 0.5,),
-            direction=1,
-            color=colors[celltype]
-        )
-    fig = circos.plotfig()
-    circos.ax.legend(
-        handles=[
-            Patch(color=color, label=celltype)
-            for celltype, color in colors.items()
-        ],
-        bbox_to_anchor=(0, 1.1),
-        loc="right",
-        ncols=1,
-    )
-    return fig
 
 def generate_info_tables(
     ann:AnnData,
@@ -797,7 +899,7 @@ def generate_info_tables(
     lr_network_filtered:LigandReceptorNetwork,
     condition_col:str,
     condition_oi:str,
-    condition_ref:str,#TODO
+    condition_ref:str,
     case_control:bool=False,
     use_scanpy:bool=False
 ) -> dict[str, pd.DataFrame]:
