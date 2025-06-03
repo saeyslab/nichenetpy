@@ -125,6 +125,8 @@ def wilcoxon_rank_sum_test(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     
     Notes
     -----
@@ -142,6 +144,10 @@ def wilcoxon_rank_sum_test(
         raise TypeError(f"tie_correction should have type bool, was {type(tie_correction)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
+    if groupby not in ann.obs.columns:
+        raise ValueError(f"There is no column '{groupby}' in the AnnData object")
+    if layer not in ann.layers:
+        raise ValueError(f"There is no layer '{layer}' in the AnnData object")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()

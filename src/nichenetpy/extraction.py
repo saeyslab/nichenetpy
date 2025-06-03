@@ -45,6 +45,8 @@ def get_expressed_genes(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(celltype) is str:
         celltype = [celltype]
@@ -58,7 +60,12 @@ def get_expressed_genes(
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
-    cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+    try:
+        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+    except KeyError:
+        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
+    if len(cells_oi) == 0:
+        raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
     mat = ann.layers[layer]
     # select rows corresponding to cells of interest
@@ -243,6 +250,8 @@ def average_expression(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
@@ -250,15 +259,21 @@ def average_expression(
         raise TypeError(f"groupby should be of type str, was {type(groupby)}")
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
+    data = ann.layers[layer]
     if norm_f is not None:
         if not isinstance(norm_f, Callable):
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
-        data = norm_f(ann.layers[layer])
+        data = norm_f(data)
     if keys is None:
-        keys = set(ann.obs[groupby])
+        try:
+            keys = set(ann.obs[groupby])
+        except KeyError:
+            raise ValueError(f"There is no column '{groupby}' in the AnnData object")
     elif not isinstance(keys, Iterable):
         raise TypeError(f"keys should be an Iterable of strings, was {type(keys)}")
     cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    # make sure all keys are in ann.obs
+    keys = set(ann.obs[groupby]).intersection(keys)
     col_names, cols = zip(*(
         (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
         for key in keys
