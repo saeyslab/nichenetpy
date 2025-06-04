@@ -61,6 +61,22 @@ from liana.resource import (
     select_resource
 )
 
+from common import (
+    equals,
+    equals_iter,
+    equals_dict,
+    df2dict,
+    get_model_pickle,
+    get_anndata_file,
+    get_hnscc_file,
+    get_network_files,
+    get_evaluation_files,
+    root_path,
+    hnscc_path,
+    network_path,
+    eval_path
+)
+
 import pytest
 import anndata
 import os
@@ -72,11 +88,12 @@ import re
 import json
 
 
-root_path = os.path.normpath("./tests/data/tutorial_files")
-ann_path = os.path.join(root_path, "AnnData")
-hnscc_path = os.path.join(root_path, "hnscc")
-network_path = os.path.join(root_path, "model_construction")
-eval_path = os.path.join(root_path, "model_evaluation")
+def get_exp(mat, cols):
+    agg_exp = [
+        log(sum((10*(2**x - 1) for x in mat[:, i]))/mat.shape[0] + 1, 2)
+        for i in range(mat.shape[1])
+    ]
+    return {gene for gene, x in zip(cols, agg_exp) if x >= 4}
 
 BASIC_top_10_ligand_activities = [
     ("Ifna1", 0.34233796),
@@ -528,132 +545,9 @@ DE_top_10_ligand_receptor_links = [
     ("F2", "F8", 0.9509897)
 ]
 
-def equals(
-    x,
-    y,
-    err_bound=1e-2,
-    zero_bound=1e-100
-):
-    if isinstance(x, Number) and isinstance(y, Number):
-        return abs(x) < zero_bound if y == 0 else abs(x - y) / y < err_bound
-    elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
-        return equals_iter(x, y, err_bound, zero_bound)
-    else:
-        return x == y
-
-def equals_iter(
-    xs,
-    ys,
-    err_bound=1e-2,
-    zero_bound=1e-100
-):
-    for x, y in zip(xs, ys):
-        if not equals(x, y, err_bound, zero_bound):
-            return False
-    return True
-
-def equals_ndarray(
-    xs,
-    ys,
-    err_bound=1e-2,
-    zero_bound=1e-100
-):
-    return equals_iter(xs.reshape(-1), ys.reshape(-1), err_bound, zero_bound)
-
-def equals_dict(x, y):
-    for key, val in y.items():
-        if not equals(x[key], val):
-            return False
-    return True
-
-def df2dict(df, key_cols, val_col):
-    return dict(zip(
-        zip(*(df[col] for col in key_cols)),
-        df[val_col]
-    ))
-
-def get_model_pickle(type="mouse"):
-    if not os.path.exists(root_path):
-        os.makedirs(root_path)
-    filename = f"nichenet_{type}.pkl"
-    file_path = os.path.join(root_path, filename)
-    if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/14887637/files/{filename}")
-        with open(file_path, "wb") as file:
-            file.write(res.content)
-    with open(os.path.join(root_path, filename), "rb") as file:
-        model = pickle.loads(file.read())
-    return model
-
-def get_anndata_file(filename):
-    if not os.path.exists(ann_path):
-        os.makedirs(ann_path)
-    file_path = os.path.join(ann_path, filename)
-    if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/15516713/files/{filename}")
-        with open(file_path, "wb") as file:
-            file.write(res.content)
-    return anndata.io.read_h5ad(file_path)
-
-def get_hnscc_file():
-    if not os.path.exists(hnscc_path):
-        os.makedirs(hnscc_path)
-    for filename in (
-        "expressed_genes.csv",
-        "hnscc_expression.bin",
-        "pemt_signature.txt",
-        "sample_info.csv"
-    ):
-        file_path = os.path.join(hnscc_path, filename)
-        if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/14859451/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
-
-def get_network_files():
-    if not os.path.exists(network_path):
-        os.makedirs(network_path)
-    for filename in (
-        "gr_human.csv",
-        "lr_network_human.csv",
-        "lr_sig_human.csv",
-        "gr_mouse.csv",
-        "lr_network_mouse.csv",
-        "lr_sig_mouse.csv",
-        "source_weights.csv",
-        "optimized_source_weights.csv",
-        "annotation_data_sources.csv"
-    ):
-        file_path = os.path.join(network_path, filename)
-        if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15168364/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
-
-def get_evaluation_files():
-    if not os.path.exists(eval_path):
-        os.makedirs(eval_path)
-    for filename in (
-        #"cytosig_settings.json",
-        "expression_settings_validation.json",
-    ):
-        file_path = os.path.join(eval_path, filename)
-        if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15228527/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
-
-def get_exp(mat, cols):
-    agg_exp = [
-        log(sum((10*(2**x - 1) for x in mat[:, i]))/mat.shape[0] + 1, 2)
-        for i in range(mat.shape[1])
-    ]
-    return {gene for gene, x in zip(cols, agg_exp) if x >= 4}
-
 def test_steps():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -809,7 +703,6 @@ def test_steps():
 def test_wrapper():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1045,7 +938,6 @@ def test_ligand_activity_geneset():
 def test_steps_prioritization():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1219,7 +1111,6 @@ def test_ligand_target_signaling_path():
 '''def test_target_prediction_evaluation_geneset():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     mouse_alias_info.alias_to_symbol(ann)
     predictor = model["predictor"]
     lr_network = model["lr_network"]
@@ -1611,7 +1502,6 @@ def test_target_prediction_evaluation_geneset():
     # not deterministic, so allow for some variance
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     model = get_model_pickle("mouse")
     predictor = model["predictor"]
@@ -1775,7 +1665,6 @@ def test_model_construction_with_liana():
         )
     )
     ann = get_anndata_file("annData3531889.h5")
-    ann.var_names = ann.var["gene"]
     #mouse_alias_info.alias_to_symbol(ann)
     lr_network_liana = decomplexify(select_resource("mouseconsensus"))
     lr_network_liana.rename(columns={

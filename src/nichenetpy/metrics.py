@@ -266,6 +266,10 @@ def _single_group_metrics(
         cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
     else:
         cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
+    if len(cells_oi) == 0:
+        raise RuntimeError("There are no cells in the group of interest")
+    if len(cells_ref) == 0:
+        raise RuntimeError("There are no cells in the reference group")
     mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
     mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
@@ -320,6 +324,9 @@ def group_metrics(
     ------
     TypeError
         if the arguments have the wrong type
+    RuntimeError
+        if there are no cells in the group of interest
+        if there are no cells in the reference group
     
     Notes
     -----

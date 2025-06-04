@@ -462,6 +462,8 @@ def decomplexify(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(df) is not pd.DataFrame:
         raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
@@ -469,6 +471,10 @@ def decomplexify(
         raise TypeError(f"from_col should have type str, was {type(from_col)}")
     if type(to_col) is not str:
         raise TypeError(f"to_col should have type str, was {type(to_col)}")
+    if from_col not in df.columns:
+        raise ValueError(f"There is no column '{from_col}' in the data frame")
+    if to_col not in df.columns:
+        raise ValueError(f"There is no column '{to_col}' in the data frame")
     frs = []
     tos = []
     for fr, to in zip(df[from_col], df[to_col]):
@@ -504,9 +510,13 @@ def rank_genes_groups_to_dataframe(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
+    if groupby not in ann.obs.columns:
+        raise ValueError(f"There is no column '{groupby}' in the AnnData object")
     res = ann.uns["rank_genes_groups"]
     output = pd.melt(pd.DataFrame(res["names"]), var_name=groupby, value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:

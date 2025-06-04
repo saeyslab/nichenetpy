@@ -38,9 +38,9 @@ class LigandActivityPredictor:
         list of names of the rows/genes
     col_names : list of str
         list of names of the columns/ligands
-    ligand2index : dict
+    _ligand2index : dict
         mapping of ligand names to indices
-    gene2index : dict
+    _gene2index : dict
         mapping of gene names to indices
     '''
     def __init__(
@@ -58,8 +58,44 @@ class LigandActivityPredictor:
         self.ligand_target_matrix = ligand_target_matrix
         self.row_names = row_names
         self.col_names = col_names
-        self.ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
-        self.gene2index = dict(zip(self.row_names, range(len(self.row_names))))
+        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
+        self._gene2index = dict(zip(self.row_names, range(len(self.row_names))))
+    
+    def ligand2index(self, ligand:str):
+        '''
+        Get the index of the ligand in the ligand-target matrix
+
+        Returns
+        -------
+        int
+            the index
+        
+        Raises
+        ------
+        ValueError
+            if the ligand is not present in the ligand-target matrix
+        '''
+        if ligand not in self._ligand2index:
+            raise ValueError(f"{ligand} not in ligand_target_matrix")
+        return self._ligand2index[ligand]
+    
+    def gene2index(self, gene:str):
+        '''
+        Get the index of the gene in the ligand-target matrix
+
+        Returns
+        -------
+        int
+            the index
+        
+        Raises
+        ------
+        ValueError
+            if the gene is not present in the ligand-target matrix
+        '''
+        if gene not in self._gene2index:
+            raise ValueError(f"{gene} not in ligand_target_matrix")
+        return self._gene2index[gene]
     
     def get_ligands(self) -> set[str]:
         '''
@@ -70,7 +106,7 @@ class LigandActivityPredictor:
         set
             all ligands in the ligand-target matrix
         '''
-        return set(self.ligand2index.keys())
+        return set(self._ligand2index.keys())
     
     def get_genes(self) -> set[str]:
         '''
@@ -81,7 +117,7 @@ class LigandActivityPredictor:
         set
             all genes in the ligand-target matrix
         '''
-        return set(self.gene2index.keys())
+        return set(self._gene2index.keys())
     
     def evaluate_target_prediction(
         self,
@@ -109,13 +145,15 @@ class LigandActivityPredictor:
         ------
         TypeError
             if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
         '''
         if type(ligand) is not str:
             raise TypeError(f"ligand should have type str, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
         # create the prediction model vector
-        prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+        prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
         pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
@@ -151,6 +189,8 @@ class LigandActivityPredictor:
         ------
         TypeError
             if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
         '''
         if not isinstance(geneset, Collection):
             raise TypeError(f"geneset should have type Collection, was {type(geneset)}")
@@ -207,6 +247,8 @@ class LigandActivityPredictor:
         ------
         TypeError
             if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
         '''
         if not isinstance(cells, Collection):
             raise TypeError(f"cells should have type Collection[str], was {type(cells)}")
@@ -223,6 +265,8 @@ class LigandActivityPredictor:
         output = dict()
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
         for cell in cells:
+            if cell not in row2id:
+                raise ValueError(f"{cell} not in ligand_target_matrix")
             response = expression_scaled[row2id[cell], :]
             qt = np.quantile(response, quantile_cutoff)
             response = dict(zip(
@@ -230,7 +274,7 @@ class LigandActivityPredictor:
                 (1 if e >= qt else 0 for e in response)
             ))
             for ligand in potential_ligands:
-                prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]]))
+                prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
                 common_keys = prediction.keys() & response.keys()
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
@@ -265,6 +309,8 @@ class LigandActivityPredictor:
         ------
         TypeError
             if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
         '''
         if type(ligand) is not str:
             raise TypeError(f"ligand should have type str, was {type(ligand)}")
@@ -274,20 +320,20 @@ class LigandActivityPredictor:
             raise TypeError(f"n should have type int, was {type(n)}")
         if n < self.ligand_target_matrix.shape[1]:
             top_n_score = sorted(
-                self.ligand_target_matrix[:, self.ligand2index[ligand]],
+                self.ligand_target_matrix[:, self.ligand2index(ligand)],
                 reverse=True
             )[n-1]
         else:
             top_n_score = min(
                 sorted(
-                    self.ligand_target_matrix[:, self.ligand2index[ligand]],
+                    self.ligand_target_matrix[:, self.ligand2index(ligand)],
                     reverse=True
                 )[:n]
             )
         targets = sorted(
             set(
                 e[0]
-                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index[ligand]])
+                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)])
                 if e[1] >= top_n_score
             ).intersection(geneset)
         )
@@ -301,7 +347,7 @@ class LigandActivityPredictor:
             return {
                 "ligand": ligand,
                 "target": targets,
-                "weight": [self.ligand_target_matrix[self.gene2index[target]][self.ligand2index[ligand]] for target in targets]
+                "weight": [self.ligand_target_matrix[self.gene2index(target)][self.ligand2index(ligand)] for target in targets]
             }
 
 def assess_rf_class_probabilities(
@@ -342,6 +388,8 @@ def assess_rf_class_probabilities(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(folds) is not int:
         raise TypeError(f"folds should have type int, was {type(folds)}")
@@ -372,8 +420,8 @@ def assess_rf_class_probabilities(
         )
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,
-            rows=[predictor.gene2index[gene] for gene in row_names],
-            cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
+            rows=[predictor.gene2index(gene) for gene in row_names],
+            cols=[predictor.ligand2index(ligand) for ligand in ligands_oi]
         )
         rf = RandomForestClassifier(n_estimators=ntrees)
         rf.fit(X=pred_mat, y=res)
@@ -385,8 +433,8 @@ def assess_rf_class_probabilities(
         )
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,
-            rows=[predictor.gene2index[gene] for gene in row_names],
-            cols=[predictor.ligand2index[ligand] for ligand in ligands_oi]
+            rows=[predictor.gene2index(gene) for gene in row_names],
+            cols=[predictor.ligand2index(ligand) for ligand in ligands_oi]
         )
         pred = rf.apply(pred_mat)
         score = [

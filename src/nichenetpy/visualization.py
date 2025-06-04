@@ -133,8 +133,8 @@ def prepare_ligand_target_visualization(
     # select ligands and targets that appear in ligand_target_links
     ligand_target_vis = subset_matrix(
         predictor.ligand_target_matrix,
-        [predictor.gene2index[target] for target in targets],
-        [predictor.ligand2index[ligand] for ligand in ligands]
+        [predictor.gene2index(target) for target in targets],
+        [predictor.ligand2index(ligand) for ligand in ligands]
     )
     ligand2index = dict(zip(ligands, range(len(ligands))))
     target2index = dict(zip(targets, range(len(targets))))

@@ -52,6 +52,8 @@ def subset_ann(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
@@ -72,9 +74,12 @@ def subset_ann(
             raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")
         elif type(val) is not set:
             val = set(val)
-        cells_oi = ann.obs.loc[[ct in val for ct in ann.obs[val_col]]]
+        try:
+            cells_oi = ann.obs.loc[[ct in val for ct in ann.obs[val_col]]]
+        except KeyError:
+            raise ValueError(f"There is no column '{val_col}' in the AnnData object")
         if len(cells_oi) == 0:
-            row_ids = None
+            raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
         else:
             col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
             row_ids = [col2index[name] for name in cells_oi.index]
@@ -84,7 +89,10 @@ def subset_ann(
         if type(genes) is set:
             genes = sorted(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
-        col_ids = [gene2index[gene] for gene in genes]
+        try:
+            col_ids = [gene2index[gene] for gene in genes]
+        except KeyError as error:
+            raise ValueError(f"The gene '{error.args[0]}' is not present in the AnnData object")
     if row_ids is None and col_ids is None:
         return None
     new_layers = dict(
