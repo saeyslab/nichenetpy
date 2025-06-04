@@ -64,7 +64,7 @@ def get_model_pickle(type="mouse"):
     filename = f"nichenet_{type}.pkl"
     file_path = os.path.join(root_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/15584943/files/{filename}")
+        res = requests.get(f"https://zenodo.org/records/15590394/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     with open(os.path.join(root_path, filename), "rb") as file:

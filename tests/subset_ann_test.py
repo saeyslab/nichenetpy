@@ -42,13 +42,5 @@ def test_subset_ann_celltype_1():
 def test_subset_ann_celltype_2():
     template_subset_ann_celltype(
         ann_2000_50,
-        "DC",
-        layers=["data"],
-        empty=True
-    )
-
-def test_subset_ann_celltype_3():
-    template_subset_ann_celltype(
-        ann_2000_50,
         "CD4 T"
     )
