@@ -31,8 +31,10 @@ def _rank_cells(
     # for each gene
     for ci in range(ncols):
         ranks = []
+        # the row indices of non-zero elements
         indices_non_zero = mat.indices[mat.indptr[ci]:mat.indptr[ci+1]]
         values_non_zero = mat.data[mat.indptr[ci]:mat.indptr[ci+1]]
+        # reorder the groups of the cells so it matches the ranking
         if len(values_non_zero) > 0:
             groups_sorted, non_zero = zip(
                 *sorted(
@@ -53,7 +55,6 @@ def _rank_cells(
         while n_neg < len(non_zero) and non_zero[n_neg] < 0:
             n_neg += 1
         indices_non_zero = set(indices_non_zero)
-        # reorder the groups of the cells so it matches the ranking
         group_mat.append(
             groups_sorted
         )
