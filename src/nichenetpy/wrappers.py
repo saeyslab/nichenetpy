@@ -333,15 +333,14 @@ def run_nichenet(
             lr_sig
         )
     if sender_celltypes is not None:
-        list_expressed_genes_sender = [
-            get_expressed_genes(
+        expressed_genes_sender = {
+            gene for ct in sender_celltypes for gene in get_expressed_genes(
                 ct,
                 ann,
                 pct=expression_pct,
                 celltype_col=celltype_col
-            ) for ct in sender_celltypes
-        ]
-        expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+            )
+        }
         expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
         output["expressed_ligands"] = expressed_ligands
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
