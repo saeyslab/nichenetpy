@@ -177,7 +177,7 @@ class LigandActivityPredictor:
             the genes of which the expression is potentially affected by ligands from the interacting cell
         background_expressed_genes : Iterable of str
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
-        potential ligands : Iterable of str
+        potential_ligands : Iterable of str
             the potentially active ligands for which you want to compute ligand activities
 
         Returns
