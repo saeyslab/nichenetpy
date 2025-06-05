@@ -49,6 +49,10 @@ from nichenetpy.evaluation import (
     get_single_ligand_importances,
     evaluate_single_importances_ligand_prediction
 )
+from nichenetpy.network import (
+    WeightedNetwork,
+    LigandReceptorNetwork
+)
 
 from itertools import cycle, chain, repeat
 from math import log
@@ -544,9 +548,9 @@ def test_steps():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     #mouse_alias_info.alias_to_symbol(ann)
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
+    lr_sig : WeightedNetwork = model["lr_sig"]
     receiver = "CD8 T"
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, 0.05))
     all_receptors = lr_network.get_receptors()
@@ -704,9 +708,9 @@ def test_wrapper():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     #mouse_alias_info.alias_to_symbol(ann)
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
+    lr_sig : WeightedNetwork = model["lr_sig"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
     res = run_nichenet(
         ann,
@@ -776,9 +780,9 @@ def test_wrapper():
 def test_ligand_activity_geneset():
     model = get_model_pickle("human")
     get_hnscc_file()
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
+    lr_sig : WeightedNetwork = model["lr_sig"]
     exp_mat, rows, cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
     cols = human_alias_info.alias_to_symbol(cols)
     sample_info_col_names, sample_info = read_csv_rows(os.path.join(hnscc_path, "sample_info.csv"))
@@ -939,8 +943,8 @@ def test_steps_prioritization():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     #mouse_alias_info.alias_to_symbol(ann)
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
     res = run_nichenet(
         ann,
@@ -1151,12 +1155,11 @@ def test_ligand_target_signaling_path():
 
 def test_ligand_activity_single_cell():
     model = get_model_pickle("human")
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
     get_hnscc_file()
     exp_mat, exp_mat_rows, exp_mat_cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
-    sample_info_col_names, sample_info = read_csv_rows(os.path.join(hnscc_path, "sample_info.csv"))
+    _, sample_info = read_csv_rows(os.path.join(hnscc_path, "sample_info.csv"))
     sample_info = [
         [
             int(processed_by_Maxima_enzyme),
@@ -1504,9 +1507,9 @@ def test_target_prediction_evaluation_geneset():
     ann = get_anndata_file("annData3531889.h5")
     #mouse_alias_info.alias_to_symbol(ann)
     model = get_model_pickle("mouse")
-    predictor = model["predictor"]
-    lr_network = model["lr_network"]
-    lr_sig = model["lr_sig"]
+    predictor : LigandActivityPredictor = model["predictor"]
+    lr_network : LigandReceptorNetwork = model["lr_network"]
+    lr_sig : WeightedNetwork = model["lr_sig"]
     receiver = "CD8 T"
     sender_celltypes = ["CD4 T","Treg", "Mono", "NK", "B", "DC"]
     output = run_nichenet(
@@ -1775,7 +1778,7 @@ def test_model_construction_with_liana():
 
 def test_model_evaluation():
     model = get_model_pickle("human")
-    predictor = model["predictor"]
+    predictor : LigandActivityPredictor = model["predictor"]
     get_evaluation_files()
     with open(os.path.join(eval_path, "expression_settings_validation.json"), "rb") as file:
         expression_settings_validation = json.loads(file.read())
