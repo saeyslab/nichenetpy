@@ -20,8 +20,7 @@ from nichenetpy.wrappers import (
     generate_info_tables,
     normalize_single_cell_ligand_activities,
     calculate_fraction_top_predicted,
-    calculate_fraction_top_predicted_fisher,
-    get_top_predicted_genes
+    calculate_fraction_top_predicted_fisher
 )
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
@@ -52,8 +51,6 @@ from nichenetpy.evaluation import (
 )
 
 from itertools import cycle, chain, repeat
-from numbers import Number
-from collections.abc import Iterable
 from math import log
 from scipy.stats import pearsonr
 from liana.resource import (
@@ -77,8 +74,6 @@ from common import (
     eval_path
 )
 
-import pytest
-import anndata
 import os
 import requests
 import pickle
@@ -561,8 +556,13 @@ def test_steps():
         if len(group.intersection(expressed_receptors)) > 0
     )
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
-    list_expressed_genes_sender = [get_expressed_genes(ct, ann, pct=0.05) for ct in sender_celltypes]
-    expressed_genes_sender = set(e for l in list_expressed_genes_sender for e in l)
+    expressed_genes_sender = {
+        gene for ct in sender_celltypes for gene in get_expressed_genes(
+            ct,
+            ann,
+            pct=0.05
+        )
+    }
     potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
     assert len(expressed_genes_sender) == 8492
     assert len(potential_ligands) == 475

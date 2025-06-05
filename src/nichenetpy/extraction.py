@@ -1,7 +1,14 @@
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
-from nichenetpy.metrics import gene_expression_pct, group_metrics
-from nichenetpy.ann_utils import subset_ann
+from nichenetpy.metrics import (
+    gene_expression_pct,
+    group_metrics,
+    log_fold_change
+)
+from nichenetpy.ann_utils import (
+    subset_ann,
+    _subset_layer
+)
 
 from anndata import AnnData
 from collections.abc import Iterable, Callable
@@ -205,17 +212,21 @@ def get_lfc_celltype(
             [e[0] for e in res["logfoldchanges"]]
         )
     else:
-        group_metrics(
-            ann_sender,
-            groupby=condition_col,
-            group_oi=condition_oi,
-            group_ref=condition_ref,
-            layer=layer
+        if features is None:
+            mat = ann_sender.layers[layer]
+            genes = ann_sender.var_names
+        else:
+            mat, genes = _subset_layer(ann_sender, layer, features)
+        row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index))))
+        cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
+        cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
+        lfc = log_fold_change(
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
         )
-        res = ann_sender.uns["group_metrics"]
         return (
-            list(res["gene"]),
-            list(res["lfc"])
+            genes if type(genes) is list else list(genes),
+            lfc.reshape(-1).tolist()[0]
         )
 
 def average_expression(
