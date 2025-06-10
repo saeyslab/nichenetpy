@@ -5,6 +5,7 @@ from nichenetpy.utils import (
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.graph import get_reachable_nodes
+from nichenetpy.ann_utils import subset_ann
 
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -17,7 +18,12 @@ from matplotlib.patches import (
 from matplotlib.collections import PatchCollection
 from matplotlib.text import Text
 from matplotlib.colors import colorConverter
-from math import isnan
+from matplotlib import colormaps as cm
+from matplotlib.patheffects import withStroke
+from math import (
+    isnan,
+    sqrt
+)
 from collections.abc import (
     Iterable,
     Collection
@@ -727,6 +733,43 @@ def create_barcode_plot(
     max_ligands:int=20,
     figsize:tuple[float, float]=(10, 10)
 ) -> tuple[Figure, Axes]:
+    '''
+    Creates a slope graph combined with a barcode plot. This visualization is suitable for comparison between
+    the sender-focused ranking and the sender-agnostic ranking. 
+
+    Parameters
+    ----------
+    ligand_activities_agnostic : Iterable
+        the ligand activity metrics for the sender-agnostic approach
+    ligand_activities_focused : Iterable
+        the ligand activity metrics for the sender-focused approach
+    x_col_barcode : float
+        the relative x-coordinate of the barcode
+    x_col_rank : float
+        the relative x-coordinate of the rank labels
+    x_col_agnostic : float
+        the relative x-coordinate of the sender-agnostic ranking
+    layer : float
+        the relative x-coordinate of the sender-focused ranking
+    r : float
+        the radius of the dots in the slope graph
+    max_ligands : int
+        the maximum amount of ligands
+    figsize : tuple of floats
+        the size of the figure
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
+    '''
     if type(ligand_activities_agnostic) is dict:
         ligand_activities_agnostic = ligand_activities_agnostic.items()
     elif not isinstance(ligand_activities_agnostic, Iterable):
@@ -932,4 +975,347 @@ def create_barcode_plot(
             color="red" if group else "black"
         ))
         pos += segment_height
+    return (fig, ax)
+
+def gradient_image(ax, extent, direction=0.3, cmap_range=(0, 1), **kwargs):
+    """
+    Draw a gradient image based on a colormap.
+
+    Parameters
+    ----------
+    ax : Axes
+        The axes to draw on.
+    extent
+        The extent of the image as (xmin, xmax, ymin, ymax).
+        By default, this is in Axes coordinates but may be
+        changed using the *transform* keyword argument.
+    direction : float
+        The direction of the gradient. This is a number in
+        range 0 (=vertical) to 1 (=horizontal).
+    cmap_range : float, float
+        The fraction (cmin, cmax) of the colormap that should be
+        used for the gradient, where the complete colormap is (0, 1).
+    **kwargs
+        Other parameters are passed on to `.Axes.imshow()`.
+        In particular useful is *cmap*.
+    
+    Notes
+    -----
+    source: https://matplotlib.org/3.5.1/gallery/lines_bars_and_markers/gradient_bar.html
+    """
+    phi = direction * np.pi / 2
+    v = np.array([np.cos(phi), np.sin(phi)])
+    X = np.array([[v @ [1, 0], v @ [1, 1]],
+                  [v @ [0, 0], v @ [0, 1]]])
+    a, b = cmap_range
+    X = a + (b - a) / X.max() * X
+    im = ax.imshow(X, extent=extent, interpolation='bicubic',
+                   vmin=0, vmax=1, **kwargs)
+    return im
+
+_mushroom_plot_translate_keywords = {
+    "lfc": "LFC",
+    "p": "pval",
+    "val": "",
+    "prod": "product",
+    "avg": "mean",
+    "adj": "adjusted",
+    "exprs": "expression"
+}
+
+def _mushroomplot_label(
+    prefix,
+    suffix=None
+):
+    return f"{
+        " ".join(
+            _mushroom_plot_translate_keywords[keyword]
+            if keyword in _mushroom_plot_translate_keywords
+            else keyword
+            for keyword in prefix.split("_")
+        )
+    }{
+        "" if suffix is None else f" {suffix}"
+    }"
+
+def _mushroomplot_colorbar(
+    ax,
+    extent,
+    figsize_scale,
+    cmap,
+    label,
+    text_offset=0.28
+):
+    ax.add_artist(Text(
+        (extent[0] + extent[1]) / 2,
+        extent[2] - text_offset,
+        label,
+        horizontalalignment="center",
+        verticalalignment="center",
+        size=figsize_scale*3,
+        clip_on=False
+    ))
+    gradient_image(
+        ax,
+        extent=extent,
+        direction=1,
+        cmap=cmap,
+        clip_on=False
+    )
+    ax.add_artist(Text(
+        extent[0],
+        extent[3] + text_offset,
+        0,
+        horizontalalignment="center",
+        verticalalignment="center",
+        size=figsize_scale*3,
+        clip_on=False
+    ))
+    ax.add_artist(Text(
+        extent[1],
+        extent[3] + text_offset,
+        1,
+        horizontalalignment="center",
+        verticalalignment="center",
+        size=figsize_scale*3,
+        clip_on=False
+    ))
+
+def create_mushroom_plot(
+    df:pd.DataFrame,
+    figsize_scale:float=4,
+    top_n:int=30,
+    use_absolute_rank:bool=False,
+    size_prefix:str="scaled_avg_exprs",
+    color_prefix:str="scaled_pval_adapted",
+    max_rows:int=20,
+):
+    '''
+    Creates a plot in which each glyph consists of two semicircles corresponding to ligand- and receptor- information.
+    The size of the semicircle is the percentage of cells that express the protein, while the saturation corresponds
+    to the scaled average expression value.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        the dataframe which contains the required data
+    figsize_scale : float
+        the size of figure
+    top_n : int
+        the amount of ligand-receptor pairs to use
+    use_absolute_rank : bool
+        whether to use the absolute or relative prioritization rank to filter the top_n ligand-receptor pairs
+    size_prefix : str
+        the prefix of the size column (the suffices are ligand and receptor)
+    color_prefix : str
+        the prefix of the color column (the suffices are ligand and receptor)
+    max_rows : int
+        the maximum amount of rows to show
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
+    '''
+    if type(df) is not pd.DataFrame:
+        raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
+    if not isinstance(figsize_scale, Number):
+        raise TypeError(f"figsize_scale should have type float, was {type(figsize_scale)}")
+    if type(top_n) is not int:
+        raise TypeError(f"top_n should have type int, was {type(top_n)}")
+    if type(use_absolute_rank) is not bool:
+        raise TypeError(f"use_absolute_rank should have type bool, was {type(use_absolute_rank)}")
+    if type(size_prefix) is not str:
+        raise TypeError(f"size_prefix should have type str, was {type(size_prefix)}")
+    if type(color_prefix) is not str:
+        raise TypeError(f"color_prefix should have type str, was {type(color_prefix)}")
+    if type(max_rows) is not int:
+        raise TypeError(f"max_rows should have type int, was {type(max_rows)}")
+    if use_absolute_rank:
+        df["show"] = df["prioritization_rank"] <= top_n
+    else:
+        df.sort_values(by="prioritization_rank", inplace=True)
+        df["show"] = list(chain(repeat(True, top_n), repeat(False, df.shape[0] - top_n)))
+    interactions = df.drop_duplicates(subset=["ligand", "receptor"])
+    if max_rows > interactions.shape[0]:
+        max_rows = interactions.shape[0]
+    interactions = interactions.iloc[:max_rows]
+    interactions = [f"{ligand} - {receptor}" for ligand, receptor in zip(interactions["ligand"], interactions["receptor"])]
+    interaction2index = dict(zip(interactions, range(1, len(interactions)+1)))
+    senders = sorted(set(df["sender"]))
+    sender2index = dict(zip(senders, range(len(senders))))
+    xmin = 0
+    ymin = 0
+    xmax = len(senders) + 1
+    ymax = len(interactions) + 1
+    fig, ax = plt.subplots(figsize=(figsize_scale, figsize_scale*ymax/xmax))
+    ax.set_xlim(
+        xmin=xmin,
+        xmax=xmax
+    )
+    ax.set_ylim(
+        ymin=ymin,
+        ymax=ymax
+    )
+    ax.invert_yaxis()
+    ax.xaxis.tick_top()
+    ax.xaxis.set_label_position("top")
+    ax.set_xlabel("sender celltypes")
+    ax.set_ylabel("ligand-receptor interaction")
+    xs = np.array(range(1, xmax + 1))
+    ys = np.array(range(1, ymax + 1))
+    ax.set_xticks(
+        ticks=xs[:-1],
+        labels=senders
+    )
+    ax.set_yticks(
+        ticks=ys[:-1],
+        labels=interactions
+    )
+    leftout_color = "0.9"
+    ax.hlines(ys-0.5, xmin=xmin, xmax=xmax, colors=leftout_color)
+    ax.vlines(xs-0.5, ymin=ymin, ymax=ymax, colors=leftout_color)
+    ligand_cm = cm["Blues"]
+    receptor_cm = cm["Reds"]
+    max_wedge_size = 0.49
+    for ligand, receptor, sender, size_ligand, size_receptor, color_ligand, color_receptor, rank, show in zip(
+        df["ligand"],
+        df["receptor"],
+        df["sender"],
+        df[f"{size_prefix}_ligand"],
+        df[f"{size_prefix}_receptor"],
+        df[f"{color_prefix}_ligand"],
+        df[f"{color_prefix}_receptor"],
+        df["prioritization_rank"],
+        df["show"]
+    ):
+        try:
+            x = sender2index[sender] + 1
+            y = interaction2index[f"{ligand} - {receptor}"]
+        except KeyError:
+            continue
+        wedge_size_ligand = max_wedge_size * sqrt(size_ligand)
+        wedge_size_receptor = max_wedge_size * sqrt(size_receptor)
+        wedge_color_ligand = ligand_cm(color_ligand)
+        wedge_color_receptor = receptor_cm(color_receptor)
+        if show:
+            ax.add_patch(Wedge(
+                (x, y),
+                wedge_size_ligand,
+                theta1=90,
+                theta2=270,
+                fc=wedge_color_ligand 
+            ))
+            ax.add_patch(Wedge(
+                (x, y),
+                wedge_size_receptor,
+                theta1=270,
+                theta2=90,
+                fc=wedge_color_receptor
+            ))
+            txt = Text(
+                x,
+                y,
+                int(rank),
+                horizontalalignment="center",
+                verticalalignment="center",
+                size=figsize_scale*3,
+                color="white"
+            )
+            txt.set_path_effects([withStroke(linewidth=1.5, foreground='black')])
+            ax.add_artist(txt)
+        else:
+            ax.add_patch(Wedge(
+                (x, y),
+                wedge_size_ligand,
+                theta1=90,
+                theta2=270,
+                fc=leftout_color
+            ))
+            ax.add_patch(Wedge(
+                (x, y),
+                wedge_size_receptor,
+                theta1=270,
+                theta2=90,
+                fc=leftout_color
+            ))
+    # legend
+    legend_margin = 1.5
+    size_legend_width = 8*max_wedge_size
+    size_legend_height = 4
+    size_legend_center = (
+        xmax + legend_margin + size_legend_width / 2,
+        1.5
+    )
+    x_pos = size_legend_center[0] - size_legend_width / 3
+    y_pos = size_legend_center[1]
+    ax.add_artist(Text(
+        x_pos + legend_margin,
+        y_pos - 0.7,
+        _mushroomplot_label(size_prefix),
+        horizontalalignment="center",
+        verticalalignment="center",
+        size=figsize_scale*3,
+        clip_on=False
+    ))
+    for size in [0.25, 0.5, 0.75, 1.0]:
+        ax.add_patch(Wedge(
+            (x_pos, y_pos),
+            max_wedge_size * sqrt(size),
+            theta1=90,
+            theta2=270,
+            fc="black",
+            clip_on=False
+        ))
+        ax.add_artist(Text(
+            x_pos,
+            y_pos+1,
+            size,
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=figsize_scale*3,
+            clip_on=False
+        ))
+        x_pos += 2*max_wedge_size
+    color_legend_width = size_legend_width
+    color_legend_height = 1
+    ligand_color_legend_center = (
+        size_legend_center[0],
+        size_legend_center[1] + (size_legend_height + color_legend_height) / 2
+    )
+    _mushroomplot_colorbar(
+        ax,
+        extent=[
+            ligand_color_legend_center[0] - color_legend_width/2,
+            ligand_color_legend_center[0] + color_legend_width/2,
+            ligand_color_legend_center[1] - color_legend_height/2,
+            ligand_color_legend_center[1] + color_legend_height/2
+        ],
+        figsize_scale=figsize_scale,
+        cmap=ligand_cm,
+        label=_mushroomplot_label(color_prefix, "ligand")
+    )
+    receptor_color_legend_center = (
+        ligand_color_legend_center[0],
+        ligand_color_legend_center[1] + (size_legend_height + color_legend_height) / 2
+    )
+    _mushroomplot_colorbar(
+        ax,
+        extent=[
+            receptor_color_legend_center[0] - color_legend_width/2,
+            receptor_color_legend_center[0] + color_legend_width/2,
+            receptor_color_legend_center[1] - color_legend_height/2,
+            receptor_color_legend_center[1] + color_legend_height/2
+        ],
+        figsize_scale=figsize_scale,
+        cmap=receptor_cm,
+        label=_mushroomplot_label(color_prefix, "receptor")
+    )
     return (fig, ax)
