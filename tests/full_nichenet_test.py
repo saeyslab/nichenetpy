@@ -202,6 +202,18 @@ LAG_top_10_ligand_receptor_links = [
     ("INHBA", "ACVR2A", 0.9669868),
     ("CFH", "CFB", 0.9611272)
 ]
+PRIOR_top_10_prior_table = [
+    ("NK", "Ptprc", "Dpp4", 0.87076537, 1.00100000, 0.86010363, 1.0010000, 0.8750472, 1),
+    ("Mono", "Ptprc", "Dpp4", 0.84065245, 0.86703872, 0.86010363, 1.0010000, 0.8586398, 3),
+    ("Treg", "Ptprc", "Dpp4", 0.75784191, 0.74111570, 0.86010363, 1.0010000, 0.8377664, 7),
+    ("B", "Ptprc", "Dpp4", 0.75156838, 0.66560973, 0.86010363, 1.0010000, 0.8295885, 8),
+    ("Mono", "Cxcl10", "Dpp4", 0.95984944, 1.00100000, 0.86010363, 1.0010000, 0.8276718, 9),
+    ("Mono", "Cxcl9", "Dpp4", 0.97490590, 1.00100000, 0.86010363, 1.0010000, 0.7916860, 15),
+    ("DC", "Icam1", "Il2rg", 0.87703890, 1.00100000, 0.78756477, 1.0010000, 0.7874890, 16),
+    ("DC", "B2m", "Tap2", 0.86198243, 1.00100000, 0.65284974, 1.0010000, 0.7821832, 17),
+    ("Mono", "Cxcl11", "Dpp4", 0.97365119, 1.00100000, 0.86010363, 1.0010000, 0.7816520, 18),
+    ("Mono", "Ebi3", "Il6st", 0.94102886, 1.00100000, 0.73056995, 1.0010000, 0.7764286, 21)
+]
 LTSP_top_10_tf_signaling = [
     ("SMAD4", "SMAD3", 1.7500000),
     ("SMAD3", "SMAD4", 1.6443880),
@@ -1068,6 +1080,104 @@ def test_steps_prioritization():
     assert equals(row["scaled_pval_receptor_group"], 0.80303030)
     assert equals(row["scaled_lfc_pval_receptor_group"], 0.8636364)
     assert equals(row["scaled_pval_adapted_receptor_group"], 0.83333333)
+    # prioritization across multiple receivers
+    nichenet_output = dict()
+    for receiver in ("CD8 T", "CD4 T", "Treg"):
+        res = run_nichenet(
+            ann,
+            predictor,
+            lr_network,
+            receiver,
+            "aggregate",
+            "LCMV",
+            "SS",
+            sender_celltypes=sender_celltypes
+        )
+        ligand_activities = ligand_activities_df(res["ligand_activities_sorted_focused"])
+        ligand_activities["receiver"] = [receiver for _ in range(len(ligand_activities.index))]
+        res["ligand_activities"] = ligand_activities
+        nichenet_output[receiver] = res
+    for receiver, res in nichenet_output.items():
+        lr_network_filtered = lr_network.subset_sep(
+            res["ligand_activities"].index,
+            [gene for gene in res["expressed_genes_receiver"] if gene in predictor.row_names]
+        )
+        res["info_tables"] = generate_info_tables(
+            ann,
+            "celltype",
+            sender_celltypes,
+            [receiver],
+            lr_network_filtered,
+            "aggregate",
+            "LCMV",
+            "SS",
+            case_control=True
+        )
+    info_tables_combined = {
+        key: pd.concat((res["info_tables"][key] for res in nichenet_output.values()))
+        for key in ["sender_receiver_de", "sender_receiver_info", "lr_condition_de"]
+    }
+    info_tables_combined["sender_receiver_info"].drop_duplicates(inplace=True)
+    info_tables_combined["lr_condition_de"].drop_duplicates(inplace=True)
+    df = info_tables_combined["sender_receiver_de"]
+    row = df[
+        (df["sender"] == "DC") &
+        (df["receiver"] == "CD8 T") &
+        (df["ligand"] == "H2-M2") &
+        (df["receptor"] == "Cd8a")
+    ].iloc[0]
+    assert equals(row["lfc_ligand"], 11.0024120)
+    assert equals(row["lfc_receptor"], 2.383806589)
+    assert equals(row["ligand_receptor_lfc_avg"], 6.693109)
+    assert equals(row["pval_ligand"], 1.017174e-272)
+    assert equals(row["pval_adj_ligand"], 1.377355e-268)
+    assert equals(row["pval_receptor"], 5.250531e-206)
+    assert equals(row["pval_adj_receptor"], 7.109745e-202)
+    assert equals(row["pct_expressed_sender"], 0.429)
+    assert equals(row["pct_expressed_receiver"], 0.659)
+    df = info_tables_combined["sender_receiver_info"]
+    row = df[
+        (df["sender"] == "DC") &
+        (df["receiver"] == "Mono") &
+        (df["ligand"] == "B2m") &
+        (df["receptor"] == "Tap1")
+    ].iloc[0]
+    assert equals(row["avg_ligand"], 216.171733)
+    assert equals(row["avg_receptor"], 8.5863090)
+    assert equals(row["ligand_receptor_prod"], 1856.1173)
+    df = info_tables_combined["lr_condition_de"]
+    row = df[
+        (df["ligand"] == "Cxcl11") &
+        (df["receptor"] == "Dpp4")
+    ].iloc[0]
+    assert equals(row["lfc_ligand"], 7.1973441001)
+    assert equals(row["lfc_receptor"], 0.7345097723)
+    assert equals(row["ligand_receptor_lfc_avg"], 3.96592694)
+    assert equals(row["pval_ligand"], 1.621364e-04)
+    assert equals(row["pval_adj_ligand"], 1)
+    assert equals(row["pval_receptor"], 1.170731e-06)
+    assert equals(row["pval_adj_receptor"], 1.585287e-02)
+    ligand_activities_combined = pd.concat((res["ligand_activities"] for res in nichenet_output.values()))
+    prior_table_combined = generate_prioritization_table(
+        info_tables_combined["sender_receiver_info"],
+        info_tables_combined["sender_receiver_de"],
+        ligand_activities_combined,
+        info_tables_combined["lr_condition_de"]
+    )
+    assert equals_iter(
+        prior_table_combined[:10][prior_table_combined["receiver"] == "CD8 T"][[
+            "sender",
+            "ligand",
+            "receptor",
+            "scaled_pval_adapted_ligand",
+            "scaled_avg_exprs_ligand",
+            "scaled_pval_adapted_receptor",
+            "scaled_avg_exprs_receptor",
+            "prioritization_score"
+        ]],
+        PRIOR_top_10_prior_table
+    )
+    prior_table_oi = prior_table_combined.sort_values(by="prioritization_score", ascending=False)[:50]
 
 def test_ligand_target_signaling_path():
     if not os.path.exists(root_path):
