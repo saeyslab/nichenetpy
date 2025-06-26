@@ -2,6 +2,7 @@ from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 
 from collections.abc import Iterable, Callable
 from anndata import AnnData
+from re import search
 
 import numpy as np
 import pandas as pd
@@ -575,3 +576,50 @@ def get_ties(
         else:
             output[v] = [i]
     return output
+
+def extract_ligands_from_settings(
+    settings:dict,
+    combination:bool=True
+):
+    '''
+    Extract all ligands from the settings. 
+
+    Parameters
+    ----------
+    settings : dict
+        the settings
+    combination : bool
+        whether to include combinations of ligands in the output
+
+    Returns
+    -------
+    list
+        a set which contains all ligands present in the settings
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(settings) is not dict:
+        raise TypeError(f"settings should have type dict, was {type(settings)}")
+    if type(combination) is not bool:
+        raise TypeError(f"combination should have type bool, was {type(combination)}")
+    output = set()
+    for setting in settings.values():
+        if type(setting["from"]) is str:
+            output.add(setting["from"])
+        else:
+            if combination:
+                output.add("-".join(setting["from"]))
+            for ligand in setting["from"]:
+                output.add(ligand)
+    output_lst = []
+    for e in output:
+        res = search("-", e)
+        if res is None:
+            output_lst.append(e)
+        else:
+            res = res.span()
+            output_lst.append([e[:res[0]], e[res[1]:]])
+    return output_lst
