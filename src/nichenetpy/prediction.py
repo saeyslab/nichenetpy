@@ -355,9 +355,9 @@ class LigandActivityPredictor:
         '''
         Replace zero columns with a very low noisy random score. 
         '''
-        m = np.min(self.ligand_target_matrix)
+        m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
         for j in range(self.ligand_target_matrix.shape[1]):
-            if sum(self.ligand_target_matrix[j]) == 0:
+            if sum(self.ligand_target_matrix[:, j]) == 0:
                 for i in range(self.ligand_target_matrix.shape[0]):
                     self.ligand_target_matrix[i, j] = uniform(0, m)
 
