@@ -224,7 +224,9 @@ def construct_ligand_tf_matrix(
     gr = weighted_networks["gr"]
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes))))
-    ligands = [set(gene2id.keys()).intersection(_ligands) for _ligands in ligands]
+    # keep the original order of ligands, so no set intersection
+    gene2id_keys = set(gene2id.keys())
+    ligands = [[e for e in _ligands if e in gene2id_keys] for _ligands in ligands]
     if algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
         lr_sig_mat = csr_matrix(
