@@ -129,6 +129,7 @@ def calculate_ligand_importance_metrics(
     '''
     Calculates metrics that can be used to rank ligands. 
     currently supported metrics are:
+
         AUPR
         corrected AUPR
         AUROC

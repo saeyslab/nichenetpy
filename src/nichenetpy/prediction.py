@@ -1,12 +1,16 @@
-from nichenetpy.metrics import calculate_ligand_importance_metrics
-from nichenetpy.utils import subset_matrix, combine_dicts
+from nichenetpy.metrics import (
+    calculate_ligand_importance_metrics,
+    calculate_aupr,
+    calculate_auroc
+)
+from nichenetpy.utils import subset_matrix
 
 from collections.abc import Collection, Iterable
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
-from itertools import chain
-from functools import reduce
+from itertools import chain, repeat
 from numbers import Number
+from scipy.stats import pearsonr
 
 import numpy as np
 import pandas as pd
@@ -165,7 +169,7 @@ class LigandActivityPredictor:
         geneset:Collection[str],
         background_expressed_genes:Iterable[str],
         potential_ligands:Iterable[str]
-    ) -> dict[str, dict[str, float]]:
+    ) -> pd.DataFrame:
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -273,13 +277,27 @@ class LigandActivityPredictor:
                 expression_scaled_cols,
                 (1 if e >= qt else 0 for e in response)
             ))
+            aupr = []
+            aupr_corrected = []
+            auroc = []
+            pearson = []
             for ligand in potential_ligands:
                 prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
                 common_keys = prediction.keys() & response.keys()
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-                output[(cell, ligand)] = calculate_ligand_importance_metrics(pred, resp)
-        return output
+                aupr.append(calculate_aupr(resp, pred))
+                auroc.append(calculate_auroc(resp, pred))
+                pearson.append(pearsonr(resp, pred).statistic)
+                aupr_corrected.append(aupr[-1] - sum(resp)/len(resp))
+        return pd.DataFrame({
+            "cell": cells,
+            "ligand": repeat(potential_ligands, len(cells)),
+            "aupr": aupr,
+            "aupr_corrected": aupr_corrected,
+            "auroc": auroc,
+            "pearson": pearson
+        })
     
     def get_weighted_ligand_target_links(
         self,
