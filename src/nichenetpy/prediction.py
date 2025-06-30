@@ -1,4 +1,4 @@
-from nichenetpy.metrics import calculate_metrics
+from nichenetpy.metrics import calculate_ligand_importance_metrics
 from nichenetpy.utils import subset_matrix, combine_dicts
 
 from collections.abc import Collection, Iterable
@@ -158,7 +158,7 @@ class LigandActivityPredictor:
         common_keys = prediction.keys() & response.keys()
         pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
         resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-        return calculate_metrics(pred, resp)
+        return calculate_ligand_importance_metrics(pred, resp)
 
     def predict_ligand_activities(
         self,
@@ -278,7 +278,7 @@ class LigandActivityPredictor:
                 common_keys = prediction.keys() & response.keys()
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-                output[(cell, ligand)] = calculate_metrics(pred, resp)
+                output[(cell, ligand)] = calculate_ligand_importance_metrics(pred, resp)
         return output
     
     def get_weighted_ligand_target_links(

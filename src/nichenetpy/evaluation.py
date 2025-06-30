@@ -1,5 +1,5 @@
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.metrics import calculate_metrics
+from nichenetpy.metrics import calculate_ligand_importance_metrics
 
 from collections.abc import Iterable
 from itertools import repeat
@@ -221,7 +221,7 @@ def evaluate_single_importances_ligand_prediction(
             metrics,
             zip(*(
                 list(zip(*sorted(
-                    calculate_metrics(list(importances[metric]), list(added)).items(),
+                    calculate_ligand_importance_metrics(list(importances[metric]), list(added)).items(),
                     key=lambda x : x[0]
                 )))[1]
                 for metric in metrics
