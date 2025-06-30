@@ -623,3 +623,22 @@ def extract_ligands_from_settings(
             res = res.span()
             output_lst.append([e[:res[0]], e[res[1]:]])
     return output_lst
+
+def is_ligand_active(importances:pd.DataFrame):
+    '''
+    Returns a list of booleans indicating whether a ligand is active or not. 
+
+    Parameters
+    ----------
+    importances : pandas.DataFrame
+        a data frame which contains the metrics by which ligands can be ranked
+
+    Returns
+    -------
+    list
+        a list of booleans indicating whether a ligand is active or not
+    '''
+    return [
+        test_ligand == true_ligand if type(test_ligand) is str else test_ligand in true_ligand
+        for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"])
+    ]
