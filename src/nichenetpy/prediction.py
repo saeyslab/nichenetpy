@@ -220,6 +220,9 @@ class LigandActivityPredictor:
         expression_scaled_cols:Iterable[str],
         potential_ligands:Collection[str],
         quantile_cutoff:float=0.975,
+        calc_aupr:bool=True,
+        calc_auroc:bool=True,
+        calc_pearson:bool=True
     ) -> dict[tuple[str, str], dict[str, float]]:
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
@@ -241,6 +244,12 @@ class LigandActivityPredictor:
             the genes of the potentially active ligands for which you want to define ligand activities
         quantile_cutoff : float
             the cutoff value used to compute the response vector
+        calc_aupr : bool
+            whether or not to compute the aupr score
+        calc_auroc : bool
+            whether or not to compute the auroc score
+        calc_pearson : bool
+            whether or not to compute the pearson score
 
         Returns
         -------
@@ -266,11 +275,20 @@ class LigandActivityPredictor:
             raise TypeError(f"potential_ligands should have type Collection[str], was {type(potential_ligands)}")
         if not isinstance(quantile_cutoff, Number):
             raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
+        if type(calc_aupr) is not bool:
+            raise TypeError(f"calc_aupr should have type bool, was {type(calc_aupr)}")
+        if type(calc_auroc) is not bool:
+            raise TypeError(f"calc_auroc should have type bool, was {type(calc_auroc)}")
+        if type(calc_pearson) is not bool:
+            raise TypeError(f"calc_pearson should have type bool, was {type(calc_pearson)}")
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
-        aupr = []
-        aupr_corrected = []
-        auroc = []
-        pearson = []
+        if calc_aupr:
+            aupr = []
+            aupr_corrected = []
+        if calc_auroc:
+            auroc = []
+        if calc_pearson:
+            pearson = []
         for cell in cells:
             if cell not in row2id:
                 raise ValueError(f"{cell} not in ligand_target_matrix")
@@ -285,18 +303,25 @@ class LigandActivityPredictor:
                 common_keys = prediction.keys() & response.keys()
                 pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
                 resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-                aupr.append(calculate_aupr(resp, pred))
-                auroc.append(calculate_auroc(resp, pred))
-                pearson.append(pearsonr(resp, pred).statistic)
-                aupr_corrected.append(aupr[-1] - sum(resp)/len(resp))
-        return pd.DataFrame({
+                if calc_aupr:
+                    aupr.append(calculate_aupr(resp, pred))
+                    aupr_corrected.append(aupr[-1] - sum(resp)/len(resp))
+                if calc_auroc:
+                    auroc.append(calculate_auroc(resp, pred))
+                if calc_pearson:
+                    pearson.append(pearsonr(resp, pred).statistic)
+        output = {
             "cell": chain(*(repeat(cell, len(potential_ligands)) for cell in cells)),
-            "ligand": chain(*repeat(potential_ligands, len(cells))),
-            "aupr": aupr,
-            "aupr_corrected": aupr_corrected,
-            "auroc": auroc,
-            "pearson": pearson
-        })
+            "ligand": chain(*repeat(potential_ligands, len(cells)))
+        }
+        if calc_aupr:
+            output["aupr"] = aupr
+            output["aupr_corrected"] = aupr_corrected
+        if calc_auroc:
+            output["auroc"] = auroc
+        if calc_pearson:
+            output["pearson"] = pearson
+        return pd.DataFrame(output)
     
     def get_weighted_ligand_target_links(
         self,
