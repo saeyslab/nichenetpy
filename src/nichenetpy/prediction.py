@@ -1,5 +1,5 @@
 from nichenetpy.metrics import (
-    calculate_ligand_importance_metrics,
+    calculate_prediction_evaluation_metrics,
     calculate_aupr,
     calculate_auroc
 )
@@ -163,7 +163,7 @@ class LigandActivityPredictor:
         common_keys = prediction.keys() & response.keys()
         pred = [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])]
         resp = [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])]
-        return calculate_ligand_importance_metrics(pred, resp)
+        return calculate_prediction_evaluation_metrics(pred, resp)
 
     def predict_ligand_activities(
         self,

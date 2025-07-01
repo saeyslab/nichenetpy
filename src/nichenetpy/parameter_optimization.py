@@ -12,7 +12,6 @@ from nichenetpy.evaluation import (
 from nichenetpy.prediction import LigandActivityPredictor
 
 from itertools import chain, repeat
-from collections.abc import Iterable
 
 import pandas as pd
 
@@ -22,9 +21,24 @@ def evaluate_model(
     settings: dict
 ):
     performances_target_prediction = {
-        k: predictor.evaluate_target_prediction(v["from"] if type(v["from"]) is str else "-".join(v["from"]), v["response"])
-        for k, v in settings.items()
+        "setting": [],
+        "ligand": [],
+        "auroc": [],
+        "pearson": [],
+        "aupr": [],
+        "aupr_corrected": []
     }
+    for setting_id, setting in settings.items():
+        performances_target_prediction["setting"].append(setting_id)
+        performances_target_prediction["ligand"].append(setting["from"])
+        for k, v in predictor.evaluate_target_prediction(
+            setting["from"]
+            if type(setting["from"]) is str
+            else "-".join(setting["from"]),
+            setting["response"]
+        ).items():
+            performances_target_prediction[k].append(v)
+    performances_target_prediction = pd.DataFrame(performances_target_prediction)
     all_ligands = extract_ligands_from_settings(settings, combination=False)
     ligand_importances = {
         "setting": [],
@@ -35,7 +49,7 @@ def evaluate_model(
         "aupr": [],
         "aupr_corrected": []
     }
-    for setting_id, setting in list(settings.items()):
+    for setting_id, setting in settings.items():
         for ligand in all_ligands:
             ligand_importances["setting"].append(setting_id)
             ligand_importances["test_ligand"].append(ligand)
@@ -44,13 +58,13 @@ def evaluate_model(
                 ligand_importances[k].append(v)
     ligand_importances = pd.DataFrame(ligand_importances)
     # TODO: deal with potential NaNs
-    performances_ligand_prediction_single = [
+    performances_ligand_prediction_single = pd.concat(
         evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)
         for setting_id in set(ligand_importances["setting"])
-    ]
+    )
     return {
         "performances_target_prediction": performances_target_prediction,
-        "performances_ligand_prediction_single": performances_ligand_prediction_single
+        "performances_ligand_prediction": performances_ligand_prediction_single
     }
 
 def construct_and_evaluate(
@@ -83,5 +97,8 @@ def construct_and_evaluate(
     return {
         "predictor": predictor,
         "performances_target_prediction": eval_res["performances_target_prediction"],
-        "performances_ligand_prediction_single": eval_res["performances_ligand_prediction_single"]
+        "performances_ligand_prediction": eval_res["performances_ligand_prediction"]
     }
+
+def objective(trial):
+    pass

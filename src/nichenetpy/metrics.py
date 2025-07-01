@@ -122,7 +122,7 @@ def calculate_auroc(
     fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
     return -_auc_reverse(fp, tp)
 
-def calculate_ligand_importance_metrics(
+def calculate_prediction_evaluation_metrics(
     prediction:list[float]|tuple[float],
     response:list[float]|tuple[float]
 ) -> dict[str, float]:

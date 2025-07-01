@@ -12,7 +12,7 @@ from nichenetpy.gene_symbol import (
     mouse_alias_info,
     human_alias_info
 )
-from nichenetpy.metrics import group_metrics, calculate_ligand_importance_metrics
+from nichenetpy.metrics import group_metrics, calculate_prediction_evaluation_metrics
 from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
@@ -1537,7 +1537,7 @@ def test_target_prediction_evaluation_geneset():
     ]
     target_prediction_performances = []
     for df in gene_predictions_top30_list:
-        met = calculate_ligand_importance_metrics(list(df["prediction"]), list(df["response"]))
+        met = calculate_prediction_evaluation_metrics(list(df["prediction"]), list(df["response"]))
         target_prediction_performances.append(pd.DataFrame([list(met.values())], columns=met.keys()))
     target_prediction_performances = pd.concat(target_prediction_performances)
     target_prediction_performances.reset_index(drop=True, inplace=True)
