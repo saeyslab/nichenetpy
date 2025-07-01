@@ -266,8 +266,11 @@ class LigandActivityPredictor:
             raise TypeError(f"potential_ligands should have type Collection[str], was {type(potential_ligands)}")
         if not isinstance(quantile_cutoff, Number):
             raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
-        output = dict()
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
+        aupr = []
+        aupr_corrected = []
+        auroc = []
+        pearson = []
         for cell in cells:
             if cell not in row2id:
                 raise ValueError(f"{cell} not in ligand_target_matrix")
@@ -277,10 +280,6 @@ class LigandActivityPredictor:
                 expression_scaled_cols,
                 (1 if e >= qt else 0 for e in response)
             ))
-            aupr = []
-            aupr_corrected = []
-            auroc = []
-            pearson = []
             for ligand in potential_ligands:
                 prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
                 common_keys = prediction.keys() & response.keys()
@@ -291,8 +290,8 @@ class LigandActivityPredictor:
                 pearson.append(pearsonr(resp, pred).statistic)
                 aupr_corrected.append(aupr[-1] - sum(resp)/len(resp))
         return pd.DataFrame({
-            "cell": cells,
-            "ligand": repeat(potential_ligands, len(cells)),
+            "cell": chain(*(repeat(cell, len(potential_ligands)) for cell in cells)),
+            "ligand": chain(*repeat(potential_ligands, len(cells))),
             "aupr": aupr,
             "aupr_corrected": aupr_corrected,
             "auroc": auroc,

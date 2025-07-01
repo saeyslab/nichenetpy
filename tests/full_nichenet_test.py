@@ -1225,10 +1225,6 @@ def test_ligand_activity_single_cell():
         expression_scaled_cols,
         potential_ligands
     )
-    ligand_activities = ligand_activities_df(ligand_activities)
-    ligand_activities.sort_index(inplace=True)
-    ligand_activities.reset_index(inplace=True)
-    ligand_activities.rename(columns={"level_0": "cell", "level_1": "ligand"}, inplace=True)
     assert len(ligand_activities) == 2030
     assert equals_iter(
         ligand_activities[["cell", "ligand", "auroc", "aupr", "pearson"]].sort_values(by="aupr", ascending=False).head(10).to_numpy(),
