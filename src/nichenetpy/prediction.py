@@ -11,6 +11,7 @@ from sklearn.model_selection import KFold
 from itertools import chain, repeat
 from numbers import Number
 from scipy.stats import pearsonr
+from random import uniform
 
 import numpy as np
 import pandas as pd
@@ -51,7 +52,7 @@ class LigandActivityPredictor:
         self,
         ligand_target_matrix:np.ndarray,
         row_names:list[str]|tuple[str],
-        col_names:list[str]|tuple[str],
+        col_names:list[str]|tuple[str]
     ) -> None:
         if type(ligand_target_matrix) is not np.ndarray:
             raise TypeError(f"ligand_target_matrix should have type numpy.ndarray, was {type(ligand_target_matrix)}")
@@ -391,6 +392,16 @@ class LigandActivityPredictor:
                 "target": targets,
                 "weight": [self.ligand_target_matrix[self.gene2index(target)][self.ligand2index(ligand)] for target in targets]
             }
+    
+    def replace_zero_col_by_noisy_scores(self):
+        '''
+        Replace zero columns with a very low noisy random score. 
+        '''
+        m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
+        for j in range(self.ligand_target_matrix.shape[1]):
+            if sum(self.ligand_target_matrix[:, j]) == 0:
+                for i in range(self.ligand_target_matrix.shape[0]):
+                    self.ligand_target_matrix[i, j] = uniform(0, m)
 
 def assess_rf_class_probabilities(
     folds:int,
