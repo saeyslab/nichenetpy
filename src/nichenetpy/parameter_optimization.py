@@ -31,6 +31,39 @@ def evaluate_model(
     predictor: LigandActivityPredictor,
     settings: dict
 ):
+    '''
+    Evaluate the ligand-target matrix. 
+
+    Parameters
+    ----------
+    predictor : LigandActivityPredictor
+        The predictor that holds the ligand-target matrix to evaluate
+    settings : dict
+        An Iterable of dictionaries that have the following keys: 
+        
+            name: the name of the setting
+
+            ligand: the name of the ligand which is known to be active in the setting of interest
+        
+            from:  the name of the ligand of which the predictive performance need to be assessed
+        
+            response:   the observed target response, indicates for a gene whether it was a target
+                        or not in the setting of interest
+
+    Returns
+    -------
+    dict
+        A dictionary with keys 'performances_target_prediction' and 'performances_ligand_prediction'
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if type(predictor) is not LigandActivityPredictor:
+        raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
+    if type(settings) is not dict:
+        raise TypeError(f"settings should have type dict, was {type(settings)}")
     performances_target_prediction = {
         "setting": [],
         "ligand": [],
@@ -85,6 +118,47 @@ def construct_and_evaluate(
     sig_network: pd.DataFrame,
     settings: dict
 ):
+    '''
+    Construct and evaluate the ligand-target matrix. 
+    Returns the matrices and the prediction scores
+
+    Parameters
+    ----------
+    source_weights : pandas.DataFrame or dictionary
+        Dataframe or dictionary which contains the weights associated to each individual data source.
+        Sources with higher weights will contribute more to the final model performance.
+        Note that only interactions described by sources included here, will be retained during model construction.
+    lr_network : pandas.DataFrame
+        dataframe which contains ligand-receptor interactions
+    gr_network : pandas.DataFrame
+        dataframe which contains gene regulatory interactions
+    sig_network : pandas.DataFrame
+        dataframe which contains signaling interactions
+    settings : dict
+        An Iterable of dictionaries that have the following keys: 
+        
+            name: the name of the setting
+
+            ligand: the name of the ligand which is known to be active in the setting of interest
+        
+            from:  the name of the ligand of which the predictive performance need to be assessed
+        
+            response:   the observed target response, indicates for a gene whether it was a target
+                        or not in the setting of interest
+
+    Returns
+    -------
+    dict
+        A dictionary with keys 'weighted networks', 'grn matrix', 'ltf matrix' and 'ligand-target matrix'
+    float
+        target prediction score
+    float
+        ligand prediction score
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
     ligands = extract_ligands_from_settings(settings)
     weighted_networks = construct_weighted_networks(
         lr_network,
