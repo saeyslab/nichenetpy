@@ -402,6 +402,22 @@ class LigandActivityPredictor:
             if sum(self.ligand_target_matrix[:, j]) == 0:
                 for i in range(self.ligand_target_matrix.shape[0]):
                     self.ligand_target_matrix[i, j] = uniform(0, m)
+    
+    def gene_presence(self, genes:Iterable[str]) -> float:
+        '''
+        calculate the ratio of genes that are present in the ligand-target matrix
+
+        Parameters
+        ----------
+        genes : Iterable of str
+            the genes to check for
+
+        Returns
+        -------
+        float
+            the ratio of genes that are present in the ligand-target matrix
+        '''
+        return len(self.get_genes().intersection(genes))/len(genes)
 
 def assess_rf_class_probabilities(
     folds:int,
