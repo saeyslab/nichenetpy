@@ -11,10 +11,20 @@ from nichenetpy.evaluation import (
 )
 from nichenetpy.prediction import LigandActivityPredictor
 
-from itertools import chain, repeat
-
 import pandas as pd
 
+
+def _average_performances(ligand_oi, performances):
+    performances_oi = performances[[
+        any(
+            ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
+            for ligand in (
+                (ligand_oi,) if type(ligand_oi) is str else ligand_oi
+            )
+        )
+        for true_ligand in performances["ligand"]
+    ]]
+    return performances_oi["aupr_corrected"].median()
 
 def evaluate_model(
     predictor: LigandActivityPredictor,
@@ -68,13 +78,13 @@ def evaluate_model(
     }
 
 def construct_and_evaluate(
+    source_weights:dict[str, float]|pd.DataFrame,
     lr_network: pd.DataFrame,
     gr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     settings: dict
 ):
     ligands = extract_ligands_from_settings(settings)
-    source_weights = dict(zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1)))
     weighted_networks = construct_weighted_networks(
         lr_network,
         sig_network,
@@ -99,6 +109,3 @@ def construct_and_evaluate(
         "performances_target_prediction": eval_res["performances_target_prediction"],
         "performances_ligand_prediction": eval_res["performances_ligand_prediction"]
     }
-
-def objective(trial):
-    pass
