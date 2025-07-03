@@ -37,8 +37,8 @@ def _evaluate_single_importances_ligand_prediction(
         return None
 
 def evaluate_model(
-    predictor: LigandActivityPredictor,
-    settings: dict
+    predictor:LigandActivityPredictor,
+    settings:dict
 ):
     '''
     Evaluate the ligand-target matrix. 
@@ -129,10 +129,14 @@ def evaluate_model(
 
 def construct_and_evaluate(
     source_weights:dict[str, float]|pd.DataFrame,
-    lr_network: pd.DataFrame,
-    gr_network: pd.DataFrame,
-    sig_network: pd.DataFrame,
-    settings: dict
+    lr_sig_hub:float,
+    gr_hub:float,
+    ltf_cutoff:float,
+    damping_factor:float,
+    lr_network:pd.DataFrame,
+    gr_network:pd.DataFrame,
+    sig_network:pd.DataFrame,
+    settings:dict
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -182,14 +186,14 @@ def construct_and_evaluate(
         gr_network,
         source_weights
     )
-    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
-    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
     ligand2target, grn_matrix, ltf_matrix = construct_ligand_target_matrix(
         weighted_networks,
         lr_network,
         ligands,
-        damping_factor=0.789,
-        ltf_cutoff=0.926,
+        damping_factor=damping_factor,
+        ltf_cutoff=ltf_cutoff,
         return_all_matrices=True
     )
     predictor = LigandActivityPredictor(*ligand2target)
