@@ -27,6 +27,15 @@ def _average_performances(ligand_oi, performances):
     ]]
     return performances_oi["aupr_corrected"].median()
 
+def _evaluate_single_importances_ligand_prediction(
+    ligand_importances,
+    group
+):
+    try:
+        return evaluate_single_importances_ligand_prediction(ligand_importances, group)
+    except ValueError:
+        return None
+
 def evaluate_model(
     predictor: LigandActivityPredictor,
     settings: dict
@@ -73,15 +82,18 @@ def evaluate_model(
         "aupr_corrected": []
     }
     for setting_id, setting in settings.items():
-        performances_target_prediction["setting"].append(setting_id)
-        performances_target_prediction["ligand"].append(setting["from"])
-        for k, v in predictor.evaluate_target_prediction(
-            setting["from"]
-            if type(setting["from"]) is str
-            else "-".join(setting["from"]),
-            setting["response"]
-        ).items():
-            performances_target_prediction[k].append(v)
+        try:
+            performances_target_prediction["setting"].append(setting_id)
+            performances_target_prediction["ligand"].append(setting["from"])
+            for k, v in predictor.evaluate_target_prediction(
+                setting["from"]
+                if type(setting["from"]) is str
+                else "-".join(setting["from"]),
+                setting["response"]
+            ).items():
+                performances_target_prediction[k].append(v)
+        except ValueError:
+            pass # the metrics are undefined
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
     all_ligands = extract_ligands_from_settings(settings, combination=False)
     ligand_importances = {
@@ -95,16 +107,20 @@ def evaluate_model(
     }
     for setting_id, setting in settings.items():
         for ligand in all_ligands:
-            ligand_importances["setting"].append(setting_id)
-            ligand_importances["test_ligand"].append(ligand)
-            ligand_importances["true_ligand"].append(setting["from"])
-            for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
-                ligand_importances[k].append(v)
+            try:
+                ligand_importances["setting"].append(setting_id)
+                ligand_importances["test_ligand"].append(ligand)
+                ligand_importances["true_ligand"].append(setting["from"])
+                for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
+                    ligand_importances[k].append(v)
+            except ValueError:
+                pass # the metrics are undefined
     ligand_importances = pd.DataFrame(ligand_importances)
-    # TODO: deal with potential NaNs
     performances_ligand_prediction_single = pd.concat(
-        evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)
-        for setting_id in set(ligand_importances["setting"])
+        e for e in (
+            _evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)
+            for setting_id in set(ligand_importances["setting"])
+        ) if e is not None
     )
     return {
         "performances_target_prediction": performances_target_prediction,
@@ -181,8 +197,10 @@ def construct_and_evaluate(
     eval_res = evaluate_model(predictor, settings)
     ligands_evaluation = extract_ligands_from_settings(settings, combination=True)
     performances_target_prediction_averaged = [
-        _average_performances(ligand, eval_res["performances_target_prediction"])
-        for ligand in ligands_evaluation
+        e for e in (
+            _average_performances(ligand, eval_res["performances_target_prediction"])
+            for ligand in ligands_evaluation
+        ) if not np.isnan(e)
     ]
     ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
         "metric",
@@ -210,8 +228,10 @@ def construct_and_evaluate(
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
     performances_ligand_prediction_averaged = [
-        _average_performances(ligand, performances_ligand_prediction_summary)
-        for ligand in ligands_evaluation
+        e for e in (
+            _average_performances(ligand, performances_ligand_prediction_summary)
+            for ligand in ligands_evaluation
+        ) if not np.isnan(e)
     ]
     return (
         {
