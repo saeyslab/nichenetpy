@@ -1,5 +1,6 @@
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.metrics import calculate_metrics
+from nichenetpy.metrics import calculate_prediction_evaluation_metrics
+from nichenetpy.utils import is_ligand_active
 
 from collections.abc import Iterable
 from itertools import repeat
@@ -214,21 +215,21 @@ def evaluate_single_importances_ligand_prediction(
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
-    added = importances["test_ligand"] == importances["true_ligand"]
+    added = is_ligand_active(importances)
     # compute metrics for multiple prediction/response pairs and store them in a dataframe
     output = pd.DataFrame(
         dict(zip(
             metrics,
             zip(*(
                 list(zip(*sorted(
-                    calculate_metrics(list(importances[metric]), list(added)).items(),
+                    calculate_prediction_evaluation_metrics(list(importances[metric]), added).items(),
                     key=lambda x : x[0]
                 )))[1]
                 for metric in metrics
             ))
         ))
     )
-    output["metric"] = metrics
     output["group"] = list(repeat(group, len(metrics)))
     output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(metrics)))
-    return output
+    output["metric"] = metrics
+    return output.reindex(["metric", "group", "ligand", "aupr", "aupr_corrected", "auroc", "pearson"], axis=1)
