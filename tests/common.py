@@ -21,7 +21,7 @@ def equals(
     zero_bound=1e-100
 ):
     if isinstance(x, Number) and isinstance(y, Number):
-        return abs(x) < zero_bound if y == 0 else abs(x - y) / y < err_bound
+        return abs(x) <= zero_bound if y == 0 else abs(x - y) / y <= err_bound
     elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
         return equals_iter(x, y, err_bound, zero_bound)
     else:
