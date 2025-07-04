@@ -28,7 +28,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest liana requests pickle
+        pip install pytest liana requests
         pip install -r requirements.txt
         pip install -e .
     - name: Test with pytest
