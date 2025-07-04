@@ -33,15 +33,15 @@ dependencies = [
     "matplotlib>=3.9.3",
     "pyCirclize>=1.9.0",
     "scipy>=1.14.1",
-    "statsmodels>=0.14.4",
-    "pandas>=2.2.3"
+    "pandas>=2.2.3",
+    "networkx>=3.4.2"
 ]
 
 classifiers = [
     "Development Status :: 1 - Planning",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Intended Audience :: Science/Research",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
 ]
 
 [project.urls]
