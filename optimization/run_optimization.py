@@ -15,6 +15,8 @@ import pandas as pd
 import json
 import numpy as np
 import argparse
+from sys import stdout
+from joblib import Parallel, delayed
 
 
 if __name__ == "__main__":
@@ -38,7 +40,7 @@ if __name__ == "__main__":
         help="path to the sig_network file"
     )
     parser.add_argument(
-        "settings_file",
+        "--settings_file",
         help="path to the settings file for training",
         action="append",
         default=[]
@@ -55,17 +57,18 @@ if __name__ == "__main__":
     gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
-    gr_network = gr_network[
-        ((gr_network["database"] == "NicheNet_LT") & np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]]))
-        |
-        ((gr_network["database"] == "CytoSig") & np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]]))
-    ]
     optimal_parameters = dict()
     for settings_file in args.settings_file:
         with open(settings_file, "rb") as file:
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
+        gr_network = gr_network[
+            ((gr_network["database"] == "NicheNet_LT") & np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]]))
+            |
+            ((gr_network["database"] == "CytoSig") & np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]]))
+        ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
+        i = 0
 
         def objective(trial:Trial):
             source_weights = dict(
@@ -109,11 +112,14 @@ if __name__ == "__main__":
                 sig_network,
                 settings
             )
+            print(f"{settings_file}: trial {i} -> ({res[1], res[2]})")
+            stdout.flush()
             return (res[1], res[2])
 
         study = create_study(
             sampler=TPESampler(),
-            directions=["maximize", "maximize"]
+            directions=["maximize", "maximize"],
+            study_name=settings_file.split("/")[-1][:-5]
         )
         study.optimize(
             objective,
