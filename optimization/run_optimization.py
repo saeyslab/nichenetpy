@@ -5,9 +5,17 @@ from nichenetpy.parameter_optimization import (
     construct_and_evaluate
 )
 
-from optuna import create_study
+from optuna import (
+    create_study,
+    load_study
+)
 from optuna.trial import Trial
 from optuna.samplers import TPESampler
+from optuna.storages import JournalStorage
+from optuna.storages.journal import (
+    JournalFileBackend,
+    JournalFileOpenLock
+)
 from itertools import chain
 from pickle import dumps
 
@@ -18,6 +26,17 @@ import argparse
 from sys import stdout
 from joblib import Parallel, delayed
 
+
+@delayed
+def optimize(study_name, storage):
+    load_study(
+        study_name=study_name,
+        storage=storage
+    ).optimize(
+        objective,
+        n_trials=args.n_trials,
+        n_jobs=1
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -47,9 +66,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--n_trials",
-        help="the amount of times to create and evaluate a model",
+        help="the amount of times to create and evaluate a model per process",
         type=int,
         default=50
+    )
+    parser.add_argument(
+        "--n_process",
+        help="the amount of processes",
+        type=int,
+        default=16
     )
     args = parser.parse_args()
     if len(args.lr_network_file) == 0:
@@ -116,16 +141,22 @@ if __name__ == "__main__":
             stdout.flush()
             return (res[1], res[2])
 
+        name = settings_file.split("/")[-1][:-5]
+        log_file = f"./{name}.log"
+        with open(log_file, "w"):
+            pass # create an empty file or truncate an existing file
+        lock_obj = JournalFileOpenLock(log_file)
+        storage = JournalStorage(
+            JournalFileBackend(log_file, lock_obj)
+        )
         study = create_study(
             sampler=TPESampler(),
             directions=["maximize", "maximize"],
-            study_name=settings_file.split("/")[-1][:-5]
+            study_name=name,
+            storage=storage
         )
-        study.optimize(
-            objective,
-            n_trials=args.n_trials,
-            n_jobs=-1
-        )
+        parallel = Parallel(n_jobs=-1)
+        parallel(optimize(name, storage) for _ in range(args.n_process))
         optimal_parameters[settings_file] = [trial.params for trial in study.best_trials]
     with open(args.out_file, "wb") as file:
         file.write(dumps(optimal_parameters))

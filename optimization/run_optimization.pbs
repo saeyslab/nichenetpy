@@ -1,6 +1,7 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=16
+#PBS -l nodes=1:ppn=4
 #PBS -l walltime=0:30:00
+#PBS -l mem=16gb
 
 # Pass the cluster argument using -v, for example:
 # qsub run_performance.pbs -v cluster=doduo
@@ -33,8 +34,5 @@ python run_optimization.py \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1235.json \
-    --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1245.json \
-    --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1345.json \
-    --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f2345.json \
-    --n_trials 5
+    --n_trials 8 \
+    --n_process 4
