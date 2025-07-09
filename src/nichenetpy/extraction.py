@@ -2,7 +2,6 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.utils import subset_matrix
 from nichenetpy.metrics import (
     gene_expression_pct,
-    group_metrics,
     log_fold_change
 )
 from nichenetpy.ann_utils import (

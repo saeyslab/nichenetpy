@@ -40,8 +40,7 @@ these inferred ligand-receptor interactions result in changes in the
 expression of downstream target genes within the receiver cells.
 Therefore, we developed NicheNet to consider the gene regulatory effects
 of ligands. <br><br>
-<img src="images/comparison_other_approaches_2.jpg"
-width="450" /> <br><br>
+<img src="images/comparison_other_approaches_2.jpg" width="450" /> <br><br>
 
 At the core of NicheNet is a prior knowledge model, created by
 integrating three types of databases—ligand-receptor interactions,
@@ -107,31 +106,23 @@ ligands and predicting target genes of prioritized ligands. We recommend
 starting with the step-by-step analysis, but we also demonstrate the use
 of a single wrapper function. 
 
--   [Perform NicheNet analysis starting from an AnnData object:
-    step-by-step
-    analysis](notebooks/steps.ipynb)
--   [Perform NicheNet analysis starting from an AnnData
-    object: wrapper](notebooks/wrapper.ipynb)
+-   [Perform NicheNet analysis starting from an AnnData object: step-by-step analysis](notebooks/steps.ipynb)
+-   [Perform NicheNet analysis starting from an AnnData object: wrapper](notebooks/wrapper.ipynb)
 
 Case study on HNSCC tumor which demonstrates the flexibility of
 NicheNet. Here, the gene set of interest was determined by the original
 authors, and the expression data is a matrix rather than an AnnData
 object.
 
--   [NicheNet’s ligand activity analysis on a gene set of
-    interest](notebooks/ligand_activity_geneset.ipynb)
+-   [NicheNet’s ligand activity analysis on a gene set of interest](notebooks/ligand_activity_geneset.ipynb)
 
 The following notebooks explain how to do some follow-up
 analyses:
 
--   [Prioritization of ligands based on expression
-    values](notebooks/steps_prioritization.ipynb)
--   [Inferring ligand-to-target signaling
-    paths](notebooks/ligand_target_signaling_path.ipynb)
--   [Assess how well top-ranked ligands can predict a gene set of
-    interest](notebooks/target_prediction_evaluation_geneset.ipynb)
--   [Single-cell NicheNet’s ligand activity
-    analysis](notebooks/ligand_activity_single_cell.ipynb)
+-   [Prioritization of ligands based on expression values](notebooks/steps_prioritization.ipynb)
+-   [Inferring ligand-to-target signaling paths](notebooks/ligand_target_signaling_path.ipynb)
+-   [Assess how well top-ranked ligands can predict a gene set of interest](notebooks/target_prediction_evaluation_geneset.ipynb)
+-   [Single-cell NicheNet’s ligand activity analysis](notebooks/ligand_activity_single_cell.ipynb)
 
 If you want to make a circos plot visualization of the NicheNet output
 to show active ligand-target links between interacting cells, you can
@@ -143,6 +134,7 @@ People interested in building their own models or benchmarking their own
 models against NicheNet can read the following notebooks:
 
 -   [Model construction](notebooks/model_construction.ipynb)
+-   [Parameter optimization](notebooks/parameter_optimization.ipynb)
 -   [Using LIANA ligand-receptor databases to construct the ligand-target model](notebooks/model_construction_with_liana.ipynb)
 -   [Model evaluation: target gene and ligand activity prediction](notebooks/model_evaluation.ipynb)
 
@@ -150,7 +142,6 @@ For a comparison between Seurat's FindAllMarkers (which is ported into nichenetp
 
 -   [Comparison: Seurat vs Scanpy](notebooks/seuratVSscanpy.ipynb)
 
-TODO?
 ## FAQ
 
 TODO?
