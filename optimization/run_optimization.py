@@ -18,13 +18,14 @@ from optuna.storages.journal import (
 )
 from itertools import chain
 from pickle import dumps
+from sys import stdout
+from joblib import Parallel, delayed
+from time import time
 
 import pandas as pd
 import json
 import numpy as np
 import argparse
-from sys import stdout
-from joblib import Parallel, delayed
 
 
 @delayed
@@ -39,6 +40,7 @@ def optimize(study_name, storage):
     )
 
 if __name__ == "__main__":
+    t = time()
     parser = argparse.ArgumentParser(
         description="optimize the source weights and hyperparameters"
     )
@@ -76,6 +78,11 @@ if __name__ == "__main__":
         type=int,
         default=16
     )
+    parser.add_argument(
+        "-c",
+        help="continue running the optimization from already existing log files",
+        action=argparse.BooleanOptionalAction
+    )
     args = parser.parse_args()
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
@@ -93,7 +100,6 @@ if __name__ == "__main__":
             ((gr_network["database"] == "CytoSig") & np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]]))
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-        i = 0
 
         def objective(trial:Trial):
             source_weights = dict(
@@ -137,14 +143,12 @@ if __name__ == "__main__":
                 sig_network,
                 settings
             )
-            print(f"{settings_file}: trial {i} -> ({res[1], res[2]})")
-            stdout.flush()
             return (res[1], res[2])
 
         name = settings_file.split("/")[-1][:-5]
         log_file = f"./{name}.log"
-        with open(log_file, "w"):
-            pass # create an empty file or truncate an existing file
+        with open(log_file, "a" if args.c else "w"):
+            pass
         lock_obj = JournalFileOpenLock(log_file)
         storage = JournalStorage(
             JournalFileBackend(log_file, lock_obj)
@@ -153,7 +157,8 @@ if __name__ == "__main__":
             sampler=TPESampler(),
             directions=["maximize", "maximize"],
             study_name=name,
-            storage=storage
+            storage=storage,
+            load_if_exists=args.c
         )
         parallel = Parallel(n_jobs=-1)
         parallel(optimize(name, storage) for _ in range(args.n_process))
