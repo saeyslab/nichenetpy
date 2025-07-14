@@ -162,6 +162,6 @@ if __name__ == "__main__":
         )
         parallel = Parallel(n_jobs=-1)
         parallel(optimize(name, storage) for _ in range(args.n_process))
-        optimal_parameters[settings_file] = [trial.params for trial in study.best_trials]
+        optimal_parameters[name] = [trial.params for trial in study.best_trials]
     with open(args.out_file, "wb") as file:
         file.write(dumps(optimal_parameters))
