@@ -1091,7 +1091,8 @@ def test_steps_prioritization():
             "aggregate",
             "LCMV",
             "SS",
-            sender_celltypes=sender_celltypes
+            sender_celltypes=sender_celltypes,
+            expression_pct=0.05
         )
         ligand_activities = ligand_activities_df(res["ligand_activities_sorted_focused"])
         ligand_activities["receiver"] = [receiver for _ in range(len(ligand_activities.index))]
@@ -1178,6 +1179,10 @@ def test_steps_prioritization():
         PRIOR_top_10_prior_table
     )
     prior_table_oi = prior_table_combined.sort_values(by="prioritization_score", ascending=False)[:50]
+    receiver_oi = "CD8 T"
+    prior_table_combined[
+        prior_table_combined["receiver"] == receiver_oi
+    ]
 
 def test_ligand_target_signaling_path():
     if not os.path.exists(root_path):
