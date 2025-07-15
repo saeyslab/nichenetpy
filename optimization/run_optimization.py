@@ -7,18 +7,24 @@ from nichenetpy.parameter_optimization import (
 
 from optuna import (
     create_study,
-    load_study
+    load_study,
+    Study
 )
 from optuna.trial import Trial
-from optuna.samplers import TPESampler
+from optuna.samplers import (
+    TPESampler,
+    NSGAIISampler
+)
 from optuna.storages import JournalStorage
 from optuna.storages.journal import (
     JournalFileBackend,
     JournalFileOpenLock
 )
+from optuna.samplers.nsgaii import (
+    BaseCrossover
+)
 from itertools import chain
 from pickle import dumps
-from sys import stdout
 from joblib import Parallel, delayed
 from time import time
 
@@ -26,6 +32,20 @@ import pandas as pd
 import json
 import numpy as np
 import argparse
+
+
+class FlatCrossover(BaseCrossover):
+    n_parents = 2
+
+    def crossover(
+        self,
+        parents_params:np.ndarray,
+        rng:np.random.RandomState,
+        study:Study,
+        search_space_bounds:np.ndarray
+    ):
+        n_params = parents_params.shape[1]
+        return  parents_params[0] + rng.rand(n_params) * (parents_params[1, :] - parents_params[0, :])
 
 
 @delayed
@@ -154,7 +174,10 @@ if __name__ == "__main__":
             JournalFileBackend(log_file, lock_obj)
         )
         study = create_study(
-            sampler=TPESampler(),
+            sampler=NSGAIISampler(
+                crossover=FlatCrossover(),
+                crossover_prob=1
+            ),
             directions=["maximize", "maximize"],
             study_name=name,
             storage=storage,
