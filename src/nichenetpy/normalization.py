@@ -139,10 +139,11 @@ def scale_quantile(
 def scale_quantile_adapted(
     data:list|tuple|np.ndarray|pd.Series,
     cutoff=0,
-    by_row:bool=False
+    by_row:bool=False,
+    pseudo_count=0.001
 ) -> np.ndarray:
     '''
-    Normalize values in a vector by quantile scaling. Add a pseudovalue of 0.001 to avoid having a score of 0 for the lowest value.
+    Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
 
     Parameters
     ----------
@@ -152,6 +153,8 @@ def scale_quantile_adapted(
         the quantile cutoff for outliers
     by_row : bool
         indicates whether to apply the computation on each row or on each column
+    pseudo_count : float
+        a small value to add in order to prevent 0 values
     
     Returns
     -------
@@ -165,7 +168,9 @@ def scale_quantile_adapted(
     ValueError
         if data is invalid
     '''
-    return scale_quantile(data, cutoff=cutoff, by_row=by_row) + 0.001
+    if not isinstance(pseudo_count, Number):
+        raise TypeError(f"pseudo_count should have type float, was {type(pseudo_count)}")
+    return scale_quantile(data, cutoff=cutoff, by_row=by_row) + pseudo_count
 
 def scaling_zscore(data:list[float]|np.ndarray|pd.Series) -> list[float]|np.ndarray|pd.Series:
     '''

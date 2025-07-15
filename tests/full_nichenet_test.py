@@ -12,7 +12,7 @@ from nichenetpy.gene_symbol import (
     mouse_alias_info,
     human_alias_info
 )
-from nichenetpy.metrics import group_metrics, calculate_metrics
+from nichenetpy.metrics import group_metrics, calculate_prediction_evaluation_metrics
 from nichenetpy.wrappers import (
     run_nichenet,
     combine_weighted_ligand_target_links,
@@ -1340,10 +1340,6 @@ def test_ligand_activity_single_cell():
         expression_scaled_cols,
         potential_ligands
     )
-    ligand_activities = ligand_activities_df(ligand_activities)
-    ligand_activities.sort_index(inplace=True)
-    ligand_activities.reset_index(inplace=True)
-    ligand_activities.rename(columns={"level_0": "cell", "level_1": "ligand"}, inplace=True)
     assert len(ligand_activities) == 2030
     assert equals_iter(
         ligand_activities[["cell", "ligand", "auroc", "aupr", "pearson"]].sort_values(by="aupr", ascending=False).head(10).to_numpy(),
@@ -1656,7 +1652,7 @@ def test_target_prediction_evaluation_geneset():
     ]
     target_prediction_performances = []
     for df in gene_predictions_top30_list:
-        met = calculate_metrics(list(df["prediction"]), list(df["response"]))
+        met = calculate_prediction_evaluation_metrics(list(df["prediction"]), list(df["response"]))
         target_prediction_performances.append(pd.DataFrame([list(met.values())], columns=met.keys()))
     target_prediction_performances = pd.concat(target_prediction_performances)
     target_prediction_performances.reset_index(drop=True, inplace=True)

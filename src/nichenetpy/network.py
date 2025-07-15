@@ -3,6 +3,8 @@ from nichenetpy.io import read_network, read_weighted_network
 from collections.abc import Collection
 from itertools import chain
 
+import pandas as pd
+
 
 class Network:
     '''
@@ -10,8 +12,8 @@ class Network:
 
     Parameters
     ----------
-    mapping : list or None
-        sorted list of tuples (from, to)
+    mapping : list or pandas.DataFrame or None
+        sorted list of tuples (from, to) or pandas dataframe with keys ("from", "to")
     filename : str or None
         name of the file to read the network from
 
@@ -31,12 +33,17 @@ class Network:
     
     Notes
     -----
-    You must pass a list SORTED by "from" as mapping or the name of a file to read from. 
+    You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from. 
     '''
     def __init__(self, mapping:list|None=None, filename:str|None=None) -> None:
         if mapping is not None:
-            if type(mapping) is not list:
-                raise TypeError(f"mapping should have type list, was {type(mapping)}")
+            if type(mapping) is pd.DataFrame:
+                mapping = sorted(
+                    zip(mapping["from"], mapping["to"]),
+                    key=lambda x : x[0]
+                )
+            elif type(mapping) is not list:
+                raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
             self._mapping = mapping
         elif filename is not None:
             if type(filename) is not str:
@@ -215,8 +222,8 @@ class WeightedNetwork(Network):
 
     Parameters
     ----------
-    mapping : list or None
-        sorted list of tuples (from, to, weight)
+    mapping : list or pandas.DataFrame or None
+        sorted list of tuples (from, to, weight) or pandas dataframe with keys ("from", "to", "weight")
     filename : str or None
         name of the file to read the network from
     
@@ -238,6 +245,11 @@ class WeightedNetwork(Network):
                 raise TypeError(f"filename should have type str, was {type(filename)}")
             mapping = sorted(
                 read_weighted_network(filename),
+                key=lambda x : x[0]
+            )
+        elif type(mapping) is pd.DataFrame:
+            mapping = sorted(
+                zip(mapping["from"], mapping["to"], mapping["weight"]),
                 key=lambda x : x[0]
             )
         super().__init__(mapping=mapping)

@@ -32,7 +32,6 @@ from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
 from anndata import AnnData
-from nichenetpy.ann_utils import subset_ann
 
 import numpy as np
 import scipy as sc

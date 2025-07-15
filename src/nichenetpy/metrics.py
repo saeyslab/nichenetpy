@@ -14,6 +14,7 @@ from numbers import Number
 
 import numpy as np
 import pandas as pd
+import warnings
 
 
 def _auc_reverse(x:list[float], y:list[float]) -> float:
@@ -87,6 +88,9 @@ def calculate_aupr(
         raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
     if type(prediction) is not list and type(prediction) is not tuple:
         raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    if sum(response) == 0:
+        warnings.warn("There are no true samples in response, AUPR is undefined")
+        return np.nan
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
 
@@ -122,13 +126,14 @@ def calculate_auroc(
     fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
     return -_auc_reverse(fp, tp)
 
-def calculate_metrics(
+def calculate_prediction_evaluation_metrics(
     prediction:list[float]|tuple[float],
     response:list[float]|tuple[float]
 ) -> dict[str, float]:
     '''
     Calculates metrics that can be used to rank ligands. 
     currently supported metrics are:
+
         AUPR
         corrected AUPR
         AUROC
@@ -150,11 +155,15 @@ def calculate_metrics(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if response doesn't contain any true samples
     '''
     if type(response) is not list and type(response) is not tuple:
         raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
     if type(prediction) is not list and type(prediction) is not tuple:
         raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    if sum(response) == 0:
+        raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
     aupr = calculate_aupr(response, prediction)
     auroc = calculate_auroc(response, prediction)
     pcc = pearsonr(response, prediction).statistic
