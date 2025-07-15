@@ -30,7 +30,7 @@ from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.normalization import scaling_modified_zscore
 
-from itertools import cycle, chain, repeat, islice
+from itertools import cycle, chain, repeat
 from collections.abc import Iterable
 from anndata import AnnData
 from pycirclize import Circos
