@@ -218,8 +218,8 @@ def log_fold_change(
         raise TypeError(f"mat1 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat1)}")
     if type(mat2) is not np.ndarray and type(mat2) is not csc_matrix and type(mat2) is not csr_matrix:
         raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
-    if not isinstance(denormalize, Callable):
-        raise TypeError(f"denormalize should be a Callable, had type {type(denormalize)}")
+    if denormalize is not None and not isinstance(denormalize, Callable):
+        raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
         raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
     return (
@@ -295,7 +295,8 @@ def group_metrics(
     min_abs_lfc:float=0,
     min_pct:float=0,
     pval_thresh:float|None=None, # 0.01 in seurat
-    wilcoxon_limma:bool=False
+    wilcoxon_limma:bool=False,
+    lfc_denormalize:Callable|None=np.expm1
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -328,6 +329,8 @@ def group_metrics(
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     wilcoxon_limma : bool
         use wilcoxon-limma (reproduces results from seuratv4)
+    lfc_denormalize : Callable or None
+        a denormalization function to apply prior to the calculation of the log fold changes
     
     Raises
     ------
@@ -363,10 +366,8 @@ def group_metrics(
         raise TypeError(f"min_pct should be of type float, was {type(min_pct)}")
     if pval_thresh is not None and not isinstance(pval_thresh, Number):
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
-    if layer == "data":
-        lfc_denormalize = np.expm1
-    else:
-        lfc_denormalize = None
+    if lfc_denormalize is not None and not isinstance(lfc_denormalize, Callable):
+        raise TypeError(f"lfc_denormalize should be a Callable or None, had type {type(lfc_denormalize)}")
     if features is None:
         mat = ann.layers[layer]
         genes = ann.var_names
