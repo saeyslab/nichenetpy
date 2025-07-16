@@ -679,14 +679,11 @@ def _create_circos_plot(
     # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
     rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
     if separate_sender_receiver:
+        group_sizes = dict(sorted(group_sizes.items(), key=lambda x : x[0]))
         if sender_receiver_space > 0:
-            group_sizes = list(group_sizes.items())
+            keys = list(group_sizes.keys())
             for i in (0, rec_sector_count - 1):
-                group, size = group_sizes[i]
-                group_sizes[i] = (group, size + sender_receiver_space)
-        else:
-            group_sizes = group_sizes.items()
-        group_sizes = dict(sorted(group_sizes, key=lambda x : x[0]))
+                group_sizes[keys[i]] += sender_receiver_space
     circos = Circos(
         sectors=group_sizes,
         space=(inter_space * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space)))
