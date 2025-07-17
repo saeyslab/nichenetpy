@@ -4,6 +4,7 @@ from anndata import AnnData
 from collections.abc import Iterable
 
 import numpy as np
+import pandas as pd
 
 
 def _subset_layer(
@@ -101,6 +102,10 @@ def subset_ann(
             subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)
         ) for layer in layers
     )
+    # subset categories if the column is categorical
+    if cells_oi[val_col].dtype.name == "category":
+        pd.options.mode.chained_assignment = None # false positive warning removal
+        cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
     output = AnnData(
         obs=ann.obs if row_ids is None else cells_oi,
         layers=new_layers,

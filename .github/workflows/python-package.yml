@@ -28,9 +28,10 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest liana requests
         pip install -r requirements.txt
+        pip install pytest liana requests
         pip install -e .
+
     - name: Test with pytest
       run: |
         pytest -m "not large_download"

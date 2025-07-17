@@ -31,7 +31,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.normalization import scaling_modified_zscore
 
 from itertools import cycle, chain, repeat
-from collections.abc import Iterable
+from collections.abc import Iterable, Callable
 from anndata import AnnData
 from pycirclize import Circos
 from matplotlib.patches import Patch
@@ -56,7 +56,9 @@ def get_geneset_oi(
     min_pct:float=0.05,
     use_scanpy:bool=False,
     scanpy_corr_method:str="benjamini-hochberg",
-    scanpy_tie_correct:bool=False
+    scanpy_tie_correct:bool=False,
+    celltype_col:str="celltype",
+    lfc_denormalize:Callable|None=np.expm1
 ) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
@@ -85,6 +87,12 @@ def get_geneset_oi(
         corr_method argument passed to scanpy.tl.rank_genes_groups
     scanpy_tie_correct : bool
         tie_correct argument passed to scanpy.tl.rank_genes_groups
+    celltype_col : str
+        the column in the anndata object which contains the celltype
+    lfc_denormalize : Callable or None
+        a denormalization function to apply prior to the calculation of the log fold changes
+
+        only used with use_scanpy=False
     
     Returns
     -------
@@ -100,7 +108,7 @@ def get_geneset_oi(
         ann,
         val=receiver,
         layers=[layer],
-        val_col="celltype"
+        val_col=celltype_col
     )
     if use_scanpy: # lfc will be different
         sc.tl.rank_genes_groups(
@@ -124,7 +132,8 @@ def get_geneset_oi(
             groupby=condition_col,
             layer=layer,
             min_pct=min_pct,
-            min_abs_lfc=min_abs_lfc
+            min_abs_lfc=min_abs_lfc,
+            lfc_denormalize=lfc_denormalize
         )
         DE_table = ann_receiver.uns["group_metrics"]
     return set(
@@ -175,7 +184,8 @@ def run_nichenet(
     get_lfc:bool=False,
     get_prioritization_table:bool=False,
     case_control:bool=True,
-    use_scanpy:bool=False
+    use_scanpy:bool=False,
+    lfc_denormalize:Callable|None=np.expm1
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -225,6 +235,8 @@ def run_nichenet(
         the case_control argument for generate_info_tables
     use_scanpy : bool
         if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
+    lfc_denormalize : Callable or None
+        a denormalization function to apply prior to the calculation of the log fold changes
     
     Returns
     -------
@@ -283,7 +295,13 @@ def run_nichenet(
     '''
     output = dict()
     expressed_genes_receiver = set(
-        get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col)
+        get_expressed_genes(
+            receiver,
+            ann,
+            pct=expression_pct,
+            celltype_col=celltype_col,
+            layer=layer
+        )
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
@@ -303,7 +321,9 @@ def run_nichenet(
         max_pval_adj=max_pval_adj,
         min_abs_lfc=min_abs_lfc,
         min_pct=expression_pct,
-        use_scanpy=use_scanpy
+        use_scanpy=use_scanpy,
+        celltype_col=celltype_col,
+        lfc_denormalize=lfc_denormalize
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
@@ -338,7 +358,8 @@ def run_nichenet(
                 ct,
                 ann,
                 pct=expression_pct,
-                celltype_col=celltype_col
+                celltype_col=celltype_col,
+                layer=layer
             )
         }
         expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
@@ -370,7 +391,7 @@ def run_nichenet(
             ann,
             val=sender_celltypes,
             layers=[layer],
-            val_col="celltype"
+            val_col=celltype_col
         )
         ann_focused.X = ann_focused.layers[layer]
         output["ann_focused"] = ann_focused
