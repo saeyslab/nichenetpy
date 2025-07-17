@@ -452,14 +452,21 @@ def create_ligand_activity_hist(
         the title of the y-axis
     figsize : tuple of float
         the size of the figure
+
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
     '''
-    plt.subplots(figsize=figsize)
+    fig, ax = plt.subplots(figsize=figsize)
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
     plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
     plt.xlabel(xtitle)
     plt.ylabel(ytitle)
-    plt.show()
+    return (fig, ax)
 
 def create_ligand_activity_heatmap(
     ligand_activities_sorted:Iterable[tuple],
@@ -483,9 +490,16 @@ def create_ligand_activity_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
     '''
     ligands, metrics = zip(*ligand_activities_sorted)
-    _, ax = heatmap_1d(
+    fig, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
         labels=ligands,
         title=title,
@@ -494,7 +508,7 @@ def create_ligand_activity_heatmap(
         figsize=figsize
     )
     ax.invert_yaxis()
-    plt.show()
+    return (fig, ax)
 
 def create_regulatory_potential_heatmap(
     predictor:LigandActivityPredictor,
@@ -524,13 +538,20 @@ def create_regulatory_potential_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
     '''
     ligand_target_vis, targets, ligands = prepare_ligand_target_visualization(
         predictor,
         active_ligand_target_links,
         cutoff=0.33
     )
-    heatmap_2d(
+    return heatmap_2d(
         ligand_target_vis.transpose(),
         xlabels=targets,
         ylabels=ligands,
@@ -540,7 +561,6 @@ def create_regulatory_potential_heatmap(
         cmap=cmap,
         figsize=figsize
     )
-    plt.show()
 
 def create_prior_interaction_potential_heatmap(
     ligand_receptor_links:WeightedNetwork,
@@ -567,9 +587,16 @@ def create_prior_interaction_potential_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
     '''
     mat, ligands, receptors = prepare_ligand_receptor_visualization(ligand_receptor_links)
-    heatmap_2d(
+    return heatmap_2d(
         mat,
         xlabels=receptors,
         ylabels=ligands,
@@ -579,7 +606,6 @@ def create_prior_interaction_potential_heatmap(
         cmap=cmap,
         figsize=figsize
     )
-    plt.show()
 
 def create_lfc_heatmap(
     sender_celltypes:list[str],
@@ -612,6 +638,13 @@ def create_lfc_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
     '''
     lfcs = combine_by_key(*lfcs)
     # sort by ligand activity
@@ -624,7 +657,7 @@ def create_lfc_heatmap(
             reverse=True
         )
     ))
-    _, ax = heatmap_2d(
+    fig, ax = heatmap_2d(
         np.vstack(vals),
         xlabels=sender_celltypes,
         ylabels=ligands,
@@ -639,7 +672,7 @@ def create_lfc_heatmap(
     ax.invert_yaxis()
     ax.xaxis.tick_top()
     ax.xaxis.set_label_position('top') 
-    plt.show()
+    return (fig, ax)
 
 def _create_circos_plot(
     circos_links:Iterable[tuple[tuple[str, str], tuple[str, str]]],
