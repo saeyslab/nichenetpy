@@ -31,6 +31,7 @@ jobs:
         pip install pytest liana requests
         pip install -r requirements.txt
         pip install -e .
+        pip install anndata==0.11.1
     - name: Test with pytest
       run: |
         pytest -m "not large_download"
