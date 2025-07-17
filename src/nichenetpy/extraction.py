@@ -8,6 +8,7 @@ from nichenetpy.ann_utils import (
     subset_ann,
     _subset_layer
 )
+from nichenetpy.typing import nichenet_matrix
 
 from anndata import AnnData
 from collections.abc import Iterable, Callable
@@ -233,7 +234,7 @@ def average_expression(
     groupby:str,
     keys:Iterable[str]|None=None,
     layer:str="counts",
-    norm_f:Callable|None=None
+    norm_f:Callable[[nichenet_matrix], nichenet_matrix]|None=None
 ):
     '''
     Computes averaged expression values for each group. Similar to seurat's AverageExpression. 

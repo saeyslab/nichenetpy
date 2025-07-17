@@ -29,6 +29,7 @@ from nichenetpy.prioritization import (
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.normalization import scaling_modified_zscore
+from nichenetpy.typing import nichenet_matrix
 
 from itertools import cycle, chain, repeat
 from collections.abc import Iterable, Callable
@@ -58,7 +59,7 @@ def get_geneset_oi(
     scanpy_corr_method:str="benjamini-hochberg",
     scanpy_tie_correct:bool=False,
     celltype_col:str="celltype",
-    lfc_denormalize:Callable|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
 ) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
@@ -185,7 +186,7 @@ def run_nichenet(
     get_prioritization_table:bool=False,
     case_control:bool=True,
     use_scanpy:bool=False,
-    lfc_denormalize:Callable|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
 ):
     '''
     Runs a standard nichenet analysis. 

@@ -4,6 +4,7 @@ from nichenetpy.wilcoxon import (
     wilcoxon_rank_sum_test_with_correlation
 )
 from nichenetpy.ann_utils import _subset_layer, subset_ann
+from nichenetpy.typing import nichenet_matrix
 
 from anndata import AnnData
 from collections.abc import Callable, Iterable
@@ -176,7 +177,7 @@ def calculate_prediction_evaluation_metrics(
 
 def _sub_log_fold_change(
     data:csc_matrix|csr_matrix,
-    denormalize:Callable=np.expm1,
+    denormalize:Callable[[nichenet_matrix], nichenet_matrix]=np.expm1,
     pseudocount:int=1
 ):
     if denormalize is not None:
@@ -184,9 +185,9 @@ def _sub_log_fold_change(
     return np.log2((data.sum(axis=0) + pseudocount) / data.shape[0])
 
 def log_fold_change(
-    mat1:np.ndarray|csc_matrix|csr_matrix,
-    mat2:np.ndarray|csc_matrix|csr_matrix,
-    denormalize:Callable=np.expm1,
+    mat1:nichenet_matrix,
+    mat2:nichenet_matrix,
+    denormalize:Callable[[nichenet_matrix], nichenet_matrix]=np.expm1,
     pseudocount:float=1
 ) -> np.ndarray:
     '''
@@ -214,9 +215,9 @@ def log_fold_change(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(mat1) is not np.ndarray and type(mat1) is not csc_matrix and type(mat1) is not csr_matrix:
+    if not isinstance(mat1, nichenet_matrix):
         raise TypeError(f"mat1 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat1)}")
-    if type(mat2) is not np.ndarray and type(mat2) is not csc_matrix and type(mat2) is not csr_matrix:
+    if not isinstance(mat2, nichenet_matrix):
         raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
@@ -228,7 +229,7 @@ def log_fold_change(
     ).transpose()
 
 def gene_expression_pct(
-    mat=np.ndarray|csc_matrix|csr_matrix
+    mat=nichenet_matrix
 ) -> list[float]:
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0. 
@@ -296,7 +297,7 @@ def group_metrics(
     min_pct:float=0,
     pval_thresh:float|None=None, # 0.01 in seurat
     wilcoxon_limma:bool=False,
-    lfc_denormalize:Callable|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,

@@ -1,6 +1,7 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.typing import nichenet_matrix
 
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csc_matrix
 from scipy.stats import t
 from anndata import AnnData
 from collections.abc import Iterable
@@ -12,7 +13,7 @@ import numpy as np
 
 
 def _rank_cells(
-    mat:csc_matrix|csr_matrix|np.ndarray,
+    mat:nichenet_matrix,
     cell_groups:Iterable[str],
     tie_correction:bool=True
 ):

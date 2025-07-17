@@ -1,4 +1,6 @@
-from scipy.sparse import lil_matrix, csc_matrix, csr_matrix
+from nichenetpy.typing import nichenet_matrix
+
+from scipy.sparse import lil_matrix
 from scipy.stats import median_abs_deviation
 from numbers import Number
 
@@ -7,9 +9,9 @@ import pandas as pd
 
 
 def relative_counts(
-    data:np.ndarray|csc_matrix|csr_matrix,
+    data:nichenet_matrix,
     scale_factor:float=10000
-) -> np.ndarray|csc_matrix|csr_matrix:
+) -> nichenet_matrix:
     '''
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -30,7 +32,7 @@ def relative_counts(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(data) is not np.ndarray and type(data) is not csc_matrix and type(data) is not csr_matrix:
+    if not isinstance(data, nichenet_matrix):
         raise TypeError(f"data should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
@@ -40,9 +42,9 @@ def relative_counts(
     return mp_mat * data
 
 def log_normalize(
-    data:np.ndarray|csc_matrix|csr_matrix,
+    data:nichenet_matrix,
     scale_factor:float=10000
-) -> np.ndarray|csc_matrix|csr_matrix:
+) -> nichenet_matrix:
     '''
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale.factor.
     This is then natural-log transformed using log1p
