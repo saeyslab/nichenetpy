@@ -35,7 +35,7 @@ class Network:
     -----
     You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from. 
     '''
-    def __init__(self, mapping:list|None=None, filename:str|None=None) -> None:
+    def __init__(self, mapping:list|pd.DataFrame|None=None, filename:str|None=None) -> None:
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(
@@ -239,7 +239,7 @@ class WeightedNetwork(Network):
     _index : dict
         index for the mapping
     '''
-    def __init__(self, mapping = None, filename = None):
+    def __init__(self, mapping:list|pd.DataFrame|None=None, filename:str=None):
         if filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
