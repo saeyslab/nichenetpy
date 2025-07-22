@@ -1,5 +1,6 @@
-from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
+from nichenetpy.typing import nichenet_matrix
 
+from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from collections.abc import Iterable, Callable
 from anndata import AnnData
 from re import search
@@ -124,10 +125,10 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
     return dict(zip(lines[0], zip(*lines[1:])))
 
 def subset_matrix(
-    mat:np.ndarray|csc_matrix|csr_matrix,
+    mat:nichenet_matrix,
     rows:list[int|bool]|tuple[int|bool]|np.ndarray|None=None,
     cols:list[int|bool]|tuple[int|bool]|np.ndarray|None=None
-) -> np.ndarray|csc_matrix|csr_matrix:
+) -> nichenet_matrix:
     '''
     Subsets a matrix. 
 
@@ -354,6 +355,7 @@ def ligand_activities_df(
     columns = tuple(activities[0].keys())
     data = [tuple(act.values()) for act in activities]
     df = pd.DataFrame(data=data, index=ligands, columns=columns)
+    df.index.name = "ligand"
     return df
 
 def df_grouped_apply(

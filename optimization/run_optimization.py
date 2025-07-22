@@ -103,6 +103,12 @@ if __name__ == "__main__":
         help="continue running the optimization from already existing log files",
         action=argparse.BooleanOptionalAction
     )
+    parser.add_argument(
+        "--algorithm",
+        help="the optimization algorithm to use",
+        type=str,
+        default="TPE"
+    )
     args = parser.parse_args()
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
@@ -173,11 +179,15 @@ if __name__ == "__main__":
         storage = JournalStorage(
             JournalFileBackend(log_file, lock_obj)
         )
-        study = create_study(
-            sampler=NSGAIISampler(
+        if args.algorithm == "TPE":
+            sampler = TPESampler()
+        elif args.algorithm == "NSGA-II":
+            sampler = NSGAIISampler(
                 crossover=FlatCrossover(),
                 crossover_prob=1
-            ),
+            )
+        study = create_study(
+            sampler=sampler,
             directions=["maximize", "maximize"],
             study_name=name,
             storage=storage,

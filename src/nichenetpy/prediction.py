@@ -170,7 +170,7 @@ class LigandActivityPredictor:
         geneset:Collection[str],
         background_expressed_genes:Iterable[str],
         potential_ligands:Iterable[str]
-    ) -> pd.DataFrame:
+    ):
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -224,7 +224,7 @@ class LigandActivityPredictor:
         calc_aupr:bool=True,
         calc_auroc:bool=True,
         calc_pearson:bool=True
-    ) -> dict[tuple[str, str], dict[str, float]]:
+    ):
         '''
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
