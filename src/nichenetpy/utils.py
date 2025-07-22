@@ -355,6 +355,7 @@ def ligand_activities_df(
     columns = tuple(activities[0].keys())
     data = [tuple(act.values()) for act in activities]
     df = pd.DataFrame(data=data, index=ligands, columns=columns)
+    df.index.name = "ligand"
     return df
 
 def df_grouped_apply(
