@@ -9,3 +9,7 @@ SeuratVSscanpy/*
 temp/*
 docs/*
 tests/data/TGFB1/*
+optimization/log
+optimization/output
+optimization/tutorial_files
+optimization/check_results
