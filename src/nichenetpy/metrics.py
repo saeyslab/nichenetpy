@@ -18,15 +18,18 @@ import pandas as pd
 import warnings
 
 
-def _auc_reverse(x:list[float], y:list[float]) -> float:
+def _auc_reverse(
+    x:list[float]|tuple[float]|np.ndarray[float],
+    y:list[float]|tuple[float]|np.ndarray[float]
+) -> float:
     '''
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values. 
 
     Parameters
     ----------
-    x : list or tuple of float
+    x : list or tuple or numpy.ndarray of float
         list of x-values on the curve
-    y : list or tuple of float
+    y : list or tuple or numpy.ndarray of float
         list of y-values on the curve
 
     Returns
@@ -51,20 +54,22 @@ def _auc_reverse(x:list[float], y:list[float]) -> float:
         raise ValueError('x and y should have the same length')
     if len(x) < 2:
         raise ValueError('x and y should have a length of at least 2')
+    if type(x) is np.ndarray and type(y) is np.ndarray:
+        return ((x[:-1] - x[1:]) * (y[1:] + y[:-1])).sum() / 2
     return sum((x[i-1] - x[i])*(y[i] + y[i-1]) for i in range(1, len(x))) / 2
 
 def calculate_aupr(
-    response:list[float]|tuple[float],
-    prediction:list[float]|tuple[float]
+    response:list[float]|tuple[float]|np.ndarray[float],
+    prediction:list[float]|tuple[float]|np.ndarray[float]
 ) -> float:
     '''
     Calculates the area under the precision-recall curve using the trapezoid rule. 
 
     Parameters
     ----------
-    response : list or tuple of float
+    response : list or tuple or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
-    prediction : list or tuple of float
+    prediction : list or tuple or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
 
     Returns
@@ -85,10 +90,10 @@ def calculate_aupr(
     )
     0.8851473922902493
     '''
-    if type(response) is not list and type(response) is not tuple:
-        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple:
-        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         warnings.warn("There are no true samples in response, AUPR is undefined")
         return np.nan
@@ -96,17 +101,17 @@ def calculate_aupr(
     return _auc_reverse(recall, precision)
 
 def calculate_auroc(
-    response:list[float]|tuple[float],
-    prediction:list[float]|tuple[float]
+    response:list[float]|tuple[float]|np.ndarray[float],
+    prediction:list[float]|tuple[float]|np.ndarray[float]
 ) -> float:
     '''
     Calculates the area under the roc-curve using the trapezoid rule. 
 
     Parameters
     ----------
-    response : list or tuple of float
+    response : list or tuple  or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
-    prediction : list or tuple of float
+    prediction : list or tuple  or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
 
     Returns
@@ -119,17 +124,17 @@ def calculate_auroc(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(response) is not list and type(response) is not tuple:
-        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple:
-        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
     fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
     return -_auc_reverse(fp, tp)
 
 def calculate_prediction_evaluation_metrics(
-    prediction:list[float]|tuple[float],
-    response:list[float]|tuple[float]
+    prediction:list[float]|tuple[float]|np.ndarray[float],
+    response:list[float]|tuple[float]|np.ndarray[float]
 ) -> dict[str, float]:
     '''
     Calculates metrics that can be used to rank ligands. 
@@ -142,9 +147,9 @@ def calculate_prediction_evaluation_metrics(
 
     Parameters
     ----------
-    prediction : list or tuple of float
+    prediction : list or tuple or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
-    response : list or tuple of float
+    response : list or tuple or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
 
     Returns
@@ -159,10 +164,10 @@ def calculate_prediction_evaluation_metrics(
     ValueError
         if response doesn't contain any true samples
     '''
-    if type(response) is not list and type(response) is not tuple:
-        raise TypeError(f"response should be a list or tuple of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple:
-        raise TypeError(f"prediction should be a list or tuple of floats, had type {type(prediction)}")
+    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
     aupr = calculate_aupr(response, prediction)

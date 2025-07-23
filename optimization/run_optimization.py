@@ -115,6 +115,7 @@ if __name__ == "__main__":
     gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
+    parallel = Parallel(n_jobs=-1)
     optimal_parameters = dict()
     for settings_file in args.settings_file:
         with open(settings_file, "rb") as file:
@@ -193,7 +194,6 @@ if __name__ == "__main__":
             storage=storage,
             load_if_exists=args.c
         )
-        parallel = Parallel(n_jobs=-1)
         parallel(optimize(name, storage) for _ in range(args.n_process))
         optimal_parameters[name] = [trial.params for trial in study.best_trials]
     with open(args.out_file, "wb") as file:
