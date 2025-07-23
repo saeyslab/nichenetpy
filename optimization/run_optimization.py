@@ -122,9 +122,15 @@ if __name__ == "__main__":
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
         gr_network = gr_network[
-            ((gr_network["database"] == "NicheNet_LT") & np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]]))
+            (
+                (gr_network["database"] == "NicheNet_LT") &
+                np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
+            )
             |
-            ((gr_network["database"] == "CytoSig") & np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]]))
+            (
+                (gr_network["database"] == "CytoSig") &
+                np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
+            )
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
 

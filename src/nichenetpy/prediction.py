@@ -302,8 +302,8 @@ class LigandActivityPredictor:
             for ligand in potential_ligands:
                 prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
                 common_keys = prediction.keys() & response.keys()
-                pred = np.ndarray([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
-                resp = np.ndarray([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])
+                pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
+                resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])
                 if calc_aupr:
                     aupr.append(calculate_aupr(resp, pred))
                     aupr_corrected.append(aupr[-1] - sum(resp)/len(resp))
