@@ -115,15 +115,22 @@ if __name__ == "__main__":
     gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
+    parallel = Parallel(n_jobs=-1)
     optimal_parameters = dict()
     for settings_file in args.settings_file:
         with open(settings_file, "rb") as file:
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
         gr_network = gr_network[
-            ((gr_network["database"] == "NicheNet_LT") & np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]]))
+            (
+                (gr_network["database"] == "NicheNet_LT") &
+                np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
+            )
             |
-            ((gr_network["database"] == "CytoSig") & np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]]))
+            (
+                (gr_network["database"] == "CytoSig") &
+                np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
+            )
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
 
@@ -193,7 +200,6 @@ if __name__ == "__main__":
             storage=storage,
             load_if_exists=args.c
         )
-        parallel = Parallel(n_jobs=-1)
         parallel(optimize(name, storage) for _ in range(args.n_process))
         optimal_parameters[name] = [trial.params for trial in study.best_trials]
     with open(args.out_file, "wb") as file:
