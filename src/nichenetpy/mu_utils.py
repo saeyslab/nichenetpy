@@ -8,20 +8,6 @@ import numpy as np
 import pandas as pd
 
 
-def _subset_layer(
-    mdata:MuData,
-    layer:str,
-    modality:str,
-    features:Iterable[str],
-    gene2index:dict[str, int]|None=None
-) -> tuple[np.ndarray, list[str]]:
-    if gene2index is None:
-        gene2index = dict(zip(mdata.var_names, range(len(mdata.var_names))))
-    if type(features) is set:
-        features = sorted(features)
-    ids = [gene2index[gene] for gene in features]
-    return (subset_matrix(mdata.mod[modality].layers[layer], cols=ids), features)
-
 def subset_mu(
     mdata:MuData,
     val:str|Iterable[str]|None=None,
@@ -86,7 +72,6 @@ def subset_mu(
             row_ids = [col2index[name] for name in cells_oi.index]
     if row_ids is None:
         return None
-    print(modality_layers)
     modality_new_layers = {
         modality: dict(
             (
@@ -96,7 +81,6 @@ def subset_mu(
         ) if layers is not None and len(layers) > 0 else dict()
         for modality, layers in modality_layers.items()
     }
-    print(modality_new_layers)
     anns = {
         modality: AnnData(
             obs=mdata.mod[modality].obs if row_ids is None else mdata.mod[modality].obs.iloc[row_ids],
@@ -105,8 +89,6 @@ def subset_mu(
         )
         for modality, new_layers in modality_new_layers.items()
     }
-    print(anns)
-    print(anns["prot"].layers["counts"].shape)
     for modality, ann in anns.items():
         ann.var_names = mdata.mod[modality].var_names
         ann.var_names.name = "gene"
