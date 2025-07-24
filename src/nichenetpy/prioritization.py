@@ -12,8 +12,10 @@ from nichenetpy.utils import (
 )
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
+from nichenetpy.mu_utils import subset_mu
 
 from anndata import AnnData
+from mudata import MuData
 from collections.abc import Iterable, Collection
 from numbers import Number
 
@@ -23,7 +25,7 @@ import scanpy as sc
 
 
 def calculate_de(
-    ann:AnnData,
+    data:AnnData|MuData,
     celltype_col:str,
     condition_oi:str,
     condition_col:str,
@@ -32,7 +34,8 @@ def calculate_de(
     min_abs_lfc:float=0,
     min_pct:float=0,
     pval_thresh:float=1,
-    use_scanpy:bool=False
+    use_scanpy:bool=False,
+    modality:str=None
 ) -> pd.DataFrame:
     '''
     Calculate differential expression of one cell type versus all other cell types.
@@ -40,8 +43,8 @@ def calculate_de(
 
     Parameters
     ----------
-    ann : AnnData
-        the AnnData object
+    data : AnnData or MuData
+        the AnnData or MuData object
     celltype_col : str
         the column in ann.obs which contains the celltypes
     condition_oi : str
@@ -60,6 +63,8 @@ def calculate_de(
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     use_scanpy : bool
         if True, use scanpy.rank_genes_groups
+    modality : str
+        the modality of the Mudata object which contains the data matrix
     
     Returns
     -------
@@ -71,8 +76,6 @@ def calculate_de(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(ann) is not AnnData:
-        raise TypeError(f"ann should have type AnnData, was {type(ann)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
     if type(condition_oi) is not str:
@@ -91,27 +94,33 @@ def calculate_de(
         raise TypeError(f"pval_thresh should have type float, was {type(pval_thresh)}")
     if not type(use_scanpy) is bool:
         raise TypeError(f"use_scanpy should have type bool, was {type(use_scanpy)}")
-    ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
+    if type(data) is AnnData:
+        data = subset_ann(data, condition_oi, layers=[layer], val_col=condition_col)
+    elif type(data) is MuData:
+        data = subset_mu(data, condition_oi, layers=[layer], val_col=condition_col, modality=modality)
+    else:
+        raise TypeError(f"ann should have type AnnData or MuData, was {type(data)}")
     if use_scanpy:
         sc.tl.rank_genes_groups(
-            ann,
+            data.mod[modality] if type(data) is MuData else data,
             groupby=celltype_col,
             method="wilcoxon",
             layer=layer,
             pts=True
         )
-        return rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
+        return rank_genes_groups_to_dataframe(data, groupby=celltype_col)
     else:
         group_metrics(
-            ann,
+            data,
             groupby=celltype_col,
             layer=layer,
             min_abs_lfc=min_abs_lfc,
             min_pct=min_pct,
             pval_thresh=pval_thresh,
-            features=features
+            features=features,
+            modality=modality
         )
-        return ann.uns["group_metrics"]
+        return data.uns["group_metrics"]
 
 def get_avg_exp(
     ann:AnnData,
