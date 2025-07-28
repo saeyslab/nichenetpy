@@ -32,6 +32,7 @@ import pandas as pd
 import json
 import numpy as np
 import argparse
+import os
 
 
 class FlatCrossover(BaseCrossover):
@@ -45,14 +46,15 @@ class FlatCrossover(BaseCrossover):
         search_space_bounds:np.ndarray
     ):
         n_params = parents_params.shape[1]
-        return  parents_params[0] + rng.rand(n_params) * (parents_params[1, :] - parents_params[0, :])
+        return parents_params[0, :] + rng.rand(n_params) * (parents_params[1, :] - parents_params[0, :])
 
 
 @delayed
-def optimize(study_name, storage):
+def optimize(study_name, storage, sampler):
     load_study(
         study_name=study_name,
-        storage=storage
+        storage=storage,
+        sampler=sampler
     ).optimize(
         objective,
         n_trials=args.n_trials,
@@ -107,6 +109,7 @@ if __name__ == "__main__":
         "--algorithm",
         help="the optimization algorithm to use",
         type=str,
+        choices=("TPE", "NSGA-II"),
         default="TPE"
     )
     args = parser.parse_args()
@@ -179,7 +182,9 @@ if __name__ == "__main__":
             return (res[1], res[2])
 
         name = settings_file.split("/")[-1][:-5]
-        log_file = f"./{name}.log"
+        if not os.path.exists("log"):
+            os.mkdir("log")
+        log_file = f"./log/{name}_{args.algorithm}.log"
         with open(log_file, "a" if args.c else "w"):
             pass
         lock_obj = JournalFileOpenLock(log_file)
@@ -193,6 +198,8 @@ if __name__ == "__main__":
                 crossover=FlatCrossover(),
                 crossover_prob=1
             )
+        else:
+            raise ValueError(f"{args.algorithm} is not a supported optimization algorithm, supported algorithms are 'TPE' and 'NSGA-II'")
         study = create_study(
             sampler=sampler,
             directions=["maximize", "maximize"],
@@ -200,7 +207,7 @@ if __name__ == "__main__":
             storage=storage,
             load_if_exists=args.c
         )
-        parallel(optimize(name, storage) for _ in range(args.n_process))
+        parallel(optimize(name, storage, sampler) for _ in range(args.n_process))
         optimal_parameters[name] = [trial.params for trial in study.best_trials]
     with open(args.out_file, "wb") as file:
         file.write(dumps(optimal_parameters))
