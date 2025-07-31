@@ -1373,11 +1373,11 @@ def marker_plot(
     Axes
         the axes
     '''
-    if type(x) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+    if type(x) is not list and type(x) is not tuple and type(x) is not np.ndarray:
         raise TypeError(f"x should have type list, tuple or numpy.ndarray, was {type(x)}")
-    if type(y) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+    if type(y) is not list and type(x) is not tuple and type(x) is not np.ndarray:
         raise TypeError(f"y should have type list, tuple or numpy.ndarray, was {type(y)}")
-    if type(a) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+    if type(a) is not list and type(x) is not tuple and type(x) is not np.ndarray:
         raise TypeError(f"a should have type list, tuple or numpy.ndarray, was {type(a)}")
     if not isinstance(labels, Iterable):
         raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
@@ -1389,9 +1389,9 @@ def marker_plot(
         raise TypeError(f"alabel should have type str, was {type(alabel)}")
     if type(max_marker_size) is not float:
         raise TypeError(f"max_marker_size should have type float, was {type(max_marker_size)}")
-    if type(num_ticks_x) is not float:
+    if type(num_ticks_x) is not int:
         raise TypeError(f"num_ticks_x should have type int, was {type(num_ticks_x)}")
-    if type(num_ticks_y) is not float:
+    if type(num_ticks_y) is not int:
         raise TypeError(f"num_ticks_y should have type int, was {type(num_ticks_y)}")
     text_size = max_marker_size * 275
     xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
