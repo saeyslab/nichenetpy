@@ -64,7 +64,7 @@ def convert_settings_ligand_prediction(
     all_ligands:Iterable[str]
 ) -> list[dict]:
     '''
-    Converts settings to correct settings format for ligand activity prediction.In this prediction problem,
+    Converts settings to correct settings format for ligand activity prediction. In this prediction problem,
     ligands (out of a set of possibly active ligands) will be ranked based on feature importance scores.
     The format can be made suited for: 1) validation of ligand activity state prediction by calculating individual
     feature importane scores or 2) feature importance based on models with embedded feature importance determination;

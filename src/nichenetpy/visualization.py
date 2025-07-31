@@ -13,7 +13,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import (
     Circle,
     Rectangle,
-    Wedge
+    Wedge,
+    Ellipse
 )
 from matplotlib.collections import PatchCollection
 from matplotlib.text import Text
@@ -1317,4 +1318,169 @@ def create_mushroom_plot(
         cmap=receptor_cm,
         label=_mushroomplot_label(color_prefix, "receptor")
     )
+    return (fig, ax)
+
+def marker_plot(
+    x:list|tuple|np.ndarray,
+    y:list|tuple|np.ndarray,
+    a:list|tuple|np.ndarray,
+    labels:Iterable[str],
+    xlabel,
+    ylabel,
+    alabel,
+    figsize:tuple[int, int]=(5, 5),
+    max_marker_size:float=3e-2,
+    num_ticks_x:int=10,
+    num_ticks_y:int=10
+):
+    '''
+    Creates a plot consisting of variable-size markers. 
+
+    Parameters
+    ----------
+    x : list or tuple or numpy.ndarray
+        the x-values
+    y : list or tuple or numpy.ndarray
+        the y-values
+    a : list or tuple or numpy.ndarray
+        the values which are visualized as the size of the markers
+    labels : Iterable of str
+        the amount of ligand-receptor pairs to use
+    xlabel : str
+        whether to use the absolute or relative prioritization rank to filter the top_n ligand-receptor pairs
+    ylabel : str
+        the prefix of the size column (the suffices are ligand and receptor)
+    alabel : str
+        the prefix of the color column (the suffices are ligand and receptor)
+    figsize : tuple of int
+        the maximum amount of rows to show
+    max_marker_size : float
+        the maximal size of a marker (the marker size associated with the largest value in a)
+    num_ticks_x : int
+        the number of ticks on the x-axis
+    num_ticks_y : int
+        the number of ticks on the y-axis
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
+    '''
+    if type(x) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+        raise TypeError(f"x should have type list, tuple or numpy.ndarray, was {type(x)}")
+    if type(y) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+        raise TypeError(f"y should have type list, tuple or numpy.ndarray, was {type(y)}")
+    if type(a) is not list or type(x) is not tuple or type(x) is not np.ndarray:
+        raise TypeError(f"a should have type list, tuple or numpy.ndarray, was {type(a)}")
+    if not isinstance(labels, Iterable):
+        raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
+    if type(xlabel) is not str:
+        raise TypeError(f"xlabel should have type str, was {type(xlabel)}")
+    if type(ylabel) is not str:
+        raise TypeError(f"ylabel should have type str, was {type(ylabel)}")
+    if type(alabel) is not str:
+        raise TypeError(f"alabel should have type str, was {type(alabel)}")
+    if type(max_marker_size) is not float:
+        raise TypeError(f"max_marker_size should have type float, was {type(max_marker_size)}")
+    if type(num_ticks_x) is not float:
+        raise TypeError(f"num_ticks_x should have type int, was {type(num_ticks_x)}")
+    if type(num_ticks_y) is not float:
+        raise TypeError(f"num_ticks_y should have type int, was {type(num_ticks_y)}")
+    text_size = max_marker_size * 275
+    xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
+    ymin = np.floor(np.min(y) * num_ticks_y - 1) / num_ticks_y
+    xmax = np.ceil(np.max(x) * num_ticks_x + 1) / num_ticks_x
+    ymax = np.ceil(np.max(y) * num_ticks_y + 1) / num_ticks_y
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(
+        xmin=xmin,
+        xmax=xmax
+    )
+    ax.set_ylim(
+        ymin=ymin,
+        ymax=ymax
+    )
+    xs = np.array(range(0, num_ticks_x + 1)) * (xmax - xmin) / num_ticks_x + xmin
+    ys = np.array(range(0, num_ticks_y + 1)) * (ymax - ymin) / num_ticks_y + ymin
+    ax.set_xticks(
+        ticks=xs[:-1]
+    )
+    ax.set_yticks(
+        ticks=ys[:-1]
+    )
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    marker_cm = cm["gist_rainbow"]
+    # Ellipse is used in stead of circle because the markers are 'stretched' in case xmax - xmin != ymax - ymin
+    max_marker_width = max_marker_size * (xmax - xmin)
+    max_marker_height = max_marker_size * (ymax - ymin)
+    amax = np.max(a)
+    amin = np.min(a)
+    for xp, yp, ap, c, label in zip(x, y, a, range(len(x)), labels):
+        # linear with radius
+        size_mult = ap / amax
+        # linear with area
+        size_mult = np.sign(size_mult) * np.sqrt(np.abs(size_mult))
+        marker_width = max_marker_width * size_mult
+        marker_height = max_marker_height * size_mult
+        color = marker_cm(c/len(x))
+        ax.add_patch(Ellipse(
+            (xp, yp),
+            marker_width,
+            marker_height,
+            fc=color
+        ))
+        ax.add_artist(Text(
+            xp + max_marker_width,
+            yp + max_marker_height/2,
+            label,
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=max_marker_size*275,
+            color=color
+        ))
+    # legend
+    legend_margin = (xmax - xmin) / 10
+    size_legend_width = 13*max_marker_width
+    size_legend_center = (
+        xmax + legend_margin + size_legend_width / 2,
+        (ymax - ymin) / 2 + ymin
+    )
+    x_pos = size_legend_center[0] - size_legend_width / 2
+    y_pos = size_legend_center[1]
+    for size in [0.2, 0.4, 0.6, 0.8, 1.0]:
+        ax.add_patch(Ellipse(
+            (x_pos, y_pos),
+            max_marker_width * np.sqrt(size),
+            max_marker_height * np.sqrt(size),
+            fc="black",
+            clip_on=False
+        ))
+        ax.add_artist(Text(
+            x_pos,
+            y_pos + (ymax - ymin)/20,
+            "{:3.2f}".format(amin + (amax - amin)*size),
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=text_size,
+            clip_on=False
+        ))
+        x_pos += 3*max_marker_width
+    ax.add_artist(Text(
+        size_legend_center[0],
+        y_pos + (ymax - ymin)/10,
+        alabel,
+        horizontalalignment="center",
+        verticalalignment="center",
+        size=text_size*1.4,
+        clip_on=False
+    ))
     return (fig, ax)
