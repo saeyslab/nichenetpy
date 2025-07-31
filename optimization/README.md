@@ -5,6 +5,6 @@ To run on the ugent high performance computer
 module swap cluster/doduo
 # set up virtual environment
 qsub nichenetpy/install_venv.pbs -v cluster=doduo
-# run the optimization (you can customize the optimization procedure by alterring the script)
+# run the optimization (you can customize the optimization procedure by altering the script)
 qsub nichenetpy/run_optimization.pbs -v cluster=doduo
 ```
