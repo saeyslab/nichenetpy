@@ -1443,8 +1443,8 @@ def marker_plot(
             fc=color
         ))
         text = Text(
-            xp + max_marker_width,
-            yp + max_marker_height/2,
+            xp,
+            yp,
             label,
             horizontalalignment="center",
             verticalalignment="center",
@@ -1492,12 +1492,12 @@ def marker_plot(
     # the devs of adjustText left some annoying print statements in their code
     with open(os.devnull, 'w') as devnull:
         with redirect_stdout(devnull):
-            _, arrows = adjust_text(
+            texts, arrows = adjust_text(
                 texts,
                 ax=ax,
                 force_static=(1, 2),
                 force_text=(0.2, 0.4),
-                arrowprops={"arrowstyle": "->", "color": "black", "alpha": 1}
+                arrowprops={"arrowstyle": "->", "color": "black", "alpha": 1, "linewidth": 1}
             )
             for text, arrow in zip(texts, arrows):
                 arrow.set(color=text.get_color())
