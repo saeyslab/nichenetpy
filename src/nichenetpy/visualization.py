@@ -33,6 +33,8 @@ from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
 from anndata import AnnData
+from adjustText import adjust_text
+from contextlib import redirect_stdout
 
 import numpy as np
 import scipy as sc
@@ -40,6 +42,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 import pandas as pd
 import networkx as nx
+import os
 
 
 def reorder_labels(
@@ -1424,6 +1427,7 @@ def marker_plot(
     max_marker_height = max_marker_size * (ymax - ymin)
     amax = np.max(a)
     amin = np.min(a)
+    texts = []
     for xp, yp, ap, c, label in zip(x, y, a, range(len(x)), labels):
         # linear with radius
         size_mult = ap / amax
@@ -1438,7 +1442,7 @@ def marker_plot(
             marker_height,
             fc=color
         ))
-        ax.add_artist(Text(
+        text = Text(
             xp + max_marker_width,
             yp + max_marker_height/2,
             label,
@@ -1446,9 +1450,11 @@ def marker_plot(
             verticalalignment="center",
             size=max_marker_size*275,
             color=color
-        ))
+        )
+        texts.append(text)
+        ax.add_artist(text)
     # legend
-    legend_margin = (xmax - xmin) / 10
+    legend_margin = (xmax - xmin) * len(alabel) / 100
     size_legend_width = 13*max_marker_width
     size_legend_center = (
         xmax + legend_margin + size_legend_width / 2,
@@ -1483,4 +1489,17 @@ def marker_plot(
         size=text_size*1.4,
         clip_on=False
     ))
+    # the devs of adjustText left some annoying print statements in their code
+    with open(os.devnull, 'w') as devnull:
+        with redirect_stdout(devnull):
+            _, arrows = adjust_text(
+                texts,
+                ax=ax,
+                force_static=(1, 2),
+                force_text=(0.2, 0.4),
+                arrowprops={"arrowstyle": "->", "color": "black", "alpha": 1}
+            )
+            for text, arrow in zip(texts, arrows):
+                arrow.set(color=text.get_color())
+    #ax.add_collection(PatchCollection(arrows))
     return (fig, ax)
