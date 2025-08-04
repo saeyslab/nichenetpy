@@ -21,14 +21,17 @@ from matplotlib.text import Text
 from matplotlib.colors import colorConverter
 from matplotlib import colormaps as cm
 from matplotlib.patheffects import withStroke
+from matplotlib.typing import ColorType
 from math import (
     isnan,
     sqrt
 )
 from collections.abc import (
     Iterable,
-    Collection
+    Collection,
+    Callable
 )
+from typing import Any
 from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
@@ -1331,6 +1334,9 @@ def marker_plot(
     xlabel,
     ylabel,
     alabel,
+    c:list|tuple|np.ndarray|None=None,
+    clabel:str|None=None,
+    val2color:dict[Any, float]|Callable[[Any], ColorType]=None,
     figsize:tuple[int, int]=(5, 5),
     max_marker_size:float=3e-2,
     num_ticks_x:int=10,
@@ -1348,15 +1354,21 @@ def marker_plot(
     a : list or tuple or numpy.ndarray
         the values which are visualized as the size of the markers
     labels : Iterable of str
-        the amount of ligand-receptor pairs to use
+        the marker labels
     xlabel : str
-        whether to use the absolute or relative prioritization rank to filter the top_n ligand-receptor pairs
+        the label of the x-axis
     ylabel : str
-        the prefix of the size column (the suffices are ligand and receptor)
+        the label of the y-axis
     alabel : str
-        the prefix of the color column (the suffices are ligand and receptor)
+        the label of the size legend
+    c : list or tuple or numpy.ndarray or None
+        the optional values which are visualized as colors
+    clabel : str or None
+        the label of the color legend
+    val2color : dict or Callable
+        mapping of values in c to colors
     figsize : tuple of int
-        the maximum amount of rows to show
+        the size of the figure
     max_marker_size : float
         the maximal size of a marker (the marker size associated with the largest value in a)
     num_ticks_x : int
@@ -1378,9 +1390,9 @@ def marker_plot(
     '''
     if type(x) is not list and type(x) is not tuple and type(x) is not np.ndarray:
         raise TypeError(f"x should have type list, tuple or numpy.ndarray, was {type(x)}")
-    if type(y) is not list and type(x) is not tuple and type(x) is not np.ndarray:
+    if type(y) is not list and type(y) is not tuple and type(y) is not np.ndarray:
         raise TypeError(f"y should have type list, tuple or numpy.ndarray, was {type(y)}")
-    if type(a) is not list and type(x) is not tuple and type(x) is not np.ndarray:
+    if type(a) is not list and type(a) is not tuple and type(a) is not np.ndarray:
         raise TypeError(f"a should have type list, tuple or numpy.ndarray, was {type(a)}")
     if not isinstance(labels, Iterable):
         raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
@@ -1390,12 +1402,26 @@ def marker_plot(
         raise TypeError(f"ylabel should have type str, was {type(ylabel)}")
     if type(alabel) is not str:
         raise TypeError(f"alabel should have type str, was {type(alabel)}")
+    if clabel is not None and type(clabel) is not str:
+        raise TypeError(f"clabel should have type str, was {type(clabel)}")
     if type(max_marker_size) is not float:
         raise TypeError(f"max_marker_size should have type float, was {type(max_marker_size)}")
     if type(num_ticks_x) is not int:
         raise TypeError(f"num_ticks_x should have type int, was {type(num_ticks_x)}")
     if type(num_ticks_y) is not int:
         raise TypeError(f"num_ticks_y should have type int, was {type(num_ticks_y)}")
+    if c is None:
+        c = labels
+    elif type(c) is not list and type(c) is not tuple and type(c) is not np.ndarray:
+        raise TypeError(f"c should have type list, tuple or numpy.ndarray, was {type(c)}")
+    _c = set(c)
+    if val2color is None:
+        val2color = dict(zip(_c, (i/len(_c) for i in range(len(_c)))))
+    if type(val2color) is dict:
+        val2color_dict = val2color
+        val2color = lambda x : marker_cm(val2color_dict[x])
+    elif not isinstance(val2color, Callable):
+        raise TypeError(f"val2color should have type dict or Callable, was {type(val2color)}")
     text_size = max_marker_size * 275
     xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
     ymin = np.floor(np.min(y) * num_ticks_y - 1) / num_ticks_y
@@ -1428,14 +1454,14 @@ def marker_plot(
     amax = np.max(a)
     amin = np.min(a)
     texts = []
-    for xp, yp, ap, c, label in zip(x, y, a, range(len(x)), labels):
+    for xp, yp, ap, cp, label in zip(x, y, a, c, labels):
         # linear with radius
         size_mult = ap / amax
         # linear with area
         size_mult = np.sign(size_mult) * np.sqrt(np.abs(size_mult))
         marker_width = max_marker_width * size_mult
         marker_height = max_marker_height * size_mult
-        color = marker_cm(c/len(x))
+        color = val2color(cp)
         ax.add_patch(Ellipse(
             (xp, yp),
             marker_width,
@@ -1456,9 +1482,10 @@ def marker_plot(
     # legend
     legend_margin = (xmax - xmin) * len(alabel) / 100
     size_legend_width = 13*max_marker_width
+    size_legend_height = 5*max_marker_width
     size_legend_center = (
         xmax + legend_margin + size_legend_width / 2,
-        (ymax - ymin) / 2 + ymin
+        (ymax - ymin) / 2 + ymin + (0 if clabel is None else (ymax - ymin) / 4)
     )
     x_pos = size_legend_center[0] - size_legend_width / 2
     y_pos = size_legend_center[1]
@@ -1489,6 +1516,56 @@ def marker_plot(
         size=text_size*1.4,
         clip_on=False
     ))
+    if clabel is not None:
+        color_legend_width = 13*max_marker_width
+        color_legend_center = (
+            xmax + legend_margin + color_legend_width / 2,
+            size_legend_center[1] - size_legend_height
+        )
+        x_pos_s = color_legend_center[0] - color_legend_width / 2
+        y_pos_s = color_legend_center[1]
+        x_pos = x_pos_s
+        y_pos = y_pos_s
+        x_diff = max_marker_width * 4
+        y_diff = max_marker_height * 2
+        n_color_legend_rows = int((ymax - ymin) / (2 * y_diff))
+        n_color_legend_cols = int(np.ceil(len(_c) / n_color_legend_rows))
+        _c = list(_c)
+        i = 0
+        for _ in range(n_color_legend_cols):
+            while i < len(_c):
+                cp = _c[i]
+                color = val2color(cp)
+                ax.add_patch(Ellipse(
+                    (x_pos, y_pos),
+                    max_marker_width,
+                    max_marker_height,
+                    fc=color,
+                    clip_on=False
+                ))
+                ax.add_artist(Text(
+                    x_pos,
+                    y_pos + (ymax - ymin)/20,
+                    "{:3.2f}".format(cp) if type(cp) is float else cp,
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    size=text_size,
+                    clip_on=False
+                ))
+                i += 1
+                x_pos += x_diff
+            x_pos = x_pos_s
+            y_pos -= y_diff
+        ax.add_artist(Text(
+            size_legend_center[0],
+            y_pos_s + (ymax - ymin)/10,
+            clabel,
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=text_size*1.4,
+            clip_on=False
+        ))
+    # optimize label placement
     # the devs of adjustText left some annoying print statements in their code
     with open(os.devnull, 'w') as devnull:
         with redirect_stdout(devnull):
@@ -1501,5 +1578,4 @@ def marker_plot(
             )
             for text, arrow in zip(texts, arrows):
                 arrow.set(color=text.get_color())
-    #ax.add_collection(PatchCollection(arrows))
     return (fig, ax)
