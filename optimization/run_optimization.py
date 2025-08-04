@@ -113,6 +113,7 @@ if __name__ == "__main__":
         default="TPE"
     )
     args = parser.parse_args()
+    print(args.algorithm)
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
     gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
