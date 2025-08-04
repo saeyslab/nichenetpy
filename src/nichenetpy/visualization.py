@@ -1480,15 +1480,18 @@ def marker_plot(
         texts.append(text)
         ax.add_artist(text)
     # legend
-    legend_margin = (xmax - xmin) * len(alabel) / 100
+    #legend_margin = (xmax - xmin) * (len(alabel) if clabel is None else max(len(alabel), len(clabel))) / 120
+    legend_margin = (xmax - xmin) / 10
     size_legend_width = 13*max_marker_width
     size_legend_height = 5*max_marker_width
     size_legend_center = (
         xmax + legend_margin + size_legend_width / 2,
         (ymax - ymin) / 2 + ymin + (0 if clabel is None else (ymax - ymin) / 4)
     )
-    x_pos = size_legend_center[0] - size_legend_width / 2
-    y_pos = size_legend_center[1]
+    x_pos_s = size_legend_center[0] - size_legend_width / 2
+    y_pos_s = size_legend_center[1]
+    x_pos = x_pos_s
+    y_pos = y_pos_s
     for size in [0.2, 0.4, 0.6, 0.8, 1.0]:
         ax.add_patch(Ellipse(
             (x_pos, y_pos),
@@ -1508,16 +1511,20 @@ def marker_plot(
         ))
         x_pos += 3*max_marker_width
     ax.add_artist(Text(
-        size_legend_center[0],
-        y_pos + (ymax - ymin)/10,
+        x_pos_s,
+        y_pos_s + (ymax - ymin)/10,
         alabel,
-        horizontalalignment="center",
+        horizontalalignment="left",
         verticalalignment="center",
         size=text_size*1.4,
         clip_on=False
     ))
     if clabel is not None:
-        color_legend_width = 13*max_marker_width
+        x_diff = max_marker_width * 4
+        y_diff = max_marker_height * 4
+        n_color_legend_rows = int((ymax - ymin) / (2 * y_diff))
+        n_color_legend_cols = int(np.ceil(len(_c) / n_color_legend_rows))
+        color_legend_width = n_color_legend_cols * x_diff
         color_legend_center = (
             xmax + legend_margin + color_legend_width / 2,
             size_legend_center[1] - size_legend_height
@@ -1526,14 +1533,12 @@ def marker_plot(
         y_pos_s = color_legend_center[1]
         x_pos = x_pos_s
         y_pos = y_pos_s
-        x_diff = max_marker_width * 4
-        y_diff = max_marker_height * 2
-        n_color_legend_rows = int((ymax - ymin) / (2 * y_diff))
-        n_color_legend_cols = int(np.ceil(len(_c) / n_color_legend_rows))
         _c = list(_c)
         i = 0
-        for _ in range(n_color_legend_cols):
-            while i < len(_c):
+        for _ in range(n_color_legend_rows):
+            for _ in range(n_color_legend_cols):
+                if i >= len(_c):
+                    break
                 cp = _c[i]
                 color = val2color(cp)
                 ax.add_patch(Ellipse(
@@ -1557,10 +1562,10 @@ def marker_plot(
             x_pos = x_pos_s
             y_pos -= y_diff
         ax.add_artist(Text(
-            size_legend_center[0],
+            x_pos_s,
             y_pos_s + (ymax - ymin)/10,
             clabel,
-            horizontalalignment="center",
+            horizontalalignment="left",
             verticalalignment="center",
             size=text_size*1.4,
             clip_on=False
@@ -1574,8 +1579,8 @@ def marker_plot(
                 ax=ax,
                 force_static=(1, 2),
                 force_text=(0.2, 0.4),
-                arrowprops={"arrowstyle": "->", "color": "black", "alpha": 1, "linewidth": 1}
+                arrowprops={"arrowstyle": "->", "color": "gray", "alpha": 0.5, "linewidth": 1}
             )
-            for text, arrow in zip(texts, arrows):
-                arrow.set(color=text.get_color())
+            '''for text, arrow in zip(texts, arrows): # are these actually alligned with each other? (AdjustText)
+                arrow.set(color=text.get_color())'''
     return (fig, ax)
