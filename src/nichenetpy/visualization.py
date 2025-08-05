@@ -1340,7 +1340,8 @@ def marker_plot(
     figsize:tuple[int, int]=(5, 5),
     max_marker_size:float=3e-2,
     num_ticks_x:int=10,
-    num_ticks_y:int=10
+    num_ticks_y:int=10,
+    min_arrow_len:float=15
 ):
     '''
     Creates a plot consisting of variable-size markers. 
@@ -1375,6 +1376,8 @@ def marker_plot(
         the number of ticks on the x-axis
     num_ticks_y : int
         the number of ticks on the y-axis
+    min_arrow_len : float
+        If the text is closer than this to the target point, don't add an arrow (in display units)
     
     Raises
     ------
@@ -1579,7 +1582,8 @@ def marker_plot(
                 ax=ax,
                 force_static=(1, 2),
                 force_text=(0.2, 0.4),
-                arrowprops={"arrowstyle": "->", "color": "gray", "alpha": 0.5, "linewidth": 1}
+                arrowprops={"arrowstyle": "->", "color": "gray", "alpha": 0.5, "linewidth": 1},
+                min_arrow_len=min_arrow_len
             )
             '''for text, arrow in zip(texts, arrows): # are these actually alligned with each other? (AdjustText)
                 arrow.set(color=text.get_color())'''
