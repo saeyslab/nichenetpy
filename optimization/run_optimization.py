@@ -113,7 +113,6 @@ if __name__ == "__main__":
         default="TPE"
     )
     args = parser.parse_args()
-    print(args.algorithm)
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
     gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
@@ -126,12 +125,12 @@ if __name__ == "__main__":
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
         gr_network = gr_network[
-            (
+            ~ (
                 (gr_network["database"] == "NicheNet_LT") &
                 np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
             )
-            |
-            (
+            &
+            ~ (
                 (gr_network["database"] == "CytoSig") &
                 np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
             )
