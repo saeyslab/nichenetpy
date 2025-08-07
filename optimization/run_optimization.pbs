@@ -35,4 +35,5 @@ python run_optimization.py -c \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
     --n_trials 5000 \
-    --n_process 48
+    --n_process 48 \
+    --algorithm NSGA-II

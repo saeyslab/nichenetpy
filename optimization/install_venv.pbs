@@ -27,6 +27,5 @@ fi
 python3 -m venv $VENV_NAME
 source $VENV_NAME/bin/activate
 pip install -r requirements.txt
-pip install optuna
-pip install joblib
+pip install optuna joblib requests
 pip install -e $VSC_DATA/nichenetpy
