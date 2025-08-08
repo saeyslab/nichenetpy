@@ -149,6 +149,12 @@ if __name__ == "__main__":
         action="append",
         default=[]
     )
+    parser.add_argument(
+        "--excluded_database",
+        help="databases to exclude from the optimization",
+        action="append",
+        default=[]
+    )
     args = parser.parse_args()
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
@@ -189,7 +195,7 @@ if __name__ == "__main__":
             )
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-        if args.source_path is not None and len(args.var_database) > 0:
+        if args.source_path is not None:
             df = pd.DataFrame(
                 {"source": source_names}
             ).merge(
@@ -197,13 +203,23 @@ if __name__ == "__main__":
                 on="source",
                 how="inner"
             )
-            bool_v = reduce(
-                lambda x, y : x & y,
-                (df["database"] != db for db in args.var_database),
-                np.array([True for _ in range(df.shape[0])])
-            )
-            source_names_fixed = set(df[bool_v]["source"])
-            source_names_var = set(df[not bool_v]["source"])
+            init_v = np.array([True for _ in range(df.shape[0])])
+            if len(args.excluded_database) > 0:
+                source_names = set(df[
+                    reduce(
+                        lambda x, y : x & y,
+                        (df["database"] != db for db in args.excluded_database),
+                        init_v
+                    )
+                ]["source"])
+            if len(args.var_database) > 0:
+                bool_v = reduce(
+                    lambda x, y : x & y,
+                    (df["database"] != db for db in args.var_database),
+                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 else init_v
+                )
+                source_names_fixed = set(df[bool_v]["source"])
+                source_names_var = set(df[not bool_v]["source"])
 
         def objective(trial:Trial):
             if args.source_path is not None and len(args.var_database) > 0:
