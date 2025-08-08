@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #PBS -l nodes=1:ppn=30
 #PBS -l walltime=24:00:00
-#PBS -l mem=120gb
+#PBS -l mem=180gb
 
 # Pass the cluster argument using -v, for example:
 # qsub run_performance.pbs -v cluster=doduo
@@ -37,5 +37,6 @@ python run_optimization.py \
     --n_trials 400 \
     --n_process 30 \
     --algorithm TPE \
+    --source_path ./source_files \
     --excluded_database CytoSig \
-    --excluded_database NicheNet_LT
+    --excluded_database NicheNet_LT \

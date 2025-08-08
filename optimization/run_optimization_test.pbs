@@ -42,4 +42,5 @@ python run_optimization.py \
     --gr_hub 0.0803 \
     --ltf_cutoff 0.926 \
     --damping_factor 0.789 \
-    --var_database omnipath
+    --var_database omnipath \
+    --log_file ./log/test_{args.algorithm}.log

@@ -28,6 +28,7 @@ from itertools import chain
 from pickle import dumps
 from joblib import Parallel, delayed
 from functools import reduce
+from operator import and_
 
 import pandas as pd
 import json
@@ -155,6 +156,11 @@ if __name__ == "__main__":
         action="append",
         default=[]
     )
+    parser.add_argument(
+        "--log_file",
+        help="File in which to store the log of the optimization run. ",
+        default=None
+    )
     args = parser.parse_args()
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
@@ -207,19 +213,19 @@ if __name__ == "__main__":
             if len(args.excluded_database) > 0:
                 source_names = set(df[
                     reduce(
-                        lambda x, y : x & y,
+                        and_,
                         (df["database"] != db for db in args.excluded_database),
                         init_v
                     )
                 ]["source"])
             if len(args.var_database) > 0:
                 bool_v = reduce(
-                    lambda x, y : x & y,
+                    and_,
                     (df["database"] != db for db in args.var_database),
                     np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 else init_v
                 )
                 source_names_fixed = set(df[bool_v]["source"])
-                source_names_var = set(df[not bool_v]["source"])
+                source_names_var = set(df[~bool_v]["source"])
 
         def objective(trial:Trial):
             if args.source_path is not None and len(args.var_database) > 0:
@@ -281,9 +287,10 @@ if __name__ == "__main__":
             return (res[1], res[2])
 
         name = settings_file.split("/")[-1][:-5]
-        if not os.path.exists("log"):
-            os.mkdir("log")
-        log_file = f"./log/{name}_{args.algorithm}.log"
+        log_file = f"./log/{name}_{args.algorithm}.log" if args.log_file is None else args.log_file
+        log_dir = os.path.split(log_file)[0]
+        if not os.path.exists(log_dir):
+            os.mkdir(log_dir)
         with open(log_file, "a" if args.c else "w"):
             pass
         lock_obj = JournalFileOpenLock(log_file)
