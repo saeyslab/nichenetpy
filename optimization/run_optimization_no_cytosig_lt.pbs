@@ -34,7 +34,7 @@ python run_optimization.py \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 400 \
+    --n_trials 200 \
     --n_process 30 \
     --algorithm TPE \
     --source_path ./source_files \

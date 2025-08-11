@@ -27,6 +27,8 @@ source $VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
+ALG="TPE"
+
 # Run the script
 python run_optimization.py \
     $VSC_DATA/nichenetpy/test_output/output-0.pkl \
@@ -34,13 +36,13 @@ python run_optimization.py \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 400 \
+    --n_trials 200 \
     --n_process 16 \
-    --algorithm TPE \
+    --algorithm $ALG \
     --source_path ./source_files \
     --lr_sig_hub 0.115 \
     --gr_hub 0.0803 \
     --ltf_cutoff 0.926 \
     --damping_factor 0.789 \
     --var_database omnipath \
-    --log_file ./log/test_{args.algorithm}.log
+    --log_file "./log/test_$ALG.log"
