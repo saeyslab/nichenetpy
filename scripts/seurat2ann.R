@@ -3,7 +3,7 @@ library("Seurat")
 library("SeuratObject")
 library("hdf5r")
 setwd('D:/Data/nichenetpy')
-old <- readRDS("./seurat/seurat_obj_subset_integrated_zonation.rds")
+old <- readRDS("./seurat/250805_BAL_subset.rds")
 seuratObj <- old
 seuratObj$RNA <- ScaleData(old$RNA)
 seuratObj$SCT <- ScaleData(old$SCT)
@@ -37,11 +37,11 @@ Idents(seuratObj) <- seuratObj$celltype
 ann <- anndataR::as_AnnData(
   seuratObj,
   output_class="InMemory",
-  assay_name="SCT"
+  assay_name="RNA"
 )
 anndataR::write_h5ad(
   ann,
-  path="./annData/temp.h5",
+  path="./annData/250805_BAL_subset_RNA.h5",
   mode="w"
 )
 'anndataR::from_Seurat(
