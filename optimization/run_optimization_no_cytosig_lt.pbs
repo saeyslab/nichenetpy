@@ -36,7 +36,7 @@ python run_optimization.py \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
     --n_trials 200 \
     --n_process 30 \
-    --algorithm TPE \
+    --algorithm NSGA-II \
     --source_path ./source_files \
     --excluded_database CytoSig \
     --excluded_database NicheNet_LT \

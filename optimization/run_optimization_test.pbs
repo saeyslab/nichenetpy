@@ -27,7 +27,7 @@ source $VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="TPE"
+ALG="NSGA-II"
 
 # Run the script
 python run_optimization.py \
