@@ -103,7 +103,7 @@ def subset_ann(
         ) for layer in layers
     )
     # subset categories if the column is categorical
-    if cells_oi[val_col].dtype.name == "category":
+    if row_ids is not None and cells_oi[val_col].dtype.name == "category":
         pd.options.mode.chained_assignment = None # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
     output = AnnData(
