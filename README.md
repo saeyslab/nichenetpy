@@ -22,12 +22,7 @@ pip install nichenetpy
 
 ## Overview of NicheNet
 
-<details>
-<summary>
-<h3>
-Background
-</h3>
-</summary>
+### Background
 
 NicheNet strongly differs from most computational approaches to study
 cell-cell communication (CCC), as summarized conceptually by the figure
@@ -58,13 +53,8 @@ also possible to construct your own model (see notebooks below).
 
 <img src="images/nichenet_prior_model.png"
 style="width:70.0%" />
-</details>
-<details>
-<summary>
-<h3>
-Main functionalities of nichenetpy
-</h3>
-</summary>
+
+### Main functionalities of nichenetpy
 
 -   Assessing how well ligands expressed by a sender cell can predict
     changes in gene expression in the receiver cell
@@ -83,8 +73,6 @@ here below).
 <br><br>
 <img src="images/circos.png" width="600" />
 
-</details>
-
 As input to NicheNet, users must provide cell type-annotated expression
 data that reflects a cell-cell communication (CCC) event. The input can
 be single-cell or sorted bulk data from human or mouse. As output,
@@ -94,7 +82,7 @@ regulated by these ligands. As an intermediate step, we extract the
 three features required for the analysis: a list of potential ligands, a
 gene set that captures the downstream effects of the CCC event of
 interest, and a background set of genes. Further explanation on each
-feature can be found in the introduction to nichenetpy.
+feature can be found in the introductory notebooks.
 
 ![](images/figure1.svg) <br><br>
 
