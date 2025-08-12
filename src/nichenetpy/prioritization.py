@@ -408,7 +408,17 @@ def generate_prioritization_table(
     Returns
     -------
     pandas.DataFrame
-        the processed table
+        Data frames of prioritized sender-ligand-receiver-receptor interactions.
+        The resulting dataframe contains columns from the input dataframes, but columns from lr_condition_de are suffixed with _group
+        (some columns from lr_condition_de are also not present).
+        Additionally, the following columns are added:
+        `lfc_pval_*`: product of -log10(pval) and the LFC of the ligand/receptor
+        `p_val_adapted_*`: p-value adapted to the sign of the LFC to only consider interactions where the ligand/receptor is upregulated in the sender/receiver
+        activity_zscore: z-score of the ligand activity
+        prioritization_score: The prioritization score for each interaction, calculated as a weighted sum of the prioritization criteria.
+        Moreover, `scaled_*` columns are scaled using the corresponding column's ranking or the scale_quantile_adapted function.
+        The columns used for prioritization are scaled_p_val_adapted_ligand, scaled_p_val_adapted_receptor, scaled_activity,
+        scaled_avg_exprs_ligand, scaled_avg_exprs_receptor, scaled_p_val_adapted_ligand_group, scaled_p_val_adapted_receptor_group
     
     Raises
     ------
