@@ -1098,8 +1098,6 @@ def create_mushroom_plot(
 ):
     '''
     Creates a plot in which each glyph consists of two semicircles corresponding to ligand- and receptor- information.
-    The size of the semicircle is the percentage of cells that express the protein, while the saturation corresponds
-    to the scaled average expression value.
 
     Parameters
     ----------
