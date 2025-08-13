@@ -22,6 +22,7 @@ from matplotlib.colors import colorConverter
 from matplotlib import colormaps as cm
 from matplotlib.patheffects import withStroke
 from matplotlib.typing import ColorType
+from matplotlib.patches import Patch
 from math import (
     isnan,
     sqrt
@@ -500,6 +501,9 @@ def visualize_ligand_signaling_graph(
     tf_regulatory:pd.DataFrame,
     ligands_oi:Collection[str],
     targets_oi:Collection[str],
+    sig_color:str="blue",
+    gr_color:str="red",
+    neutral_color:str="gray",
     node_size:int=1300,
     arrow_size:int=10,
     label_size:int=7,
@@ -518,6 +522,12 @@ def visualize_ligand_signaling_graph(
         the ligands of interest
     targets_oi : Collection of str
         the target genes of interest
+    sig_color : str
+        the color for ligand-signaling edges and the ligand node
+    gr_color : str
+        the color for the gene regulatory edges and the target node
+    neutral_color : str
+        the neutral color
     node_size : int
         the size of the nodes in the visualized network
     arrow_size : int
@@ -555,7 +565,7 @@ def visualize_ligand_signaling_graph(
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
-    node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
+    node2color = dict((node, (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color)) for node in graph.nodes)
     nx.draw_networkx_nodes(
         graph,
         pos,
@@ -573,6 +583,13 @@ def visualize_ligand_signaling_graph(
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()]
+    )
+    plt.legend(
+        handles=[
+            Patch(color=sig_color, label="ligand-signaling"),
+            Patch(color=gr_color, label="gene regulatory"),
+        ],
+        bbox_to_anchor=(1.1, 1)
     )
 
 def assign_ligands_to_celltype(
