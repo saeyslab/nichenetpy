@@ -313,6 +313,8 @@ def heatmap_2d(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(mat) is not np.ndarray and type(mat) is not list and type(mat) is not tuple:
         raise TypeError(f"mat should have type numpy.ndarray or list or tuple, was {type(mat)}")
@@ -320,6 +322,29 @@ def heatmap_2d(
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
         raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
+    if type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+    else:
+        nrows = len(mat)
+        ncols = len(mat[0])
+    if ncols == 1:
+        fig, ax = heatmap_1d(
+            chain(*mat),
+            ylabels,
+            None,
+            cbar_label,
+            cmap,
+            figsize
+        )
+        ax.set_xlabel(xtitle)
+        ax.set_ylabel(ytitle)
+        ax.set_xticks((0.5,), labels=xlabels)
+        ax.get_xaxis().set_visible(True)
+        return (fig, ax)
+    if len(xlabels) != ncols:
+        raise ValueError("The length of xlabels should equal the amount of columns in mat")
+    if len(ylabels) != nrows:
+        raise ValueError("The length of ylabels should equal the amount of rows in mat")
     if type(cmap) is not str:
         raise TypeError(f"cmap should have type str, was {type(cmap)}")
     if type(figsize) is not tuple:
