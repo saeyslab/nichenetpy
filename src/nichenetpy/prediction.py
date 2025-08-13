@@ -434,7 +434,7 @@ def assess_rf_class_probabilities(
     Parameters
     ----------
     folds : int
-        integer describing how many folds should be used
+        how many folds should be used
     geneset : set of str
         the genes for which the expression is potentially affected by ligands from the interacting cell
     background_expressed_genes : set of str
