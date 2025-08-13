@@ -188,7 +188,8 @@ def process_table_to_ic(
     table_type:str,
     lr_network:LigandReceptorNetwork,
     senders_oi:Collection[str]|None=None,
-    receivers_oi:Collection[str]|None=None
+    receivers_oi:Collection[str]|None=None,
+    celltype_col:str="celltype"
 ):
     '''
     First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
@@ -207,6 +208,8 @@ def process_table_to_ic(
         the sender celltypes of interest
     receivers_oi : Collection of str or None
         the receiver celltypes of interest
+    celltype_col : str
+        the column which contains the celltype
     
     Returns
     -------
@@ -230,12 +233,12 @@ def process_table_to_ic(
         raise TypeError(f"receivers_oi should have type Collection[str], was {type(receivers_oi)}")
     if table_type == "expression":
         sender_table = tab.rename(columns={
-            "celltype": "sender",
+            celltype_col: "sender",
             "gene": "ligand",
             "avg_exp": "avg_ligand"
         })
         receiver_table = tab.rename(columns={
-            "celltype": "receiver",
+            celltype_col: "receiver",
             "gene": "receptor",
             "avg_exp": "avg_receptor"
         })
@@ -250,7 +253,7 @@ def process_table_to_ic(
         ]
     elif (table_type == "celltype_DE"):
         sender_table = tab.rename(columns={
-            "celltype": "sender",
+            celltype_col: "sender",
             "gene": "ligand",
             "lfc": "lfc_ligand",
             "pval": "pval_ligand",
@@ -258,7 +261,7 @@ def process_table_to_ic(
             "pct": "pct_expressed_sender"
         })
         receiver_table = tab.rename(columns={
-            "celltype": "receiver",
+            celltype_col: "receiver",
             "gene": "receptor",
             "lfc": "lfc_receptor",
             "pval": "pval_receptor",
