@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #PBS -l nodes=1:ppn=30
-#PBS -l walltime=72:00:00
+#PBS -l walltime=24:00:00
 #PBS -l mem=180gb
 
 # Pass the cluster argument using -v, for example:
@@ -29,11 +29,14 @@ export OMP_NUM_THREADS=1
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/output/output-0.pkl \
+    $VSC_DATA/nichenetpy/test_output/output_no_cytosig_lt.pkl \
     $VSC_DATA/nichenetpy/model_construction/gr_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 480 \
+    --n_trials 160 \
     --n_process 30 \
-    --algorithm TPE
+    --algorithm NSGA-II \
+    --source_path ./source_files \
+    --excluded_database CytoSig \
+    --excluded_database NicheNet_LT \

@@ -1001,7 +1001,8 @@ def generate_info_tables(
             "celltype_DE",
             lr_network_filtered,
             senders_oi,
-            receivers_oi
+            receivers_oi,
+            celltype_col=celltype_col
         ),
         "sender_receiver_info": process_table_to_ic(
             get_avg_exp(
@@ -1011,7 +1012,8 @@ def generate_info_tables(
                 condition_col
             ),
             "expression",
-            lr_network_filtered
+            lr_network_filtered,
+            celltype_col=celltype_col
         )
     }
     if case_control:
@@ -1025,7 +1027,8 @@ def generate_info_tables(
         output["lr_condition_de"] = process_table_to_ic(
             res[["gene", "lfc", "pval", "pval_adj"]],
             "group_DE",
-            lr_network_filtered
+            lr_network_filtered,
+            celltype_col=celltype_col
         )
     return output
 

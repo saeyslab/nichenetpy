@@ -412,7 +412,7 @@ def construct_ligand_target_matrix(
     return_all_matrices:bool=False
 ) -> tuple[np.ndarray|csr_matrix, list[str], list[str]]|tuple[tuple[np.ndarray|csr_matrix, list[str], list[str]]]:
     '''
-    Convert integrated weighted networks into a matrix containg ligand-target probability scores.
+    Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
 
     Parameters

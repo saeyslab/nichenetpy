@@ -213,7 +213,7 @@ def scaling_modified_zscore(
     scale_factor:float=0.6744907594765952
 ) -> list[float]|np.ndarray|pd.Series:
     '''
-    Normalize values by the modified z-score method (uses median and median absolute deviation instead mean)
+    Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)
 
     Parameters
     ----------

@@ -22,6 +22,7 @@ from matplotlib.colors import colorConverter
 from matplotlib import colormaps as cm
 from matplotlib.patheffects import withStroke
 from matplotlib.typing import ColorType
+from matplotlib.patches import Patch
 from math import (
     isnan,
     sqrt
@@ -312,6 +313,8 @@ def heatmap_2d(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(mat) is not np.ndarray and type(mat) is not list and type(mat) is not tuple:
         raise TypeError(f"mat should have type numpy.ndarray or list or tuple, was {type(mat)}")
@@ -319,6 +322,29 @@ def heatmap_2d(
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
         raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
+    if type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+    else:
+        nrows = len(mat)
+        ncols = len(mat[0])
+    if ncols == 1:
+        fig, ax = heatmap_1d(
+            chain(*mat),
+            ylabels,
+            None,
+            cbar_label,
+            cmap,
+            figsize
+        )
+        ax.set_xlabel(xtitle)
+        ax.set_ylabel(ytitle)
+        ax.set_xticks((0.5,), labels=xlabels)
+        ax.get_xaxis().set_visible(True)
+        return (fig, ax)
+    if len(xlabels) != ncols:
+        raise ValueError("The length of xlabels should equal the amount of columns in mat")
+    if len(ylabels) != nrows:
+        raise ValueError("The length of ylabels should equal the amount of rows in mat")
     if type(cmap) is not str:
         raise TypeError(f"cmap should have type str, was {type(cmap)}")
     if type(figsize) is not tuple:
@@ -500,6 +526,9 @@ def visualize_ligand_signaling_graph(
     tf_regulatory:pd.DataFrame,
     ligands_oi:Collection[str],
     targets_oi:Collection[str],
+    sig_color:str="blue",
+    gr_color:str="red",
+    neutral_color:str="gray",
     node_size:int=1300,
     arrow_size:int=10,
     label_size:int=7,
@@ -518,6 +547,12 @@ def visualize_ligand_signaling_graph(
         the ligands of interest
     targets_oi : Collection of str
         the target genes of interest
+    sig_color : str
+        the color for ligand-signaling edges and the ligand node
+    gr_color : str
+        the color for the gene regulatory edges and the target node
+    neutral_color : str
+        the neutral color
     node_size : int
         the size of the nodes in the visualized network
     arrow_size : int
@@ -555,7 +590,7 @@ def visualize_ligand_signaling_graph(
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
-    node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
+    node2color = dict((node, (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color)) for node in graph.nodes)
     nx.draw_networkx_nodes(
         graph,
         pos,
@@ -573,6 +608,13 @@ def visualize_ligand_signaling_graph(
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()]
+    )
+    plt.legend(
+        handles=[
+            Patch(color=sig_color, label="ligand-signaling"),
+            Patch(color=gr_color, label="gene regulatory"),
+        ],
+        bbox_to_anchor=(1.1, 1)
     )
 
 def assign_ligands_to_celltype(
@@ -1098,8 +1140,6 @@ def create_mushroom_plot(
 ):
     '''
     Creates a plot in which each glyph consists of two semicircles corresponding to ligand- and receptor- information.
-    The size of the semicircle is the percentage of cells that express the protein, while the saturation corresponds
-    to the scaled average expression value.
 
     Parameters
     ----------

@@ -148,6 +148,17 @@ def construct_and_evaluate(
         Dataframe or dictionary which contains the weights associated to each individual data source.
         Sources with higher weights will contribute more to the final model performance.
         Note that only interactions described by sources included here, will be retained during model construction.
+    lr_sig_hub : float
+        a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
+    gr_hub : float
+        a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
+    ltf_cutoff : float
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
+    damping_factor : float
+        Only relevant when algorithm is PPR.
+        In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
+        1-damping factor is the probability that the walker will return to the seed node.
     lr_network : pandas.DataFrame
         dataframe which contains ligand-receptor interactions
     gr_network : pandas.DataFrame
