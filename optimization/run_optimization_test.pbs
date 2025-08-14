@@ -31,7 +31,7 @@ ALG="NSGA-II"
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/test_output/output_test.pkl \
+    $VSC_DATA/nichenetpy/output/output_test.pkl \
     $VSC_DATA/nichenetpy/model_construction/gr_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
