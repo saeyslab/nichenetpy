@@ -430,7 +430,7 @@ def group_metrics(
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
         ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
-    if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
+    if wilcoxon_limma:
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])
         pvals = {group: [] for group in groups}

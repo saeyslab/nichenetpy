@@ -245,7 +245,7 @@ def scaling_modified_zscore(
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return scale_factor * (data - md)
         else:
-            mad = median_abs_deviation(data, scale=scale_factor) # TODO: check if multiplication can be removed and scale set to 1
+            mad = median_abs_deviation(data, scale=scale_factor)
             return scale_factor * (data - md) / mad
     else:
         raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
