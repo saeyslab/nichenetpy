@@ -236,16 +236,16 @@ def scaling_modified_zscore(
     if type(data) is list:
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
-            return [0.6745 * (x - md) for x in data]
+            return [scale_factor * (x - md) for x in data]
         else:
             mad = median_abs_deviation(data, scale=scale_factor)
-            return [0.6745 * (x - md) / mad for x in data]
+            return [scale_factor * (x - md) / mad for x in data]
     elif type(data) is np.ndarray or type(data) is pd.Series:
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
-            return 0.6745 * (data - md)
+            return scale_factor * (data - md)
         else:
             mad = median_abs_deviation(data, scale=scale_factor) # TODO: check if multiplication can be removed and scale set to 1
-            return 0.6745 * (data - md) / mad
+            return scale_factor * (data - md) / mad
     else:
         raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
