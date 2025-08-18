@@ -128,7 +128,7 @@ def apply_hub_correction(
     if not isinstance(hub, Number):
         raise TypeError(f"hub should have type float, was {type(hub)}")
     if hub < 0 or hub > 1:
-        raise ValueError("hub should be in the interval [0, 1]")
+        raise ValueError(f"hub should be in the interval [0, 1], was {hub}")
     if hub == 0:
         return df.copy()
     to_count = df.groupby("to").aggregate("count")

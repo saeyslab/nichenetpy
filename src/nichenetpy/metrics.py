@@ -345,6 +345,8 @@ def group_metrics(
     RuntimeError
         if there are no cells in the group of interest
         if there are no cells in the reference group
+    ValueError
+        if the arguments are invalid
     
     Notes
     -----
@@ -380,7 +382,10 @@ def group_metrics(
     else:
         mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    groups = sorted(set(ann.obs[groupby]))
+    try:
+        groups = sorted(set(ann.obs[groupby]))
+    except KeyError:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
     pct = []
     if group_oi is None:
