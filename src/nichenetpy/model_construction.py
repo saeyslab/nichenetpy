@@ -1,5 +1,6 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.graph import dijkstra_spl
+from nichenetpy.typing import nichenet_matrix
 
 from numbers import Number
 from itertools import chain
@@ -249,8 +250,7 @@ def construct_ligand_tf_matrix(
                 pv.fill(0)
                 pv[gene2id[ligand]] = 1
                 partial_matrix.append(pr.fit_predict(lr_sig_mat, weights=pv))
-            ppr_matrix = np.array(partial_matrix)
-            ppr_matrix = ppr_matrix.reshape((
+            ppr_matrix = np.array(partial_matrix).reshape((
                 int(sum(len(x) for x in partial_matrix)/len(pv)),
                 len(pv)
             ))
@@ -410,7 +410,7 @@ def construct_ligand_target_matrix(
     ligands_as_cols:bool=True,
     remove_direct_links:str="no",
     return_all_matrices:bool=False
-) -> tuple[np.ndarray|csr_matrix, list[str], list[str]]|tuple[tuple[np.ndarray|csr_matrix, list[str], list[str]]]:
+) -> tuple[nichenet_matrix, list[str], list[str]]|tuple[tuple[nichenet_matrix, list[str], list[str]]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
@@ -490,14 +490,14 @@ def construct_ligand_target_matrix(
         raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
-    if remove_direct_links not in ("no", "ligand", "ligand_receptor"):
-        raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     if remove_direct_links == "ligand":
         rm_set = set(lr_network["from"])
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+    elif remove_direct_links != "no":
+        raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     ligands = [(_ligands,) if type(_ligands) is str else _ligands for _ligands in ligands]
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)

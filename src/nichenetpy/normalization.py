@@ -198,7 +198,7 @@ def scaling_zscore(data:list[float]|np.ndarray|pd.Series) -> list[float]|np.ndar
             return [0]
         sd = np.std(data)
         avg = np.mean(data)
-        return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
+        return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
     elif type(data) is np.ndarray or type(data) is pd.Series:
         if len(data) == 1:
             return np.array([0])
