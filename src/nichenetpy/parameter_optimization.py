@@ -11,6 +11,8 @@ from nichenetpy.evaluation import (
 )
 from nichenetpy.prediction import LigandActivityPredictor
 
+from collections.abc import Iterable
+
 import pandas as pd
 import numpy as np
 
@@ -127,6 +129,75 @@ def evaluate_model(
         "performances_ligand_prediction": performances_ligand_prediction_single
     }
 
+def compute_evaluation_scores(
+    eval_res:dict[str, pd.DataFrame],
+    ligands:Iterable[str]
+) -> tuple[float, float]:
+    '''
+    Construct and evaluate the ligand-target matrix. 
+    Returns the matrices and the prediction scores
+
+    Parameters
+    ----------
+    eval_res : dict[str, pd.DataFrame]
+        The output of a call to `nichenetpy.parameter_optimization.evaluate_model`
+    ligands : Iterable of str
+        the ligands of interest
+
+    Returns
+    -------
+    float
+        target prediction score
+    float
+        ligand prediction score
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    performances_target_prediction_averaged = [
+        e for e in (
+            _average_performances(ligand, eval_res["performances_target_prediction"])
+            for ligand in ligands
+        ) if not np.isnan(e)
+    ]
+    ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
+        "metric",
+        "aupr",
+        "aupr_corrected",
+        "auroc",
+        "pearson"
+    ]].groupby("metric").mean()
+    ligand_activity_performance_setting_summary["geom_average"] = [
+        np.exp((np.log(aupr) + np.log(auroc)) / 2)
+        for aupr, auroc in zip(
+            ligand_activity_performance_setting_summary["aupr_corrected"],
+            ligand_activity_performance_setting_summary["auroc"]
+        )
+    ]
+    ligand_activity_performance_setting_summary.reset_index(inplace=True)
+    best_metric = max(
+        zip(
+            ligand_activity_performance_setting_summary["metric"],
+            ligand_activity_performance_setting_summary["geom_average"]
+        ),
+        key=lambda x : x[1]
+    )[0]
+    performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
+        eval_res["performances_ligand_prediction"]["metric"] == best_metric
+    ]
+    performances_ligand_prediction_averaged = [
+        e for e in (
+            _average_performances(ligand, performances_ligand_prediction_summary)
+            for ligand in ligands
+        ) if not np.isnan(e)
+    ]
+    return (
+        np.mean(performances_target_prediction_averaged),
+        (np.median(performances_ligand_prediction_averaged) + np.mean(performances_ligand_prediction_averaged)) / 2
+    )
+
 def construct_and_evaluate(
     source_weights:dict[str, float]|pd.DataFrame,
     lr_sig_hub:float,
@@ -166,7 +237,7 @@ def construct_and_evaluate(
     sig_network : pandas.DataFrame
         dataframe which contains signaling interactions
     settings : dict
-        An Iterable of dictionaries that have the following keys: 
+        A dictionary of dictionaries that have the following keys: 
         
             name: the name of the setting
 
@@ -209,45 +280,10 @@ def construct_and_evaluate(
     )
     predictor = LigandActivityPredictor(*ligand2target)
     predictor.replace_zero_col_by_noisy_scores()
-    eval_res = evaluate_model(predictor, settings)
-    ligands_evaluation = extract_ligands_from_settings(settings, combination=True)
-    performances_target_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, eval_res["performances_target_prediction"])
-            for ligand in ligands_evaluation
-        ) if not np.isnan(e)
-    ]
-    ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
-        "metric",
-        "aupr",
-        "aupr_corrected",
-        "auroc",
-        "pearson"
-    ]].groupby("metric").mean()
-    ligand_activity_performance_setting_summary["geom_average"] = [
-        np.exp((np.log(aupr) + np.log(auroc)) / 2)
-        for aupr, auroc in zip(
-            ligand_activity_performance_setting_summary["aupr_corrected"],
-            ligand_activity_performance_setting_summary["auroc"]
-        )
-    ]
-    ligand_activity_performance_setting_summary.reset_index(inplace=True)
-    best_metric = max(
-        zip(
-            ligand_activity_performance_setting_summary["metric"],
-            ligand_activity_performance_setting_summary["geom_average"]
-        ),
-        key=lambda x : x[1]
-    )[0]
-    performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
-        eval_res["performances_ligand_prediction"]["metric"] == best_metric
-    ]
-    performances_ligand_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, performances_ligand_prediction_summary)
-            for ligand in ligands_evaluation
-        ) if not np.isnan(e)
-    ]
+    scores = compute_evaluation_scores(
+        evaluate_model(predictor, settings),
+        extract_ligands_from_settings(settings, combination=True)
+    )
     return (
         {
             "weighted networks": weighted_networks,
@@ -255,6 +291,6 @@ def construct_and_evaluate(
             "ltf matrix": ltf_matrix,
             "ligand-target matrix": ligand2target
         },
-        np.mean(performances_target_prediction_averaged),
-        (np.median(performances_ligand_prediction_averaged) + np.mean(performances_ligand_prediction_averaged)) / 2
+        scores[0],
+        scores[1]
     )
