@@ -27,12 +27,12 @@ source $VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="NSGA-II"
+ALG="TPE"
 
 # Run the script
 python run_optimization.py -c \
     $VSC_DATA/nichenetpy/output/output_test.pkl \
-    $VSC_DATA/nichenetpy/model_construction/gr_human.csv \
+    $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
