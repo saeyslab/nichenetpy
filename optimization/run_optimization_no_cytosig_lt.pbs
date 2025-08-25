@@ -42,3 +42,4 @@ python run_optimization.py -c \
     --source_path ./source_files \
     --excluded_database CytoSig \
     --excluded_database NicheNet_LT \
+    --id no_direct_links

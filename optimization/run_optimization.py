@@ -14,7 +14,8 @@ from optuna import (
 from optuna.trial import Trial
 from optuna.samplers import (
     TPESampler,
-    NSGAIISampler
+    NSGAIISampler,
+    GPSampler
 )
 from optuna.storages import JournalStorage
 from optuna.storages.journal import (
@@ -111,7 +112,7 @@ if __name__ == "__main__":
         "--algorithm",
         help="the optimization algorithm to use",
         type=str,
-        choices=("TPE", "NSGA-II"),
+        choices=("TPE", "NSGA-II", "GP"),
         default="TPE"
     )
     parser.add_argument(
@@ -157,9 +158,14 @@ if __name__ == "__main__":
         default=[]
     )
     parser.add_argument(
-        "--log_file",
-        help="File in which to store the log of the optimization run. ",
-        default=None
+        "--log_dir",
+        help="Directory in which to store the log of the optimization run. ",
+        default="./log"
+    )
+    parser.add_argument(
+        "--id",
+        help="Identifier of the log",
+        default=""
     )
     args = parser.parse_args()
     source_path = os.path.normpath("./source_files/")
@@ -287,10 +293,9 @@ if __name__ == "__main__":
             return (res[1], res[2])
 
         name = settings_file.split("/")[-1][:-5]
-        log_file = f"./log/{name}_{args.algorithm}.log" if args.log_file is None else args.log_file
-        log_dir = os.path.split(log_file)[0]
-        if not os.path.exists(log_dir):
-            os.mkdir(log_dir)
+        if not os.path.exists(args.log_dir):
+            os.mkdir(args.log_dir)
+        log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
         with open(log_file, "a" if args.c else "w"):
             pass
         lock_obj = JournalFileOpenLock(log_file)
@@ -304,6 +309,8 @@ if __name__ == "__main__":
                 crossover=FlatCrossover(),
                 crossover_prob=1
             )
+        elif args.algorithm == "GP":
+            sampler = GPSampler()
         else:
             raise ValueError(f"{args.algorithm} is not a supported optimization algorithm, supported algorithms are 'TPE' and 'NSGA-II'")
         study = create_study(

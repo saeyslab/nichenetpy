@@ -45,4 +45,4 @@ python run_optimization.py -c \
     --ltf_cutoff 0.926 \
     --damping_factor 0.789 \
     --var_database omnipath \
-    --log_file "./log/test_$ALG.log"
+    --id test
