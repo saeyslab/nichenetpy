@@ -160,7 +160,7 @@ def construct_ligand_tf_matrix(
     ligands_as_cols:bool=False
 ) -> tuple[np.ndarray, list[str], list[str]]:
     '''
-    Convert integrated weighted networks into a matrix containing ligand-tf probability scores.
+    Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
 
     Parameters
