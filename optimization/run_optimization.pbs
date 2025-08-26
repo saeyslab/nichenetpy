@@ -27,11 +27,11 @@ source $VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="TPE"
+ALG="GP"
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/output/output-0.pkl \
+    $VSC_DATA/nichenetpy/output/output-GP.pkl \
     $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \

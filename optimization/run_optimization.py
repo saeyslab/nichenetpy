@@ -310,7 +310,7 @@ if __name__ == "__main__":
                 crossover_prob=1
             )
         elif args.algorithm == "GP":
-            sampler = GPSampler()
+            sampler = GPSampler() # heavily slows down over time
         else:
             raise ValueError(f"{args.algorithm} is not a supported optimization algorithm, supported algorithms are 'TPE' and 'NSGA-II'")
         study = create_study(
