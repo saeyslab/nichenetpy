@@ -311,8 +311,6 @@ if __name__ == "__main__":
             )
         elif args.algorithm == "GP":
             sampler = GPSampler() # heavily slows down over time
-        else:
-            raise ValueError(f"{args.algorithm} is not a supported optimization algorithm, supported algorithms are 'TPE' and 'NSGA-II'")
         study = create_study(
             sampler=sampler,
             directions=["maximize", "maximize"],
