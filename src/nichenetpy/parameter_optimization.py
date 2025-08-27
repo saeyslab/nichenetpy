@@ -84,8 +84,8 @@ def evaluate_model(
         "aupr_corrected": []
     }
     for setting_id, setting in settings.items():
+        performances_target_prediction["setting"].append(setting_id)
         try:
-            performances_target_prediction["setting"].append(setting_id)
             performances_target_prediction["ligand"].append(setting["from"])
             for k, v in predictor.evaluate_target_prediction(
                 setting["from"]
@@ -95,7 +95,11 @@ def evaluate_model(
             ).items():
                 performances_target_prediction[k].append(v)
         except ValueError:
-            pass # the metrics are undefined
+            # the metrics are undefined -> roleback
+            max_len = len(performances_target_prediction["setting"]) - 1
+            for e in performances_target_prediction.values():
+                if len(e) > max_len:
+                    e.pop()
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
     all_ligands = extract_ligands_from_settings(settings, combination=False)
     ligand_importances = {
