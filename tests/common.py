@@ -13,6 +13,7 @@ ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
 network_path = os.path.join(root_path, "model_construction")
 eval_path = os.path.join(root_path, "model_evaluation")
+train_path = os.path.normpath("./tutorial_files/model_optimization")
 
 def equals(
     x,
@@ -126,5 +127,21 @@ def get_evaluation_files():
         file_path = os.path.join(eval_path, filename)
         if not os.path.exists(file_path):
             res = requests.get(f"https://zenodo.org/records/15228527/files/{filename}")
+            with open(file_path, "wb") as file:
+                file.write(res.content)
+
+def get_optimization_files():
+    if not os.path.exists(train_path):
+        os.makedirs(train_path)
+    for filename in (
+        "settings_training_f1234.json",
+        "settings_training_f1235.json",
+        "settings_training_f1245.json",
+        "settings_training_f1345.json",
+        "settings_training_f2345.json"
+    ):
+        file_path = os.path.join(train_path, filename)
+        if not os.path.exists(file_path):
+            res = requests.get(f"https://zenodo.org/records/15799578/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
