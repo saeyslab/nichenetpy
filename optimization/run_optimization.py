@@ -186,7 +186,7 @@ if __name__ == "__main__":
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
-    gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
+    _gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
@@ -195,15 +195,15 @@ if __name__ == "__main__":
         with open(settings_file, "rb") as file:
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
-        gr_network = gr_network[
+        gr_network = _gr_network[
             ~ (
-                (gr_network["database"] == "NicheNet_LT") &
-                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
             )
             &
             ~ (
-                (gr_network["database"] == "CytoSig") &
-                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
             )
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))

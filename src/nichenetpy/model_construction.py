@@ -18,6 +18,7 @@ def _sum_weights(df, source_weights):
             .merge(source_weights, on="source", how="inner")[["from", "to", "weight"]]
             .groupby(["from", "to"])
             .aggregate("sum")
+            .reset_index()
     )
 
 def construct_weighted_networks(
@@ -132,10 +133,9 @@ def apply_hub_correction(
         raise ValueError(f"hub should be in the interval [0, 1], was {hub}")
     if hub == 0:
         return df.copy()
-    to_count = df.groupby("to").aggregate("count")
+    to_count = df[["to", "weight"]].groupby("to").aggregate("count")
     to_count.rename(columns={"weight": "n"}, inplace=True)
     to_count.reset_index(inplace=True)
-    df.reset_index(inplace=True)
     df = df.merge(to_count, on="to", how="inner")
     df["weight"] = df["weight"] / (df["n"] ** hub)
     df.drop(columns="n", inplace=True)
