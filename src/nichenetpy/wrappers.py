@@ -1094,7 +1094,7 @@ def calculate_fraction_top_predicted(
     quantile_cutoff:float=0.95
 ) -> pd.DataFrame:
     '''
-    Determine the fraction of genes belonging to the geneset or background and to the top-predicted genes.
+    Determine the fraction of genes belonging to the geneset or background to the top-predicted genes.
 
     Parameters
     ----------

@@ -76,6 +76,7 @@ class GeneAliasInfo:
                     counts[ngene] += 1
                 else:
                     counts[ngene] = 1
+            # revert duplicate symbols back to the original symbols
             doubles = [i for i, ngene in enumerate(output) if counts[ngene] > 1]
             for i in doubles:
                 output[i] = obj[i]
