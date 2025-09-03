@@ -158,6 +158,12 @@ if __name__ == "__main__":
         default=[]
     )
     parser.add_argument(
+        "--included_database",
+        help="databases to include in the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
         "--log_dir",
         help="Directory in which to store the log of the optimization run. ",
         default="./log"
@@ -168,6 +174,8 @@ if __name__ == "__main__":
         default=""
     )
     args = parser.parse_args()
+    if len(args.included_database) > 0 and len(args.excluded_database) > 0:
+        raise ValueError("included_database and excluded_database are incompatible with eachother")
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -218,17 +226,17 @@ if __name__ == "__main__":
             init_v = np.array([True for _ in range(df.shape[0])])
             if len(args.excluded_database) > 0:
                 source_names = set(df[
-                    reduce(
-                        and_,
-                        (df["database"] != db for db in args.excluded_database),
-                        init_v
-                    )
+                    [db not in args.excluded_database for db in df["database"]]
+                ]["source"])
+            elif len(args.included_database) > 0:
+                source_names = set(df[
+                    [db in args.included_database for db in df["database"]]
                 ]["source"])
             if len(args.var_database) > 0:
                 bool_v = reduce(
                     and_,
                     (df["database"] != db for db in args.var_database),
-                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 else init_v
+                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
                 )
                 source_names_fixed = set(df[bool_v]["source"])
                 source_names_var = set(df[~bool_v]["source"])

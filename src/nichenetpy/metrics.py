@@ -172,7 +172,9 @@ def calculate_prediction_evaluation_metrics(
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
     aupr = calculate_aupr(response, prediction)
     auroc = calculate_auroc(response, prediction)
+    warnings.filterwarnings("ignore")
     pcc = pearsonr(response, prediction).statistic
+    warnings.filterwarnings("default")
     return {
         "auroc": auroc,
         "pearson": pcc,

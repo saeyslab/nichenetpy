@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=30
+#PBS -l nodes=1:ppn=23
 #PBS -l walltime=72:00:00
 #PBS -l mem=230gb
 
@@ -36,6 +36,6 @@ python run_optimization.py -c \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 480 \
-    --n_process 30 \
+    --n_trials 300 \
+    --n_process 23 \
     --algorithm $ALG
