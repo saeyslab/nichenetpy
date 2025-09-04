@@ -1,22 +1,26 @@
 from nichenetpy.parameter_optimization import (
     evaluate_model,
-    compute_evaluation_scores
+    compute_evaluation_scores,
+    construct_and_evaluate
 )
-from nichenetpy.utils import extract_ligands_from_settings
-from nichenetpy.parameter_optimization import (
-    evaluate_model,
-    compute_evaluation_scores
+from nichenetpy.utils import (
+    extract_ligands_from_settings,
+    read_csv_rows,
+    read_csv_cols
 )
 
 from common import (
     equals_iter,
     get_model_pickle,
     get_optimization_files,
-    train_path
+    get_network_files,
+    train_path,
+    network_path
 )
 
 import os
 import json
+import pandas as pd
 
 
 def test_optimization_score_0():
@@ -78,3 +82,52 @@ def test_optimization_score_4():
         extract_ligands_from_settings(settings, combination=True)
     )
     assert equals_iter(scores, (0.629, 0.966), err_bound=0.05)
+
+def optuna_objective(
+    lr_network,
+    gr_network,
+    sig_network,
+    source_weights,
+    lr_sig_hub,
+    gr_hub,
+    ltf_cutoff,
+    damping_factor,
+    settings
+):
+    res = construct_and_evaluate(
+        source_weights,
+        lr_sig_hub,
+        gr_hub,
+        ltf_cutoff,
+        damping_factor,
+        lr_network,
+        gr_network,
+        sig_network,
+        settings
+    )
+    return (res[1], res[2])
+
+def test_optuna_objective_optimized_source_weights():
+    get_network_files()
+    source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
+    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
+    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
+    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    get_optimization_files()
+    with open(os.path.join(train_path, "settings_training_f1245.json"), "rb") as file:
+        settings_CV = json.loads(file.read())
+    settings = settings_CV["settings"]
+    scores = optuna_objective(
+        lr_network,
+        gr_network,
+        sig_network,
+        source_weights,
+        lr_sig_hub=0.115,
+        gr_hub=0.0803,
+        ltf_cutoff=0.926,
+        damping_factor=0.789,
+        settings=settings
+    )
+    assert scores[0] > 0.4
+    assert scores[1] > 0.9
