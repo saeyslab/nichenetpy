@@ -15,6 +15,7 @@ from random import uniform
 
 import numpy as np
 import pandas as pd
+import warnings
 
 
 class LigandActivityPredictor:
@@ -203,6 +204,10 @@ class LigandActivityPredictor:
             raise TypeError(f"background_expressed_genes should have type Iterable, was {type(background_expressed_genes)}")
         if not isinstance(potential_ligands, Iterable):
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
+        if len(geneset) < 20 or len(geneset) > 2000:
+            warnings.warn(f"It is recommended that the size of the gene set of interest is between 20 and 2000, was {len(geneset)}")
+        if len(background_expressed_genes) < 10 * len(geneset):
+            warnings.warn(f"The background set is small compared to the geneset of interest, a background size of at least {10 * len(geneset)} is recommended, was {len(background_expressed_genes)}")
         output = dict()
         # create the expected gene expression response vector
         response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
