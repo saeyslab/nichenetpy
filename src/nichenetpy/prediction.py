@@ -4,12 +4,17 @@ from nichenetpy.metrics import (
     calculate_auroc
 )
 from nichenetpy.utils import subset_matrix
+from nichenetpy.typing import nichenet_matrix
 
 from collections.abc import Collection, Iterable
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 from itertools import chain, repeat
 from numbers import Number
+from scipy.sparse import (
+    csr_matrix,
+    csc_matrix
+)
 from scipy.stats import pearsonr
 from random import uniform
 
@@ -48,24 +53,49 @@ class LigandActivityPredictor:
         mapping of ligand names to indices
     _gene2index : dict
         mapping of gene names to indices
+    
+    Notes
+    -----
+    since a NicheNet analysis needs to index the columns of the ligand-target matrix many times, it is recommended to use a column-major memory layout
     '''
     def __init__(
         self,
-        ligand_target_matrix:np.ndarray,
+        ligand_target_matrix:nichenet_matrix,
         row_names:list[str]|tuple[str],
         col_names:list[str]|tuple[str]
     ) -> None:
-        if type(ligand_target_matrix) is not np.ndarray:
-            raise TypeError(f"ligand_target_matrix should have type numpy.ndarray, was {type(ligand_target_matrix)}")
+        self.ligand_target_matrix = ligand_target_matrix
+        if type(ligand_target_matrix) is csr_matrix:
+            warnings.warn("a scipy.csr_matrix was passed, this will result in very slow column indexing and is therefore not recommended for a NicheNet analysis")
+        elif type(ligand_target_matrix) is csc_matrix:
+            density = self.matrix_density()
+            if density > 0.5:
+                warnings.warn(f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead")
+        elif type(ligand_target_matrix) is not np.ndarray:
+            raise TypeError(f"ligand_target_matrix should have type numpy.ndarray, scipy.csr_matrix or scipy.csc_matrix, was {type(ligand_target_matrix)}")
         if type(row_names) is not list and type(row_names) is not tuple:
             raise TypeError(f"row_names should have type list[str] or tuple[str], was {type(row_names)}")
         if type(col_names) is not list and type(col_names) is not tuple:
             raise TypeError(f"col_names should have type list[str] or tuple[str], was {type(col_names)}")
-        self.ligand_target_matrix = ligand_target_matrix
         self.row_names = row_names
         self.col_names = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
         self._gene2index = dict(zip(self.row_names, range(len(self.row_names))))
+    
+    def matrix_density(self) -> float:
+        '''
+        compute the ratio of non-zero elements in the ligand-target matrix
+
+        Returns
+        -------
+        float
+            the ratio of non-zero elements in the ligand-target matrix
+        '''
+        return (
+            np.count_nonzero(self.ligand_target_matrix) if type(self.ligand_target_matrix) is np.ndarray else self.ligand_target_matrix.getnnz()
+            /
+            (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
+        )
     
     def ligand2index(self, ligand:str):
         '''
@@ -125,6 +155,65 @@ class LigandActivityPredictor:
         '''
         return set(self._gene2index.keys())
     
+    def get_col(self, index:int|str) -> np.ndarray:
+        '''
+        index the columns of the ligand-target matrix, the key may also be a gene symbol
+
+        Parameters
+        ----------
+        ligand : int or str
+            the index or gene symbol
+
+        Returns
+        -------
+        dict
+            the corresponding column
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        IndexError
+            if the index is invalid
+        '''
+        if type(index) is str:
+            try:
+                index = self.ligand2index(index)
+            except KeyError:
+                raise IndexError(f"{index} is not a gene symbol with a corresponding column in the ligand-target matrix")
+        elif type(index) is not int:
+            raise TypeError(f"index should have type int or str, was {type(index)}")
+        if index >= self.ligand_target_matrix.shape[1]:
+            raise IndexError(f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}")
+        if type(self.ligand_target_matrix) is np.ndarray:
+            return self.ligand_target_matrix[:, index]
+        elif type(self.ligand_target_matrix) is csr_matrix:
+            # this is so slow it should be avoided
+            col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
+            for i in range(self.ligand_target_matrix.shape[0]):
+                j = np.where(
+                    self.ligand_target_matrix.indices[
+                        self.ligand_target_matrix.indptr[i]:self.ligand_target_matrix.indptr[i+1]
+                    ] == index
+                )[0]
+                if len(j) == 1:
+                    j = j[0]
+                    col[j] = self.ligand_target_matrix.data[
+                        self.ligand_target_matrix.indptr[i]:self.ligand_target_matrix.indptr[i+1]
+                    ][j]
+            return np.array(col)
+        else:
+            indices_non_zero = self.ligand_target_matrix.indices[
+                self.ligand_target_matrix.indptr[index]:self.ligand_target_matrix.indptr[index+1]
+            ]
+            values_non_zero = self.ligand_target_matrix.data[
+                self.ligand_target_matrix.indptr[index]:self.ligand_target_matrix.indptr[index+1]
+            ]
+            col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
+            for i, v in zip(indices_non_zero, values_non_zero):
+                col[i] = v
+            return np.array(col)
+    
     def evaluate_target_prediction(
         self,
         ligand:str,
@@ -159,7 +248,7 @@ class LigandActivityPredictor:
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
         # create the prediction model vector
-        prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
+        prediction = dict(zip(self.row_names, self.get_col(ligand)))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
         pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
@@ -305,7 +394,7 @@ class LigandActivityPredictor:
                 (1 if e >= qt else 0 for e in response)
             ))
             for ligand in potential_ligands:
-                prediction = dict(zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)]))
+                prediction = dict(zip(self.row_names, self.get_col(ligand)))
                 common_keys = prediction.keys() & response.keys()
                 pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
                 resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])
