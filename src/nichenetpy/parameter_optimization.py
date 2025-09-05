@@ -315,7 +315,12 @@ def construct_and_evaluate(
         )
         ligand2target = (grn_matrix[0].toarray(), grn_matrix[1], grn_matrix[2])
         ltf_matrix = None
-    predictor = LigandActivityPredictor(*ligand2target)
+    # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
+    # the optimization as a whole is also faster despite the copy each trial
+    ligand2target, row_names, col_names = ligand2target
+    if ligand2target.flags.c_contiguous:
+        ligand2target = np.array(ligand2target, order="F")
+    predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores()
     scores = compute_evaluation_scores(
         evaluate_model(predictor, settings),
