@@ -71,7 +71,10 @@ class LigandActivityPredictor:
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead")
-        elif type(ligand_target_matrix) is not np.ndarray:
+        elif type(ligand_target_matrix) is np.ndarray:
+            if ligand_target_matrix.flags.c_contiguous:
+                warnings.warn(f"a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing")
+        else:
             raise TypeError(f"ligand_target_matrix should have type numpy.ndarray, scipy.csr_matrix or scipy.csc_matrix, was {type(ligand_target_matrix)}")
         if type(row_names) is not list and type(row_names) is not tuple:
             raise TypeError(f"row_names should have type list[str] or tuple[str], was {type(row_names)}")
@@ -92,7 +95,7 @@ class LigandActivityPredictor:
             the ratio of non-zero elements in the ligand-target matrix
         '''
         return (
-            np.count_nonzero(self.ligand_target_matrix) if type(self.ligand_target_matrix) is np.ndarray else self.ligand_target_matrix.getnnz()
+            (np.count_nonzero(self.ligand_target_matrix) if type(self.ligand_target_matrix) is np.ndarray else self.ligand_target_matrix.getnnz())
             /
             (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
         )
