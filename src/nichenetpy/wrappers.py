@@ -37,6 +37,7 @@ from anndata import AnnData
 from pycirclize import Circos
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from scipy.stats import fisher_exact
 from numbers import Number
 
@@ -683,7 +684,7 @@ def _create_circos_plot(
     opacity:Iterable[float]|None=None,
     separate_sender_receiver:bool=True,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     link_count_in = dict()
     link_count_out = dict()
     links = []
@@ -805,7 +806,7 @@ def _create_circos_plot(
         loc="right",
         ncols=1,
     )
-    return fig
+    return (circos.ax, fig)
 
 def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
@@ -817,7 +818,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     '''
     Creates a circos plot showing the links between ligands and receptors. 
 
@@ -887,7 +888,7 @@ def create_ligand_links_circos_plot(
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     '''
     Creates a circos plot showing the links between ligands and targets. 
 
@@ -1093,7 +1094,7 @@ def calculate_fraction_top_predicted(
     quantile_cutoff:float=0.95
 ) -> pd.DataFrame:
     '''
-    Determine the fraction of genes belonging to the geneset or background and to the top-predicted genes.
+    Determine the fraction of genes belonging to the geneset or background to the top-predicted genes.
 
     Parameters
     ----------

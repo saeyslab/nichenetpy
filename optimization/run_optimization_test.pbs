@@ -21,18 +21,18 @@ fi
 VENV_NAME="venv_$cluster"
 
 # Activate virtual environment
-source $VENV_NAME/bin/activate
+source $VSC_DATA/$VENV_NAME/bin/activate
 
 # Make sure joblib works
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="NSGA-II"
+ALG="TPE"
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/test_output/output_test.pkl \
-    $VSC_DATA/nichenetpy/model_construction/gr_human.csv \
+    $VSC_DATA/nichenetpy/output/output_test.pkl \
+    $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
@@ -45,4 +45,4 @@ python run_optimization.py -c \
     --ltf_cutoff 0.926 \
     --damping_factor 0.789 \
     --var_database omnipath \
-    --log_file "./log/test_$ALG.log"
+    --id test

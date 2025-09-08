@@ -24,7 +24,8 @@ def write_ligand_target_matrix(
     predictor:LigandActivityPredictor|None=None,
     mat:np.ndarray|None=None,
     row_names:list[str]|None=None,
-    col_names:list[str]|None=None
+    col_names:list[str]|None=None,
+    column_major:bool=True
 ):
     '''
     Writes a ligand-target matrix to a file. 
@@ -41,12 +42,16 @@ def write_ligand_target_matrix(
         the names of the rows
     col_names : list of str or None
         the names of the columns
+    column_major : bool
+        whether to use column_major or row_major data format
     
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     '''
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
         if type(mat) is not np.ndarray:
             raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
@@ -64,10 +69,13 @@ def write_ligand_target_matrix(
         filename,
         "\n".join(row_names).encode("ascii"),
         "\n".join(col_names).encode("ascii"),
-        mat.tobytes()
+        mat.tobytes(order=("F" if column_major else "C"))
     )
 
-def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list[str]]:
+def read_ligand_target_matrix(
+    filename:str,
+    column_major:bool=True
+) -> tuple[np.ndarray, list[str], list[str]]:
     '''
     reads a ligand-target matrix from a file. 
 
@@ -75,6 +83,8 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
     ----------
     filename : str
         the name of the file to read from
+    column_major : bool
+        whether to use column_major or row_major data format
     
     Returns
     -------
@@ -92,13 +102,15 @@ def read_ligand_target_matrix(filename:str) -> tuple[np.ndarray, list[str], list
     '''
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     with open(filename, "rb") as file:
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
     row_names = row_names.decode("ascii").split()
     col_names = col_names.decode("ascii").split()
-    mat = mat.reshape((len(row_names), len(col_names)))
+    mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
     return (mat, row_names, col_names)
 
 def write_sparse_matrix(

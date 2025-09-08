@@ -23,6 +23,7 @@ seuratObj <- old
 #seuratObj[["RNA"]]@meta.data$gene = old@assays[["RNA"]]$counts@Dimnames[[1]]
 #seuratObj[["SCT"]]@meta.data$gene = old@assays[["SCT"]]$counts@Dimnames[[1]]
 seuratObj <- UpdateSeuratObject(seuratObj)
+seuratObj@reductions <- list()
 DefaultAssay(seuratObj) <- "RNA"
 Idents(seuratObj) <- seuratObj$celltype
 'seuratObj@misc = list(

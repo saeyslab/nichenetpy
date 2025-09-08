@@ -14,7 +14,8 @@ from optuna import (
 from optuna.trial import Trial
 from optuna.samplers import (
     TPESampler,
-    NSGAIISampler
+    NSGAIISampler,
+    GPSampler
 )
 from optuna.storages import JournalStorage
 from optuna.storages.journal import (
@@ -111,7 +112,7 @@ if __name__ == "__main__":
         "--algorithm",
         help="the optimization algorithm to use",
         type=str,
-        choices=("TPE", "NSGA-II"),
+        choices=("TPE", "NSGA-II", "GP"),
         default="TPE"
     )
     parser.add_argument(
@@ -157,11 +158,24 @@ if __name__ == "__main__":
         default=[]
     )
     parser.add_argument(
-        "--log_file",
-        help="File in which to store the log of the optimization run. ",
-        default=None
+        "--included_database",
+        help="databases to include in the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
+        "--log_dir",
+        help="Directory in which to store the log of the optimization run. ",
+        default="./log"
+    )
+    parser.add_argument(
+        "--id",
+        help="Identifier of the log",
+        default=""
     )
     args = parser.parse_args()
+    if len(args.included_database) > 0 and len(args.excluded_database) > 0:
+        raise ValueError("included_database and excluded_database are incompatible with eachother")
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -180,7 +194,7 @@ if __name__ == "__main__":
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
-    gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
+    _gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
@@ -189,15 +203,15 @@ if __name__ == "__main__":
         with open(settings_file, "rb") as file:
             settings_CV = json.loads(file.read())
         settings = settings_CV["settings"]
-        gr_network = gr_network[
+        gr_network = _gr_network[
             ~ (
-                (gr_network["database"] == "NicheNet_LT") &
-                np.array([fr not in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
             )
             &
             ~ (
-                (gr_network["database"] == "CytoSig") &
-                np.array([fr not in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
             )
         ]
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
@@ -212,17 +226,17 @@ if __name__ == "__main__":
             init_v = np.array([True for _ in range(df.shape[0])])
             if len(args.excluded_database) > 0:
                 source_names = set(df[
-                    reduce(
-                        and_,
-                        (df["database"] != db for db in args.excluded_database),
-                        init_v
-                    )
+                    [db not in args.excluded_database for db in df["database"]]
+                ]["source"])
+            elif len(args.included_database) > 0:
+                source_names = set(df[
+                    [db in args.included_database for db in df["database"]]
                 ]["source"])
             if len(args.var_database) > 0:
                 bool_v = reduce(
                     and_,
                     (df["database"] != db for db in args.var_database),
-                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 else init_v
+                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
                 )
                 source_names_fixed = set(df[bool_v]["source"])
                 source_names_var = set(df[~bool_v]["source"])
@@ -287,10 +301,9 @@ if __name__ == "__main__":
             return (res[1], res[2])
 
         name = settings_file.split("/")[-1][:-5]
-        log_file = f"./log/{name}_{args.algorithm}.log" if args.log_file is None else args.log_file
-        log_dir = os.path.split(log_file)[0]
-        if not os.path.exists(log_dir):
-            os.mkdir(log_dir)
+        if not os.path.exists(args.log_dir):
+            os.mkdir(args.log_dir)
+        log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
         with open(log_file, "a" if args.c else "w"):
             pass
         lock_obj = JournalFileOpenLock(log_file)
@@ -304,8 +317,8 @@ if __name__ == "__main__":
                 crossover=FlatCrossover(),
                 crossover_prob=1
             )
-        else:
-            raise ValueError(f"{args.algorithm} is not a supported optimization algorithm, supported algorithms are 'TPE' and 'NSGA-II'")
+        elif args.algorithm == "GP":
+            sampler = GPSampler() # heavily slows down over time
         study = create_study(
             sampler=sampler,
             directions=["maximize", "maximize"],
