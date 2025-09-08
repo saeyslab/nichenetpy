@@ -164,15 +164,13 @@ def subset_matrix(
     if type(mat) is np.ndarray:
         if rows is None:
             if cols is None:
-                return mat
+                output = mat
             else:
-                return mat[:, cols]
-        elif cols is None:
-            return np.concatenate([[mat[row, :]] for row in rows])
+                output = mat[:, cols]
         else:
             output = mat[
                 [[row] for row in rows],
-                [col for col in cols]
+                [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
             ]
     elif type(mat) is csc_matrix:
         if cols is None: # rows is not None
