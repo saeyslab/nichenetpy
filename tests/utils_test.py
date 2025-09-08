@@ -238,7 +238,7 @@ def test_subset_data_format_ndarray_0():
         [16, 17, 45, 36],
         [21, 22, 50, 31],
         [26, 27, 31, 29]
-    ], order="C"), rows=(1, 3, 4), cols=(1,3))
+    ], order="C"), rows=(1, 3, 4), cols=(1, 3))
     assert res.flags.c_contiguous
 
 def test_subset_data_format_ndarray_1():
@@ -249,7 +249,51 @@ def test_subset_data_format_ndarray_1():
         [16, 17, 45, 36],
         [21, 22, 50, 31],
         [26, 27, 31, 29]
-    ], order="F"), rows=(1, 3, 4), cols=(1,3))
+    ], order="F"), rows=(1, 3, 4), cols=(1, 3))
+    assert res.flags.c_contiguous
+
+def test_subset_data_format_ndarray_2():
+    res = subset_matrix(np.array([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ], order="C"), rows=(1, 3, 4))
+    assert res.flags.c_contiguous
+
+def test_subset_data_format_ndarray_3():
+    res = subset_matrix(np.array([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ], order="F"), rows=(1, 3, 4))
+    assert res.flags.c_contiguous
+
+def test_subset_data_format_ndarray_4():
+    res = subset_matrix(np.array([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ], order="C"), cols=(1, 3))
+    assert res.flags.f_contiguous
+
+def test_subset_data_format_ndarray_5():
+    res = subset_matrix(np.array([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ], order="F"), cols=(1, 3))
     assert res.flags.f_contiguous
 
 def test_subset_data_format_csr_0():
@@ -260,7 +304,29 @@ def test_subset_data_format_csr_0():
         [16, 17, 45, 36],
         [21, 22, 50, 31],
         [26, 27, 31, 29]
-    ]), rows=(1, 3, 4), cols=(1,3))
+    ]), rows=(1, 3, 4), cols=(1, 3))
+    assert type(res) is csr_matrix
+
+def test_subset_data_format_csr_1():
+    res = subset_matrix(csr_matrix([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ]), rows=(1, 3, 4))
+    assert type(res) is csr_matrix
+
+def test_subset_data_format_csr_2():
+    res = subset_matrix(csr_matrix([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ]), cols=(1, 3))
     assert type(res) is csr_matrix
 
 def test_subset_data_format_csc_0():
@@ -271,7 +337,29 @@ def test_subset_data_format_csc_0():
         [16, 17, 45, 36],
         [21, 22, 50, 31],
         [26, 27, 31, 29]
-    ]), rows=(1, 3, 4), cols=(1,3))
+    ]), rows=(1, 3, 4), cols=(1, 3))
+    assert type(res) is csc_matrix
+
+def test_subset_data_format_csc_0():
+    res = subset_matrix(csc_matrix([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ]), rows=(1, 3, 4))
+    assert type(res) is csc_matrix
+
+def test_subset_data_format_csc_0():
+    res = subset_matrix(csc_matrix([
+        [1, 2, 27, 0],
+        [6, 7, 4, 42],
+        [11, 12, 25, 32],
+        [16, 17, 45, 36],
+        [21, 22, 50, 31],
+        [26, 27, 31, 29]
+    ]), cols=(1, 3))
     assert type(res) is csc_matrix
 
 def remove_zero_rows_cols_template(input, exp):

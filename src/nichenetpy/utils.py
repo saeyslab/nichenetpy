@@ -150,6 +150,11 @@ def subset_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+    
+    Note
+    ----
+    if the rows of a numpy.ndarray are subsetted, the output is row-major
+    if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
     '''
     if rows is not None and type(rows) is not tuple and type(rows) is not list and type(rows) is not np.ndarray:
         raise TypeError(f"rows should be of type list, tuple or numpy.ndarray, was {type(rows)}")
