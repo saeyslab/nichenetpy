@@ -414,6 +414,8 @@ def construct_ligand_target_matrix(
     ----------
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
+    lr_network : pandas.DataFrame
+        the ligand-receptor network
     ligands : Iterable[str|Iterable[str]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
