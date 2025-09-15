@@ -1,5 +1,5 @@
 import pytest
-from nichenetpy.gene_symbol import mouse_alias_info, human_alias_info
+from nichenetpy.gene_symbol import mouse_alias_info, human_alias_info, gene_info
 
 def template_gene_alias_info(alias_info, alias, exp):
     res = alias_info[alias]
@@ -63,3 +63,27 @@ def test_alias_to_symbol_no_list():
 def test_alias_to_symbol_not_iterable():
     with pytest.raises(Exception):
         mouse_alias_info.alias_to_symbol(72)
+
+def convert_human_to_mouse_template(input, exp, sort=False):
+    res = list(gene_info.convert_human_to_mouse_symbols(input))
+    if sort:
+        res.sort()
+    assert res == exp, f"expected mouse_alias_info({input}) == {exp}, got {res}"
+
+def convert_mouse_to_human_template(input, exp, sort=False):
+    res = list(gene_info.convert_mouse_to_human_symbols(input))
+    if sort:
+        res.sort()
+    assert res == exp, f"expected mouse_alias_info({input}) == {exp}, got {res}"
+
+def test_convert_human_to_mouse_0():
+    convert_human_to_mouse_template(
+        ["MSC", "A2M", "CTAGE4", "CYCTP", "TRD", "ENO3", "BRCC3"],
+        ["Msc", "A2m", None, None, None, "Eno3", "Brcc3"]
+    )
+
+def test_convert_mouse_to_human_0():
+    convert_mouse_to_human_template(
+        ["Boll", "Ts(1<13>)70H", "Igkv11-125", "A2m", "Rps27rt", "Gm45261", "A1cf"],
+        ["BOLL", None, None, "A2M", "RPS27", None, "A1CF"]
+    )

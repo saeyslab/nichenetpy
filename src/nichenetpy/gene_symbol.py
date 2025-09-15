@@ -1,6 +1,8 @@
-import os
 from anndata import AnnData
 from collections.abc import Iterable
+from itertools import chain
+
+import os
 
 
 _root = os.path.dirname(__file__)
@@ -90,12 +92,119 @@ class GeneAliasInfo:
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
-mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
+mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_mouse.csv"))
 '''
-gene alias info for mice (3845 kb)
+gene alias info for mice
 '''
 
-human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_human.csv"))
+human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_human.csv"))
 '''
-gene alias info for humans (3845 kb)
+gene alias info for humans
+'''
+
+class GeneInfo:
+    '''
+    This class facilitates gene conversion between mouse and human symbols. 
+
+    Parameters
+    ----------
+    filename : str
+        name of the file to read gene alias information from
+    
+    Raises
+    ------
+    TypeError
+        if filename is not of the correct type
+    '''
+    def __init__(self, filename:str):
+        if type(filename) is not str:
+            raise TypeError(f"filename should have type str, was {type(filename)}")
+        with open(filename) as file:
+            lines = file.readlines()
+        symbol, _, _, symbol_mouse = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))
+        symbol = [None if e == "NA" else e for e in symbol]
+        symbol_mouse = [None if e == "NA" else e for e in symbol_mouse]
+        count_mouse = dict()
+        for sm in symbol_mouse:
+            if sm in count_mouse:
+                count_mouse[sm] += 1
+            else:
+                count_mouse[sm] = 1
+        unambiguous_mouse_genes = []
+        ambiguous_mouse_genes = []
+        for i, sm in enumerate(symbol_mouse):
+            if sm is not None:
+                (ambiguous_mouse_genes if count_mouse[sm] > 1 else unambiguous_mouse_genes).append(i)
+        print([(symbol[i], symbol_mouse[i]) for i in unambiguous_mouse_genes if symbol[i] == "BRCC3"])
+        print([(symbol[i], symbol_mouse[i]) for i in ambiguous_mouse_genes if symbol[i] == "BRCC3"])
+        self._human2mouse = dict(
+            (symbol[i], symbol_mouse[i])
+            for i in chain(unambiguous_mouse_genes, (j for j in ambiguous_mouse_genes if symbol[j] == symbol_mouse[j].upper()))
+        )
+        self._mouse2human = dict((v, k) for k, v in self._human2mouse.items())
+
+    def __getitem__(self, key:str) -> tuple[str, str]:
+        if key in self._human2mouse:
+            return self._human2mouse[key]
+        elif key in self._mouse2human:
+            return self._mouse2human[key]
+        else:
+            raise KeyError(f"{key} is not a recognized gene")
+    
+    def __contains__(self, item):
+        return item in self._human2mouse or item in self._mouse2human
+    
+    def convert_human_to_mouse_symbols(self, symbols:Iterable[str]) -> Iterable[str]:
+        '''
+        Converts human gene symbols to their mouse one-to-one orthologs
+
+        Parameters
+        ----------
+        symbols : Iterable of str
+            the human gene symbols to convert
+        
+        Returns
+        -------
+        Iterable of str
+            the mouse gene symbols
+        
+        Raises
+        ------
+        KeyError
+            if a gene symbol isn't recognized
+        '''
+        for symbol in symbols:
+            try:
+                yield self._human2mouse[symbol]
+            except KeyError:
+                yield None
+    
+    def convert_mouse_to_human_symbols(self, symbols:Iterable[str]) -> Iterable[str]:
+        '''
+        Converts mouse gene symbols to their human one-to-one orthologs
+
+        Parameters
+        ----------
+        symbols : Iterable of str
+            the mouse gene symbols to convert
+        
+        Returns
+        -------
+        Iterable of str
+            the human gene symbols
+        
+        Raises
+        ------
+        KeyError
+            if a gene symbol isn't recognized
+        '''
+        for symbol in symbols:
+            try:
+                yield self._mouse2human[symbol]
+            except KeyError:
+                yield None
+
+gene_info = GeneInfo(os.path.join(_root, "../../data/gene_info/geneinfo.csv"))
+'''
+mapper between mouse and human symbols
 '''
