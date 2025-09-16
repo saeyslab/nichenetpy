@@ -34,7 +34,7 @@ python run_optimization.py -c \
     $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
-    --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
+    $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
     --n_trials 100 \
     --n_process 12 \
     --algorithm $ALG \

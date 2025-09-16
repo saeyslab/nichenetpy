@@ -1,7 +1,7 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=30
-#PBS -l walltime=72:00:00
-#PBS -l mem=230gb
+#PBS -l nodes=1:ppn=3
+#PBS -l walltime=5:00:00
+#PBS -l mem=30gb
 
 # Pass the cluster argument using -v, for example:
 # qsub run_performance.pbs -v cluster=doduo
@@ -27,19 +27,18 @@ source $VSC_DATA/$VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="TPE"
+ALG="GP"
 
 # Run the script
-python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/output/output_no_cytosig_lt.pkl \
+python -W "ignore" run_optimization.py -c \
     $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 480 \
-    --n_process 30 \
+    --n_trials 40 \
+    --n_process 3 \
     --algorithm $ALG \
     --source_path ./source_files \
-    --excluded_database CytoSig \
-    --excluded_database NicheNet_LT \
-    --id no_direct_links
+    --included_database CytoSig \
+    --included_database NicheNet_LT \
+    --id only_direct_links

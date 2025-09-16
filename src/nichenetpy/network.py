@@ -60,7 +60,7 @@ class Network:
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key:str) -> list[str]:
+    def __getitem__(self, key) -> list:
         try:
             start, count = self._index[key]
         except KeyError:
@@ -73,7 +73,7 @@ class Network:
     def __iter__(self):
         return self._mapping.__iter__()
     
-    def __contains__(self, item):
+    def __contains__(self, item:tuple):
         start, count = self._index[item[0]]
         return item in self._mapping[start:start+count]
     

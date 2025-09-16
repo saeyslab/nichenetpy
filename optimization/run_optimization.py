@@ -82,7 +82,7 @@ if __name__ == "__main__":
         help="path to the sig_network file"
     )
     parser.add_argument(
-        "--settings_file",
+        "settings_file",
         help="path to the settings file for training",
     )
     parser.add_argument(
