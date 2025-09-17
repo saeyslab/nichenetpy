@@ -68,13 +68,13 @@ def convert_human_to_mouse_template(input, exp, sort=False):
     res = list(gene_info.convert_human_to_mouse_symbols(input))
     if sort:
         res.sort()
-    assert res == exp, f"expected mouse_alias_info({input}) == {exp}, got {res}"
+    assert res == exp, f"expected gene_info.convert_human_to_mouse_symbols({input}) == {exp}, got {res}"
 
 def convert_mouse_to_human_template(input, exp, sort=False):
     res = list(gene_info.convert_mouse_to_human_symbols(input))
     if sort:
         res.sort()
-    assert res == exp, f"expected mouse_alias_info({input}) == {exp}, got {res}"
+    assert res == exp, f"expected gene_info.convert_mouse_to_human_symbols({input}) == {exp}, got {res}"
 
 def test_convert_human_to_mouse_0():
     convert_human_to_mouse_template(
@@ -84,8 +84,14 @@ def test_convert_human_to_mouse_0():
 
 def test_convert_human_to_mouse_1():
     convert_human_to_mouse_template(
-        ["Adh1", "Clec2m", "Alg10b", "Fbxw10"],
-        [None, None, "ALG10B", "FBXW10"]
+        ["FABP9", "SPATA22", "CES3", "CYP4F8"],
+        ["Fabp9", "Spata22", "Ces3b", "Cyp4f37"]
+    )
+
+def test_convert_human_to_mouse_2():
+    convert_human_to_mouse_template(
+        ["PRAMEF14", "PRAMEF15", "PRAMEF17", "PRAMEF20"],
+        [None, None, None, None]
     )
 
 def test_convert_mouse_to_human_0():
@@ -96,6 +102,12 @@ def test_convert_mouse_to_human_0():
 
 def test_convert_mouse_to_human_1():
     convert_mouse_to_human_template(
-        ["FABP9", "SPATA22", "CES3", "CYP4F8"],
-        ["Fabp9", "Spata22", "Ces3b", "Cyp4f37"]
+        ["Adh1", "Clec2m", "Alg10b", "Fbxw10"],
+        [None, None, "ALG10B", "FBXW10"]
+    )
+
+def test_convert_mouse_to_human_2():
+    convert_mouse_to_human_template(
+        ["Ssxb3", "Ssx9", "Ssxb10", "Ssxb9"],
+        [None, None, None, None]
     )

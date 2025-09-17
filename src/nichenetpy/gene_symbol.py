@@ -125,18 +125,15 @@ class GeneInfo:
             lines = file.readlines()
         symbol, _, _, symbol_mouse = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))
         entries = [(sh, sm) for sh, sm in zip(symbol, symbol_mouse) if sh != "NA" and sm != "NA"]
+        # one to many
         self._human2mouse = Network(
             sorted(
                 entries,
                 key=lambda x : x[0]
             )
         )
-        self._mouse2human = Network(
-            sorted(
-                ((sm, sh) for sh, sm in entries),
-                key=lambda x : x[0]
-            )
-        )
+        # one to one
+        self._mouse2human = dict(zip(symbol_mouse, symbol))
 
     def __getitem__(self, key:str) -> tuple[str, str]:
         if key in self._human2mouse._index:
@@ -168,17 +165,11 @@ class GeneInfo:
         KeyError
             if a gene symbol isn't recognized
         '''
+        # this does the same as the NicheNetR equivalent but it makes no sense to me (Victor)
         for symbol in symbols:
             if symbol in self._human2mouse._index:
-                mapping = self._human2mouse[symbol]
-                if len(mapping) > 1:
-                    lwr = f"{symbol[0]}{symbol[1:].lower()}"
-                    if lwr in mapping:
-                        yield lwr
-                    else:
-                        yield None
-                else:
-                    yield next(iter(mapping))
+                mapping = self._human2mouse.mapping_iter(symbol)
+                yield next(mapping)
             else:
                 yield None
     
@@ -202,17 +193,9 @@ class GeneInfo:
             if a gene symbol isn't recognized
         '''
         for symbol in symbols:
-            if symbol in self._mouse2human._index:
-                mapping = self._mouse2human[symbol]
-                if len(mapping) > 1:
-                    upr = symbol.upper()
-                    if upr in mapping:
-                        yield upr
-                    else:
-                        yield None
-                else:
-                    yield next(iter(mapping))
-            else:
+            try:
+                yield self._mouse2human[symbol]
+            except KeyError:
                 yield None
 
 gene_info = GeneInfo(os.path.join(_root, "../../data/gene_info/geneinfo.csv"))
