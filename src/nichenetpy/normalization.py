@@ -198,7 +198,7 @@ def scaling_zscore(data:list[float]|np.ndarray|pd.Series) -> list[float]|np.ndar
             return [0]
         sd = np.std(data)
         avg = np.mean(data)
-        return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
+        return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
     elif type(data) is np.ndarray or type(data) is pd.Series:
         if len(data) == 1:
             return np.array([0])
@@ -213,7 +213,7 @@ def scaling_modified_zscore(
     scale_factor:float=0.6744907594765952
 ) -> list[float]|np.ndarray|pd.Series:
     '''
-    Normalize values by the modified z-score method (uses median and median absolute deviation instead mean)
+    Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)
 
     Parameters
     ----------
@@ -236,16 +236,16 @@ def scaling_modified_zscore(
     if type(data) is list:
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
-            return [0.6745 * (x - md) for x in data]
+            return [scale_factor * (x - md) for x in data]
         else:
             mad = median_abs_deviation(data, scale=scale_factor)
-            return [0.6745 * (x - md) / mad for x in data]
+            return [scale_factor * (x - md) / mad for x in data]
     elif type(data) is np.ndarray or type(data) is pd.Series:
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
-            return 0.6745 * (data - md)
+            return scale_factor * (data - md)
         else:
-            mad = median_abs_deviation(data, scale=scale_factor) # TODO: check if multiplication can be removed and scale set to 1
-            return 0.6745 * (data - md) / mad
+            mad = median_abs_deviation(data, scale=scale_factor)
+            return scale_factor * (data - md) / mad
     else:
         raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")

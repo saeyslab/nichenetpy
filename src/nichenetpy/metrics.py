@@ -172,7 +172,9 @@ def calculate_prediction_evaluation_metrics(
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
     aupr = calculate_aupr(response, prediction)
     auroc = calculate_auroc(response, prediction)
+    warnings.filterwarnings("ignore")
     pcc = pearsonr(response, prediction).statistic
+    warnings.filterwarnings("default")
     return {
         "auroc": auroc,
         "pearson": pcc,
@@ -345,6 +347,8 @@ def group_metrics(
     RuntimeError
         if there are no cells in the group of interest
         if there are no cells in the reference group
+    ValueError
+        if the arguments are invalid
     
     Notes
     -----
@@ -380,7 +384,10 @@ def group_metrics(
     else:
         mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    groups = sorted(set(ann.obs[groupby]))
+    try:
+        groups = sorted(set(ann.obs[groupby]))
+    except KeyError:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
     pct = []
     if group_oi is None:
@@ -430,7 +437,7 @@ def group_metrics(
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
         ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
-    if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
+    if wilcoxon_limma:
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])
         pvals = {group: [] for group in groups}

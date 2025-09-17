@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=23
+#PBS -l nodes=1:ppn=30
 #PBS -l walltime=72:00:00
 #PBS -l mem=230gb
 
@@ -27,15 +27,19 @@ source $VSC_DATA/$VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="GP"
+ALG="TPE"
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/output/output-GP.pkl \
+    $VSC_DATA/nichenetpy/output/output_no_cytosig_lt.pkl \
     $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 300 \
-    --n_process 23 \
-    --algorithm $ALG
+    --n_trials 480 \
+    --n_process 30 \
+    --algorithm $ALG \
+    --source_path ./source_files \
+    --excluded_database CytoSig \
+    --excluded_database NicheNet_LT \
+    --id no_direct_links

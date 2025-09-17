@@ -53,3 +53,9 @@ classifiers = [
 markers = [
     "large_download",
 ]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/*.py",
+  "data/*"
+]

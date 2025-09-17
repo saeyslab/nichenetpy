@@ -61,7 +61,10 @@ class Network:
         return self._mapping.__str__()
 
     def __getitem__(self, key:str) -> list[str]:
-        start, count = self._index[key]
+        try:
+            start, count = self._index[key]
+        except KeyError:
+            raise KeyError(f"there is no edge with '{key}' as source")
         return set(item[1] for item in self._mapping[start:start+count])
     
     def __len__(self):

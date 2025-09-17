@@ -67,6 +67,8 @@ def get_expressed_genes(
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
+    if pct > 1 or pct < 0:
+        raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
         cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
     except KeyError:

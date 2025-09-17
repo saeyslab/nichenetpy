@@ -31,7 +31,10 @@ class GeneAliasInfo:
         return self._mapping.__str__()
 
     def __getitem__(self, key:str) -> tuple[str, str]:
-        return self._mapping[key]
+        try:
+            return self._mapping[key]
+        except KeyError:
+            raise KeyError(f"{key} is not a recognized gene")
     
     def __iter__(self):
         return self._mapping.__iter__()
@@ -73,6 +76,7 @@ class GeneAliasInfo:
                     counts[ngene] += 1
                 else:
                     counts[ngene] = 1
+            # revert duplicate symbols back to the original symbols
             doubles = [i for i, ngene in enumerate(output) if counts[ngene] > 1]
             for i in doubles:
                 output[i] = obj[i]

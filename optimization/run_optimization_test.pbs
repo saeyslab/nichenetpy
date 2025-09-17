@@ -1,7 +1,7 @@
 #!/bin/bash -l
-#PBS -l nodes=1:ppn=23
-#PBS -l walltime=72:00:00
-#PBS -l mem=230gb
+#PBS -l nodes=1:ppn=16
+#PBS -l walltime=24:00:00
+#PBS -l mem=80gb
 
 # Pass the cluster argument using -v, for example:
 # qsub run_performance.pbs -v cluster=doduo
@@ -27,15 +27,22 @@ source $VSC_DATA/$VENV_NAME/bin/activate
 unset OMP_PROC_BIND
 export OMP_NUM_THREADS=1
 
-ALG="GP"
+ALG="TPE"
 
 # Run the script
 python run_optimization.py -c \
-    $VSC_DATA/nichenetpy/output/output-GP.pkl \
+    $VSC_DATA/nichenetpy/output/output_test.pkl \
     $VSC_DATA/nichenetpy/model_construction/gr_human_optimization.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_network_human.csv \
     $VSC_DATA/nichenetpy/model_construction/lr_sig_human.csv \
     --settings_file $VSC_DATA/nichenetpy/model_optimization/settings_training_f1234.json \
-    --n_trials 300 \
-    --n_process 23 \
-    --algorithm $ALG
+    --n_trials 160 \
+    --n_process 16 \
+    --algorithm $ALG \
+    --source_path ./source_files \
+    --lr_sig_hub 0.115 \
+    --gr_hub 0.0803 \
+    --ltf_cutoff 0.926 \
+    --damping_factor 0.789 \
+    --var_database omnipath \
+    --id test

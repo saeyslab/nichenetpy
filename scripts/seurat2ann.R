@@ -3,10 +3,10 @@ library("Seurat")
 library("SeuratObject")
 library("hdf5r")
 setwd('D:/Data/nichenetpy')
-old <- readRDS("./seurat/seurat_obj_subset_integrated_zonation.rds")
+old <- readRDS("./seurat/seuratObj3531889.rds")
 seuratObj <- old
-seuratObj$RNA <- ScaleData(old$RNA)
-seuratObj$SCT <- ScaleData(old$SCT)
+#seuratObj$RNA <- ScaleData(old$RNA)
+#seuratObj$SCT <- ScaleData(old$SCT)
 #seuratObj <- PrepSCTFindMarkers(seuratObj, assay = "SCT")
 #seuratObj <- CreateSeuratObject(
 #  counts = GetAssayData(old, layer="counts"),
@@ -23,7 +23,8 @@ seuratObj$SCT <- ScaleData(old$SCT)
 #seuratObj[["RNA"]]@meta.data$gene = old@assays[["RNA"]]$counts@Dimnames[[1]]
 #seuratObj[["SCT"]]@meta.data$gene = old@assays[["SCT"]]$counts@Dimnames[[1]]
 seuratObj <- UpdateSeuratObject(seuratObj)
-DefaultAssay(seuratObj) <- "SCT"
+seuratObj@reductions <- list()
+DefaultAssay(seuratObj) <- "RNA"
 Idents(seuratObj) <- seuratObj$celltype
 'seuratObj@misc = list(
   cell_attr=SCTResults(object = seuratObj[["SCT"]], slot = "cell.attributes"),
@@ -37,7 +38,7 @@ Idents(seuratObj) <- seuratObj$celltype
 ann <- anndataR::as_AnnData(
   seuratObj,
   output_class="InMemory",
-  assay_name="SCT"
+  assay_name="RNA"
 )
 anndataR::write_h5ad(
   ann,
