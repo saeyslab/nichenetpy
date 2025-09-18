@@ -66,14 +66,18 @@ class LigandActivityPredictor:
     ) -> None:
         self.ligand_target_matrix = ligand_target_matrix
         if type(ligand_target_matrix) is csr_matrix:
-            warnings.warn("a scipy.csr_matrix was passed, this will result in very slow column indexing and is therefore not recommended for a NicheNet analysis")
+            warnings.warn("a scipy.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format")
+            if self.matrix_density() > 0.5:
+                self.ligand_target_matrix = self.ligand_target_matrix.toarray(order="F")
+            else:
+                self.ligand_target_matrix = csc_matrix(self.ligand_target_matrix)
         elif type(ligand_target_matrix) is csc_matrix:
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead")
         elif type(ligand_target_matrix) is np.ndarray:
             if ligand_target_matrix.flags.c_contiguous:
-                warnings.warn(f"a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing")
+                warnings.warn("a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing")
         else:
             raise TypeError(f"ligand_target_matrix should have type numpy.ndarray, scipy.csr_matrix or scipy.csc_matrix, was {type(ligand_target_matrix)}")
         if type(row_names) is not list and type(row_names) is not tuple:
@@ -190,22 +194,7 @@ class LigandActivityPredictor:
             raise IndexError(f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}")
         if type(self.ligand_target_matrix) is np.ndarray:
             return self.ligand_target_matrix[:, index]
-        elif type(self.ligand_target_matrix) is csr_matrix:
-            # this is so slow it should be avoided
-            col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
-            for i in range(self.ligand_target_matrix.shape[0]):
-                j = np.where(
-                    self.ligand_target_matrix.indices[
-                        self.ligand_target_matrix.indptr[i]:self.ligand_target_matrix.indptr[i+1]
-                    ] == index
-                )[0]
-                if len(j) == 1:
-                    j = j[0]
-                    col[j] = self.ligand_target_matrix.data[
-                        self.ligand_target_matrix.indptr[i]:self.ligand_target_matrix.indptr[i+1]
-                    ][j]
-            return np.array(col)
-        else:
+        else: # csc_matrix
             indices_non_zero = self.ligand_target_matrix.indices[
                 self.ligand_target_matrix.indptr[index]:self.ligand_target_matrix.indptr[index+1]
             ]
@@ -515,6 +504,22 @@ class LigandActivityPredictor:
             the ratio of genes that are present in the ligand-target matrix
         '''
         return len(self.get_genes().intersection(genes))/len(genes)
+    
+    def ligand_presence(self, ligands:Iterable[str]) -> float:
+        '''
+        calculate the ratio of ligands that are present in the ligand-target matrix
+
+        Parameters
+        ----------
+        ligands : Iterable of str
+            the ligands to check for
+
+        Returns
+        -------
+        float
+            the ratio of ligands that are present in the ligand-target matrix
+        '''
+        return len(self.get_ligands().intersection(ligands))/len(ligands)
 
 def assess_rf_class_probabilities(
     folds:int,

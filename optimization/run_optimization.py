@@ -26,7 +26,7 @@ from optuna.samplers.nsgaii import (
     BaseCrossover
 )
 from itertools import chain
-from pickle import dumps
+from pickle import dumps, loads
 from joblib import Parallel, delayed
 from functools import reduce
 from operator import and_
@@ -70,10 +70,6 @@ if __name__ == "__main__":
         description="optimize the source weights and hyperparameters"
     )
     parser.add_argument(
-        "out_file",
-        help="path to the output file"
-    )
-    parser.add_argument(
         "gr_network_file",
         help="path to the gr_network file"
     )
@@ -86,10 +82,8 @@ if __name__ == "__main__":
         help="path to the sig_network file"
     )
     parser.add_argument(
-        "--settings_file",
+        "settings_file",
         help="path to the settings file for training",
-        action="append",
-        default=[]
     )
     parser.add_argument(
         "--n_trials",
@@ -190,7 +184,7 @@ if __name__ == "__main__":
                 with open(file_path, "wb") as file:
                     file.write(res.content)
         optimized_source_weights = tuple(zip(*read_csv_rows(os.path.join(source_path, "optimized_source_weights.csv"))[1]))
-        optimized_source_weights = dict(zip(optimized_source_weights[0], [float(e) for e in optimized_source_weights[1]]))
+        optimized_source_weights = dict(zip(optimized_source_weights[0], (float(e) for e in optimized_source_weights[1])))
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
@@ -198,135 +192,130 @@ if __name__ == "__main__":
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
-    optimal_parameters = dict()
-    for settings_file in args.settings_file:
-        with open(settings_file, "rb") as file:
-            settings_CV = json.loads(file.read())
-        settings = settings_CV["settings"]
-        gr_network = _gr_network[
-            ~ (
-                (_gr_network["database"] == "NicheNet_LT") &
-                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
-            )
-            &
-            ~ (
-                (_gr_network["database"] == "CytoSig") &
-                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
-            )
-        ]
-        source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-        if args.source_path is not None:
-            df = pd.DataFrame(
-                {"source": source_names}
-            ).merge(
-                source_annotations,
-                on="source",
-                how="inner"
-            )
-            init_v = np.array([True for _ in range(df.shape[0])])
-            if len(args.excluded_database) > 0:
-                source_names = set(df[
-                    [db not in args.excluded_database for db in df["database"]]
-                ]["source"])
-            elif len(args.included_database) > 0:
-                source_names = set(df[
-                    [db in args.included_database for db in df["database"]]
-                ]["source"])
-            if len(args.var_database) > 0:
-                bool_v = reduce(
-                    and_,
-                    (df["database"] != db for db in args.var_database),
-                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
-                )
-                source_names_fixed = set(df[bool_v]["source"])
-                source_names_var = set(df[~bool_v]["source"])
-
-        def objective(trial:Trial):
-            if args.source_path is not None and len(args.var_database) > 0:
-                source_weights = dict(
-                    (
-                        source_name,
-                        trial.suggest_float(
-                            name=source_name,
-                            low=0,
-                            high=1
-                        )
-                    ) for source_name in source_names_var
-                )
-                for source_name in source_names_fixed:
-                    if source_name in optimized_source_weights:
-                        source_weights[source_name] = optimized_source_weights[source_name]
-            else:
-                source_weights = dict(
-                    (
-                        source_name,
-                        trial.suggest_float(
-                            name=source_name,
-                            low=0,
-                            high=1
-                        )
-                    ) for source_name in source_names
-                )
-            lr_sig_hub = trial.suggest_float(
-                name="lr_sig_hub",
-                low=0,
-                high=1
-            ) if args.lr_sig_hub is None else args.lr_sig_hub
-            gr_hub = trial.suggest_float(
-                name="gr_hub",
-                low=0,
-                high=1
-            ) if args.gr_hub is None else args.gr_hub
-            ltf_cutoff = trial.suggest_float(
-                name="ltf_cutoff",
-                low=0.9,
-                high=0.999
-            ) if args.ltf_cutoff is None else args.ltf_cutoff
-            damping_factor = trial.suggest_float(
-                name="damping_factor",
-                low=0.01,
-                high=0.99
-            ) if args.damping_factor is None else args.damping_factor
-            res = construct_and_evaluate(
-                source_weights,
-                lr_sig_hub,
-                gr_hub,
-                ltf_cutoff,
-                damping_factor,
-                lr_network,
-                gr_network,
-                sig_network,
-                settings
-            )
-            return (res[1], res[2])
-
-        name = settings_file.split("/")[-1][:-5]
-        if not os.path.exists(args.log_dir):
-            os.mkdir(args.log_dir)
-        log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
-        with open(log_file, "a" if args.c else "w"):
-            pass
-        lock_obj = JournalFileOpenLock(log_file)
-        storage = JournalStorage(
-            JournalFileBackend(log_file, lock_obj)
+    with open(args.settings_file, "rb") as file:
+        settings_CV = json.loads(file.read())
+    settings = settings_CV["settings"]
+    gr_network = _gr_network[
+        ~ (
+            (_gr_network["database"] == "NicheNet_LT") &
+            np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
         )
-        if args.algorithm == "TPE":
-            sampler = TPESampler()
-        elif args.algorithm == "NSGA-II":
-            sampler = NSGAIISampler(
-                crossover=FlatCrossover(),
-                crossover_prob=1
-            )
-        elif args.algorithm == "GP":
-            sampler = GPSampler() # heavily slows down over time
-        study = create_study(
-            sampler=sampler,
-            directions=["maximize", "maximize"],
-            study_name=name,
-            storage=storage,
-            load_if_exists=args.c
+        &
+        ~ (
+            (_gr_network["database"] == "CytoSig") &
+            np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
         )
-        parallel(optimize(name, storage, sampler) for _ in range(args.n_process))
-        optimal_parameters[name] = [trial.params for trial in study.best_trials]
-    with open(args.out_file, "wb") as file:
-        file.write(dumps(optimal_parameters))
+    ]
+    source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
+    if args.source_path is not None:
+        df = pd.DataFrame(
+            {"source": source_names}
+        ).merge(
+            source_annotations,
+            on="source",
+            how="inner"
+        )
+        init_v = np.array([True for _ in range(df.shape[0])])
+        if len(args.excluded_database) > 0:
+            source_names = set(df[
+                [db not in args.excluded_database for db in df["database"]]
+            ]["source"])
+        elif len(args.included_database) > 0:
+            source_names = set(df[
+                [db in args.included_database for db in df["database"]]
+            ]["source"])
+        if len(args.var_database) > 0:
+            bool_v = reduce(
+                and_,
+                (df["database"] != db for db in args.var_database),
+                np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
+            )
+            source_names_fixed = set(df[bool_v]["source"])
+            source_names_var = set(df[~bool_v]["source"])
+
+    def objective(trial:Trial):
+        if args.source_path is not None and len(args.var_database) > 0:
+            source_weights = dict(
+                (
+                    source_name,
+                    trial.suggest_float(
+                        name=source_name,
+                        low=0,
+                        high=1
+                    )
+                ) for source_name in source_names_var
+            )
+            for source_name in source_names_fixed:
+                if source_name in optimized_source_weights:
+                    source_weights[source_name] = optimized_source_weights[source_name]
+        else:
+            source_weights = dict(
+                (
+                    source_name,
+                    trial.suggest_float(
+                        name=source_name,
+                        low=0,
+                        high=1
+                    )
+                ) for source_name in source_names
+            )
+        lr_sig_hub = trial.suggest_float(
+            name="lr_sig_hub",
+            low=0,
+            high=1
+        ) if args.lr_sig_hub is None else args.lr_sig_hub
+        gr_hub = trial.suggest_float(
+            name="gr_hub",
+            low=0,
+            high=1
+        ) if args.gr_hub is None else args.gr_hub
+        ltf_cutoff = trial.suggest_float(
+            name="ltf_cutoff",
+            low=0.9,
+            high=0.999
+        ) if args.ltf_cutoff is None else args.ltf_cutoff
+        damping_factor = trial.suggest_float(
+            name="damping_factor",
+            low=0.01,
+            high=0.99
+        ) if args.damping_factor is None else args.damping_factor
+        res = construct_and_evaluate(
+            source_weights,
+            lr_sig_hub,
+            gr_hub,
+            ltf_cutoff,
+            damping_factor,
+            lr_network,
+            gr_network,
+            sig_network,
+            settings
+        )
+        return (res[1], res[2])
+
+    name = args.settings_file.split("/")[-1][:-5]
+    if not os.path.exists(args.log_dir):
+        os.mkdir(args.log_dir)
+    log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
+    with open(log_file, "a" if args.c else "w"):
+        pass
+    lock_obj = JournalFileOpenLock(log_file)
+    storage = JournalStorage(
+        JournalFileBackend(log_file, lock_obj)
+    )
+    if args.algorithm == "TPE":
+        sampler = TPESampler()
+    elif args.algorithm == "NSGA-II":
+        sampler = NSGAIISampler(
+            crossover=FlatCrossover(),
+            crossover_prob=1
+        )
+    elif args.algorithm == "GP":
+        sampler = GPSampler(deterministic_objective=True)
+    study = create_study(
+        sampler=sampler,
+        directions=["maximize", "maximize"],
+        study_name=name,
+        storage=storage,
+        load_if_exists=args.c
+    )
+    parallel(optimize(name, storage, sampler) for _ in range(args.n_process))

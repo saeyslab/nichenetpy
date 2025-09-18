@@ -185,7 +185,7 @@ def evaluate_single_importances_ligand_prediction(
     group:str
 ) -> pd.DataFrame:
     '''
-    Evaluate how well a single ligand importance score is able to predict the true activity state of a ligand.
+    Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
     For this it is assumed, that ligand importance measures for truely active ligands will be higher than for
     non-active ligands. Several classification evaluation metrics for the prediction are calculated and variable
     importance scores can be extracted to rank the different importance measures in order of importance for ligand
