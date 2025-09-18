@@ -504,6 +504,22 @@ class LigandActivityPredictor:
             the ratio of genes that are present in the ligand-target matrix
         '''
         return len(self.get_genes().intersection(genes))/len(genes)
+    
+    def ligand_presence(self, ligands:Iterable[str]) -> float:
+        '''
+        calculate the ratio of ligands that are present in the ligand-target matrix
+
+        Parameters
+        ----------
+        ligands : Iterable of str
+            the ligands to check for
+
+        Returns
+        -------
+        float
+            the ratio of ligands that are present in the ligand-target matrix
+        '''
+        return len(self.get_ligands().intersection(ligands))/len(ligands)
 
 def assess_rf_class_probabilities(
     folds:int,
