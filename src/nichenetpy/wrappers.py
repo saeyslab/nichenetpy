@@ -70,7 +70,7 @@ def get_geneset_oi(
 
     Parameters
     ----------
-    ann : AnnData or Mudata
+    data : AnnData or Mudata
         the AnnData or MuData object to extract expressed genes from
     receiver : str
         the receiver cell type
@@ -212,7 +212,7 @@ def run_nichenet(
 
     Parameters
     ----------
-    ann : AnnData
+    data : AnnData
         the AnnData object
     predictor : LigandActivityPredictor
         the predictor which contains the ligand-target matrix
@@ -383,7 +383,8 @@ def run_nichenet(
                 data,
                 pct=expression_pct,
                 celltype_col=celltype_col,
-                layer=layer
+                layer=layer,
+                modality=modality
             )
         }
         expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
@@ -411,18 +412,26 @@ def run_nichenet(
                 lr_network,
                 lr_sig
             )
-        ann_focused = subset_ann(
-            data,
-            val=sender_celltypes,
-            layers=[layer],
-            val_col=celltype_col
-        )
-        ann_focused.X = ann_focused.layers[layer]
-        output["ann_focused"] = ann_focused
+        if type(data) is AnnData:
+            data_focused = subset_ann(
+                data,
+                val=sender_celltypes,
+                layers=[layer],
+                val_col=celltype_col
+            )
+            data_focused.X = data_focused.layers[layer]
+        elif type(data) is MuData:
+            data_focused = subset_mu(
+                data,
+                val=sender_celltypes,
+                modality_layers={modality: [layer]},
+                val_col=celltype_col
+            )
+        output["data_focused"] = data_focused
         if get_lfc:
             output["lfcs"] = [
                 get_lfc_celltype(
-                    data,
+                    data[modality],
                     celltype,
                     condition_col=condition_col,
                     condition_oi=condition_oi,

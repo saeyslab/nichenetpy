@@ -391,10 +391,10 @@ def group_metrics(
         mat = data.layers[layer]
         genes = data.var_names
     else:
-        mat, genes = _subset_layer(ann, layer, features)
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+        mat, genes = _subset_layer(data, layer, features)
+    row2index = dict(zip(data.obs.index, range(len(data.obs.index))))
     try:
-        groups = sorted(set(ann.obs[groupby]))
+        groups = sorted(set(data.obs[groupby]))
     except KeyError:
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
