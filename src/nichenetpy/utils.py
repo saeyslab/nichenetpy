@@ -150,6 +150,11 @@ def subset_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+    
+    Note
+    ----
+    if the rows of a numpy.ndarray are subsetted, the output is row-major
+    if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
     '''
     if rows is not None and type(rows) is not tuple and type(rows) is not list and type(rows) is not np.ndarray:
         raise TypeError(f"rows should be of type list, tuple or numpy.ndarray, was {type(rows)}")
@@ -164,15 +169,13 @@ def subset_matrix(
     if type(mat) is np.ndarray:
         if rows is None:
             if cols is None:
-                return mat
+                output = mat
             else:
-                return mat[:, cols]
-        elif cols is None:
-            return np.concatenate([[mat[row, :]] for row in rows])
+                output = mat[:, cols]
         else:
             output = mat[
                 [[row] for row in rows],
-                [col for col in cols]
+                [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
             ]
     elif type(mat) is csc_matrix:
         if cols is None: # rows is not None

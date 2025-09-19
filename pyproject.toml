@@ -22,7 +22,7 @@ maintainers = [
   { name = "Victor Medaerts", email = "victor.medaerts@ugent.be"},
 ]
 
-requires-python = "== 3.12.*"
+requires-python = "==3.12.*"
 
 dependencies = [
     "scikit-learn>=1.5.2",
@@ -35,6 +35,7 @@ dependencies = [
     "scipy>=1.14.1",
     "pandas>=2.2.3",
     "networkx>=3.4.2",
+    "adjustText>=1.3.0"
     "mudata>=0.3.2"
 ]
 
@@ -51,4 +52,10 @@ classifiers = [
 [tool.pytest.ini_options]
 markers = [
     "large_download",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/*.py",
+  "data/*"
 ]

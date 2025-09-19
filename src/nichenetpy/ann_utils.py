@@ -1,4 +1,5 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.exception import AnnError
 
 from anndata import AnnData
 from collections.abc import Iterable
@@ -103,7 +104,7 @@ def subset_ann(
         ) for layer in layers
     )
     # subset categories if the column is categorical
-    if cells_oi[val_col].dtype.name == "category":
+    if row_ids is not None and cells_oi[val_col].dtype.name == "category":
         pd.options.mode.chained_assignment = None # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
     output = AnnData(
@@ -133,7 +134,7 @@ def prepare_ann(
     ------
     TypeError
         if the AnnData object has the wrong type
-    ValueError
+    AnnError
         if the AnnData object is not suitable for a nichenet analysis and it is not possible to fix the issues
     '''
     if type(ann) is not AnnData:

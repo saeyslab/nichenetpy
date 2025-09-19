@@ -64,7 +64,7 @@ def convert_settings_ligand_prediction(
     all_ligands:Iterable[str]
 ) -> list[dict]:
     '''
-    Converts settings to correct settings format for ligand activity prediction.In this prediction problem,
+    Converts settings to correct settings format for ligand activity prediction. In this prediction problem,
     ligands (out of a set of possibly active ligands) will be ranked based on feature importance scores.
     The format can be made suited for: 1) validation of ligand activity state prediction by calculating individual
     feature importane scores or 2) feature importance based on models with embedded feature importance determination;
@@ -185,7 +185,7 @@ def evaluate_single_importances_ligand_prediction(
     group:str
 ) -> pd.DataFrame:
     '''
-    Evaluate how well a single ligand importance score is able to predict the true activity state of a ligand.
+    Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
     For this it is assumed, that ligand importance measures for truely active ligands will be higher than for
     non-active ligands. Several classification evaluation metrics for the prediction are calculated and variable
     importance scores can be extracted to rank the different importance measures in order of importance for ligand

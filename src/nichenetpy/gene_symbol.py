@@ -1,6 +1,10 @@
-import os
+from nichenetpy.network import Network
+
 from anndata import AnnData
 from collections.abc import Iterable
+from itertools import chain
+
+import os
 
 
 _root = os.path.dirname(__file__)
@@ -31,7 +35,10 @@ class GeneAliasInfo:
         return self._mapping.__str__()
 
     def __getitem__(self, key:str) -> tuple[str, str]:
-        return self._mapping[key]
+        try:
+            return self._mapping[key]
+        except KeyError:
+            raise KeyError(f"{key} is not a recognized gene")
     
     def __iter__(self):
         return self._mapping.__iter__()
@@ -73,6 +80,7 @@ class GeneAliasInfo:
                     counts[ngene] += 1
                 else:
                     counts[ngene] = 1
+            # revert duplicate symbols back to the original symbols
             doubles = [i for i, ngene in enumerate(output) if counts[ngene] > 1]
             for i in doubles:
                 output[i] = obj[i]
@@ -86,12 +94,111 @@ class GeneAliasInfo:
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
-mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_mouse.csv"))
+mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_mouse.csv"))
 '''
-gene alias info for mice (3845 kb)
+gene alias info for mice
 '''
 
-human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_alias/geneinfo_alias_human.csv"))
+human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_human.csv"))
 '''
-gene alias info for humans (3845 kb)
+gene alias info for humans
+'''
+
+class GeneInfo:
+    '''
+    This class facilitates gene conversion between mouse and human symbols. 
+
+    Parameters
+    ----------
+    filename : str
+        name of the file to read gene alias information from
+    
+    Raises
+    ------
+    TypeError
+        if filename is not of the correct type
+    '''
+    def __init__(self, filename:str):
+        if type(filename) is not str:
+            raise TypeError(f"filename should have type str, was {type(filename)}")
+        with open(filename) as file:
+            lines = file.readlines()
+        symbol, _, _, symbol_mouse = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))
+        entries = [(sh, sm) for sh, sm in zip(symbol, symbol_mouse) if sh != "NA" and sm != "NA"]
+        # one to many
+        self._human2mouse = Network(
+            sorted(
+                entries,
+                key=lambda x : x[0]
+            )
+        )
+        # one to one
+        self._mouse2human = dict(zip(symbol_mouse, symbol))
+
+    def __getitem__(self, key:str) -> tuple[str, str]:
+        if key in self._human2mouse._index:
+            return self._human2mouse[key]
+        elif key in self._mouse2human._index:
+            return self._mouse2human[key]
+        else:
+            raise KeyError(f"{key} is not a recognized gene")
+    
+    def __contains__(self, item):
+        return item in self._human2mouse._index or item in self._mouse2human._index
+    
+    def convert_human_to_mouse_symbols(self, symbols:Iterable[str]) -> Iterable[str]:
+        '''
+        Converts human gene symbols to their mouse one-to-one orthologs
+
+        Parameters
+        ----------
+        symbols : Iterable of str
+            the human gene symbols to convert
+        
+        Returns
+        -------
+        Iterable of str
+            the mouse gene symbols
+        
+        Raises
+        ------
+        KeyError
+            if a gene symbol isn't recognized
+        '''
+        # this does the same as the NicheNetR equivalent but it makes no sense to me (Victor)
+        for symbol in symbols:
+            if symbol in self._human2mouse._index:
+                mapping = self._human2mouse.mapping_iter(symbol)
+                yield next(mapping)
+            else:
+                yield None
+    
+    def convert_mouse_to_human_symbols(self, symbols:Iterable[str]) -> Iterable[str]:
+        '''
+        Converts mouse gene symbols to their human one-to-one orthologs
+
+        Parameters
+        ----------
+        symbols : Iterable of str
+            the mouse gene symbols to convert
+        
+        Returns
+        -------
+        Iterable of str
+            the human gene symbols
+        
+        Raises
+        ------
+        KeyError
+            if a gene symbol isn't recognized
+        '''
+        for symbol in symbols:
+            try:
+                yield self._mouse2human[symbol]
+            except KeyError:
+                yield None
+
+gene_info = GeneInfo(os.path.join(_root, "../../data/gene_info/geneinfo.csv"))
+'''
+mapper between mouse and human symbols
 '''

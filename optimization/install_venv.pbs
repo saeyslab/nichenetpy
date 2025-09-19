@@ -15,7 +15,7 @@ fi
 VENV_NAME="venv_$cluster"
 
 # Navigate to the source code dir
-pushd $VSC_HOME/nichenetpy
+pushd $VSC_DATA
 
 # Remove old venv if present
 if [ -d $VENV_NAME ];
@@ -26,7 +26,6 @@ fi
 # Create and activate virtual environment and install packages
 python3 -m venv $VENV_NAME
 source $VENV_NAME/bin/activate
-pip install -r requirements.txt
-pip install optuna
-pip install joblib
+pip install -r $VSC_DATA/nichenetpy/requirements.txt
+pip install optuna joblib requests torch scipy
 pip install -e $VSC_DATA/nichenetpy

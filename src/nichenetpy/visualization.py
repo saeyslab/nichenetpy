@@ -13,25 +13,32 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import (
     Circle,
     Rectangle,
-    Wedge
+    Wedge,
+    Ellipse
 )
 from matplotlib.collections import PatchCollection
 from matplotlib.text import Text
 from matplotlib.colors import colorConverter
 from matplotlib import colormaps as cm
 from matplotlib.patheffects import withStroke
+from matplotlib.typing import ColorType
+from matplotlib.patches import Patch
 from math import (
     isnan,
     sqrt
 )
 from collections.abc import (
     Iterable,
-    Collection
+    Collection,
+    Callable
 )
+from typing import Any
 from numbers import Number
 from scipy.sparse import csr_matrix
 from itertools import chain, repeat
 from anndata import AnnData
+from adjustText import adjust_text
+from contextlib import redirect_stdout
 
 import numpy as np
 import scipy as sc
@@ -39,6 +46,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
 import pandas as pd
 import networkx as nx
+import os
 
 
 def reorder_labels(
@@ -305,6 +313,8 @@ def heatmap_2d(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
     '''
     if type(mat) is not np.ndarray and type(mat) is not list and type(mat) is not tuple:
         raise TypeError(f"mat should have type numpy.ndarray or list or tuple, was {type(mat)}")
@@ -312,6 +322,29 @@ def heatmap_2d(
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
         raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
+    if type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+    else:
+        nrows = len(mat)
+        ncols = len(mat[0])
+    if ncols == 1:
+        fig, ax = heatmap_1d(
+            chain(*mat),
+            ylabels,
+            None,
+            cbar_label,
+            cmap,
+            figsize
+        )
+        ax.set_xlabel(xtitle)
+        ax.set_ylabel(ytitle)
+        ax.set_xticks((0.5,), labels=xlabels)
+        ax.get_xaxis().set_visible(True)
+        return (fig, ax)
+    if len(xlabels) != ncols:
+        raise ValueError("The length of xlabels should equal the amount of columns in mat")
+    if len(ylabels) != nrows:
+        raise ValueError("The length of ylabels should equal the amount of rows in mat")
     if type(cmap) is not str:
         raise TypeError(f"cmap should have type str, was {type(cmap)}")
     if type(figsize) is not tuple:
@@ -493,6 +526,9 @@ def visualize_ligand_signaling_graph(
     tf_regulatory:pd.DataFrame,
     ligands_oi:Collection[str],
     targets_oi:Collection[str],
+    sig_color:str="blue",
+    gr_color:str="red",
+    neutral_color:str="gray",
     node_size:int=1300,
     arrow_size:int=10,
     label_size:int=7,
@@ -511,6 +547,12 @@ def visualize_ligand_signaling_graph(
         the ligands of interest
     targets_oi : Collection of str
         the target genes of interest
+    sig_color : str
+        the color for ligand-signaling edges and the ligand node
+    gr_color : str
+        the color for the gene regulatory edges and the target node
+    neutral_color : str
+        the neutral color
     node_size : int
         the size of the nodes in the visualized network
     arrow_size : int
@@ -548,7 +590,7 @@ def visualize_ligand_signaling_graph(
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
-    node2color = dict((node, ("red" if node in ligands_oi else "blue" if node in targets_oi else "grey")) for node in graph.nodes)
+    node2color = dict((node, (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color)) for node in graph.nodes)
     nx.draw_networkx_nodes(
         graph,
         pos,
@@ -566,6 +608,13 @@ def visualize_ligand_signaling_graph(
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()]
+    )
+    plt.legend(
+        handles=[
+            Patch(color=sig_color, label="ligand-signaling"),
+            Patch(color=gr_color, label="gene regulatory"),
+        ],
+        bbox_to_anchor=(1.1, 1)
     )
 
 def assign_ligands_to_celltype(
@@ -1091,8 +1140,6 @@ def create_mushroom_plot(
 ):
     '''
     Creates a plot in which each glyph consists of two semicircles corresponding to ligand- and receptor- information.
-    The size of the semicircle is the percentage of cells that express the protein, while the saturation corresponds
-    to the scaled average expression value.
 
     Parameters
     ----------
@@ -1317,4 +1364,267 @@ def create_mushroom_plot(
         cmap=receptor_cm,
         label=_mushroomplot_label(color_prefix, "receptor")
     )
+    return (fig, ax)
+
+def marker_plot(
+    x:list|tuple|np.ndarray,
+    y:list|tuple|np.ndarray,
+    a:list|tuple|np.ndarray,
+    labels:Iterable[str],
+    xlabel,
+    ylabel,
+    alabel,
+    c:list|tuple|np.ndarray|None=None,
+    clabel:str|None=None,
+    val2color:dict[Any, float]|Callable[[Any], ColorType]=None,
+    figsize:tuple[int, int]=(5, 5),
+    max_marker_size:float=3e-2,
+    num_ticks_x:int=10,
+    num_ticks_y:int=10,
+    min_arrow_len:float=15
+):
+    '''
+    Creates a plot consisting of variable-size markers. 
+
+    Parameters
+    ----------
+    x : list or tuple or numpy.ndarray
+        the x-values
+    y : list or tuple or numpy.ndarray
+        the y-values
+    a : list or tuple or numpy.ndarray
+        the values which are visualized as the size of the markers
+    labels : Iterable of str
+        the marker labels
+    xlabel : str
+        the label of the x-axis
+    ylabel : str
+        the label of the y-axis
+    alabel : str
+        the label of the size legend
+    c : list or tuple or numpy.ndarray or None
+        the optional values which are visualized as colors
+    clabel : str or None
+        the label of the color legend
+    val2color : dict or Callable
+        mapping of values in c to colors
+    figsize : tuple of int
+        the size of the figure
+    max_marker_size : float
+        the maximal size of a marker (the marker size associated with the largest value in a)
+    num_ticks_x : int
+        the number of ticks on the x-axis
+    num_ticks_y : int
+        the number of ticks on the y-axis
+    min_arrow_len : float
+        If the text is closer than this to the target point, don't add an arrow (in display units)
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    
+    Returns
+    -------
+    Figure
+        the figure
+    Axes
+        the axes
+    '''
+    if type(x) is not list and type(x) is not tuple and type(x) is not np.ndarray:
+        raise TypeError(f"x should have type list, tuple or numpy.ndarray, was {type(x)}")
+    if type(y) is not list and type(y) is not tuple and type(y) is not np.ndarray:
+        raise TypeError(f"y should have type list, tuple or numpy.ndarray, was {type(y)}")
+    if type(a) is not list and type(a) is not tuple and type(a) is not np.ndarray:
+        raise TypeError(f"a should have type list, tuple or numpy.ndarray, was {type(a)}")
+    if not isinstance(labels, Iterable):
+        raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
+    if type(xlabel) is not str:
+        raise TypeError(f"xlabel should have type str, was {type(xlabel)}")
+    if type(ylabel) is not str:
+        raise TypeError(f"ylabel should have type str, was {type(ylabel)}")
+    if type(alabel) is not str:
+        raise TypeError(f"alabel should have type str, was {type(alabel)}")
+    if clabel is not None and type(clabel) is not str:
+        raise TypeError(f"clabel should have type str, was {type(clabel)}")
+    if type(max_marker_size) is not float:
+        raise TypeError(f"max_marker_size should have type float, was {type(max_marker_size)}")
+    if type(num_ticks_x) is not int:
+        raise TypeError(f"num_ticks_x should have type int, was {type(num_ticks_x)}")
+    if type(num_ticks_y) is not int:
+        raise TypeError(f"num_ticks_y should have type int, was {type(num_ticks_y)}")
+    if c is None:
+        c = labels
+    elif type(c) is not list and type(c) is not tuple and type(c) is not np.ndarray:
+        raise TypeError(f"c should have type list, tuple or numpy.ndarray, was {type(c)}")
+    _c = set(c)
+    if val2color is None:
+        val2color = dict(zip(_c, (i/len(_c) for i in range(len(_c)))))
+    if type(val2color) is dict:
+        val2color_dict = val2color
+        val2color = lambda x : marker_cm(val2color_dict[x])
+    elif not isinstance(val2color, Callable):
+        raise TypeError(f"val2color should have type dict or Callable, was {type(val2color)}")
+    text_size = max_marker_size * 275
+    xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
+    ymin = np.floor(np.min(y) * num_ticks_y - 1) / num_ticks_y
+    xmax = np.ceil(np.max(x) * num_ticks_x + 1) / num_ticks_x
+    ymax = np.ceil(np.max(y) * num_ticks_y + 1) / num_ticks_y
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(
+        xmin=xmin,
+        xmax=xmax
+    )
+    ax.set_ylim(
+        ymin=ymin,
+        ymax=ymax
+    )
+    xs = np.array(range(0, num_ticks_x + 1)) * (xmax - xmin) / num_ticks_x + xmin
+    ys = np.array(range(0, num_ticks_y + 1)) * (ymax - ymin) / num_ticks_y + ymin
+    ax.set_xticks(
+        ticks=xs[:-1]
+    )
+    ax.set_yticks(
+        ticks=ys[:-1]
+    )
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    marker_cm = cm["gist_rainbow"]
+    # Ellipse is used in stead of circle because the markers are 'stretched' in case xmax - xmin != ymax - ymin
+    max_marker_width = max_marker_size * (xmax - xmin)
+    max_marker_height = max_marker_size * (ymax - ymin)
+    amax = np.max(a)
+    amin = np.min(a)
+    texts = []
+    for xp, yp, ap, cp, label in zip(x, y, a, c, labels):
+        # linear with radius
+        size_mult = ap / amax
+        # linear with area
+        size_mult = np.sign(size_mult) * np.sqrt(np.abs(size_mult))
+        marker_width = max_marker_width * size_mult
+        marker_height = max_marker_height * size_mult
+        color = val2color(cp)
+        ax.add_patch(Ellipse(
+            (xp, yp),
+            marker_width,
+            marker_height,
+            fc=color
+        ))
+        text = Text(
+            xp,
+            yp,
+            label,
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=max_marker_size*275,
+            color=color
+        )
+        texts.append(text)
+        ax.add_artist(text)
+    # legend
+    #legend_margin = (xmax - xmin) * (len(alabel) if clabel is None else max(len(alabel), len(clabel))) / 120
+    legend_margin = (xmax - xmin) / 10
+    size_legend_width = 13*max_marker_width
+    size_legend_height = 5*max_marker_width
+    size_legend_center = (
+        xmax + legend_margin + size_legend_width / 2,
+        (ymax - ymin) / 2 + ymin + (0 if clabel is None else (ymax - ymin) / 4)
+    )
+    x_pos_s = size_legend_center[0] - size_legend_width / 2
+    y_pos_s = size_legend_center[1]
+    x_pos = x_pos_s
+    y_pos = y_pos_s
+    for size in [0.2, 0.4, 0.6, 0.8, 1.0]:
+        ax.add_patch(Ellipse(
+            (x_pos, y_pos),
+            max_marker_width * np.sqrt(size),
+            max_marker_height * np.sqrt(size),
+            fc="black",
+            clip_on=False
+        ))
+        ax.add_artist(Text(
+            x_pos,
+            y_pos + (ymax - ymin)/20,
+            "{:3.2f}".format(amin + (amax - amin)*size),
+            horizontalalignment="center",
+            verticalalignment="center",
+            size=text_size,
+            clip_on=False
+        ))
+        x_pos += 3*max_marker_width
+    ax.add_artist(Text(
+        x_pos_s,
+        y_pos_s + (ymax - ymin)/10,
+        alabel,
+        horizontalalignment="left",
+        verticalalignment="center",
+        size=text_size*1.4,
+        clip_on=False
+    ))
+    if clabel is not None:
+        x_diff = max_marker_width * 4
+        y_diff = max_marker_height * 4
+        n_color_legend_rows = int((ymax - ymin) / (2 * y_diff))
+        n_color_legend_cols = int(np.ceil(len(_c) / n_color_legend_rows))
+        color_legend_width = n_color_legend_cols * x_diff
+        color_legend_center = (
+            xmax + legend_margin + color_legend_width / 2,
+            size_legend_center[1] - size_legend_height
+        )
+        x_pos_s = color_legend_center[0] - color_legend_width / 2
+        y_pos_s = color_legend_center[1]
+        x_pos = x_pos_s
+        y_pos = y_pos_s
+        _c = list(_c)
+        i = 0
+        for _ in range(n_color_legend_rows):
+            for _ in range(n_color_legend_cols):
+                if i >= len(_c):
+                    break
+                cp = _c[i]
+                color = val2color(cp)
+                ax.add_patch(Ellipse(
+                    (x_pos, y_pos),
+                    max_marker_width,
+                    max_marker_height,
+                    fc=color,
+                    clip_on=False
+                ))
+                ax.add_artist(Text(
+                    x_pos,
+                    y_pos + (ymax - ymin)/20,
+                    "{:3.2f}".format(cp) if type(cp) is float else cp,
+                    horizontalalignment="center",
+                    verticalalignment="center",
+                    size=text_size,
+                    clip_on=False
+                ))
+                i += 1
+                x_pos += x_diff
+            x_pos = x_pos_s
+            y_pos -= y_diff
+        ax.add_artist(Text(
+            x_pos_s,
+            y_pos_s + (ymax - ymin)/10,
+            clabel,
+            horizontalalignment="left",
+            verticalalignment="center",
+            size=text_size*1.4,
+            clip_on=False
+        ))
+    # optimize label placement
+    # the devs of adjustText left some annoying print statements in their code
+    with open(os.devnull, 'w') as devnull:
+        with redirect_stdout(devnull):
+            texts, arrows = adjust_text(
+                texts,
+                ax=ax,
+                force_static=(1, 2),
+                force_text=(0.2, 0.4),
+                arrowprops={"arrowstyle": "->", "color": "gray", "alpha": 0.5, "linewidth": 1},
+                min_arrow_len=min_arrow_len
+            )
+            '''for text, arrow in zip(texts, arrows): # are these actually alligned with each other? (AdjustText)
+                arrow.set(color=text.get_color())'''
     return (fig, ax)

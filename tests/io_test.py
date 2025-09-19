@@ -24,9 +24,10 @@ def test_io():
     lr_sig_init : WeightedNetwork = model["lr_sig"]
     write_ligand_target_matrix(
         filename,
-        predictor_init
+        predictor_init,
+        column_major=True
     )
-    predictor_wrt = LigandActivityPredictor(*read_ligand_target_matrix(filename))
+    predictor_wrt = LigandActivityPredictor(*read_ligand_target_matrix(filename, column_major=True))
     assert dumps(predictor_init) == dumps(predictor_wrt)
     write_network(filename, lr_network_init._mapping)
     lr_network_wrt = LigandReceptorNetwork(filename=filename)

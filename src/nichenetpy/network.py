@@ -1,6 +1,6 @@
 from nichenetpy.io import read_network, read_weighted_network
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
 from itertools import chain
 
 import pandas as pd
@@ -60,9 +60,8 @@ class Network:
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key:str) -> list[str]:
-        start, count = self._index[key]
-        return set(item[1] for item in self._mapping[start:start+count])
+    def __getitem__(self, key) -> set:
+        return set(self.mapping_iter(key))
     
     def __len__(self):
         return len(self._mapping)
@@ -70,7 +69,7 @@ class Network:
     def __iter__(self):
         return self._mapping.__iter__()
     
-    def __contains__(self, item):
+    def __contains__(self, item:tuple):
         start, count = self._index[item[0]]
         return item in self._mapping[start:start+count]
     
@@ -103,6 +102,22 @@ class Network:
             the "from" values in the mapping and a list of corresponding "to" values
         '''
         return ((key, self[key]) for key in self.key_iter())
+    
+    def mapping_iter(self, key) -> Iterator:
+        '''
+        Iterates over the "to" values that correspond with the specified "from" value. 
+        
+        Yields
+        ------
+        tuple
+            the "to" values in the mapping
+        '''
+        try:
+            start, count = self._index[key]
+        except KeyError:
+            raise KeyError(f"there is no edge with '{key}' as source")
+        for item in self._mapping[start:start+count]:
+            yield item[1]
     
     def get_all(self) -> set:
         '''

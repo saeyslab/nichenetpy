@@ -39,6 +39,7 @@ from mudata import MuData
 from pycirclize import Circos
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from scipy.stats import fisher_exact
 from numbers import Number
 
@@ -705,7 +706,7 @@ def _create_circos_plot(
     opacity:Iterable[float]|None=None,
     separate_sender_receiver:bool=True,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     link_count_in = dict()
     link_count_out = dict()
     links = []
@@ -827,7 +828,7 @@ def _create_circos_plot(
         loc="right",
         ncols=1,
     )
-    return fig
+    return (circos.ax, fig)
 
 def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
@@ -839,7 +840,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     '''
     Creates a circos plot showing the links between ligands and receptors. 
 
@@ -909,7 +910,7 @@ def create_ligand_links_circos_plot(
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
     sender_receiver_space:float=0
-) -> Figure:
+) -> tuple[Axes, Figure]:
     '''
     Creates a circos plot showing the links between ligands and targets. 
 
@@ -1023,7 +1024,8 @@ def generate_info_tables(
             "celltype_DE",
             lr_network_filtered,
             senders_oi,
-            receivers_oi
+            receivers_oi,
+            celltype_col=celltype_col
         ),
         "sender_receiver_info": process_table_to_ic(
             get_avg_exp(
@@ -1033,7 +1035,8 @@ def generate_info_tables(
                 condition_col
             ),
             "expression",
-            lr_network_filtered
+            lr_network_filtered,
+            celltype_col=celltype_col
         )
     }
     if case_control:
@@ -1047,7 +1050,8 @@ def generate_info_tables(
         output["lr_condition_de"] = process_table_to_ic(
             res[["gene", "lfc", "pval", "pval_adj"]],
             "group_DE",
-            lr_network_filtered
+            lr_network_filtered,
+            celltype_col=celltype_col
         )
     return output
 
@@ -1112,7 +1116,7 @@ def calculate_fraction_top_predicted(
     quantile_cutoff:float=0.95
 ) -> pd.DataFrame:
     '''
-    Determine the fraction of genes belonging to the geneset or background and to the top-predicted genes.
+    Determine the fraction of genes belonging to the geneset or background to the top-predicted genes.
 
     Parameters
     ----------

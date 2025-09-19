@@ -5,6 +5,7 @@ from nichenetpy.wilcoxon import (
 )
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.typing import nichenet_matrix
+from nichenetpy.exception import NicheNetError
 
 from anndata import AnnData
 from mudata import MuData
@@ -173,7 +174,9 @@ def calculate_prediction_evaluation_metrics(
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
     aupr = calculate_aupr(response, prediction)
     auroc = calculate_auroc(response, prediction)
+    warnings.filterwarnings("ignore")
     pcc = pearsonr(response, prediction).statistic
+    warnings.filterwarnings("default")
     return {
         "auroc": auroc,
         "pearson": pcc,
@@ -283,9 +286,9 @@ def _single_group_metrics(
     else:
         cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
     if len(cells_oi) == 0:
-        raise RuntimeError("There are no cells in the group of interest")
+        raise NicheNetError("There are no cells in the group of interest")
     if len(cells_ref) == 0:
-        raise RuntimeError("There are no cells in the reference group")
+        raise NicheNetError("There are no cells in the reference group")
     mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
     mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
@@ -346,9 +349,11 @@ def group_metrics(
     ------
     TypeError
         if the arguments have the wrong type
-    RuntimeError
+    NicheNetError
         if there are no cells in the group of interest
         if there are no cells in the reference group
+    ValueError
+        if the arguments are invalid
     
     Notes
     -----
@@ -386,9 +391,12 @@ def group_metrics(
         mat = data.layers[layer]
         genes = data.var_names
     else:
-        mat, genes = _subset_layer(data, layer, features)
-    row2index = dict(zip(data.obs.index, range(len(data.obs.index))))
-    groups = sorted(set(data.obs[groupby]))
+        mat, genes = _subset_layer(ann, layer, features)
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    try:
+        groups = sorted(set(ann.obs[groupby]))
+    except KeyError:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
     pct = []
     if group_oi is None:
@@ -438,7 +446,7 @@ def group_metrics(
     ann_orig = data
     if group_oi is not None and group_ref is not None:
         data = subset_ann(data, val=(group_oi, group_ref), val_col=groupby)
-    if wilcoxon_limma: # TODO: this will need serious optimization after verification that it works
+    if wilcoxon_limma:
         mat = data.layers[layer]
         groups = set(data.obs[groupby])
         pvals = {group: [] for group in groups}
