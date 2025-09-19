@@ -36,6 +36,7 @@ dependencies = [
     "pandas>=2.2.3",
     "networkx>=3.4.2",
     "adjustText>=1.3.0"
+    "mudata>=0.3.2"
 ]
 
 classifiers = [

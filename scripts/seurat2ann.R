@@ -42,7 +42,7 @@ ann <- anndataR::as_AnnData(
 )
 anndataR::write_h5ad(
   ann,
-  path="./annData/temp.h5",
+  path="./annData/250805_BAL_subset_RNA.h5",
   mode="w"
 )
 'anndataR::from_Seurat(

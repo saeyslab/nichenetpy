@@ -28,12 +28,14 @@ from nichenetpy.prioritization import (
 )
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
+from nichenetpy.mu_utils import subset_mu
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.typing import nichenet_matrix
 
 from itertools import cycle, chain, repeat
 from collections.abc import Iterable, Callable
 from anndata import AnnData
+from mudata import MuData
 from pycirclize import Circos
 from matplotlib.patches import Patch
 from matplotlib.figure import Figure
@@ -48,7 +50,7 @@ import scanpy as sc
 
 
 def get_geneset_oi(
-    ann:AnnData,
+    data:AnnData|MuData,
     receiver:str,
     condition_col:str,
     condition_oi:str,
@@ -60,15 +62,16 @@ def get_geneset_oi(
     scanpy_corr_method:str="benjamini-hochberg",
     scanpy_tie_correct:bool=False,
     celltype_col:str="celltype",
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1,
+    modality:str=None
 ) -> set[str]:
     '''
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
 
     Parameters
     ----------
-    ann : AnnData
-        the AnnData object to extract expressed genes from
+    ann : AnnData or Mudata
+        the AnnData or MuData object to extract expressed genes from
     receiver : str
         the receiver cell type
     condition_col : str
@@ -95,6 +98,8 @@ def get_geneset_oi(
         a denormalization function to apply prior to the calculation of the log fold changes
 
         only used with use_scanpy=False
+    modality : str
+        the modality of the MuData object which contains the data matrix
     
     Returns
     -------
@@ -106,15 +111,26 @@ def get_geneset_oi(
     With use_scanpy=True, scanpy_corr_method="bonferroni" and scanpy_tie_correct=True
     only the log fold changes will be different compared to use_scanpy=False
     '''
-    ann_receiver = subset_ann(
-        ann,
-        val=receiver,
-        layers=[layer],
-        val_col=celltype_col
-    )
+    if type(data) is AnnData:
+        data_receiver = subset_ann(
+            data,
+            val=receiver,
+            layers=[layer],
+            val_col=celltype_col
+        )
+    elif type(data) is MuData:
+        data_receiver = subset_mu(
+            data,
+            val=receiver,
+            layers=[layer],
+            val_col=celltype_col,
+            modality=modality
+        )
     if use_scanpy: # lfc will be different
+        if type(data_receiver) is MuData:
+            data_receiver = data_receiver.mod[modality]
         sc.tl.rank_genes_groups(
-            ann_receiver,
+            data_receiver,
             groupby=condition_col,
             layer=layer,
             pts=True,
@@ -122,7 +138,7 @@ def get_geneset_oi(
             corr_method=scanpy_corr_method,
             tie_correct=scanpy_tie_correct
         )
-        DE_table = rank_genes_groups_to_dataframe(ann_receiver, condition_col)
+        DE_table = rank_genes_groups_to_dataframe(data_receiver, condition_col)
         DE_table = DE_table[
             (DE_table["pval_adj"] <= max_pval_adj) &
             (abs(DE_table["lfc"]) >= min_abs_lfc) &
@@ -130,14 +146,15 @@ def get_geneset_oi(
         ]
     else:
         group_metrics(
-            ann_receiver,
+            data_receiver,
             groupby=condition_col,
             layer=layer,
             min_pct=min_pct,
             min_abs_lfc=min_abs_lfc,
-            lfc_denormalize=lfc_denormalize
+            lfc_denormalize=lfc_denormalize,
+            modality=modality
         )
-        DE_table = ann_receiver.uns["group_metrics"]
+        DE_table = data_receiver.uns["group_metrics"]
     return set(
         DE_table[
             (DE_table[condition_col] == condition_oi) &
@@ -166,7 +183,7 @@ def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dic
     )
 
 def run_nichenet(
-    ann:AnnData,
+    data:AnnData|MuData,
     predictor:LigandActivityPredictor,
     lr_network:LigandReceptorNetwork,
     receiver:str,
@@ -187,7 +204,8 @@ def run_nichenet(
     get_prioritization_table:bool=False,
     case_control:bool=True,
     use_scanpy:bool=False,
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1,
+    modality:str=None
 ):
     '''
     Runs a standard nichenet analysis. 
@@ -239,6 +257,8 @@ def run_nichenet(
         if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
+    modality : str
+        the modality of the MuData object which contains the data matrix
     
     Returns
     -------
@@ -299,10 +319,11 @@ def run_nichenet(
     expressed_genes_receiver = set(
         get_expressed_genes(
             receiver,
-            ann,
+            data,
             pct=expression_pct,
             celltype_col=celltype_col,
-            layer=layer
+            layer=layer,
+            modality=modality
         )
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
@@ -315,7 +336,7 @@ def run_nichenet(
         if len(group.intersection(expressed_receptors)) > 0
     )
     geneset = get_geneset_oi(
-        ann,
+        data,
         receiver=receiver,
         condition_oi=condition_oi,
         layer=layer,
@@ -325,7 +346,8 @@ def run_nichenet(
         min_pct=expression_pct,
         use_scanpy=use_scanpy,
         celltype_col=celltype_col,
-        lfc_denormalize=lfc_denormalize
+        lfc_denormalize=lfc_denormalize,
+        modality=modality
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
@@ -358,7 +380,7 @@ def run_nichenet(
         expressed_genes_sender = {
             gene for ct in sender_celltypes for gene in get_expressed_genes(
                 ct,
-                ann,
+                data,
                 pct=expression_pct,
                 celltype_col=celltype_col,
                 layer=layer
@@ -390,7 +412,7 @@ def run_nichenet(
                 lr_sig
             )
         ann_focused = subset_ann(
-            ann,
+            data,
             val=sender_celltypes,
             layers=[layer],
             val_col=celltype_col
@@ -400,7 +422,7 @@ def run_nichenet(
         if get_lfc:
             output["lfcs"] = [
                 get_lfc_celltype(
-                    ann,
+                    data,
                     celltype,
                     condition_col=condition_col,
                     condition_oi=condition_oi,
@@ -416,7 +438,7 @@ def run_nichenet(
             return ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
         lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
         info_tables = generate_info_tables(
-            ann,
+            data,
             celltype_col,
             sender_celltypes,
             [receiver],

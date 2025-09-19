@@ -8,6 +8,7 @@ from nichenetpy.typing import nichenet_matrix
 from nichenetpy.exception import NicheNetError
 
 from anndata import AnnData
+from mudata import MuData
 from collections.abc import Callable, Iterable
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.stats import pearsonr
@@ -293,7 +294,7 @@ def _single_group_metrics(
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
 
 def group_metrics(
-    ann:AnnData,
+    data:AnnData|MuData,
     groupby:str,
     group_oi:str|None=None,
     group_ref:str|None=None,
@@ -305,7 +306,8 @@ def group_metrics(
     min_pct:float=0,
     pval_thresh:float|None=None, # 0.01 in seurat
     wilcoxon_limma:bool=False,
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1,
+    modality:str=None
 ):
     '''
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -314,8 +316,8 @@ def group_metrics(
 
     Parameters
     ----------
-    ann : AnnData
-        the AnnData object
+    data : AnnData or MuData
+        the AnnData or MuData object
     groupby : str
         the column in ann.obs to group by
     group_oi : str or None
@@ -340,6 +342,8 @@ def group_metrics(
         use wilcoxon-limma (reproduces results from seuratv4)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
+    modality : str
+        the modality of the MuData object to use
     
     Raises
     ------
@@ -355,8 +359,6 @@ def group_metrics(
     -----
     The result is the same as seurat's FindMarkers function.
     '''
-    if type(ann) is not AnnData:
-        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if type(groupby) is not str:
         raise TypeError(f"groupby should be of type str, was {type(groupby)}")
     if group_oi is not None and type(group_oi) is not str:
@@ -379,9 +381,15 @@ def group_metrics(
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
     if lfc_denormalize is not None and not isinstance(lfc_denormalize, Callable):
         raise TypeError(f"lfc_denormalize should be a Callable or None, had type {type(lfc_denormalize)}")
+    if type(data) is MuData:
+        if modality is None:
+            raise ValueError("if MuData is used, modality needs to be provided")
+        data = data.mod[modality]
+    elif type(data) is not AnnData:
+        raise TypeError(f"data should be of type AnnData or Mudata, was {type(data)}")
     if features is None:
-        mat = ann.layers[layer]
-        genes = ann.var_names
+        mat = data.layers[layer]
+        genes = data.var_names
     else:
         mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
@@ -394,7 +402,7 @@ def group_metrics(
     if group_oi is None:
         for group in groups:
             x, y = _single_group_metrics(
-                ann,
+                data,
                 mat,
                 row2index,
                 lfc_denormalize,
@@ -407,7 +415,7 @@ def group_metrics(
             pct.append(y)
     else:
         x, y = _single_group_metrics(
-            ann,
+            data,
             mat,
             row2index,
             lfc_denormalize,
@@ -435,12 +443,12 @@ def group_metrics(
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
-    ann_orig = ann
+    ann_orig = data
     if group_oi is not None and group_ref is not None:
-        ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
+        data = subset_ann(data, val=(group_oi, group_ref), val_col=groupby)
     if wilcoxon_limma:
-        mat = ann.layers[layer]
-        groups = set(ann.obs[groupby])
+        mat = data.layers[layer]
+        groups = set(data.obs[groupby])
         pvals = {group: [] for group in groups}
         # for each gene
         for i in range(mat.shape[1]):
@@ -450,7 +458,7 @@ def group_metrics(
                     min(
                         2 * min(
                             wilcoxon_rank_sum_test_with_correlation(
-                                ann.obs[groupby] == group,
+                                data.obs[groupby] == group,
                                 col
                             )
                         ),
@@ -461,7 +469,7 @@ def group_metrics(
         pvals.index.name = "gene"
     else:
         pvals = wilcoxon_rank_sum_test(
-            ann,
+            data,
             groupby=groupby,
             as_dataframe=True,
             tie_correction=tie_correction,
@@ -474,5 +482,5 @@ def group_metrics(
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
-    output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
+    output["pval_adj"] = np.clip(output["pval"]*len(data.var_names), 0, 1)
     ann_orig.uns["group_metrics"] = output

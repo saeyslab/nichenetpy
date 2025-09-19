@@ -13,6 +13,7 @@ from nichenetpy.typing import nichenet_matrix
 from anndata import AnnData
 from collections.abc import Iterable, Callable
 from numbers import Number
+from mudata import MuData
 
 import scanpy as sc
 import numpy as np
@@ -21,10 +22,11 @@ import pandas as pd
 
 def get_expressed_genes(
     celltype:str|Iterable[str],
-    ann:AnnData,
+    data:AnnData|MuData,
     pct:float=0.1,
     celltype_col:str="celltype",
-    layer:str="data"
+    layer:str="data",
+    modality:str=None
 ) -> list[str]:
     '''
     Gets the expressed genes from an AnnData object. 
@@ -33,8 +35,8 @@ def get_expressed_genes(
     ----------
     celltype : str or Iterable of str
         the cell types to consider
-    ann : AnnData
-        the AnnData object to extract expressed genes from
+    data : AnnData
+        the AnnData or MuData object to extract expressed genes from
     pct : float
         We consider genes expressed if they are expressed in at least a specific fraction of cells of the given cluster(s). 
         This number indicates this fraction. 
@@ -42,6 +44,8 @@ def get_expressed_genes(
         the name of the column in obs which contains the celltypes
     layer : str
         the name of the layer which contains the data matrix
+    modality : str
+        the name of the modality in the MuData object which contains the data matrix
     
     Returns
     -------
@@ -59,8 +63,6 @@ def get_expressed_genes(
         celltype = [celltype]
     elif not isinstance(celltype, Iterable):
         raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
-    if type(ann) is not AnnData:
-        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
@@ -70,18 +72,25 @@ def get_expressed_genes(
     if pct > 1 or pct < 0:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
-        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+        cells_oi = list(data.obs.loc[[ct in celltype for ct in data.obs[celltype_col]]].index)
     except KeyError:
         raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.layers[layer]
+    if type(data) is AnnData:
+        mat = data.layers[layer]
+    elif type(data) is MuData:
+        if modality is None:
+            raise ValueError("when using MuData, modality needs to be specified")
+        mat = data.mod[modality].layers[layer]
+    else:
+        raise TypeError(f"data should be of type AnnData or MuData, was {type(data)}")
     # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    row2index = dict(zip(data.obs.index, range(len(data.obs.index))))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
     exps = gene_expression_pct(exprs_m)
-    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
+    return [data.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
 
 def get_weighted_ligand_receptor_links(
     best_upstream_ligands:Iterable[str],
