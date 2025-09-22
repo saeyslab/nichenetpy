@@ -1,6 +1,7 @@
 from nichenetpy.network import Network
 
 from anndata import AnnData
+from mudata import MuData
 from collections.abc import Iterable
 from itertools import chain
 
@@ -46,7 +47,7 @@ class GeneAliasInfo:
     def __contains__(self, item):
         return item in self._mapping
     
-    def alias_to_symbol(self, obj:Iterable[str]|AnnData) -> list[str]|None:
+    def alias_to_symbol(self, obj:Iterable[str]|AnnData|MuData) -> list[str]|None:
         '''
         Converts gene aliases to gene symbols. 
 
@@ -85,7 +86,7 @@ class GeneAliasInfo:
             for i in doubles:
                 output[i] = obj[i]
             return output
-        elif type(obj) is AnnData:
+        elif type(obj) is AnnData or type(obj) is MuData:
             obj.var_names = self.alias_to_symbol(obj.var_names)
             if "gene" in obj.var:
                 obj.var["gene"] = self.alias_to_symbol(obj.var["gene"])
