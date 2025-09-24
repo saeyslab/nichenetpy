@@ -310,7 +310,7 @@ if __name__ == "__main__":
             crossover_prob=1
         )
     elif args.algorithm == "GP":
-        sampler = GPSampler(deterministic_objective=True)
+        sampler = GPSampler(deterministic_objective=False)
     study = create_study(
         sampler=sampler,
         directions=["maximize", "maximize"],
