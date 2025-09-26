@@ -3,7 +3,12 @@ from nichenetpy.typing import nichenet_matrix
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from collections.abc import Iterable, Callable
 from anndata import AnnData
-from re import search
+from re import (
+    search,
+    Pattern,
+    finditer,
+    compile
+)
 
 import numpy as np
 import pandas as pd
@@ -34,7 +39,15 @@ def read_list_from_csv(filename:str) -> list[str]:
         lines = file.readlines()
     return [line.rstrip().strip("\"\'") for line in lines[1:]]
 
-def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]]:
+_default_row_name_pattern = compile(r"^([\"\'])*([^\"\'])+([\"\'])*[^,]*")
+_default_col_name_pattern = compile(r",*([\"\'])*([^\"\'])+([\"\'])*")
+_row_name_split = lambda s, i : (s[:i], s[i:])
+
+def read_matrix_from_csv(
+    filename:str,
+    extract_row_name:Callable[[str], tuple[str, str]]|Pattern|None=None,
+    extract_col_name:Callable[[str], list[str]]|Pattern|None=None
+) -> tuple[np.ndarray, str, str]:
     '''
     Reads a matrix from a csv file. 
 
@@ -42,6 +55,10 @@ def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]
     ----------
     filename : str
         the name of the csv file to read from
+    extract_row_name : Callable or re.Pattern
+        function which extracts the row name and the rest of the string from a line or a search pattern
+    extract_col_name : Callable or re.Pattern
+        function which extracts the col names from the first line or a search pattern
     
     Returns
     -------
@@ -59,15 +76,25 @@ def read_matrix_from_csv(filename:str) -> tuple[np.ndarray, list[str], list[str]
     '''
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if extract_row_name is None:
+        extract_row_name = _default_row_name_pattern
+    if type(extract_row_name) is Pattern:
+        row_name_pattern = extract_row_name
+        extract_row_name = lambda x : _row_name_split(x, search(row_name_pattern, x).end())
+    if not isinstance(extract_row_name, Callable):
+        raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
+    if extract_col_name is None:
+        extract_col_name = _default_col_name_pattern
+    if type(extract_col_name) is Pattern:
+        col_name_pattern = extract_col_name
+        extract_col_name = lambda x : [x[slice(*m.span())] for m in finditer(col_name_pattern, x)]
+    if not isinstance(extract_col_name, Callable):
+        raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
-    col_names = lines[0][1:]
-    row_names = []
-    rows = []
-    for line in lines[1:]:
-        row_names.append(line[0])
-        rows.append([float(e) for e in line[1:]])
+    col_names = extract_col_name(lines[0].rstrip()[search(r"[\"\']*,", lines[0]).end():])
+    row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]))
+    rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines[1:]]
     return (np.array(rows, dtype=np.float64), row_names, col_names)
 
 def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
