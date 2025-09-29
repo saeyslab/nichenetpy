@@ -14,6 +14,10 @@ import numpy as np
 import pandas as pd
 
 
+_default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
+_default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
+_row_name_split = lambda s, i : (s[:i], s[i:])
+
 def read_list_from_csv(filename:str) -> list[str]:
     '''
     Reads a sequence of strings from a csv file. 
@@ -38,10 +42,6 @@ def read_list_from_csv(filename:str) -> list[str]:
     with open(filename) as file:
         lines = file.readlines()
     return [line.rstrip().strip("\"\'") for line in lines[1:]]
-
-_default_row_name_pattern = compile(r"^([\"\'])*([^\"\'])+([\"\'])*[^,]*")
-_default_col_name_pattern = compile(r",*([\"\'])*([^\"\'])+([\"\'])*")
-_row_name_split = lambda s, i : (s[:i], s[i:])
 
 def read_matrix_from_csv(
     filename:str,
@@ -87,15 +87,15 @@ def read_matrix_from_csv(
         extract_col_name = _default_col_name_pattern
     if type(extract_col_name) is Pattern:
         col_name_pattern = extract_col_name
-        extract_col_name = lambda x : [x[slice(*m.span())] for m in finditer(col_name_pattern, x)]
+        extract_col_name = lambda x : [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
     if not isinstance(extract_col_name, Callable):
         raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
         lines = file.readlines()
-    col_names = extract_col_name(lines[0].rstrip()[search(r"[\"\']*,", lines[0]).end():])
+    col_names = extract_col_name(lines[0].rstrip())
     row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]))
     rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines[1:]]
-    return (np.array(rows, dtype=np.float64), row_names, col_names)
+    return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("\'\"") for row_name in row_names], col_names)
 
 def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
     '''
