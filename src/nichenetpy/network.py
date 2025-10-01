@@ -153,15 +153,15 @@ class Network:
             raise TypeError(f"from_to should be a Collection of tuple[str, str], was {type(from_to)}")
         return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
 
-    def subset_sep(self, fr:Collection[str], to:Collection[str]):
+    def subset_sep(self, fr:Collection[str]|None=None, to:Collection[str]|None=None):
         '''
         Subset the network by the provided "from" and "to" values. 
 
         Parameters
         ----------
-        from : Collection
+        from : Collection or None
             collection of "from" values to subset by
-        to : Collection
+        to : Collection or None
             collection of "to" values to subset by
 
         Returns
@@ -174,6 +174,10 @@ class Network:
         TypeError
             if the arguments have the wrong type
         '''
+        if fr is None:
+            fr = set(self.key_iter())
+        if to is None:
+            to = set(e for _, e in self._mapping)
         if not isinstance(fr, Collection):
             raise TypeError(f"fr should be a Collection of str, was {type(fr)}")
         if not isinstance(to, Collection):

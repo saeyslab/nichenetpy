@@ -259,15 +259,21 @@ def gene_expression_pct(
     '''
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
+        # set all non-zero elements to 1
+        for i in range(len(mat.data)):
+            mat.data[i] = 1
+        output = mat.sum(axis=0) / nrows
+        return [output[0, i] for i in range(ncols)]
     elif type(mat) is np.ndarray:
         nrows, ncols = mat.shape
+        # set all non-zero elements to 1
+        for i in range(nrows):
+            for j in range(ncols):
+                if mat[i, j] != 0:
+                    mat[i, j] = 1
+        return mat.sum(axis=0) / nrows
     else:
         raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    # set all non-zero elements to 1
-    for i in range(len(mat.data)):
-        mat.data[i] = 1
-    output = mat.sum(axis=0) / nrows
-    return [output[0, i] for i in range(ncols)]
 
 def _single_group_metrics(
     ann,
