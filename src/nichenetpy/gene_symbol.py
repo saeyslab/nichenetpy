@@ -2,7 +2,6 @@ from nichenetpy.network import Network
 
 from anndata import AnnData
 from collections.abc import Iterable
-from itertools import chain
 
 import os
 

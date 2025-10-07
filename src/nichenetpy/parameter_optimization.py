@@ -148,7 +148,6 @@ def compute_evaluation_scores(
 ) -> tuple[float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
-    Returns the matrices and the prediction scores
 
     Parameters
     ----------
