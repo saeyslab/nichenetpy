@@ -26,7 +26,8 @@ def subset_ann(
     val:str|Iterable[str]|None=None,
     genes:Iterable[str]|None=None,
     layers:Iterable[str]|None=None,
-    val_col:str="celltype"
+    val_col:str="celltype",
+    subset_X:bool=True
 ) -> AnnData|None:
     '''
     Subsets the cells and/or genes of an AnnData object. 
@@ -44,6 +45,8 @@ def subset_ann(
         layers that aren't subsetted won't be present in the output
     val_col : str
         the name of the column in obs that contains the values to subset by
+    subset_X : bool
+        whether or not to subset X
     
     Returns
     -------
@@ -117,6 +120,8 @@ def subset_ann(
     else:
         output.var_names = ann.var_names.reindex(genes)[0]
     output.var_names.name = "gene"
+    if ann.X is not None:
+        output.X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     return output
 
 def prepare_ann(

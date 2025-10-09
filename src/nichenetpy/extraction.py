@@ -24,7 +24,7 @@ def get_expressed_genes(
     ann:AnnData,
     pct:float=0.1,
     celltype_col:str="celltype",
-    layer:str="data"
+    layer:str|None="data"
 ) -> list[str]:
     '''
     Gets the expressed genes from an AnnData object. 
@@ -40,8 +40,8 @@ def get_expressed_genes(
         This number indicates this fraction. 
     celltype_col : str
         the name of the column in obs which contains the celltypes
-    layer : str
-        the name of the layer which contains the data matrix
+    layer : str or None
+        the name of the layer which contains the data matrix, if None use the X attribute
     
     Returns
     -------
@@ -65,7 +65,7 @@ def get_expressed_genes(
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if type(layer) is not str:
+    if layer is not None and type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     if pct > 1 or pct < 0:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
@@ -76,7 +76,7 @@ def get_expressed_genes(
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.layers[layer]
+    mat = ann.X if layer is None else ann.layers[layer]
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
