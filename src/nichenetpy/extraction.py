@@ -19,6 +19,42 @@ import numpy as np
 import pandas as pd
 
 
+def _get_expressed_features(
+    celltype:str|Iterable[str],
+    ann:AnnData,
+    pct:float,
+    celltype_col:str,
+    layer:str|None,
+    exp_func:Callable[[nichenet_matrix], list[float]]
+) -> list[str]:
+    if type(celltype) is str:
+        celltype = [celltype]
+    elif not isinstance(celltype, Iterable):
+        raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if not isinstance(pct, Number):
+        raise TypeError(f"pct should be of type float, was {type(pct)}")
+    if type(celltype_col) is not str:
+        raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
+    if layer is not None and type(layer) is not str:
+        raise TypeError(f"layer should be of type str, was {type(layer)}")
+    if pct > 1 or pct < 0:
+        raise ValueError(f"pct should be between 0 and 1, was {pct}")
+    try:
+        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+    except KeyError:
+        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
+    if len(cells_oi) == 0:
+        raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
+    # ncells x ngenes
+    mat = ann.X if layer is None else ann.layers[layer]
+    # select rows corresponding to cells of interest
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
+    exps = exp_func(exprs_m)
+    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
+
 def get_expressed_genes(
     celltype:str|Iterable[str],
     ann:AnnData,
@@ -55,33 +91,7 @@ def get_expressed_genes(
     ValueError
         if the arguments are invalid
     '''
-    if type(celltype) is str:
-        celltype = [celltype]
-    elif not isinstance(celltype, Iterable):
-        raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
-    if type(ann) is not AnnData:
-        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
-    if not isinstance(pct, Number):
-        raise TypeError(f"pct should be of type float, was {type(pct)}")
-    if type(celltype_col) is not str:
-        raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if layer is not None and type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
-    if pct > 1 or pct < 0:
-        raise ValueError(f"pct should be between 0 and 1, was {pct}")
-    try:
-        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
-    except KeyError:
-        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
-    if len(cells_oi) == 0:
-        raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
-    # ncells x ngenes
-    mat = ann.X if layer is None else ann.layers[layer]
-    # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
-    exps = gene_expression_pct(exprs_m)
-    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
+    return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 def get_weighted_ligand_receptor_links(
     best_upstream_ligands:Iterable[str],
