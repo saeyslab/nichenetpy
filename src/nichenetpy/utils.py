@@ -94,7 +94,7 @@ def read_matrix_from_csv(
         lines = file.readlines()
     col_names = extract_col_name(lines[0].rstrip())
     row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]))
-    rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines[1:]]
+    rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
     return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("\'\"") for row_name in row_names], col_names)
 
 def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
