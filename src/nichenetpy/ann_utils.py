@@ -106,14 +106,22 @@ def subset_ann(
             subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)
         ) for layer in layers
     )
+    if ann.X is not None:
+        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     # subset categories if the column is categorical
     if row_ids is not None and cells_oi[val_col].dtype.name == "category":
         pd.options.mode.chained_assignment = None # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
+    if len(new_layers) > 0:
+        new_shape = new_layers[layers[0]].shape
+    elif ann.X is not None and subset_X:
+        new_shape = new_X.shape
+    else:
+        raise ValueError("if layers=[] then X must be defined and subset_X must be True")
     output = AnnData(
         obs=ann.obs if row_ids is None else cells_oi,
         layers=new_layers,
-        shape=new_layers[layers[0]].shape
+        shape=new_shape
     )
     if genes is None:
         output.var_names = ann.var_names
@@ -121,7 +129,7 @@ def subset_ann(
         output.var_names = ann.var_names.reindex(genes)[0]
     output.var_names.name = "gene"
     if ann.X is not None:
-        output.X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
+        output.X = new_X
     return output
 
 def prepare_ann(
