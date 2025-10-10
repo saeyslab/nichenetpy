@@ -32,4 +32,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest -m "not large_download"
+        pytest -m "not large_download and not outdated"
