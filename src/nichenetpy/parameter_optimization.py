@@ -12,7 +12,10 @@ from nichenetpy.evaluation import (
 )
 from nichenetpy.prediction import LigandActivityPredictor
 
-from collections.abc import Iterable
+from collections.abc import (
+    Iterable,
+    Callable
+)
 
 import pandas as pd
 import numpy as np
@@ -148,7 +151,6 @@ def compute_evaluation_scores(
 ) -> tuple[float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
-    Returns the matrices and the prediction scores
 
     Parameters
     ----------
@@ -336,3 +338,77 @@ def construct_and_evaluate(
         scores[0],
         scores[1]
     )
+
+def weighted_stress_function(
+    w:float,
+    d1:float=0.002,
+    d2:float=0.008
+) -> Callable[[float], float]:
+    '''
+    construct a weighted stress function
+
+    Parameters
+    ----------
+    w : float
+        the weight
+    d1 : float
+        a small correction
+    d2 : float
+        a small correction
+
+    Returns
+    -------
+    Callable
+        the wighted stress function
+    '''
+    a = 0.75 * (1 - w)**2 + 2*(1 - w) + d1
+    b = a + 4*w - 2
+    c = 1 - np.tan(np.pi*(w - 0.5) / (1 + d2)) / np.tan(-np.pi / (2*(1 + d2)))
+    return lambda x : (
+        (w / 2) * np.tan(-np.pi*(x - w) / b) + c
+        if x <= w else
+        c * (1 - np.tan(-np.pi*(x - w) / a) / np.tan(np.pi*(w - 1) / a))
+    )
+
+def choose_pareto_optimal_solution(
+    objective_values:Iterable[Iterable[float]],
+    weights:Iterable[float]
+) -> int:
+    '''
+    Choose one solution from a set of pareto optimal solutions using the weighted stress function method
+
+    Parameters
+    ----------
+    objective_values : Iterable of Iterable of float
+        the values of the objectives for each solution
+    weights : Iterable of float
+        the preference weights of the objectives
+
+    Returns
+    -------
+    int
+        the chosen solution
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if not isinstance(objective_values, Iterable):
+        raise TypeError(f"objective_values should be iterable, was {type(objective_values)}")
+    if not isinstance(weights, Iterable):
+        raise TypeError(f"weights should be iterable, was {type(weights)}")
+    if type(weights) is np.ndarray:
+        weights /= np.sum(weights)
+    else:
+        tw = sum(weights)
+        weights = [weight/tw for weight in weights]
+    fs = [weighted_stress_function(weight) for weight in weights]
+    return np.argmin([
+        sum(
+            np.abs(fs[i](xs[i]) - fs[j](xs[j]))
+            for j in range(len(xs))
+            for i in range(j)
+        )
+        for xs in objective_values
+    ])

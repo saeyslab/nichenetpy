@@ -85,6 +85,7 @@ import pandas as pd
 import numpy as np
 import re
 import json
+import pytest
 
 
 def get_exp(mat, cols):
@@ -1691,6 +1692,7 @@ def test_target_prediction_evaluation_geneset():
     )
     ''' # unable to test this, too much variance
 
+@pytest.mark.outdated # not valid for the latest version of liana
 def test_model_construction_with_liana():
     get_network_files()
     gr_network_human = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))

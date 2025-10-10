@@ -594,6 +594,8 @@ def assess_rf_class_probabilities(
             rows=[predictor.gene2index(gene) for gene in row_names],
             cols=[predictor.ligand2index(ligand) for ligand in ligands_oi]
         )
+        # random forest trained on some genes
+        # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
         rf = RandomForestClassifier(n_estimators=ntrees)
         rf.fit(X=pred_mat, y=res)
         row_names, res = zip(
@@ -607,7 +609,9 @@ def assess_rf_class_probabilities(
             rows=[predictor.gene2index(gene) for gene in row_names],
             cols=[predictor.ligand2index(ligand) for ligand in ligands_oi]
         )
+        # prediction for the remaining genes
         pred = rf.apply(pred_mat)
+        # the amount of trees that predict that the gene is differentially expressed (for each gene)
         score = [
             sum(
                 (

@@ -236,38 +236,71 @@ def log_fold_change(
         _sub_log_fold_change(mat2, denormalize, pseudocount)
     ).transpose()
 
+def _calc_pct(
+    mat=nichenet_matrix,
+    direction:str="both"
+) -> list[float]:
+    if type(mat) is csc_matrix or type(mat) is csr_matrix:
+        nrows, ncols = mat.get_shape()
+        if direction == "positive":
+            # set all positive elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1 if mat.data[i] > 0 else 0
+        elif direction == "negative":
+            # set all negative elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1 if mat.data[i] < 0 else 0
+        else:
+            # set all non-zero elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1
+        output = mat.sum(axis=0) / nrows
+        return [output[0, i] for i in range(ncols)]
+    elif type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+        if direction == "positive":
+            # set all positive elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    mat[i, j] = 1 if mat[i, j] > 0 else 0
+        elif direction == "negative":
+            # set all negative elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    mat[i, j] = 1 if mat[i, j] < 0 else 0
+        else:
+            # set all non-zero elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    if mat[i, j] != 0:
+                        mat[i, j] = 1
+        return mat.sum(axis=0) / nrows
+    else:
+        raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat)}")
+
 def gene_expression_pct(
     mat=nichenet_matrix
 ) -> list[float]:
     '''
-    For each gene, calculate the percentage of cells that have an expression value greater than 0. 
+    For each gene, calculate the percentage of cells that have an expression value not equal to 0. 
 
     Parameters
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         (#cells X #genes) matrix containing the expression values
+    direction : 
 
     Returns
     -------
     list
-        for each gene the percentage of cells that have an expression value greater than 0
+        for each gene the percentage of cells that have an expression value not equal to 0
     
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     '''
-    if type(mat) is csc_matrix or type(mat) is csr_matrix:
-        nrows, ncols = mat.get_shape()
-    elif type(mat) is np.ndarray:
-        nrows, ncols = mat.shape
-    else:
-        raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    # set all non-zero elements to 1
-    for i in range(len(mat.data)):
-        mat.data[i] = 1
-    output = mat.sum(axis=0) / nrows
-    return [output[0, i] for i in range(ncols)]
+    return _calc_pct(mat)
 
 def _single_group_metrics(
     ann,

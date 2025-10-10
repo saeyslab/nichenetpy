@@ -26,7 +26,8 @@ def subset_ann(
     val:str|Iterable[str]|None=None,
     genes:Iterable[str]|None=None,
     layers:Iterable[str]|None=None,
-    val_col:str="celltype"
+    val_col:str="celltype",
+    subset_X:bool=True
 ) -> AnnData|None:
     '''
     Subsets the cells and/or genes of an AnnData object. 
@@ -44,6 +45,8 @@ def subset_ann(
         layers that aren't subsetted won't be present in the output
     val_col : str
         the name of the column in obs that contains the values to subset by
+    subset_X : bool
+        whether or not to subset X
     
     Returns
     -------
@@ -103,20 +106,30 @@ def subset_ann(
             subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)
         ) for layer in layers
     )
+    if ann.X is not None:
+        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     # subset categories if the column is categorical
     if row_ids is not None and cells_oi[val_col].dtype.name == "category":
         pd.options.mode.chained_assignment = None # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
+    if len(new_layers) > 0:
+        new_shape = new_layers[layers[0]].shape
+    elif ann.X is not None and subset_X:
+        new_shape = new_X.shape
+    else:
+        raise ValueError("if layers=[] then X must be defined and subset_X must be True")
     output = AnnData(
         obs=ann.obs if row_ids is None else cells_oi,
         layers=new_layers,
-        shape=new_layers[layers[0]].shape
+        shape=new_shape
     )
     if genes is None:
         output.var_names = ann.var_names
     else:
         output.var_names = ann.var_names.reindex(genes)[0]
     output.var_names.name = "gene"
+    if ann.X is not None:
+        output.X = new_X
     return output
 
 def prepare_ann(
