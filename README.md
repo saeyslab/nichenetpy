@@ -88,6 +88,10 @@ feature can be found in the introductory notebooks.
 
 ## Learning to use nichenetpy
 
+A very basic tutorial for people who are unfamiliar with python can be found here. 
+
+-   [Basic Tutorial](notebooks/basic_tutorial.ipynb)
+
 The following notebooks contain the explanation on how to perform a
 basic NicheNet analysis on an AnnData object. This includes prioritizing
 ligands and predicting target genes of prioritized ligands. We recommend
