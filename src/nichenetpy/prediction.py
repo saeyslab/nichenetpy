@@ -413,7 +413,7 @@ class LigandActivityPredictor:
     def get_weighted_ligand_target_links(
         self,
         ligand:str,
-        geneset:set[str],
+        geneset:Iterable[str],
         n:int=250
     ) -> dict:
         '''
@@ -423,7 +423,7 @@ class LigandActivityPredictor:
         ----------
         ligand : str
             the gene symbol of the potentially active ligand for which you want to find target genes
-        geneset : set of str
+        geneset : Iterable of str
             the genes for which the expression is potentially affected by ligands from the interacting cell
         n : int
             the top n of targets per ligand that will be considered, defaults to 250
@@ -443,8 +443,8 @@ class LigandActivityPredictor:
         '''
         if type(ligand) is not str:
             raise TypeError(f"ligand should have type str, was {type(ligand)}")
-        if type(geneset) is not set:
-            raise TypeError(f"geneset should have type set, was {type(geneset)}")
+        if not isinstance(geneset, Iterable):
+            raise TypeError(f"geneset should have type Iterable, was {type(geneset)}")
         if type(n) is not int:
             raise TypeError(f"n should have type int, was {type(n)}")
         if n < self.ligand_target_matrix.shape[1]:
