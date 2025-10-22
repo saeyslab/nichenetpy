@@ -16,7 +16,7 @@ eval_path = os.path.join(root_path, "model_evaluation")
 train_path = os.path.normpath("./tutorial_files/model_optimization")
 
 def download(url, max_tries=5):
-    for i in max_tries:
+    for i in range(max_tries):
         try:
             return requests.get(url)
         except requests.exceptions.ChunkedEncodingError as err:
