@@ -204,14 +204,14 @@ def subset_matrix(
                 [[row] for row in rows],
                 [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
             ]
-    elif type(mat) is csc_matrix:
+    elif isinstance(mat, csc_matrix):
         if cols is None: # rows is not None
             output = csr_matrix(mat)
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
             output = vstack([output[row, :] for row in rows], format="csc")
-    elif type(mat) is csr_matrix:
+    elif isinstance(mat, csr_matrix):
         if rows is None: # cols is not None
             output = csc_matrix(mat)
         else:

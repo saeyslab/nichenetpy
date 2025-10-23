@@ -15,6 +15,14 @@ network_path = os.path.join(root_path, "model_construction")
 eval_path = os.path.join(root_path, "model_evaluation")
 train_path = os.path.normpath("./tutorial_files/model_optimization")
 
+def download(url, max_tries=5):
+    for i in range(max_tries):
+        try:
+            return requests.get(url)
+        except requests.exceptions.ChunkedEncodingError as err:
+            if i == max_tries - 1:
+                raise err
+
 def equals(
     x,
     y,
@@ -65,7 +73,7 @@ def get_model_pickle(type="mouse"):
     filename = f"nichenet_{type}.pkl"
     file_path = os.path.join(root_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/17061000/files/{filename}")
+        res = download(f"https://zenodo.org/records/17061000/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     with open(os.path.join(root_path, filename), "rb") as file:
@@ -77,7 +85,7 @@ def get_anndata_file(filename):
         os.makedirs(ann_path)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
-        res = requests.get(f"https://zenodo.org/records/15574665/files/{filename}")
+        res = download(f"https://zenodo.org/records/15574665/files/{filename}")
         with open(file_path, "wb") as file:
             file.write(res.content)
     return anndata.io.read_h5ad(file_path)
@@ -93,7 +101,7 @@ def get_hnscc_file():
     ):
         file_path = os.path.join(hnscc_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/14859451/files/{filename}")
+            res = download(f"https://zenodo.org/records/14859451/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -113,7 +121,7 @@ def get_network_files():
     ):
         file_path = os.path.join(network_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15168364/files/{filename}")
+            res = download(f"https://zenodo.org/records/15168364/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -126,7 +134,7 @@ def get_evaluation_files():
     ):
         file_path = os.path.join(eval_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15228527/files/{filename}")
+            res = download(f"https://zenodo.org/records/15228527/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
@@ -142,6 +150,6 @@ def get_optimization_files():
     ):
         file_path = os.path.join(train_path, filename)
         if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15799578/files/{filename}")
+            res = download(f"https://zenodo.org/records/15799578/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
