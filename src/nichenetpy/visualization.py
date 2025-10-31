@@ -585,8 +585,8 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
-        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
-        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
+        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat(gr_color)),
+        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat(sig_color))
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
