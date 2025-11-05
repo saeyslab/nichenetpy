@@ -674,3 +674,34 @@ def is_ligand_active(importances:pd.DataFrame):
         test_ligand == true_ligand if type(test_ligand) is str else test_ligand in true_ligand
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"])
     ]
+
+def linked_iter(
+    start:any,
+    nxt:Callable[[any], any],
+    stp:Callable[[any, any], bool]
+):
+    '''
+    Yields all values reached by calling nxt on the current value until stp returns True
+
+    Parameters
+    ----------
+    start : Any
+        the starting value
+    nxt : Callable
+        function that returns the next value
+    stp : Callable
+        function that takes the current and next element as input and decides when to stop
+    res : Callable
+        function that returns the output
+
+    Yields
+    -------
+    Any
+        all encountered values
+    '''
+    cur = start
+    _nxt = nxt(cur)
+    while not stp(cur, _nxt):
+        yield cur
+        cur = _nxt
+        _nxt = nxt(cur)

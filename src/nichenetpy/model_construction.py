@@ -274,7 +274,10 @@ def construct_ligand_tf_matrix(
         )
         complete_matrix = []
         for _ligands in ligands:
-            spl_matrix = np.array([dijkstra_spl(graph=lr_sig_mat, src=gene2id[src]) for src in _ligands])
+            spl_matrix = np.array([
+                [e[0] for e in dijkstra_spl(graph=lr_sig_mat, src=gene2id[src])]
+                for src in _ligands
+            ])
             for i in range(spl_matrix.shape[0]):
                 for j in range(spl_matrix.shape[1]):
                     if spl_matrix[i, j] == np.inf:
