@@ -1,10 +1,11 @@
 from nichenetpy.utils import (
     subset_matrix,
-    get_ties
+    get_ties,
+    linked_iter
 )
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import WeightedNetwork
-from nichenetpy.graph import get_reachable_nodes
+from nichenetpy.graph import dijkstra_spl
 from nichenetpy.ann_utils import subset_ann
 
 from matplotlib.figure import Figure
@@ -410,6 +411,20 @@ def _construct_ligand_signaling_df(
             dfs.append(combined_df)
     return pd.concat(dfs)
 
+def _get_shortest_path_signaling(ligand_oi, signaling_df, lr_sig_mat, gene2id):
+    ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
+    tfs = {gene2id[e] for e in ligand_signaling["TF"]}
+    ligand_id = gene2id[ligand_oi]
+    spl = dijkstra_spl(lr_sig_mat, ligand_id)
+    return set.union(*(
+        set(linked_iter(
+            tf,
+            lambda x : spl[x][1],
+            lambda _, x : x == None
+        ))
+        for tf in tfs
+    ))
+
 def _minmax_scaling(df):
     weight = np.array(df["weight"])
     mn = weight.min()
@@ -502,16 +517,8 @@ def get_ligand_signaling_path(
             )
         )
     )
-    tfs = set()
-    for ligand in ligands_oi:
-        ligand_signaling = combined_df[combined_df["ligand"] == ligand]
-        ligand_id = gene2id[ligand]
-        tfs.update(set(gene2id[e] for e in ligand_signaling["TF"]).intersection(get_reachable_nodes(lr_sig_mat, src=ligand_id)))
-        try:
-            tfs.remove(ligand_id)
-        except KeyError:
-            pass # if it's not in there, that's great!
-    tfs = {all_genes[id] for id in tfs}
+    tfs = set.union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
+    tfs = {all_genes[e] for e in tfs}
     tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
     tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
     combined_df_tf = set(combined_df["TF"])
@@ -585,8 +592,8 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
-        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat("red")),
-        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat("blue"))
+        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat(gr_color)),
+        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat(sig_color))
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)

@@ -32,6 +32,8 @@ def equals(
     if isinstance(x, Number) and isinstance(y, Number):
         return abs(x) <= zero_bound if y == 0 else abs(x - y) / y <= err_bound
     elif isinstance(x, Iterable) and isinstance(y, Iterable) and type(x) is not str and type(y) is not str:
+        if not equals_iter(x, y, err_bound, zero_bound):
+            print((x, y))
         return equals_iter(x, y, err_bound, zero_bound)
     else:
         return x == y
@@ -71,6 +73,19 @@ def get_model_pickle(type="mouse"):
     if not os.path.exists(root_path):
         os.makedirs(root_path)
     filename = f"nichenet_{type}.pkl"
+    file_path = os.path.join(root_path, filename)
+    if not os.path.exists(file_path):
+        res = download(f"https://zenodo.org/records/17061000/files/{filename}")
+        with open(file_path, "wb") as file:
+            file.write(res.content)
+    with open(os.path.join(root_path, filename), "rb") as file:
+        model = pickle.loads(file.read())
+    return model
+
+def get_ltf_matrix(type="mouse"):
+    if not os.path.exists(root_path):
+        os.makedirs(root_path)
+    filename = f"ltf_matrix_{type}.pkl"
     file_path = os.path.join(root_path, filename)
     if not os.path.exists(file_path):
         res = download(f"https://zenodo.org/records/17061000/files/{filename}")
