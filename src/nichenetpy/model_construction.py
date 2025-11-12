@@ -512,8 +512,8 @@ def construct_ligand_target_matrix(
         if ligands_as_cols:
             return (
                 (ligand2target.transpose(), grn_cols, ltf_rows),
-                (grn_matrix.transpose(), grn_cols, grn_rows),
-                (ltf_matrix.transpose(), ltf_cols, ltf_rows)
+                (ltf_matrix.transpose(), ltf_cols, ltf_rows),
+                (grn_matrix.transpose(), grn_cols, grn_rows)
             )
         return (
             (ligand2target, ltf_rows, grn_cols),
