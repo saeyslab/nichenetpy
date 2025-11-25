@@ -663,7 +663,7 @@ def is_ligand_active(importances:pd.DataFrame):
     Parameters
     ----------
     importances : pandas.DataFrame
-        a data frame which contains the metrics by which ligands can be ranked
+        a data frame which has at least "test_ligand" and "true_ligand" columns
 
     Returns
     -------
