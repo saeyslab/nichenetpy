@@ -122,6 +122,9 @@ class EvaluationData:
     def __iter__(self):
         return iter(self._data.values())
     
+    def __len__(self):
+        return len(self._data)
+    
     def keys(self):
         '''
         returns the keys of the data elements
