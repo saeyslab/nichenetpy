@@ -79,7 +79,7 @@ if r_installed:
 
     def read_settings_from_RDS(file:str):
         '''
-        Read settings from an RDS file
+        Read settings (evaluation data from NicheNetR) from an RDS file
 
         Parameters
         ----------
