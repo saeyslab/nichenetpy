@@ -44,8 +44,7 @@ from nichenetpy.model_construction import (
     construct_ligand_target_matrix
 )
 from nichenetpy.evaluation import (
-    convert_expression_settings_evaluation,
-    convert_settings_ligand_prediction,
+    EvaluationData,
     get_single_ligand_importances,
     evaluate_single_importances_ligand_prediction
 )
@@ -1895,31 +1894,34 @@ def test_model_evaluation():
     get_evaluation_files()
     with open(os.path.join(eval_path, "expression_settings_validation.json"), "rb") as file:
         expression_settings_validation = json.loads(file.read())
-    settings = {
-        v["name"]: convert_expression_settings_evaluation(v)
+    evaluation_data = EvaluationData({
+        v["name"]: {
+            "name": v["name"],
+            "from": v["from"],
+            "response": dict(
+                (gene, 1)
+                if (abs(lfc) >= 1 and qval <= 0.1)
+                else (gene, 0)
+                for gene, lfc, qval in zip(v["diffexp"]["gene"], v["diffexp"]["lfc"], v["diffexp"]["qval"])
+            )
+        }
         for v in expression_settings_validation.values()
         if type(v["from"]) is str or len(v["from"]) == 1
-    }
+    })
     performances = {
         k: predictor.evaluate_target_prediction(v["from"], v["response"])
-        for k, v in settings.items()
+        for k, v in evaluation_data.items()
     }
     perf = performances["bmp4_Bmp4"]
     assert equals(perf["auroc"], 0.9780427)
     assert equals(perf["aupr"], 0.25601437)
     assert equals(perf["aupr_corrected"], 0.24365215)
     assert equals(perf["pearson"], 0.4514624)
-    settings = {
-        v["name"]: convert_expression_settings_evaluation(v)
-        for v in expression_settings_validation.values()
-        if type(v["from"]) is str or len(v["from"]) == 1
-    }
     all_ligands = set(chain(*(
-        [setting["from"]] if type(setting["from"]) is str else setting["from"]
-        for setting in settings.values()
+        [e["from"]] if type(e["from"]) is str else e["from"]
+        for e in evaluation_data.values()
     )))
-    settings_ligand_prediction = convert_settings_ligand_prediction(settings, all_ligands)
-    ligand_importances = get_single_ligand_importances(predictor, settings_ligand_prediction)
+    ligand_importances = get_single_ligand_importances(predictor, evaluation_data, all_ligands)
     row = ligand_importances[
         (ligand_importances["setting"] == "Nodal_nodal") &
         (ligand_importances["test_ligand"] == "TNF") &

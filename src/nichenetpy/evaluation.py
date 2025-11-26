@@ -5,123 +5,160 @@ from nichenetpy.utils import is_ligand_active
 from collections.abc import Iterable
 from itertools import repeat
 
-import warnings
 import pandas as pd
 
 
-def convert_expression_settings_evaluation(setting:dict) -> dict:
+class EvaluationData:
     '''
-    Converts expression settings to correct settings format for evaluation of target gene prediction.
+    Data which can be used for model evaluation. Each item needs to contain
+        - a ligand
+        - the genes that were regulated by the ligand
 
     Parameters
     ----------
-    setting : dict
-        A dictionary with the following keys:
+    obj : Iterable of dict
+        iterable of a ligand with it's corresponding genes and optionally a name/key for the data element
+    key_name : string
+        the name of the key field in the data elements
+    ligand_name : string
+        the name of the ligand in the data elements
+    de_genes_name : string
+        the name of the target genes in the data elements
 
-            name: the name of the setting
-
-            from: the name of the ligand which is active in the setting of interest
-
-            diffexp:
-
-                gene:
-
-                lfc: (log fold change treated vs untreated)
-
-                qval: (fdr-corrected p-value)
-
-    Returns
-    -------
-    dict
-        a dictionary with the following keys:
-
-            name: the name of the setting
-
-            from: the name of the ligand which is active in the setting of interest
-
-            response:   a logical vector indicating whether the gene's transcription was
-                        influenced by the active ligand(s) in the setting of interest
-    
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if type(setting) is not dict:
-        raise TypeError(f"setting should have type dict, was {type(setting)}")
-    diffexp = setting["diffexp"]
-    diffexp = [1 if (abs(lfc) >= 1 and qval <= 0.1) else 0 for lfc, qval in zip(diffexp["lfc"], diffexp["qval"])]
-    if sum(diffexp) == 0:
-        warnings.warn(f"{setting["name"]}: No differentially expressed genes, remove this expression dataset")
-    return {
-        "name": setting["name"],
-        "from": setting["from"],
-        "response": dict(zip(setting["diffexp"]["gene"], diffexp))
-    }
-
-def convert_settings_ligand_prediction(
-    settings:dict,
-    all_ligands:Iterable[str]
-) -> list[dict]:
-    '''
-    Converts settings to correct settings format for ligand activity prediction. In this prediction problem,
-    ligands (out of a set of possibly active ligands) will be ranked based on feature importance scores.
-    The format can be made suited for: 1) validation of ligand activity state prediction by calculating individual
-    feature importane scores or 2) feature importance based on models with embedded feature importance determination;
-    applications in which ligands need to be scores based on their possible upstream activity:
-    3) by calculating individual feature importane scores or 4) feature importance based on models with embedded feature
-    importance determination.
-
-    Parameters
-    ----------
-    settings : dict
-        A dictionary who's values have the following keys: 
-        
-            name: the name of the setting
-        
-            from: the name of the ligand which is active in the setting of interest
-        
-            response:   the observed target response, indicates for a gene whether
-                        it was a target or not in the setting of interest
-    all_ligands : Iterable of str
-        the possible ligands that will be considered for the ligand activity state prediction
-
-    Returns
-    -------
-    dict
-        a dictionary with the following keys:
-
-            name: the name of the setting
-
-            ligand: the active ligand
-
-            from: the ligand that will be tested for activity prediction
-
-            response:   a logical vector indicating whether the gene's transcription was influenced by
-                        the active ligand(s) in the setting of interest
+    ValueError
+        if the arguments are invalid
     
-    Raises
-    ------
-    TypeError
-        if the arguments have the wrong type
+    Attributes
+    ----------
+    _data : dict
+        the data elements
+    _key_name : string
+        the name of the key field in the data elements
+    _ligand_name : string
+        the name of the ligand in the data elements
+    _de_genes_name : string
+        the name of the target genes in the data elements
     '''
-    if type(settings) is not dict:
-        raise TypeError(f"settings should have type dict, was {type(settings)}")
-    if not isinstance(all_ligands, Iterable):
-        raise TypeError(f"all_ligands should have type Iterable[str], was {type(all_ligands)}")
-    return [
-        {
-            "name": v["name"],
-            "ligand": v["from"],
-            "from": ligand,
-            "response": v["response"]
-        }
-        for v in settings.values() for ligand in all_ligands
-    ]
+    def __init__(
+        self,
+        obj:dict[str, dict]|Iterable[dict]=None,
+        key_name:str="name",
+        ligand_name:str="from",
+        de_genes_name:str="response"
+    ):
+        self._data = dict()
+        self._key_name = key_name
+        self._ligand_name = ligand_name
+        self._de_genes_name = de_genes_name
+        if obj is not None:
+            if type(obj) is dict:
+                for key, val in obj.items():
+                    self[key] = val
+            elif isinstance(obj, Iterable):
+                for item in obj:
+                    self.add(item)
+
+    def __getitem__(self, key):
+        return self._data[key]
+    
+    def __setitem__(self, key:str, val:dict):
+        if type(key) is not str:
+            raise TypeError(f"key should have type str, was {type(key)}")
+        if type(val) is not dict:
+            raise TypeError(f"val should have type dict, was {type(val)}")
+        if self._ligand_name not in val:
+            raise ValueError(f"item should have a {self._ligand_name} key")
+        if type(val[self._ligand_name]) is not str:
+            raise ValueError(f"'{self._ligand_name}' does not map to a string")
+        if self._de_genes_name not in val:
+            raise ValueError(f"item should have a {self._de_genes_name} key")
+        if type(val[self._de_genes_name]) is not dict:
+            raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
+        val[self._key_name] = key
+        self._data[key] = val
+
+    def add(self, item:dict):
+        '''
+        Add a dictionary which maps the following keys
+            - _key_name -> the name of the data element
+            - _ligand_name -> the ligand
+            - _de_genes_name -> the target genes
+
+        Parameters
+        ----------
+        item : dict
+            the data element to add
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
+        '''
+        if type(item) is not dict:
+            raise TypeError(f"item should have type dict, was {type(item)}")
+        if self._key_name not in item:
+            raise ValueError(f"item should have a {self._key_name} key")
+        if type(item[self._key_name]) is not str:
+            raise ValueError(f"'{self._key_name}' does not map to a string")
+        if self._ligand_name not in item:
+            raise ValueError(f"item should have a {self._ligand_name} key")
+        if type(item[self._ligand_name]) is not str:
+            raise ValueError(f"'{self._ligand_name}' does not map to a string")
+        if self._de_genes_name not in item:
+            raise ValueError(f"item should have a {self._de_genes_name} key")
+        if type(item[self._de_genes_name]) is not dict:
+            raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
+        self._data[item[self._key_name]] = item
+    
+    def __contains__(self, key):
+        return key in self._data
+    
+    def __iter__(self):
+        return iter(self._data.values())
+    
+    def keys(self):
+        '''
+        returns the keys of the data elements
+        
+        Returns
+        -------
+        Iterable
+            the keys of the data elements
+        '''
+        return self._data.keys()
+    
+    def values(self):
+        '''
+        returns the data elements
+        
+        Returns
+        -------
+        Iterable
+            the data elements
+        '''
+        return self._data.values()
+    
+    def items(self):
+        '''
+        returns the data elements along with the corresponding keys
+        
+        Returns
+        -------
+        Iterable of tuple
+            (key, value) tuples where the values are the data elements
+        '''
+        return self._data.items()
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
-    settings:Iterable[dict]
+    evaluation_data:Iterable[dict],
+    all_ligands:Iterable[str]
 ) -> pd.DataFrame:
     '''
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict
@@ -131,7 +168,9 @@ def get_single_ligand_importances(
 
     Parameters
     ----------
-    settings : dict
+    predictor : LigandActivityPredictor
+        the ligand activity predictor
+    evaluation_data : dict
         An Iterable of dictionaries that have the following keys: 
         
             name: the name of the setting
@@ -142,8 +181,8 @@ def get_single_ligand_importances(
         
             response:   the observed target response, indicates for a gene whether it was a target
                         or not in the setting of interest
-    predictor : LigandActivityPredictor
-        the ligand activity predictor
+    all_ligands : Iterable of str
+        the possible ligands that will be considered for the ligand activity state prediction
 
     Returns
     -------
@@ -160,23 +199,23 @@ def get_single_ligand_importances(
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
-    if not isinstance(settings, Iterable):
-        raise TypeError(f"settings should have type Iterable[dict], was {type(settings)}")
+    if not isinstance(evaluation_data, Iterable):
+        raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
     # compute metrics for multiple prediction/response pairs and store them in a dataframe
     ligand_importances = pd.DataFrame(
         dict(zip(
             ("aupr", "aupr_corrected", "auroc", "pearson"),
             zip(*(
                 list(zip(*sorted(
-                    predictor.evaluate_target_prediction(setting["from"], setting["response"]).items(),
+                    predictor.evaluate_target_prediction(ligand, setting["response"]).items(),
                     key=lambda x : x[0]
                 )))[1]
-                for setting in settings
+                for setting in evaluation_data for ligand in all_ligands
             ))
         ))
     )
     ligand_importances["setting"], ligand_importances["test_ligand"], ligand_importances["true_ligand"] = (
-        zip(*((setting["name"], setting["from"], setting["ligand"]) for setting in settings))
+        zip(*((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands))
     )
     return ligand_importances
 
