@@ -5,6 +5,7 @@ from nichenetpy.utils import (
 from nichenetpy.parameter_optimization import (
     construct_and_evaluate
 )
+from nichenetpy.evaluation import EvaluationData
 
 from optuna import (
     create_study,
@@ -194,7 +195,7 @@ if __name__ == "__main__":
     parallel = Parallel(n_jobs=args.n_process)
     with open(args.settings_file, "rb") as file:
         settings_CV = json.loads(file.read())
-    settings = settings_CV["settings"]
+    evaluation_data = EvaluationData(settings_CV["settings"])
     gr_network = _gr_network[
         ~ (
             (_gr_network["database"] == "NicheNet_LT") &
@@ -288,7 +289,7 @@ if __name__ == "__main__":
             lr_network,
             gr_network,
             sig_network,
-            settings
+            evaluation_data
         )
         return (res[1], res[2])
 
