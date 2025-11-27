@@ -1,6 +1,3 @@
-from nichenetpy.utils import (
-    extract_ligands_from_settings
-)
 from nichenetpy.model_construction import (
     construct_weighted_networks,
     construct_ligand_target_matrix,
@@ -8,6 +5,7 @@ from nichenetpy.model_construction import (
     apply_hub_correction
 )
 from nichenetpy.evaluation import (
+    EvaluationData,
     evaluate_single_importances_ligand_prediction
 )
 from nichenetpy.prediction import LigandActivityPredictor
@@ -44,7 +42,7 @@ def _evaluate_single_importances_ligand_prediction(
 
 def evaluate_model(
     predictor:LigandActivityPredictor,
-    settings:dict
+    evaluation_data:EvaluationData
 ):
     '''
     Evaluate the ligand-target matrix. 
@@ -53,7 +51,7 @@ def evaluate_model(
     ----------
     predictor : LigandActivityPredictor
         The predictor that holds the ligand-target matrix to evaluate
-    settings : dict
+    settings : Iterable of dict
         An Iterable of dictionaries that have the following keys: 
         
             name: the name of the setting
@@ -77,8 +75,8 @@ def evaluate_model(
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
-    if type(settings) is not dict:
-        raise TypeError(f"settings should have type dict, was {type(settings)}")
+    if type(evaluation_data) is not EvaluationData:
+        raise TypeError(f"settings should have type EvaluationData, was {type(evaluation_data)}")
     performances_target_prediction = {
         "setting": [],
         "ligand": [],
@@ -87,7 +85,7 @@ def evaluate_model(
         "aupr": [],
         "aupr_corrected": []
     }
-    for setting_id, setting in settings.items():
+    for setting_id, setting in evaluation_data.items():
         performances_target_prediction["setting"].append(setting_id)
         try:
             performances_target_prediction["ligand"].append(setting["from"])
@@ -105,7 +103,7 @@ def evaluate_model(
                 if len(e) > max_len:
                     e.pop()
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
-    all_ligands = extract_ligands_from_settings(settings, combination=False)
+    all_ligands = evaluation_data.get_ligands(combination=False)
     ligand_importances = {
         "setting": [],
         "test_ligand": [],
@@ -115,7 +113,7 @@ def evaluate_model(
         "aupr": [],
         "aupr_corrected": []
     }
-    for setting_id, setting in settings.items():
+    for setting_id, setting in evaluation_data.items():
         for ligand in all_ligands:
             try:
                 ligand_importances["setting"].append(setting_id)
@@ -227,7 +225,7 @@ def construct_and_evaluate(
     lr_network:pd.DataFrame,
     gr_network:pd.DataFrame,
     sig_network:pd.DataFrame,
-    settings:dict
+    evaluation_data:EvaluationData
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -292,7 +290,7 @@ def construct_and_evaluate(
             0,
             0
         )
-    ligands = extract_ligands_from_settings(settings)
+    ligands = evaluation_data.get_ligands()
     weighted_networks = construct_weighted_networks(
         lr_network,
         sig_network,
@@ -325,8 +323,8 @@ def construct_and_evaluate(
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores()
     scores = compute_evaluation_scores(
-        evaluate_model(predictor, settings),
-        extract_ligands_from_settings(settings, combination=True)
+        evaluate_model(predictor, evaluation_data),
+        evaluation_data.get_ligands(combination=True)
     )
     return (
         {

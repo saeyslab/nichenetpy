@@ -4,6 +4,7 @@ from nichenetpy.utils import is_ligand_active
 
 from collections.abc import Iterable
 from itertools import repeat
+from re import search
 
 import pandas as pd
 
@@ -72,8 +73,8 @@ class EvaluationData:
             raise TypeError(f"val should have type dict, was {type(val)}")
         if self._ligand_name not in val:
             raise ValueError(f"item should have a {self._ligand_name} key")
-        if type(val[self._ligand_name]) is not str:
-            raise ValueError(f"'{self._ligand_name}' does not map to a string")
+        if type(val[self._ligand_name]) is not str and type(val[self._ligand_name]) is not list:
+            raise ValueError(f"'{self._ligand_name}' does not map to a string or list of strings")
         if self._de_genes_name not in val:
             raise ValueError(f"item should have a {self._de_genes_name} key")
         if type(val[self._de_genes_name]) is not dict:
@@ -108,19 +109,44 @@ class EvaluationData:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
             raise ValueError(f"item should have a {self._ligand_name} key")
-        if type(item[self._ligand_name]) is not str:
-            raise ValueError(f"'{self._ligand_name}' does not map to a string")
+        if type(item[self._ligand_name]) is not str and type(item[self._ligand_name]) is not list:
+            raise ValueError(f"'{self._ligand_name}' does not map to a string or list")
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a {self._de_genes_name} key")
         if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         self._data[item[self._key_name]] = item
     
+    def add_all(self, items:Iterable[dict]):
+        '''
+        Adds dictionaries which map the following keys
+            - _key_name -> the name of the data element
+            - _ligand_name -> the ligand
+            - _de_genes_name -> the target genes
+
+        Parameters
+        ----------
+        item : Iterable of dict
+            the data elements to add
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        ValueError
+            if the arguments are invalid
+        '''
+        for item in items:
+            self.add(item)
+    
     def __contains__(self, key):
         return key in self._data
     
     def __iter__(self):
         return iter(self._data.values())
+    
+    def __len__(self):
+        return len(self._data)
     
     def keys(self):
         '''
@@ -154,6 +180,49 @@ class EvaluationData:
             (key, value) tuples where the values are the data elements
         '''
         return self._data.items()
+    
+    def get_ligands(
+        self,
+        combination:bool=True
+    ):
+        '''
+        Extract all ligands from the evaluation data. 
+
+        Parameters
+        ----------
+        combination : bool
+            whether to include combinations of ligands in the output
+
+        Returns
+        -------
+        list
+            a set which contains all ligands present in the evaluation data
+        
+        Raises
+        ------
+        TypeError
+            if the arguments have the wrong type
+        '''
+        if type(combination) is not bool:
+            raise TypeError(f"combination should have type bool, was {type(combination)}")
+        output = set()
+        for setting in self.values():
+            if type(setting["from"]) is str:
+                output.add(setting["from"])
+            else:
+                if combination:
+                    output.add("-".join(setting["from"]))
+                for ligand in setting["from"]:
+                    output.add(ligand)
+        output_lst = []
+        for e in output:
+            res = search("-", e)
+            if res is None:
+                output_lst.append(e)
+            else:
+                res = res.span()
+                output_lst.append([e[:res[0]], e[res[1]:]])
+        return output_lst
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,

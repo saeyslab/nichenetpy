@@ -1,8 +1,11 @@
+import warnings
+
 try:
     from rpy2 import robjects
     r_installed = True
 except ImportError:
     r_installed = False
+    warnings.warn("nichenetpy.r requires the package rpy2 which in turn requires R to be installed on your system", ImportWarning)
 
 if r_installed:
     import pandas as pd
