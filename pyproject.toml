@@ -45,6 +45,11 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.optional-dependencies]
+R = [
+    "rpy2>=3.6.4"
+]
+
 [project.urls]
 "Source" = "https://github.com/saeyslab/nichenetpy"
 

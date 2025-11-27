@@ -405,8 +405,10 @@ def _construct_ligand_signaling_df(
             gr_filtered = gr[gr["to"] == target]
             gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
             combined_df = ltf_vis.merge(gr_filtered, on="TF")
+            # ltf weight multiplied with gr weight
             combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
             combined_df.sort_values(by="total_weight", ascending=False, inplace=True)
+            # select top k
             combined_df = combined_df.iloc[0:min(k, len(combined_df))]
             dfs.append(combined_df)
     return pd.concat(dfs)
@@ -517,11 +519,14 @@ def get_ligand_signaling_path(
             )
         )
     )
+    # get nodes on shortest path from ligand to each target
     tfs = set.union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
     tfs = {all_genes[e] for e in tfs}
+    # ligand-tf or tf-tf
     tf_signaling = lr_sig[[(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]]
     tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
     combined_df_tf = set(combined_df["TF"])
+    # incoming edges of target nodes
     tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
     if minmax_scaling:
         _minmax_scaling(tf_signaling)
