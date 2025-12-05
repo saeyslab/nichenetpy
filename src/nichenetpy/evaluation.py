@@ -72,11 +72,11 @@ class EvaluationData:
         if type(val) is not dict:
             raise TypeError(f"val should have type dict, was {type(val)}")
         if self._ligand_name not in val:
-            raise ValueError(f"item should have a {self._ligand_name} key")
+            raise ValueError(f"item should have a '{self._ligand_name}' key")
         if type(val[self._ligand_name]) is not str and type(val[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a string or list of strings")
         if self._de_genes_name not in val:
-            raise ValueError(f"item should have a {self._de_genes_name} key")
+            raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(val[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         val[self._key_name] = key
@@ -104,15 +104,15 @@ class EvaluationData:
         if type(item) is not dict:
             raise TypeError(f"item should have type dict, was {type(item)}")
         if self._key_name not in item:
-            raise ValueError(f"item should have a {self._key_name} key")
+            raise ValueError(f"item should have a '{self._key_name}' key")
         if type(item[self._key_name]) is not str:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
-            raise ValueError(f"item should have a {self._ligand_name} key")
+            raise ValueError(f"item should have a '{self._ligand_name}' key")
         if type(item[self._ligand_name]) is not str and type(item[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a string or list")
         if self._de_genes_name not in item:
-            raise ValueError(f"item should have a {self._de_genes_name} key")
+            raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         self._data[item[self._key_name]] = item
