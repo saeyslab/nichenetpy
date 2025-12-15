@@ -17,7 +17,7 @@ class EvaluationData:
 
     Parameters
     ----------
-    obj : Iterable of dict
+    obj : dict or Iterable of dict or pandas.DataFrame
         iterable of a ligand with it's corresponding genes and optionally a name/key for the data element
     key_name : string
         the name of the key field in the data elements
@@ -46,7 +46,7 @@ class EvaluationData:
     '''
     def __init__(
         self,
-        obj:dict[str, dict]|Iterable[dict]=None,
+        obj:dict[str, dict]|Iterable[dict]|pd.DataFrame=None,
         key_name:str="name",
         ligand_name:str="from",
         de_genes_name:str="response"
@@ -58,6 +58,9 @@ class EvaluationData:
         if obj is not None:
             if type(obj) is dict:
                 for key, val in obj.items():
+                    self[key] = val
+            elif type(obj) is pd.DataFrame:
+                for key, val in zip(obj[key_name], (dict(zip(obj.columns, r)) for r in zip(*(obj[col] for col in obj.columns)))):
                     self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
