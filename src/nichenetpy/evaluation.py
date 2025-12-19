@@ -12,13 +12,16 @@ import pandas as pd
 class EvaluationData:
     '''
     Data which can be used for model evaluation. Each item needs to contain
-        - a ligand
-        - the genes that were regulated by the ligand
+
+        * a ligand
+
+        * the genes that were regulated by the ligand
 
     Parameters
     ----------
     obj : dict or Iterable of dict or pandas.DataFrame
-        iterable of a ligand with it's corresponding genes and optionally a name/key for the data element
+        Iterable of a ligand with it's corresponding genes and optionally a name/key for the data element. 
+        Needs to contain at least a mapping for `key_name`, `ligand_name` and `de_genes_name`
     key_name : string
         the name of the key field in the data elements
     ligand_name : string
@@ -88,9 +91,12 @@ class EvaluationData:
     def add(self, item:dict):
         '''
         Add a dictionary which maps the following keys
-            - _key_name -> the name of the data element
-            - _ligand_name -> the ligand
-            - _de_genes_name -> the target genes
+
+            * `key_name` -> the name of the data element
+
+            * `ligand_name` -> the ligand
+
+            * `de_genes_name` -> the target genes
 
         Parameters
         ----------
@@ -123,9 +129,12 @@ class EvaluationData:
     def add_all(self, items:Iterable[dict]):
         '''
         Adds dictionaries which map the following keys
-            - _key_name -> the name of the data element
-            - _ligand_name -> the ligand
-            - _de_genes_name -> the target genes
+
+            * `key_name` -> the name of the data element
+
+            * `ligand_name` -> the ligand
+
+            * `de_genes_name` -> the target genes
 
         Parameters
         ----------

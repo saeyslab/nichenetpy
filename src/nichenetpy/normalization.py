@@ -47,7 +47,7 @@ def log_normalize(
 ) -> nichenet_matrix:
     '''
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale.factor.
-    This is then natural-log transformed using log1p
+    This is then natural-log transformed using `numpy.log1p`
 
     Parameters
     ----------

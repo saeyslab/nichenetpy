@@ -103,8 +103,8 @@ def get_geneset_oi(
     
     Notes
     -----
-    With use_scanpy=True, scanpy_corr_method="bonferroni" and scanpy_tie_correct=True
-    only the log fold changes will be different compared to use_scanpy=False
+    With `use_scanpy`=True, `scanpy_corr_method`="bonferroni" and `scanpy_tie_correct`=True
+    only the log fold changes will be different compared to `use_scanpy`=False
     '''
     ann_receiver = subset_ann(
         ann,

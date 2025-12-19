@@ -48,7 +48,15 @@ class GeneAliasInfo:
     def __contains__(self, item):
         return item in self._mapping
     
-    def update(self, items:Iterable[tuple[str, tuple[str, int|None]]]):
+    def add(self, items:Iterable[tuple[str, tuple[str, int|None]]]):
+        '''
+        Adds new mappings but will not overwrite existing mappings. 
+
+        Parameters
+        ----------
+        items : Iterable
+            the new mappings
+        '''
         for k, v in items:
             if k not in self:
                 self._mapping[k] = v

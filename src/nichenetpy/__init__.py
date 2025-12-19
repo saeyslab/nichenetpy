@@ -1,5 +1,5 @@
 '''
-**nichenetpy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
+**NicheNetPy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
 NicheNet is to study intercellular communication from a computational
 perspective. NicheNet uses human or mouse gene expression data of
 interacting cells as input and combines this with a prior model that
@@ -80,11 +80,15 @@ regulated by these ligands. As an intermediate step, we extract the
 three features required for the analysis: a list of potential ligands, a
 gene set that captures the downstream effects of the CCC event of
 interest, and a background set of genes. Further explanation on each
-feature can be found in the introduction to nichenetpy.
+feature can be found in the introductory notebooks.
 
 <img src="https://github.com/saeyslab/nichenetpy/raw/main/images/figure1.svg" width="600" />
 
 ## Learning to use nichenetpy
+
+A very basic tutorial for people who are unfamiliar with python can be found here. 
+
+-   [Basic Tutorial](notebooks/basic_tutorial.ipynb)
 
 The following notebooks contain the explanation on how to perform a
 basic NicheNet analysis on an AnnData object. This includes prioritizing
@@ -134,6 +138,10 @@ models against NicheNet can read the following notebooks:
 For a comparison between Seurat's FindAllMarkers (which is ported into nichenetpy) and Scanpy's rank_genes_groups, see the following notebook:
 
 -   [Comparison: Seurat vs Scanpy](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/seuratVSscanpy.ipynb)
+
+## FAQ
+
+-   Check the FAQ pages at [FAQ NicheNetPy](faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
 
 ## References
 
