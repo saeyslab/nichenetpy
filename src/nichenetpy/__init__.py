@@ -148,6 +148,4 @@ Macrophage Niche. Immunity (2019) <doi:10.1016/j.immuni.2019.08.017>
 Guilliams et al. Spatial proteogenomics reveals distinct and
 evolutionarily conserved hepatic macrophage niches. Cell (2022)
 <doi:10.1016/j.cell.2021.12.018>
-
-
 '''
