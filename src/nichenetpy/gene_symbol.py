@@ -138,7 +138,7 @@ class GeneInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(*([word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines[1:]))
-            self.__init__(zip(symbol, symbol_mouse))
+            self.__init__(list(zip(symbol, symbol_mouse)))
         elif isinstance(arg, Iterable):
             # one to many
             self._human2mouse = Network(
@@ -148,7 +148,7 @@ class GeneInfo:
                 )
             )
             # one to one
-            self._mouse2human = dict(arg)
+            self._mouse2human = dict(((sm, sh) for sh, sm in arg))
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")
 
