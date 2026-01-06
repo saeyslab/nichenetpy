@@ -143,8 +143,9 @@ if __name__ == "__main__":
             col_names
         )
         ltf_matrix = (csr_matrix(ltf_matrix[0]), ltf_matrix[1], ltf_matrix[2])
-        if not os.path.exists(out):
-            os.makedirs(out)
+        out_dir = os.path.split(out)[0]
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
         with open(out, "wb") as file:
             file.write(pickle.dumps({
                 "predictor": predictor,
