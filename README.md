@@ -2,7 +2,7 @@
 [![pytest](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml)
 <!-- badges: end -->
 
-**nichenetpy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
+**NicheNetPy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
 NicheNet is to study intercellular communication from a computational
 perspective. NicheNet uses human or mouse gene expression data of
 interacting cells as input and combines this with a prior model that

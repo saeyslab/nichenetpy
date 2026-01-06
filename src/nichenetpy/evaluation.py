@@ -12,13 +12,16 @@ import pandas as pd
 class EvaluationData:
     '''
     Data which can be used for model evaluation. Each item needs to contain
-        - a ligand
-        - the genes that were regulated by the ligand
+
+        * a ligand
+
+        * the genes that were regulated by the ligand
 
     Parameters
     ----------
-    obj : Iterable of dict
-        iterable of a ligand with it's corresponding genes and optionally a name/key for the data element
+    obj : dict or Iterable of dict or pandas.DataFrame
+        Iterable of a ligand with it's corresponding genes and optionally a name/key for the data element. 
+        Needs to contain at least a mapping for `key_name`, `ligand_name` and `de_genes_name`
     key_name : string
         the name of the key field in the data elements
     ligand_name : string
@@ -46,7 +49,7 @@ class EvaluationData:
     '''
     def __init__(
         self,
-        obj:dict[str, dict]|Iterable[dict]=None,
+        obj:dict[str, dict]|Iterable[dict]|pd.DataFrame=None,
         key_name:str="name",
         ligand_name:str="from",
         de_genes_name:str="response"
@@ -58,6 +61,9 @@ class EvaluationData:
         if obj is not None:
             if type(obj) is dict:
                 for key, val in obj.items():
+                    self[key] = val
+            elif type(obj) is pd.DataFrame:
+                for key, val in zip(obj[key_name], (dict(zip(obj.columns, r)) for r in zip(*(obj[col] for col in obj.columns)))):
                     self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
@@ -72,11 +78,11 @@ class EvaluationData:
         if type(val) is not dict:
             raise TypeError(f"val should have type dict, was {type(val)}")
         if self._ligand_name not in val:
-            raise ValueError(f"item should have a {self._ligand_name} key")
+            raise ValueError(f"item should have a '{self._ligand_name}' key")
         if type(val[self._ligand_name]) is not str and type(val[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a string or list of strings")
         if self._de_genes_name not in val:
-            raise ValueError(f"item should have a {self._de_genes_name} key")
+            raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(val[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         val[self._key_name] = key
@@ -85,9 +91,12 @@ class EvaluationData:
     def add(self, item:dict):
         '''
         Add a dictionary which maps the following keys
-            - _key_name -> the name of the data element
-            - _ligand_name -> the ligand
-            - _de_genes_name -> the target genes
+
+            * `key_name` -> the name of the data element
+
+            * `ligand_name` -> the ligand
+
+            * `de_genes_name` -> the target genes
 
         Parameters
         ----------
@@ -104,15 +113,15 @@ class EvaluationData:
         if type(item) is not dict:
             raise TypeError(f"item should have type dict, was {type(item)}")
         if self._key_name not in item:
-            raise ValueError(f"item should have a {self._key_name} key")
+            raise ValueError(f"item should have a '{self._key_name}' key")
         if type(item[self._key_name]) is not str:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
-            raise ValueError(f"item should have a {self._ligand_name} key")
+            raise ValueError(f"item should have a '{self._ligand_name}' key")
         if type(item[self._ligand_name]) is not str and type(item[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a string or list")
         if self._de_genes_name not in item:
-            raise ValueError(f"item should have a {self._de_genes_name} key")
+            raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         self._data[item[self._key_name]] = item
@@ -120,9 +129,12 @@ class EvaluationData:
     def add_all(self, items:Iterable[dict]):
         '''
         Adds dictionaries which map the following keys
-            - _key_name -> the name of the data element
-            - _ligand_name -> the ligand
-            - _de_genes_name -> the target genes
+
+            * `key_name` -> the name of the data element
+
+            * `ligand_name` -> the ligand
+
+            * `de_genes_name` -> the target genes
 
         Parameters
         ----------

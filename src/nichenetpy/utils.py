@@ -7,7 +7,8 @@ from re import (
     search,
     Pattern,
     finditer,
-    compile
+    compile,
+    split
 )
 
 import numpy as np
@@ -97,7 +98,10 @@ def read_matrix_from_csv(
     rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
     return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("\'\"") for row_name in row_names], col_names)
 
-def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
+def read_csv_rows(
+    filename:str,
+    sep:str|Pattern=","
+) -> tuple[list[str], list[list[str]]]:
     '''
     Reads the rows from a csv file. 
 
@@ -105,6 +109,8 @@ def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
     ----------
     filename : str
         the name of the csv file to read from
+    sep : str or re.Pattern
+        the separator
     
     Returns
     -------
@@ -122,10 +128,13 @@ def read_csv_rows(filename:str) -> tuple[list[str], list[list[str]]]:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
+    lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
     return (lines[0], lines[1:])
 
-def read_csv_cols(filename:str) -> dict[str, list[str]]:
+def read_csv_cols(
+    filename:str,
+    sep:str|Pattern=","
+) -> dict[str, list[str]]:
     '''
     Reads the columns from a csv file. 
 
@@ -133,6 +142,8 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
     ----------
     filename : str
         the name of the csv file to read from
+    sep : str or re.Pattern
+        the separator
     
     Returns
     -------
@@ -148,7 +159,7 @@ def read_csv_cols(filename:str) -> dict[str, list[str]]:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"\'") for word in line.rstrip().split(",")] for line in lines]
+    lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
     return dict(zip(lines[0], zip(*lines[1:])))
 
 def subset_matrix(

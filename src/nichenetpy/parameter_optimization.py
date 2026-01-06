@@ -51,17 +51,8 @@ def evaluate_model(
     ----------
     predictor : LigandActivityPredictor
         The predictor that holds the ligand-target matrix to evaluate
-    settings : Iterable of dict
-        An Iterable of dictionaries that have the following keys: 
-        
-            name: the name of the setting
-
-            ligand: the name of the ligand which is known to be active in the setting of interest
-        
-            from:  the name of the ligand of which the predictive performance need to be assessed
-        
-            response:   the observed target response, indicates for a gene whether it was a target
-                        or not in the setting of interest
+    evaluation_data : EvaluationData
+        The evaluation data
 
     Returns
     -------
@@ -254,17 +245,8 @@ def construct_and_evaluate(
         dataframe which contains gene regulatory interactions
     sig_network : pandas.DataFrame
         dataframe which contains signaling interactions
-    settings : dict
-        A dictionary of dictionaries that have the following keys: 
-        
-            name: the name of the setting
-
-            ligand: the name of the ligand which is known to be active in the setting of interest
-        
-            from:  the name of the ligand of which the predictive performance need to be assessed
-        
-            response:   the observed target response, indicates for a gene whether it was a target
-                        or not in the setting of interest
+    evaluation_data : EvaluationData
+        The evaluation data
 
     Returns
     -------
@@ -357,7 +339,7 @@ def weighted_stress_function(
     Returns
     -------
     Callable
-        the wighted stress function
+        the weighted stress function
     '''
     a = 0.75 * (1 - w)**2 + 2*(1 - w) + d1
     b = a + 4*w - 2
