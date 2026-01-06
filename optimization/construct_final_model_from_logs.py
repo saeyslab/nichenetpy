@@ -35,25 +35,25 @@ if __name__ == "__main__":
         help="path to the directory which contains the logs"
     )
     parser.add_argument(
-        "lr_network",
+        "--lr_network",
         help="path to the ligand receptor network file",
         action="append",
         default=[]
     )
     parser.add_argument(
-        "gr_network",
+        "--gr_network",
         help="path to the gene regulatory network file",
         action="append",
         default=[]
     )
     parser.add_argument(
-        "sig_network",
+        "--sig_network",
         help="path to the signaling network file",
         action="append",
         default=[]
     )
     parser.add_argument(
-        "model_path",
+        "--model_path",
         help="path to the file where the model should be saved",
         action="append",
         default=[]
