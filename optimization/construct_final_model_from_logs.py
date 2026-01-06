@@ -96,17 +96,24 @@ if __name__ == "__main__":
                 sw[source] = 0
     # aggregate the solutions
     keys = sorted(ranked_solutions[0][2].keys())
-    average_solution = dict(zip(keys, np.mean([list(zip(*sorted(sol.items(), key=lambda x : x[0])))[1] for _, _, sol in ranked_solutions], axis=0)))
     aggregated_solution = (
-        dict(zip(keys, np.median([list(zip(*sorted(sol.items(), key=lambda x : x[0])))[1] for _, _, sol in ranked_solutions], axis=0)))
-        if args.aggregation_method == "median"
-        else average_solution
+        dict(
+            zip(
+                keys,
+                (# aggregation function
+                    np.median if args.aggregation_method == "median" else np.mean
+                )(# aggregation function arguments
+                    [list(zip(*sorted(sol.items(), key=lambda x : x[0])))[1] for _, _, sol in ranked_solutions],
+                    axis=0
+                )
+            )
+        )
     )
     # separate the hyperparameters from the source weights
-    lr_sig_hub = average_solution.pop("lr_sig_hub")
-    gr_hub = average_solution.pop("gr_hub")
-    ltf_cutoff = average_solution.pop("ltf_cutoff")
-    damping_factor = average_solution.pop("damping_factor")
+    lr_sig_hub = aggregated_solution.pop("lr_sig_hub")
+    gr_hub = aggregated_solution.pop("gr_hub")
+    ltf_cutoff = aggregated_solution.pop("ltf_cutoff")
+    damping_factor = aggregated_solution.pop("damping_factor")
     # build the model
     for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path):
         lr_network = pd.DataFrame(read_csv_cols(lr))
@@ -146,5 +153,5 @@ if __name__ == "__main__":
                 "gr": WeightedNetwork(weighted_networks["gr"]),
                 "ltf_matrix": ltf_matrix,
                 "grn_matrix": grn_matrix,
-                "source_weights": average_solution
+                "source_weights": aggregated_solution
             }))
