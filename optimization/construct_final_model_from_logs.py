@@ -28,7 +28,7 @@ from pareto import Pareto, ParetoSet
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="optimize the source weights and hyperparameters"
+        description="constructs a nichenet model from the optimization logs (optuna)"
     )
     parser.add_argument(
         "log_dir",
