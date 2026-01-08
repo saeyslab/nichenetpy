@@ -4,7 +4,7 @@ __pycache__
 src/nichenetpy.egg-info/*
 notebooks/tutorial_files/*
 tests/data/tutorial_files/*
-scripts/*
+Rscripts/*
 SeuratVSscanpy/*
 temp/*
 docs/*
