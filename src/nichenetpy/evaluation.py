@@ -208,7 +208,7 @@ class EvaluationData:
         Returns
         -------
         list
-            a set which contains all ligands present in the evaluation data
+            a list which contains all ligands present in the evaluation data
         
         Raises
         ------
@@ -223,6 +223,10 @@ class EvaluationData:
                 output.add(setting["from"])
             else:
                 if combination:
+                    # lists are not hashable (but tuples are if the elements are hashable ->
+                    # TODO change to tuple (and simplify entire function)?)
+                    # but first check where this function is used
+                    # why not return a set?
                     output.add("-".join(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)

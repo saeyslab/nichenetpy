@@ -27,7 +27,6 @@ from optuna.samplers.nsgaii import (
     BaseCrossover
 )
 from itertools import chain
-from pickle import dumps, loads
 from joblib import Parallel, delayed
 from functools import reduce
 from operator import and_
@@ -38,6 +37,7 @@ import numpy as np
 import argparse
 import os
 import requests
+import pickle
 
 
 class FlatCrossover(BaseCrossover):
@@ -193,20 +193,47 @@ if __name__ == "__main__":
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
-    with open(args.settings_file, "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    gr_network = _gr_network[
-        ~ (
-            (_gr_network["database"] == "NicheNet_LT") &
-            np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
-        )
-        &
-        ~ (
-            (_gr_network["database"] == "CytoSig") &
-            np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
-        )
-    ]
+    file_ext = args.settings_file.split(".")[-1]
+    if file_ext == "json":
+        # old way
+        with open(args.settings_file, "rb") as file:
+            settings_CV = json.loads(file.read())
+        evaluation_data = EvaluationData(settings_CV["settings"])
+        gr_network = _gr_network[
+            ~ (
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
+            )
+            &
+            ~ (
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
+            )
+        ]
+    elif file_ext == "pkl":
+        # new way
+        with open(args.settings_file, "rb") as file:
+            eval = pickle.loads(file.read())
+        evaluation_data = eval["data"]
+        forbidden_ligands = eval["forbidden_ligands"]
+        gr_network = _gr_network[
+            ~ (
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in forbidden_ligands["NicheNet"] for fr in _gr_network["from"]])
+            )
+            &
+            ~ (
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in forbidden_ligands["CytoSig"] for fr in _gr_network["from"]])
+            )
+            &
+            ~ (
+                (_gr_network["database"] == "Lignature") &
+                np.array([fr in forbidden_ligands["Lignature"] for fr in _gr_network["from"]])
+            )
+        ]
+    else:
+        raise ValueError(f"the training data should be a json (.json) or pickle (.pkl) file")
     source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
     if args.source_path is not None:
         df = pd.DataFrame(
