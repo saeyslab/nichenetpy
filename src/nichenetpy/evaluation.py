@@ -223,22 +223,10 @@ class EvaluationData:
                 output.add(setting["from"])
             else:
                 if combination:
-                    # lists are not hashable (but tuples are if the elements are hashable ->
-                    # TODO change to tuple (and simplify entire function)?)
-                    # but first check where this function is used
-                    # why not return a set?
-                    output.add("-".join(setting["from"]))
+                    output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        output_lst = []
-        for e in output:
-            res = search("-", e)
-            if res is None:
-                output_lst.append(e)
-            else:
-                res = res.span()
-                output_lst.append([e[:res[0]], e[res[1]:]])
-        return output_lst
+        return output
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
