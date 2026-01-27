@@ -29,7 +29,10 @@ def _average_performances(ligand_oi, performances):
         )
         for true_ligand in performances["ligand"]
     ]]
-    return performances_oi["aupr_corrected"].median()
+    return (
+        performances_oi["aupr_corrected"].median(),
+        performances_oi["aupr_corrected"].median()
+    )
 
 def _evaluate_single_importances_ligand_prediction(
     ligand_importances,
@@ -160,15 +163,17 @@ def compute_evaluation_scores(
     TypeError
         if the arguments have the wrong type
     '''
-    performances_target_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, eval_res["performances_target_prediction"])
-            for ligand in ligands
-        ) if not np.isnan(e)
-    ]
+    performances_target_prediction_averaged_auroc, performances_target_prediction_averaged_aupr = zip(
+        *(_average_performances(ligand, eval_res["performances_target_prediction"])
+        for ligand in ligands
+    ))
+    performances_target_prediction_averaged_auroc = [e for e in performances_target_prediction_averaged_auroc if not np.isnan(e)]
+    performances_target_prediction_averaged_aupr = [e for e in performances_target_prediction_averaged_aupr if not np.isnan(e)]
     if eval_res["performances_ligand_prediction"] is None:
         return (
-            np.mean(performances_target_prediction_averaged),
+            np.mean(performances_target_prediction_averaged_auroc),
+            np.mean(performances_target_prediction_averaged_aupr),
+            0,
             0
         )
     ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
@@ -196,15 +201,17 @@ def compute_evaluation_scores(
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
-    performances_ligand_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, performances_ligand_prediction_summary)
-            for ligand in ligands
-        ) if not np.isnan(e)
-    ]
+    performances_ligand_prediction_averaged_auroc, performances_ligand_prediction_averaged_aupr = zip(
+        *(_average_performances(ligand, performances_ligand_prediction_summary)
+        for ligand in ligands
+    ))
+    performances_ligand_prediction_averaged_auroc = [e for e in performances_ligand_prediction_averaged_auroc if not np.isnan(e)]
+    performances_ligand_prediction_averaged_aupr = [e for e in performances_ligand_prediction_averaged_aupr if not np.isnan(e)]
     return (
-        np.mean(performances_target_prediction_averaged),
-        (np.median(performances_ligand_prediction_averaged) + np.mean(performances_ligand_prediction_averaged)) / 2
+        np.mean(performances_target_prediction_averaged_auroc),
+        np.mean(performances_target_prediction_averaged_aupr),
+        (np.median(performances_ligand_prediction_averaged_auroc) + np.mean(performances_ligand_prediction_averaged_auroc)) / 2,
+        (np.median(performances_ligand_prediction_averaged_aupr) + np.mean(performances_ligand_prediction_averaged_aupr)) / 2
     )
 
 def construct_and_evaluate(
@@ -316,7 +323,9 @@ def construct_and_evaluate(
             "ligand-target matrix": ligand2target
         },
         scores[0],
-        scores[1]
+        scores[1],
+        scores[2],
+        scores[3]
     )
 
 def weighted_stress_function(

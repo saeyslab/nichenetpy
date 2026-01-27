@@ -227,6 +227,18 @@ class EvaluationData:
                 for ligand in setting["from"]:
                     output.add(ligand)
         return output
+    
+    def to_dataframe() -> pd.DataFrame:
+        '''
+        Convert the evaluation data to a pandas.DataFrame
+
+        Returns
+        -------
+        pandas.DataFrame
+            the evaluation data as a dataframe
+        '''
+        # TODO
+        raise NotImplementedError
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,

@@ -215,6 +215,8 @@ if __name__ == "__main__":
         with open(args.settings_file, "rb") as file:
             eval = pickle.loads(file.read())
         evaluation_data = eval["data"]
+        # all ligands from a specific database present in the evaluation data have their links (in this database)
+        # removed from the gene regulatory network to avoid data leakage
         forbidden_ligands = eval["forbidden_ligands"]
         gr_network = _gr_network[
             ~ (
@@ -234,6 +236,7 @@ if __name__ == "__main__":
         ]
     else:
         raise ValueError(f"the training data should be a json (.json) or pickle (.pkl) file")
+    # define the source weights that should be updated
     source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
     if args.source_path is not None:
         df = pd.DataFrame(
@@ -262,7 +265,9 @@ if __name__ == "__main__":
             source_names_var = set(df[~bool_v]["source"])
 
     def objective(trial:Trial):
+        # define source weights
         if args.source_path is not None and len(args.var_database) > 0:
+            # some source weights have been fixed a priori
             source_weights = dict(
                 (
                     source_name,
@@ -287,6 +292,7 @@ if __name__ == "__main__":
                     )
                 ) for source_name in source_names
             )
+        # define hyperparameters
         lr_sig_hub = trial.suggest_float(
             name="lr_sig_hub",
             low=0,
@@ -307,6 +313,7 @@ if __name__ == "__main__":
             low=0.01,
             high=0.99
         ) if args.damping_factor is None else args.damping_factor
+        # construct the model from the source weights and compute the objectives
         res = construct_and_evaluate(
             source_weights,
             lr_sig_hub,
@@ -318,14 +325,14 @@ if __name__ == "__main__":
             sig_network,
             evaluation_data
         )
-        return (res[1], res[2])
+        return (res[1], res[2], res[3], res[4])
 
     name = args.settings_file.split("/")[-1][:-5]
     if not os.path.exists(args.log_dir):
         os.mkdir(args.log_dir)
     log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
     with open(log_file, "a" if args.c else "w"):
-        pass
+        pass # the file is created, if not args.c the file is emptied if it already existed
     lock_obj = JournalFileOpenLock(log_file)
     storage = JournalStorage(
         JournalFileBackend(log_file, lock_obj)
@@ -341,7 +348,7 @@ if __name__ == "__main__":
         sampler = GPSampler(deterministic_objective=False)
     study = create_study(
         sampler=sampler,
-        directions=["maximize", "maximize"],
+        directions=["maximize", "maximize", "maximize", "maximize"],
         study_name=name,
         storage=storage,
         load_if_exists=args.c
