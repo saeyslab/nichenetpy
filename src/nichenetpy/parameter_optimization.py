@@ -30,7 +30,7 @@ def _average_performances(ligand_oi, performances):
         for true_ligand in performances["ligand"]
     ]]
     return (
-        performances_oi["aupr_corrected"].median(),
+        performances_oi["auroc"].median(),
         performances_oi["aupr_corrected"].median()
     )
 
