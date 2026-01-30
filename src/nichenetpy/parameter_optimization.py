@@ -140,7 +140,7 @@ def evaluate_model(
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
     ligands:Iterable[str]
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
 
@@ -276,6 +276,8 @@ def construct_and_evaluate(
                 "ltf matrix": None,
                 "ligand-target matrix": None
             },
+            0,
+            0,
             0,
             0
         )
