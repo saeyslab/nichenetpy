@@ -13,3 +13,4 @@ optimization/log
 optimization/output
 optimization/tutorial_files
 optimization/check_results
+optimization/run_optimization*.pbs

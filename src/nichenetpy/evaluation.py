@@ -228,7 +228,7 @@ class EvaluationData:
                     output.add(ligand)
         return output
     
-    def to_dataframe() -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         '''
         Convert the evaluation data to a pandas.DataFrame
 
@@ -237,8 +237,15 @@ class EvaluationData:
         pandas.DataFrame
             the evaluation data as a dataframe
         '''
-        # TODO
-        raise NotImplementedError
+        keys = set(next(iter(self._data.values())).keys())
+        columns_dct = {
+            k: []
+            for k in keys
+        }
+        for v in self._data.values():
+            for k in keys:
+                columns_dct[k].append(v[k])
+        return pd.DataFrame(columns_dct)
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
