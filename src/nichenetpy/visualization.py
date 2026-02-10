@@ -1801,9 +1801,9 @@ def create_radar_plot(
         ncols=ncols,
         subplot_kw=dict(projection='radar')
     )
-    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=0.85, bottom=0.05)
+    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=4, bottom=0.05)
     for ax, (title, case_data) in zip(axs.flat, data):
-        ax.set_rgrids([i * max_val / 5 for i in range(1, 5)])
+        ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])
         ax.set_title(
             title,
             weight='bold',
