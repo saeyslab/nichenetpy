@@ -1,6 +1,7 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.typing import nichenet_matrix
+from nichenetpy.prediction import LigandActivityPredictor
 
 from numbers import Number
 from itertools import chain
@@ -521,3 +522,94 @@ def construct_ligand_target_matrix(
             (grn_matrix, grn_rows, grn_cols)
         )
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
+
+def construct_model_from_source_weights(
+    source_weights:dict[str, float]|pd.DataFrame,
+    lr_sig_hub:float,
+    gr_hub:float,
+    ltf_cutoff:float,
+    damping_factor:float,
+    lr_network:pd.DataFrame,
+    gr_network:pd.DataFrame,
+    sig_network:pd.DataFrame,
+    ligands:Iterable[str]|None=None
+):
+    '''
+    Construct the ligand-target matrix starting from the source weights. 
+
+    Parameters
+    ----------
+    source_weights : pandas.DataFrame or dictionary
+        Dataframe or dictionary which contains the weights associated to each individual data source.
+        Sources with higher weights will contribute more to the final model performance.
+        Note that only interactions described by sources included here, will be retained during model construction.
+    lr_sig_hub : float
+        a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
+    gr_hub : float
+        a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
+    ltf_cutoff : float
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
+    damping_factor : float
+        Only relevant when algorithm is PPR.
+        In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
+        1-damping factor is the probability that the walker will return to the seed node.
+    lr_network : pandas.DataFrame
+        dataframe which contains ligand-receptor interactions
+    gr_network : pandas.DataFrame
+        dataframe which contains gene regulatory interactions
+    sig_network : pandas.DataFrame
+        dataframe which contains signaling interactions
+    ligands : Iterable of string or None
+        the ligands to include in the model, if None all ligands in the ligand-receptor network will be included
+
+    Returns
+    -------
+    dict
+        A dictionary with keys 'weighted networks', 'grn matrix', 'ltf matrix' and 'ligand-target matrix'
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    if sum(source_weights.values()) == 0:
+        return (
+            {
+                "weighted networks": None,
+                "grn matrix": None,
+                "ltf matrix": None,
+                "ligand-target matrix": None
+            },
+        )
+    if ligands is None:
+        ligands = set(lr_network["from"])
+    weighted_networks = construct_weighted_networks(
+        lr_network,
+        sig_network,
+        gr_network,
+        source_weights
+    )
+    if weighted_networks["lr_sig"].shape[0] > 0:
+        weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
+        weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
+        ligand2target, grn_matrix, ltf_matrix = construct_ligand_target_matrix(
+            weighted_networks,
+            lr_network,
+            ligands,
+            damping_factor=damping_factor,
+            ltf_cutoff=ltf_cutoff,
+            return_all_matrices=True
+        )
+    else:
+        grn_matrix = construct_tf_target_matrix(
+            weighted_networks,
+            standalone_output=True
+        )
+        ligand2target = (grn_matrix[0].toarray(), grn_matrix[1], grn_matrix[2])
+        ltf_matrix = None
+    return {
+        "weighted networks": weighted_networks,
+        "grn matrix": grn_matrix,
+        "ltf matrix": ltf_matrix,
+        "ligand-target matrix": ligand2target
+    }

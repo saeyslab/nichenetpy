@@ -1,8 +1,5 @@
 from nichenetpy.model_construction import (
-    construct_weighted_networks,
-    construct_ligand_target_matrix,
-    construct_tf_target_matrix,
-    apply_hub_correction
+    construct_model_from_source_weights
 )
 from nichenetpy.evaluation import (
     EvaluationData,
@@ -281,34 +278,20 @@ def construct_and_evaluate(
             0,
             0
         )
-    ligands = evaluation_data.get_ligands()
-    weighted_networks = construct_weighted_networks(
+    model = construct_model_from_source_weights(
+        source_weights,
+        lr_sig_hub,
+        gr_hub,
+        ltf_cutoff,
+        damping_factor,
         lr_network,
-        sig_network,
         gr_network,
-        source_weights
+        sig_network,
+        ligands=evaluation_data.get_ligands()
     )
-    if weighted_networks["lr_sig"].shape[0] > 0:
-        weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
-        weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        ligand2target, grn_matrix, ltf_matrix = construct_ligand_target_matrix(
-            weighted_networks,
-            lr_network,
-            ligands,
-            damping_factor=damping_factor,
-            ltf_cutoff=ltf_cutoff,
-            return_all_matrices=True
-        )
-    else:
-        grn_matrix = construct_tf_target_matrix(
-            weighted_networks,
-            standalone_output=True
-        )
-        ligand2target = (grn_matrix[0].toarray(), grn_matrix[1], grn_matrix[2])
-        ltf_matrix = None
     # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
     # the optimization as a whole is also faster despite the copy each trial
-    ligand2target, row_names, col_names = ligand2target
+    ligand2target, row_names, col_names = model["ligand-target matrix"]
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
@@ -318,12 +301,7 @@ def construct_and_evaluate(
         evaluation_data.get_ligands(combination=True)
     )
     return (
-        {
-            "weighted networks": weighted_networks,
-            "grn matrix": grn_matrix,
-            "ltf matrix": ltf_matrix,
-            "ligand-target matrix": ligand2target
-        },
+        model,
         scores[0],
         scores[1],
         scores[2],
