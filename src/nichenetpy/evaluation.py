@@ -207,8 +207,8 @@ class EvaluationData:
 
         Returns
         -------
-        list
-            a list which contains all ligands present in the evaluation data
+        set
+            a set which contains all ligands present in the evaluation data
         
         Raises
         ------
@@ -246,6 +246,38 @@ class EvaluationData:
             for k in keys:
                 columns_dct[k].append(v[k])
         return pd.DataFrame(columns_dct)
+    
+    def get_applicable_evaluation_datasets(self, predictor:LigandActivityPredictor):
+        '''
+        get the subset of applicable evaluation data
+        (evaluation data where there is at least one true sample for a gene that is present in the ligand-target matrix)
+
+        Parameters
+        ----------
+        evaluation_data : EvaluationData
+            the evaluation data to subset
+
+        Yields
+        -------
+        str
+            the key of the dataset
+        dict
+            the applicable dataset
+        '''
+        if type(predictor) is not LigandActivityPredictor:
+            raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
+        pred_genes = predictor.get_genes()
+        for k, gs in self._data.items():
+            res = iter(gs[self._de_genes_name].items())
+            is_app = False
+            try:
+                while not is_app:
+                    gene, val = next(res)
+                    is_app = gene in pred_genes and val
+            except StopIteration:
+                pass
+            if is_app:
+                yield (k, gs)
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
