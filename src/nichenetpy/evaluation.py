@@ -2,7 +2,10 @@ from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.metrics import calculate_prediction_evaluation_metrics
 from nichenetpy.utils import is_ligand_active
 
-from collections.abc import Iterable
+from collections.abc import (
+    Iterable,
+    ItemsView
+)
 from itertools import repeat
 from re import search
 
@@ -49,7 +52,7 @@ class EvaluationData:
     '''
     def __init__(
         self,
-        obj:dict[str, dict]|Iterable[dict]|pd.DataFrame=None,
+        obj:dict[str, dict]|Iterable[dict]|ItemsView|pd.DataFrame|None=None,
         key_name:str="name",
         ligand_name:str="from",
         de_genes_name:str="response"
@@ -65,9 +68,14 @@ class EvaluationData:
             elif type(obj) is pd.DataFrame:
                 for key, val in zip(obj[key_name], (dict(zip(obj.columns, r)) for r in zip(*(obj[col] for col in obj.columns)))):
                     self[key] = val
+            elif isinstance(obj, ItemsView):
+                for key, val in obj:
+                    self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
                     self.add(item)
+            else:
+                raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
     def __getitem__(self, key):
         return self._data[key]

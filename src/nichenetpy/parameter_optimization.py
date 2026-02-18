@@ -63,6 +63,12 @@ def evaluate_model(
     ------
     TypeError
         if the arguments have the wrong type
+    
+    Notes
+    -----
+    When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored. 
+    For instance if the intersection between the genes in the ligand-target matrix and the genes in the
+    GS set are genes that aren't expressed then the model can't be avaluated on this GS set. 
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
@@ -76,23 +82,17 @@ def evaluate_model(
         "aupr": [],
         "aupr_corrected": []
     }
+    evaluation_data = EvaluationData((e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor)))
     for setting_id, setting in evaluation_data.items():
         performances_target_prediction["setting"].append(setting_id)
-        try:
-            performances_target_prediction["ligand"].append(setting["from"])
-            for k, v in predictor.evaluate_target_prediction(
-                setting["from"]
-                if type(setting["from"]) is str
-                else "-".join(setting["from"]),
-                setting["response"]
-            ).items():
-                performances_target_prediction[k].append(v)
-        except ValueError:
-            # the metrics are undefined -> roleback
-            max_len = len(performances_target_prediction["setting"]) - 1
-            for e in performances_target_prediction.values():
-                if len(e) > max_len:
-                    e.pop()
+        performances_target_prediction["ligand"].append(setting["from"])
+        for k, v in predictor.evaluate_target_prediction(
+            setting["from"]
+            if type(setting["from"]) is str
+            else "-".join(setting["from"]),
+            setting["response"]
+        ).items():
+            performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
     all_ligands = evaluation_data.get_ligands(combination=False)
     ligand_importances = {
@@ -106,18 +106,11 @@ def evaluate_model(
     }
     for setting_id, setting in evaluation_data.items():
         for ligand in all_ligands:
-            try:
-                ligand_importances["setting"].append(setting_id)
-                ligand_importances["test_ligand"].append(ligand)
-                ligand_importances["true_ligand"].append(setting["from"])
-                for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
-                    ligand_importances[k].append(v)
-            except ValueError:
-                # the metrics are undefined -> roleback
-                max_len = len(ligand_importances["setting"]) - 1
-                for e in ligand_importances.values():
-                    if len(e) > max_len:
-                        e.pop()
+            ligand_importances["setting"].append(setting_id)
+            ligand_importances["test_ligand"].append(ligand)
+            ligand_importances["true_ligand"].append(setting["from"])
+            for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
+                ligand_importances[k].append(v)
     ligand_importances = pd.DataFrame(ligand_importances)
     performances_ligand_prediction_single = [
         e for e in (
