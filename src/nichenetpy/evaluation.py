@@ -258,7 +258,7 @@ class EvaluationData:
     def get_applicable_evaluation_datasets(self, predictor:LigandActivityPredictor):
         '''
         get the subset of applicable evaluation data
-        (evaluation data where there is at least one true sample for a gene that is present in the ligand-target matrix)
+        (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
 
         Parameters
         ----------
@@ -274,18 +274,20 @@ class EvaluationData:
         '''
         if type(predictor) is not LigandActivityPredictor:
             raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
+        ligands = predictor.get_ligands()
         pred_genes = predictor.get_genes()
         for k, gs in self._data.items():
-            res = iter(gs[self._de_genes_name].items())
-            is_app = False
-            try:
-                while not is_app:
-                    gene, val = next(res)
-                    is_app = gene in pred_genes and val
-            except StopIteration:
-                pass
-            if is_app:
-                yield (k, gs)
+            if gs["from"] in ligands:
+                res = iter(gs[self._de_genes_name].items())
+                is_app = False
+                try:
+                    while not is_app:
+                        gene, val = next(res)
+                        is_app = gene in pred_genes and val
+                except StopIteration:
+                    pass
+                if is_app:
+                    yield (k, gs)
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
