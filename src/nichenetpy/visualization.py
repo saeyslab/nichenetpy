@@ -1739,9 +1739,8 @@ def _radar_factory(num_vars, frame='circle'):
     return theta
 
 def create_radar_plot(
-    data:Iterable[tuple[str, Iterable[float]]],
+    data:Iterable[float],
     value_labels:Iterable[str],
-    ncols:int=1,
     cmap:str="gist_rainbow",
     figsize:tuple[int]=(9, 9),
     max_val:float|None=None
@@ -1751,12 +1750,10 @@ def create_radar_plot(
 
     Parameters
     ----------
-    data : iterable of tuples
-        (label, data) pairs to be plotted
+    data : iterable of float
+        the data to be plotted
     value_labels : iterable of string
         the labels of the values to be plotted
-    ncols : int
-        the amount of columns in the grid of radar plots
     cmap : str
         the name of the color map
     figsize : tuple of int
@@ -1778,8 +1775,6 @@ def create_radar_plot(
         raise TypeError(f"data should have type Iterable, was {type(data)}")
     if not isinstance(value_labels, Iterable):
         raise TypeError(f"value_labels should have type Iterable, was {type(value_labels)}")
-    if type(ncols) is not int:
-        raise TypeError(f"ncols should have type int, was {type(ncols)}")
     if type(cmap) is not str:
         raise TypeError(f"cmap should have type str, was {type(cmap)}")
     if type(figsize) is not tuple and type(figsize) is not list:
@@ -1794,27 +1789,16 @@ def create_radar_plot(
         raise TypeError(f"max_val should have type float, was {type(max_val)}")
     cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame='polygon')
-    nrows = int(np.ceil(len(data) / ncols))
-    fig, axs = plt.subplots(
+    fig, ax = plt.subplots(
         figsize=figsize,
-        nrows=nrows,
-        ncols=ncols,
+        nrows=1,
+        ncols=1,
         subplot_kw=dict(projection='radar')
     )
-    fig.subplots_adjust(wspace=0.25, hspace=0.20, top=4, bottom=0.05)
-    for ax, (title, case_data) in zip(axs.flat, data):
-        ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])
-        ax.set_title(
-            title,
-            weight='bold',
-            size='medium',
-            position=(0.5, 1.1),
-            horizontalalignment='center',
-            verticalalignment='center'
-        )
-        for i, d in enumerate(case_data):
-            color = cmap(i/len(case_data))
-            ax.plot(theta, d, color=color)
-            ax.fill(theta, d, facecolor=color, alpha=0.25, label='_nolegend_')
-        ax.set_varlabels(value_labels)
-    return (fig, axs)
+    ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])
+    for i, d in enumerate(data):
+        color = cmap(i/len(data))
+        ax.plot(theta, d, color=color)
+        ax.fill(theta, d, facecolor=color, alpha=0.25, label='_nolegend_')
+    ax.set_varlabels(value_labels)
+    return (fig, ax)
