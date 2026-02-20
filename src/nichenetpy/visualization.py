@@ -1743,7 +1743,8 @@ def create_radar_plot(
     value_labels:Iterable[str],
     cmap:str="gist_rainbow",
     figsize:tuple[int]=(9, 9),
-    max_val:float|None=None
+    max_val:float|None=None,
+    label_size:float=10
 ):
     '''
     Creates a plot consisting of variable-size markers. 
@@ -1801,4 +1802,5 @@ def create_radar_plot(
         ax.plot(theta, d, color=color)
         ax.fill(theta, d, facecolor=color, alpha=0.25, label='_nolegend_')
     ax.set_varlabels(value_labels)
+    ax.tick_params(labelsize=label_size)
     return (fig, ax)
