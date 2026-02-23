@@ -159,6 +159,18 @@ if __name__ == "__main__":
         default=[]
     )
     parser.add_argument(
+        "--excluded_source",
+        help="sources to exclude from the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
+        "--included_source",
+        help="sources to include in the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
         "--log_dir",
         help="Directory in which to store the log of the optimization run. ",
         default="./log"
@@ -237,32 +249,41 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"the training data should be a json (.json) or pickle (.pkl) file")
     # define the source weights that should be updated
-    source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-    if args.source_path is not None:
-        df = pd.DataFrame(
-            {"source": source_names}
-        ).merge(
-            source_annotations,
-            on="source",
-            how="inner"
+    if len(args.included_source) > 0:
+        source_names = sorted(set(args.included_source))
+    elif len(args.excluded_source) > 0:
+        source_names = sorted(
+            set(
+                chain(gr_network["source"], lr_network["source"], sig_network["source"])
+            ).difference(args.excluded_source)
         )
-        init_v = np.array([True for _ in range(df.shape[0])])
-        if len(args.excluded_database) > 0:
-            source_names = set(df[
-                [db not in args.excluded_database for db in df["database"]]
-            ]["source"])
-        elif len(args.included_database) > 0:
-            source_names = set(df[
-                [db in args.included_database for db in df["database"]]
-            ]["source"])
-        if len(args.var_database) > 0:
-            bool_v = reduce(
-                and_,
-                (df["database"] != db for db in args.var_database),
-                np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
+    else: # code for old pbs scripts where I filtered on databases
+        source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
+        if args.source_path is not None:
+            df = pd.DataFrame(
+                {"source": source_names}
+            ).merge(
+                source_annotations,
+                on="source",
+                how="inner"
             )
-            source_names_fixed = set(df[bool_v]["source"])
-            source_names_var = set(df[~bool_v]["source"])
+            init_v = np.array([True for _ in range(df.shape[0])])
+            if len(args.excluded_database) > 0:
+                source_names = set(df[
+                    [db not in args.excluded_database for db in df["database"]]
+                ]["source"])
+            elif len(args.included_database) > 0:
+                source_names = set(df[
+                    [db in args.included_database for db in df["database"]]
+                ]["source"])
+            if len(args.var_database) > 0:
+                bool_v = reduce(
+                    and_,
+                    (df["database"] != db for db in args.var_database),
+                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
+                )
+                source_names_fixed = set(df[bool_v]["source"])
+                source_names_var = set(df[~bool_v]["source"])
 
     def objective(trial:Trial):
         # define source weights

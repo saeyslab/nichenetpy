@@ -255,7 +255,11 @@ class EvaluationData:
                 columns_dct[k].append(v[k])
         return pd.DataFrame(columns_dct)
     
-    def get_applicable_evaluation_datasets(self, predictor:LigandActivityPredictor):
+    def get_applicable_evaluation_datasets(
+        self,
+        predictor:LigandActivityPredictor,
+        combination:bool=True
+    ):
         '''
         get the subset of applicable evaluation data
         (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
@@ -277,7 +281,10 @@ class EvaluationData:
         ligands = predictor.get_ligands()
         pred_genes = predictor.get_genes()
         for k, gs in self._data.items():
-            if gs["from"] in ligands:
+            ligand = gs["from"]
+            if type(ligand) is list or type(ligand) is tuple:
+                ligand = "-".join(ligand) if combination else None
+            if ligand is not None and ligand in ligands:
                 res = iter(gs[self._de_genes_name].items())
                 is_app = False
                 try:
