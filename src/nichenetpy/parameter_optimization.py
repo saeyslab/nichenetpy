@@ -204,6 +204,20 @@ def compute_evaluation_scores(
         (np.median(performances_ligand_prediction_averaged_aupr) + np.mean(performances_ligand_prediction_averaged_aupr)) / 2
     )
 
+def _empty_solution():
+    return (
+        {
+            "weighted networks": None,
+            "grn matrix": None,
+            "ltf matrix": None,
+            "ligand-target matrix": None
+        },
+        0,
+        0,
+        0,
+        0
+    )
+
 def construct_and_evaluate(
     source_weights:dict[str, float]|pd.DataFrame,
     lr_sig_hub:float,
@@ -259,18 +273,7 @@ def construct_and_evaluate(
         if the arguments have the wrong type
     '''
     if sum(source_weights.values()) == 0:
-        return (
-            {
-                "weighted networks": None,
-                "grn matrix": None,
-                "ltf matrix": None,
-                "ligand-target matrix": None
-            },
-            0,
-            0,
-            0,
-            0
-        )
+        return _empty_solution()
     model = construct_model_from_source_weights(
         source_weights,
         lr_sig_hub,
@@ -287,6 +290,8 @@ def construct_and_evaluate(
     ligand2target, row_names, col_names = model["ligand-target matrix"]
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
+    if np.sum(ligand2target) == 0:
+        return _empty_solution()
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores()
     scores = compute_evaluation_scores(
