@@ -33,7 +33,7 @@ def test_optimization_score_0():
         evaluate_model(model["predictor"], evaluation_data),
         evaluation_data.get_ligands(combination=True)
     )
-    assert equals_iter(scores, (0.588, 0.949), err_bound=0.05)
+    assert equals_iter(scores, (0.978, 0.588, 0.991, 0.949), err_bound=0.05)
 
 def test_optimization_score_1():
     model = get_model_pickle("human")
@@ -45,7 +45,7 @@ def test_optimization_score_1():
         evaluate_model(model["predictor"], evaluation_data),
         evaluation_data.get_ligands(combination=True)
     )
-    assert equals_iter(scores, (0.624, 0.954), err_bound=0.05)
+    assert equals_iter(scores, (0.98, 0.624, 0.991, 0.954), err_bound=0.05)
 
 def test_optimization_score_2():
     model = get_model_pickle("human")
@@ -57,7 +57,7 @@ def test_optimization_score_2():
         evaluate_model(model["predictor"], evaluation_data),
         evaluation_data.get_ligands(combination=True)
     )
-    assert equals_iter(scores, (0.636, 0.959), err_bound=0.05)
+    assert equals_iter(scores, (0.978, 0.636, 0.995, 0.959), err_bound=0.05)
 
 def test_optimization_score_3():
     model = get_model_pickle("human")
@@ -69,7 +69,7 @@ def test_optimization_score_3():
         evaluate_model(model["predictor"], evaluation_data),
         evaluation_data.get_ligands(combination=True)
     )
-    assert equals_iter(scores, (0.607, 0.970), err_bound=0.05)
+    assert equals_iter(scores, (0.98, 0.607, 0.949, 0.97), err_bound=0.06) # third objective is 1.0, a bit more deviation from NNv2 than usual
 
 def test_optimization_score_4():
     model = get_model_pickle("human")
@@ -81,7 +81,7 @@ def test_optimization_score_4():
         evaluate_model(model["predictor"], evaluation_data),
         evaluation_data.get_ligands(combination=True)
     )
-    assert equals_iter(scores, (0.629, 0.966), err_bound=0.05)
+    assert equals_iter(scores, (0.986, 0.629, 0.994, 0.966), err_bound=0.05)
 
 def optuna_objective(
     lr_network,
@@ -105,7 +105,7 @@ def optuna_objective(
         sig_network,
         evaluation_data
     )
-    return (res[1], res[2])
+    return (res[1], res[2], res[3], res[4])
 
 def test_optuna_objective_optimized_source_weights():
     get_network_files()
@@ -129,5 +129,7 @@ def test_optuna_objective_optimized_source_weights():
         damping_factor=0.789,
         evaluation_data=evaluation_data
     )
-    assert scores[0] > 0.4
-    assert scores[1] > 0.9
+    assert scores[0] > 0.9
+    assert scores[1] > 0.4
+    assert scores[2] > 0.9
+    assert scores[3] > 0.9

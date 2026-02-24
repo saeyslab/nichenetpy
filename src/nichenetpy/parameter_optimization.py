@@ -1,8 +1,5 @@
 from nichenetpy.model_construction import (
-    construct_weighted_networks,
-    construct_ligand_target_matrix,
-    construct_tf_target_matrix,
-    apply_hub_correction
+    construct_model_from_source_weights
 )
 from nichenetpy.evaluation import (
     EvaluationData,
@@ -29,7 +26,10 @@ def _average_performances(ligand_oi, performances):
         )
         for true_ligand in performances["ligand"]
     ]]
-    return performances_oi["aupr_corrected"].median()
+    return (
+        performances_oi["auroc"].median(),
+        performances_oi["aupr_corrected"].median()
+    )
 
 def _evaluate_single_importances_ligand_prediction(
     ligand_importances,
@@ -63,6 +63,12 @@ def evaluate_model(
     ------
     TypeError
         if the arguments have the wrong type
+    
+    Notes
+    -----
+    When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored. 
+    For instance if the intersection between the genes in the ligand-target matrix and the genes in the
+    GS set are genes that aren't expressed then the model can't be avaluated on this GS set. 
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
@@ -76,23 +82,17 @@ def evaluate_model(
         "aupr": [],
         "aupr_corrected": []
     }
+    evaluation_data = EvaluationData((e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor)))
     for setting_id, setting in evaluation_data.items():
         performances_target_prediction["setting"].append(setting_id)
-        try:
-            performances_target_prediction["ligand"].append(setting["from"])
-            for k, v in predictor.evaluate_target_prediction(
-                setting["from"]
-                if type(setting["from"]) is str
-                else "-".join(setting["from"]),
-                setting["response"]
-            ).items():
-                performances_target_prediction[k].append(v)
-        except ValueError:
-            # the metrics are undefined -> roleback
-            max_len = len(performances_target_prediction["setting"]) - 1
-            for e in performances_target_prediction.values():
-                if len(e) > max_len:
-                    e.pop()
+        performances_target_prediction["ligand"].append(setting["from"])
+        for k, v in predictor.evaluate_target_prediction(
+            setting["from"]
+            if type(setting["from"]) is str
+            else "-".join(setting["from"]),
+            setting["response"]
+        ).items():
+            performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
     all_ligands = evaluation_data.get_ligands(combination=False)
     ligand_importances = {
@@ -106,18 +106,11 @@ def evaluate_model(
     }
     for setting_id, setting in evaluation_data.items():
         for ligand in all_ligands:
-            try:
-                ligand_importances["setting"].append(setting_id)
-                ligand_importances["test_ligand"].append(ligand)
-                ligand_importances["true_ligand"].append(setting["from"])
-                for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
-                    ligand_importances[k].append(v)
-            except ValueError:
-                # the metrics are undefined -> roleback
-                max_len = len(ligand_importances["setting"]) - 1
-                for e in ligand_importances.values():
-                    if len(e) > max_len:
-                        e.pop()
+            ligand_importances["setting"].append(setting_id)
+            ligand_importances["test_ligand"].append(ligand)
+            ligand_importances["true_ligand"].append(setting["from"])
+            for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
+                ligand_importances[k].append(v)
     ligand_importances = pd.DataFrame(ligand_importances)
     performances_ligand_prediction_single = [
         e for e in (
@@ -137,7 +130,7 @@ def evaluate_model(
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
     ligands:Iterable[str]
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
 
@@ -160,15 +153,17 @@ def compute_evaluation_scores(
     TypeError
         if the arguments have the wrong type
     '''
-    performances_target_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, eval_res["performances_target_prediction"])
-            for ligand in ligands
-        ) if not np.isnan(e)
-    ]
+    performances_target_prediction_averaged_auroc, performances_target_prediction_averaged_aupr = zip(
+        *(_average_performances(ligand, eval_res["performances_target_prediction"])
+        for ligand in ligands
+    ))
+    performances_target_prediction_averaged_auroc = [e for e in performances_target_prediction_averaged_auroc if not np.isnan(e)]
+    performances_target_prediction_averaged_aupr = [e for e in performances_target_prediction_averaged_aupr if not np.isnan(e)]
     if eval_res["performances_ligand_prediction"] is None:
         return (
-            np.mean(performances_target_prediction_averaged),
+            np.mean(performances_target_prediction_averaged_auroc),
+            np.mean(performances_target_prediction_averaged_aupr),
+            0,
             0
         )
     ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
@@ -196,15 +191,17 @@ def compute_evaluation_scores(
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
-    performances_ligand_prediction_averaged = [
-        e for e in (
-            _average_performances(ligand, performances_ligand_prediction_summary)
-            for ligand in ligands
-        ) if not np.isnan(e)
-    ]
+    performances_ligand_prediction_averaged_auroc, performances_ligand_prediction_averaged_aupr = zip(
+        *(_average_performances(ligand, performances_ligand_prediction_summary)
+        for ligand in ligands
+    ))
+    performances_ligand_prediction_averaged_auroc = [e for e in performances_ligand_prediction_averaged_auroc if not np.isnan(e)]
+    performances_ligand_prediction_averaged_aupr = [e for e in performances_ligand_prediction_averaged_aupr if not np.isnan(e)]
     return (
-        np.mean(performances_target_prediction_averaged),
-        (np.median(performances_ligand_prediction_averaged) + np.mean(performances_ligand_prediction_averaged)) / 2
+        np.mean(performances_target_prediction_averaged_auroc),
+        np.mean(performances_target_prediction_averaged_aupr),
+        (np.median(performances_ligand_prediction_averaged_auroc) + np.mean(performances_ligand_prediction_averaged_auroc)) / 2,
+        (np.median(performances_ligand_prediction_averaged_aupr) + np.mean(performances_ligand_prediction_averaged_aupr)) / 2
     )
 
 def construct_and_evaluate(
@@ -270,36 +267,24 @@ def construct_and_evaluate(
                 "ligand-target matrix": None
             },
             0,
+            0,
+            0,
             0
         )
-    ligands = evaluation_data.get_ligands()
-    weighted_networks = construct_weighted_networks(
+    model = construct_model_from_source_weights(
+        source_weights,
+        lr_sig_hub,
+        gr_hub,
+        ltf_cutoff,
+        damping_factor,
         lr_network,
-        sig_network,
         gr_network,
-        source_weights
+        sig_network,
+        ligands=evaluation_data.get_ligands()
     )
-    if weighted_networks["lr_sig"].shape[0] > 0:
-        weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
-        weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        ligand2target, grn_matrix, ltf_matrix = construct_ligand_target_matrix(
-            weighted_networks,
-            lr_network,
-            ligands,
-            damping_factor=damping_factor,
-            ltf_cutoff=ltf_cutoff,
-            return_all_matrices=True
-        )
-    else:
-        grn_matrix = construct_tf_target_matrix(
-            weighted_networks,
-            standalone_output=True
-        )
-        ligand2target = (grn_matrix[0].toarray(), grn_matrix[1], grn_matrix[2])
-        ltf_matrix = None
     # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
     # the optimization as a whole is also faster despite the copy each trial
-    ligand2target, row_names, col_names = ligand2target
+    ligand2target, row_names, col_names = model["ligand-target matrix"]
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
@@ -309,14 +294,11 @@ def construct_and_evaluate(
         evaluation_data.get_ligands(combination=True)
     )
     return (
-        {
-            "weighted networks": weighted_networks,
-            "grn matrix": grn_matrix,
-            "ltf matrix": ltf_matrix,
-            "ligand-target matrix": ligand2target
-        },
+        model,
         scores[0],
-        scores[1]
+        scores[1],
+        scores[2],
+        scores[3]
     )
 
 def weighted_stress_function(

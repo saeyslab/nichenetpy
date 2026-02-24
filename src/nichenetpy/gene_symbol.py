@@ -85,18 +85,18 @@ class GeneAliasInfo:
         if obj is of type Iterable[str], this function returns a list of gene symbols
         if obj is of type AnnData, this function returns None
         '''
-        if type(obj) is list:
+        if type(obj) is list or type(obj) is tuple:
             output = []
-            counts = dict()
+            mapped_genes = dict()
             for gene in obj:
                 ngene = self[gene][0] if gene in self else gene
                 output.append(ngene)
-                if ngene in counts:
-                    counts[ngene] += 1
+                if ngene in mapped_genes:
+                    mapped_genes[ngene].add(gene)
                 else:
-                    counts[ngene] = 1
+                    mapped_genes[ngene] = {gene}
             # revert duplicate symbols back to the original symbols
-            doubles = [i for i, ngene in enumerate(output) if counts[ngene] > 1]
+            doubles = [i for i, ngene in enumerate(output) if len(mapped_genes[ngene]) > 1]
             for i in doubles:
                 output[i] = obj[i]
             return output

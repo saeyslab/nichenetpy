@@ -2,7 +2,10 @@ from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.metrics import calculate_prediction_evaluation_metrics
 from nichenetpy.utils import is_ligand_active
 
-from collections.abc import Iterable
+from collections.abc import (
+    Iterable,
+    ItemsView
+)
 from itertools import repeat
 from re import search
 
@@ -49,7 +52,7 @@ class EvaluationData:
     '''
     def __init__(
         self,
-        obj:dict[str, dict]|Iterable[dict]|pd.DataFrame=None,
+        obj:dict[str, dict]|Iterable[dict]|ItemsView|pd.DataFrame|None=None,
         key_name:str="name",
         ligand_name:str="from",
         de_genes_name:str="response"
@@ -65,9 +68,14 @@ class EvaluationData:
             elif type(obj) is pd.DataFrame:
                 for key, val in zip(obj[key_name], (dict(zip(obj.columns, r)) for r in zip(*(obj[col] for col in obj.columns)))):
                     self[key] = val
+            elif isinstance(obj, ItemsView):
+                for key, val in obj:
+                    self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
                     self.add(item)
+            else:
+                raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
     def __getitem__(self, key):
         return self._data[key]
@@ -207,7 +215,7 @@ class EvaluationData:
 
         Returns
         -------
-        list
+        set
             a set which contains all ligands present in the evaluation data
         
         Raises
@@ -223,18 +231,70 @@ class EvaluationData:
                 output.add(setting["from"])
             else:
                 if combination:
-                    output.add("-".join(setting["from"]))
+                    output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        output_lst = []
-        for e in output:
-            res = search("-", e)
-            if res is None:
-                output_lst.append(e)
-            else:
-                res = res.span()
-                output_lst.append([e[:res[0]], e[res[1]:]])
-        return output_lst
+        return output
+    
+    def to_dataframe(self) -> pd.DataFrame:
+        '''
+        Convert the evaluation data to a pandas.DataFrame
+
+        Returns
+        -------
+        pandas.DataFrame
+            the evaluation data as a dataframe
+        '''
+        keys = set(next(iter(self._data.values())).keys())
+        columns_dct = {
+            k: []
+            for k in keys
+        }
+        for v in self._data.values():
+            for k in keys:
+                columns_dct[k].append(v[k])
+        return pd.DataFrame(columns_dct)
+    
+    def get_applicable_evaluation_datasets(
+        self,
+        predictor:LigandActivityPredictor,
+        combination:bool=True
+    ):
+        '''
+        get the subset of applicable evaluation data
+        (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
+
+        Parameters
+        ----------
+        evaluation_data : EvaluationData
+            the evaluation data to subset
+
+        Yields
+        -------
+        str
+            the key of the dataset
+        dict
+            the applicable dataset
+        '''
+        if type(predictor) is not LigandActivityPredictor:
+            raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
+        ligands = predictor.get_ligands()
+        pred_genes = predictor.get_genes()
+        for k, gs in self._data.items():
+            ligand = gs["from"]
+            if type(ligand) is list or type(ligand) is tuple:
+                ligand = "-".join(ligand) if combination else None
+            if ligand is not None and ligand in ligands:
+                res = iter(gs[self._de_genes_name].items())
+                is_app = False
+                try:
+                    while not is_app:
+                        gene, val = next(res)
+                        is_app = gene in pred_genes and val
+                except StopIteration:
+                    pass
+                if is_app:
+                    yield (k, gs)
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,

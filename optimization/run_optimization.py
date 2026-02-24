@@ -27,7 +27,6 @@ from optuna.samplers.nsgaii import (
     BaseCrossover
 )
 from itertools import chain
-from pickle import dumps, loads
 from joblib import Parallel, delayed
 from functools import reduce
 from operator import and_
@@ -38,6 +37,7 @@ import numpy as np
 import argparse
 import os
 import requests
+import pickle
 
 
 class FlatCrossover(BaseCrossover):
@@ -159,6 +159,18 @@ if __name__ == "__main__":
         default=[]
     )
     parser.add_argument(
+        "--excluded_source",
+        help="sources to exclude from the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
+        "--included_source",
+        help="sources to include in the optimization",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
         "--log_dir",
         help="Directory in which to store the log of the optimization run. ",
         default="./log"
@@ -193,49 +205,90 @@ if __name__ == "__main__":
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
-    with open(args.settings_file, "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    gr_network = _gr_network[
-        ~ (
-            (_gr_network["database"] == "NicheNet_LT") &
-            np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
-        )
-        &
-        ~ (
-            (_gr_network["database"] == "CytoSig") &
-            np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
-        )
-    ]
-    source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-    if args.source_path is not None:
-        df = pd.DataFrame(
-            {"source": source_names}
-        ).merge(
-            source_annotations,
-            on="source",
-            how="inner"
-        )
-        init_v = np.array([True for _ in range(df.shape[0])])
-        if len(args.excluded_database) > 0:
-            source_names = set(df[
-                [db not in args.excluded_database for db in df["database"]]
-            ]["source"])
-        elif len(args.included_database) > 0:
-            source_names = set(df[
-                [db in args.included_database for db in df["database"]]
-            ]["source"])
-        if len(args.var_database) > 0:
-            bool_v = reduce(
-                and_,
-                (df["database"] != db for db in args.var_database),
-                np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
+    file_ext = args.settings_file.split(".")[-1]
+    if file_ext == "json":
+        # old way
+        with open(args.settings_file, "rb") as file:
+            settings_CV = json.loads(file.read())
+        evaluation_data = EvaluationData(settings_CV["settings"])
+        gr_network = _gr_network[
+            ~ (
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
             )
-            source_names_fixed = set(df[bool_v]["source"])
-            source_names_var = set(df[~bool_v]["source"])
+            &
+            ~ (
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
+            )
+        ]
+    elif file_ext == "pkl":
+        # new way
+        with open(args.settings_file, "rb") as file:
+            eval = pickle.loads(file.read())
+        evaluation_data = eval["data"]
+        # all ligands from a specific database present in the evaluation data have their links (in this database)
+        # removed from the gene regulatory network to avoid data leakage
+        forbidden_ligands = eval["forbidden_ligands"]
+        gr_network = _gr_network[
+            ~ (
+                (_gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in forbidden_ligands["NicheNet"] for fr in _gr_network["from"]])
+            )
+            &
+            ~ (
+                (_gr_network["database"] == "CytoSig") &
+                np.array([fr in forbidden_ligands["CytoSig"] for fr in _gr_network["from"]])
+            )
+            &
+            ~ (
+                (_gr_network["database"] == "Lignature") &
+                np.array([fr in forbidden_ligands["Lignature"] for fr in _gr_network["from"]])
+            )
+        ]
+    else:
+        raise ValueError(f"the training data should be a json (.json) or pickle (.pkl) file")
+    # define the source weights that should be updated
+    if len(args.included_source) > 0:
+        source_names = sorted(set(args.included_source))
+    elif len(args.excluded_source) > 0:
+        source_names = sorted(
+            set(
+                chain(gr_network["source"], lr_network["source"], sig_network["source"])
+            ).difference(args.excluded_source)
+        )
+    else: # code for old pbs scripts where I filtered on databases
+        source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
+        if args.source_path is not None:
+            df = pd.DataFrame(
+                {"source": source_names}
+            ).merge(
+                source_annotations,
+                on="source",
+                how="inner"
+            )
+            init_v = np.array([True for _ in range(df.shape[0])])
+            if len(args.excluded_database) > 0:
+                source_names = set(df[
+                    [db not in args.excluded_database for db in df["database"]]
+                ]["source"])
+            elif len(args.included_database) > 0:
+                source_names = set(df[
+                    [db in args.included_database for db in df["database"]]
+                ]["source"])
+            if len(args.var_database) > 0:
+                bool_v = reduce(
+                    and_,
+                    (df["database"] != db for db in args.var_database),
+                    np.array([e in source_names for e in df["source"]]) if len(args.excluded_database) > 0 or len(args.included_database) > 0 else init_v
+                )
+                source_names_fixed = set(df[bool_v]["source"])
+                source_names_var = set(df[~bool_v]["source"])
 
     def objective(trial:Trial):
+        # define source weights
         if args.source_path is not None and len(args.var_database) > 0:
+            # some source weights have been fixed a priori
             source_weights = dict(
                 (
                     source_name,
@@ -260,6 +313,7 @@ if __name__ == "__main__":
                     )
                 ) for source_name in source_names
             )
+        # define hyperparameters
         lr_sig_hub = trial.suggest_float(
             name="lr_sig_hub",
             low=0,
@@ -280,6 +334,7 @@ if __name__ == "__main__":
             low=0.01,
             high=0.99
         ) if args.damping_factor is None else args.damping_factor
+        # construct the model from the source weights and compute the objectives
         res = construct_and_evaluate(
             source_weights,
             lr_sig_hub,
@@ -291,14 +346,14 @@ if __name__ == "__main__":
             sig_network,
             evaluation_data
         )
-        return (res[1], res[2])
+        return (res[1], res[2], res[3], res[4])
 
     name = args.settings_file.split("/")[-1][:-5]
     if not os.path.exists(args.log_dir):
         os.mkdir(args.log_dir)
     log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
     with open(log_file, "a" if args.c else "w"):
-        pass
+        pass # the file is created, if not args.c the file is emptied if it already existed
     lock_obj = JournalFileOpenLock(log_file)
     storage = JournalStorage(
         JournalFileBackend(log_file, lock_obj)
@@ -314,7 +369,7 @@ if __name__ == "__main__":
         sampler = GPSampler(deterministic_objective=False)
     study = create_study(
         sampler=sampler,
-        directions=["maximize", "maximize"],
+        directions=["maximize", "maximize", "maximize", "maximize"],
         study_name=name,
         storage=storage,
         load_if_exists=args.c
