@@ -96,7 +96,7 @@ if __name__ == "__main__":
         "--n_process",
         help="the amount of processes",
         type=int,
-        default=1
+        default=-1
     )
     parser.add_argument(
         "-c",
