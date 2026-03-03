@@ -532,7 +532,9 @@ def construct_model_from_source_weights(
     lr_network:pd.DataFrame,
     gr_network:pd.DataFrame,
     sig_network:pd.DataFrame,
-    ligands:Iterable[str]|None=None
+    ligands:Iterable[str]|None=None,
+    return_all_matrices:bool=True,
+    return_weighted_networks:bool=True
 ):
     '''
     Construct the ligand-target matrix starting from the source weights. 
@@ -562,7 +564,10 @@ def construct_model_from_source_weights(
         dataframe which contains signaling interactions
     ligands : Iterable of string or None
         the ligands to include in the model, if None all ligands in the ligand-receptor network will be included
-
+    return_all_matrices : bool
+        whether or not to return the ligand-tf and tf-target matrices
+    return_weighted_networks : bool
+        whether or not to return the weighted networks
     Returns
     -------
     dict
@@ -592,24 +597,37 @@ def construct_model_from_source_weights(
     if weighted_networks["lr_sig"].shape[0] > 0:
         weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
         weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        ligand2target, grn_matrix, ltf_matrix = construct_ligand_target_matrix(
+        res = construct_ligand_target_matrix(
             weighted_networks,
             lr_network,
             ligands,
             damping_factor=damping_factor,
             ltf_cutoff=ltf_cutoff,
-            return_all_matrices=True
+            return_all_matrices=return_all_matrices
         )
-    else:
+        if return_all_matrices:
+            ligand2target, grn_matrix, ltf_matrix = res
+        else:
+            ligand2target = res
+            grn_matrix = None
+            ltf_matrix = None
+    else: # lr_sig is empty -> lt_matrix is grn_matrix
         grn_matrix = construct_tf_target_matrix(
             weighted_networks,
             standalone_output=True
         )
-        ligand2target = (grn_matrix[0].toarray(), grn_matrix[1], grn_matrix[2])
+        grn_matrix = (grn_matrix[0].toarray(order="F"), grn_matrix[1], grn_matrix[2])
+        ligand2target = grn_matrix
         ltf_matrix = None
-    return {
+    output = {
         "weighted networks": weighted_networks,
         "grn matrix": grn_matrix,
         "ltf matrix": ltf_matrix,
         "ligand-target matrix": ligand2target
     }
+    if not return_all_matrices:
+        output.pop("grn matrix")
+        output.pop("ltf matrix")
+    if not return_weighted_networks:
+        output.pop("weighted networks")
+    return output

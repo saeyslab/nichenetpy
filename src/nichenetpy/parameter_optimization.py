@@ -227,7 +227,9 @@ def construct_and_evaluate(
     lr_network:pd.DataFrame,
     gr_network:pd.DataFrame,
     sig_network:pd.DataFrame,
-    evaluation_data:EvaluationData
+    evaluation_data:EvaluationData,
+    return_all_matrices:bool=True,
+    return_weighted_networks:bool=True
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -258,6 +260,10 @@ def construct_and_evaluate(
         dataframe which contains signaling interactions
     evaluation_data : EvaluationData
         The evaluation data
+    return_all_matrices : bool
+        whether or not to return the ligand-tf and tf-target matrices
+    return_weighted_networks : bool
+        whether or not to return the weighted networks
 
     Returns
     -------
@@ -283,7 +289,9 @@ def construct_and_evaluate(
         lr_network,
         gr_network,
         sig_network,
-        ligands=evaluation_data.get_ligands()
+        ligands=evaluation_data.get_ligands(),
+        return_all_matrices=return_all_matrices,
+        return_weighted_networks=return_weighted_networks
     )
     # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
     # the optimization as a whole is also faster despite the copy each trial

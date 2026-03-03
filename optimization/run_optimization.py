@@ -201,7 +201,7 @@ if __name__ == "__main__":
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
-    _gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
+    gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
     lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
     sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
     parallel = Parallel(n_jobs=args.n_process)
@@ -211,15 +211,15 @@ if __name__ == "__main__":
         with open(args.settings_file, "rb") as file:
             settings_CV = json.loads(file.read())
         evaluation_data = EvaluationData(settings_CV["settings"])
-        gr_network = _gr_network[
+        gr_network = gr_network[
             ~ (
-                (_gr_network["database"] == "NicheNet_LT") &
-                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in _gr_network["from"]])
+                (gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in settings_CV["forbidden_ligands_nichenet"] for fr in gr_network["from"]])
             )
             &
             ~ (
-                (_gr_network["database"] == "CytoSig") &
-                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in _gr_network["from"]])
+                (gr_network["database"] == "CytoSig") &
+                np.array([fr in settings_CV["forbidden_ligands_cytosig"] for fr in gr_network["from"]])
             )
         ]
     elif file_ext == "pkl":
@@ -230,20 +230,20 @@ if __name__ == "__main__":
         # all ligands from a specific database present in the evaluation data have their links (in this database)
         # removed from the gene regulatory network to avoid data leakage
         forbidden_ligands = eval["forbidden_ligands"]
-        gr_network = _gr_network[
+        gr_network = gr_network[
             ~ (
-                (_gr_network["database"] == "NicheNet_LT") &
-                np.array([fr in forbidden_ligands["NicheNet"] for fr in _gr_network["from"]])
+                (gr_network["database"] == "NicheNet_LT") &
+                np.array([fr in forbidden_ligands["NicheNet"] for fr in gr_network["from"]])
             )
             &
             ~ (
-                (_gr_network["database"] == "CytoSig") &
-                np.array([fr in forbidden_ligands["CytoSig"] for fr in _gr_network["from"]])
+                (gr_network["database"] == "CytoSig") &
+                np.array([fr in forbidden_ligands["CytoSig"] for fr in gr_network["from"]])
             )
             &
             ~ (
-                (_gr_network["database"] == "Lignature") &
-                np.array([fr in forbidden_ligands["Lignature"] for fr in _gr_network["from"]])
+                (gr_network["database"] == "Lignature") &
+                np.array([fr in forbidden_ligands["Lignature"] for fr in gr_network["from"]])
             )
         ]
     else:
@@ -344,9 +344,11 @@ if __name__ == "__main__":
             lr_network,
             gr_network,
             sig_network,
-            evaluation_data
+            evaluation_data,
+            return_all_matrices=False,
+            return_weighted_networks=False
         )
-        return (res[1], res[2], res[3], res[4])
+        return res[1:]
 
     name = args.settings_file.split("/")[-1][:-5]
     if not os.path.exists(args.log_dir):
