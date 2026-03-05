@@ -6,6 +6,7 @@ from nichenetpy.parameter_optimization import (
     construct_and_evaluate
 )
 from nichenetpy.evaluation import EvaluationData
+from nichenetpy.typing import gene_t
 
 from optuna import (
     create_study,
@@ -27,7 +28,11 @@ from optuna.samplers.nsgaii import (
     BaseCrossover
 )
 from itertools import chain
-from joblib import Parallel, delayed
+from joblib import (
+    Parallel,
+    delayed,
+    cpu_count
+)
 from functools import reduce
 from operator import and_
 
@@ -257,9 +262,9 @@ if __name__ == "__main__":
                 chain(gr_network["source"], lr_network["source"], sig_network["source"])
             ).difference(args.excluded_source)
         )
-    else: # code for old pbs scripts where I filtered on databases
+    else:
         source_names = sorted(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])))
-        if args.source_path is not None:
+        if args.source_path is not None: # code for old pbs scripts where I filtered on databases
             df = pd.DataFrame(
                 {"source": source_names}
             ).merge(
@@ -284,6 +289,40 @@ if __name__ == "__main__":
                 )
                 source_names_fixed = set(df[bool_v]["source"])
                 source_names_var = set(df[~bool_v]["source"])
+    # database column is no longer required so remove to save memory
+    lr_network.drop("database", axis=1, inplace=True)
+    gr_network.drop("database", axis=1, inplace=True)
+    sig_network.drop("database", axis=1, inplace=True)
+    # map strings to integers to save a lot of memory in the subprocesses
+    syms = sorted(set(chain(
+        lr_network["from"],
+        lr_network["to"],
+        lr_network["source"],
+        gr_network["from"],
+        gr_network["to"],
+        gr_network["source"],
+        sig_network["from"],
+        sig_network["to"],
+        sig_network["source"],
+        evaluation_data.get_ligands(combination=False),
+        set(chain(
+            k for e in evaluation_data.values() for k in e[evaluation_data._de_genes_name].keys()
+        ))
+    )))
+    sym2id = dict(zip(syms, range(len(syms))))
+    lr_network["from"] = [sym2id[e] for e in lr_network["from"]]
+    lr_network["to"] = [sym2id[e] for e in lr_network["to"]]
+    lr_network["source"] = [sym2id[e] for e in lr_network["source"]]
+    gr_network["from"] = [sym2id[e] for e in gr_network["from"]]
+    gr_network["to"] = [sym2id[e] for e in gr_network["to"]]
+    gr_network["source"] = [sym2id[e] for e in gr_network["source"]]
+    sig_network["from"] = [sym2id[e] for e in sig_network["from"]]
+    sig_network["to"] = [sym2id[e] for e in sig_network["to"]]
+    sig_network["source"] = [sym2id[e] for e in sig_network["source"]]
+    for dct in evaluation_data.values():
+        ligand = dct[evaluation_data._ligand_name]
+        dct[evaluation_data._ligand_name] = sym2id[ligand] if isinstance(ligand, gene_t) else tuple(sym2id[e] for e in ligand)
+        dct[evaluation_data._de_genes_name] = {sym2id[k]: v for k, v in dct[evaluation_data._de_genes_name].items()}
 
     def objective(trial:Trial):
         # define source weights
@@ -303,16 +342,13 @@ if __name__ == "__main__":
                 if source_name in optimized_source_weights:
                     source_weights[source_name] = optimized_source_weights[source_name]
         else:
-            source_weights = dict(
-                (
-                    source_name,
-                    trial.suggest_float(
-                        name=source_name,
-                        low=0,
-                        high=1
-                    )
+            source_weights = {
+                source_name: trial.suggest_float(
+                    name=source_name,
+                    low=0,
+                    high=1
                 ) for source_name in source_names
-            )
+            }
         # define hyperparameters
         lr_sig_hub = trial.suggest_float(
             name="lr_sig_hub",
@@ -336,7 +372,7 @@ if __name__ == "__main__":
         ) if args.damping_factor is None else args.damping_factor
         # construct the model from the source weights and compute the objectives
         res = construct_and_evaluate(
-            source_weights,
+            dict((sym2id[s], w) for s, w in source_weights.items()),
             lr_sig_hub,
             gr_hub,
             ltf_cutoff,
@@ -376,4 +412,4 @@ if __name__ == "__main__":
         storage=storage,
         load_if_exists=args.c
     )
-    parallel(optimize(name, storage, sampler) for _ in range(args.n_process))
+    parallel(optimize(name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))

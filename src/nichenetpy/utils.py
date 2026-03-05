@@ -1,4 +1,7 @@
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
 from collections.abc import Iterable, Callable
@@ -367,7 +370,7 @@ def combine_dicts(
     return dict((key, func(dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
 
 def ligand_activities_df(
-    ligand_activities:dict[str, dict[str, float]]|Iterable[tuple[str, dict[str, float]]]
+    ligand_activities:dict[gene_t, dict[str, float]]|Iterable[tuple[gene_t, dict[str, float]]]
 ) -> pd.DataFrame:
     '''
     convert ligand activities to a pandas DataFrame
@@ -635,7 +638,7 @@ def is_ligand_active(importances:pd.DataFrame):
         a list of booleans indicating whether a ligand is active or not
     '''
     return [
-        test_ligand == true_ligand if type(test_ligand) is str else test_ligand in true_ligand
+        test_ligand == true_ligand if isinstance(test_ligand, gene_t) else test_ligand in true_ligand
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"])
     ]
 

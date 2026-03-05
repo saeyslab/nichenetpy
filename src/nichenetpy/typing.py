@@ -7,3 +7,8 @@ nichenet_matrix : TypeAlias = csr_matrix|csc_matrix|ndarray
 '''
 Matrix types that are supported in NicheNetPy. 
 '''
+
+gene_t : TypeAlias = str|int
+'''
+Gene symbol types that are supported in NicheNetPy. 
+'''

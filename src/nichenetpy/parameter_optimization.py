@@ -6,6 +6,7 @@ from nichenetpy.evaluation import (
     evaluate_single_importances_ligand_prediction
 )
 from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import gene_t
 
 from collections.abc import (
     Iterable,
@@ -21,7 +22,7 @@ def _average_performances(ligand_oi, performances):
         any(
             ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
             for ligand in (
-                (ligand_oi,) if type(ligand_oi) is str else ligand_oi
+                (ligand_oi,) if isinstance(ligand_oi, gene_t) else ligand_oi
             )
         )
         for true_ligand in performances["ligand"]
@@ -68,7 +69,7 @@ def evaluate_model(
     -----
     When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored. 
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
-    GS set are genes that aren't expressed then the model can't be avaluated on this GS set. 
+    GS set are genes that aren't expressed then the model can't be evaluated on this GS set. 
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
@@ -88,7 +89,7 @@ def evaluate_model(
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
             setting["from"]
-            if type(setting["from"]) is str
+            if isinstance(setting["from"], gene_t) # potential BUG when using integers
             else "-".join(setting["from"]),
             setting["response"]
         ).items():
@@ -129,7 +130,7 @@ def evaluate_model(
 
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
-    ligands:Iterable[str]
+    ligands:Iterable[gene_t]
 ) -> tuple[float, float, float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -138,7 +139,7 @@ def compute_evaluation_scores(
     ----------
     eval_res : dict[str, pd.DataFrame]
         The output of a call to `nichenetpy.parameter_optimization.evaluate_model`
-    ligands : Iterable of str
+    ligands : Iterable of gene_t
         the ligands of interest
 
     Returns
@@ -219,7 +220,7 @@ def _empty_solution():
     )
 
 def construct_and_evaluate(
-    source_weights:dict[str, float]|pd.DataFrame,
+    source_weights:dict[str, float]|dict[int, float]|pd.DataFrame,
     lr_sig_hub:float,
     gr_hub:float,
     ltf_cutoff:float,

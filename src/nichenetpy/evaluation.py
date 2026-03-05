@@ -1,6 +1,7 @@
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.metrics import calculate_prediction_evaluation_metrics
 from nichenetpy.utils import is_ligand_active
+from nichenetpy.typing import gene_t
 
 from collections.abc import (
     Iterable,
@@ -126,8 +127,8 @@ class EvaluationData:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if type(item[self._ligand_name]) is not str and type(item[self._ligand_name]) is not list:
-            raise ValueError(f"'{self._ligand_name}' does not map to a string or list")
+        if not isinstance(item[self._ligand_name], gene_t) and type(item[self._ligand_name]) is not list:
+            raise ValueError(f"'{self._ligand_name}' does not map to a gene symbol or list")
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(item[self._de_genes_name]) is not dict:
@@ -227,7 +228,7 @@ class EvaluationData:
             raise TypeError(f"combination should have type bool, was {type(combination)}")
         output = set()
         for setting in self.values():
-            if type(setting["from"]) is str:
+            if isinstance(setting["from"], gene_t):
                 output.add(setting["from"])
             else:
                 if combination:
@@ -266,8 +267,10 @@ class EvaluationData:
 
         Parameters
         ----------
-        evaluation_data : EvaluationData
-            the evaluation data to subset
+        predictor : LigandActivityPredictor
+            the ligand activity predictor
+        combination : bool
+            whether or not to allow combinations of ligands
 
         Yields
         -------
@@ -283,7 +286,7 @@ class EvaluationData:
         for k, gs in self._data.items():
             ligand = gs["from"]
             if type(ligand) is list or type(ligand) is tuple:
-                ligand = "-".join(ligand) if combination else None
+                ligand = ("-".join(ligand) if type(ligand[0]) is str else ligand) if combination else None
             if ligand is not None and ligand in ligands:
                 res = iter(gs[self._de_genes_name].items())
                 is_app = False
@@ -299,7 +302,7 @@ class EvaluationData:
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
     evaluation_data:Iterable[dict],
-    all_ligands:Iterable[str]
+    all_ligands:Iterable[gene_t]
 ) -> pd.DataFrame:
     '''
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict
@@ -322,7 +325,7 @@ def get_single_ligand_importances(
         
             response:   the observed target response, indicates for a gene whether it was a target
                         or not in the setting of interest
-    all_ligands : Iterable of str
+    all_ligands : Iterable of gene_t
         the possible ligands that will be considered for the ligand activity state prediction
 
     Returns
