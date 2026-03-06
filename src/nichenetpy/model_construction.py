@@ -173,7 +173,7 @@ def construct_ligand_tf_matrix(
     ----------
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
-    ligands : Iterable of Iterable of fene_t
+    ligands : Iterable of Iterable of gene_t
         all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
@@ -228,11 +228,14 @@ def construct_ligand_tf_matrix(
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
-    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    gene2id_keys = set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"]))
+    all_genes = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes))))
-    # keep the original order of ligands, so no set intersection
-    gene2id_keys = set(gene2id.keys())
-    ligands = [[e for e in _ligands if e in gene2id_keys] for _ligands in ligands]
+    ligands = [
+        ligand
+        for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
+        if len(ligand) > 0 # ligand is not in the weighted networks, so it can't be in the matrix
+    ]
     if algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
         lr_sig_mat = csr_matrix(
