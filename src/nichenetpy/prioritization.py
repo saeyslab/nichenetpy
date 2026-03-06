@@ -12,6 +12,7 @@ from nichenetpy.utils import (
 )
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
+from nichenetpy.typing import gene_t
 
 from anndata import AnnData
 from collections.abc import Iterable, Collection
@@ -28,7 +29,7 @@ def calculate_de(
     condition_oi:str,
     condition_col:str,
     layer="data",
-    features:Iterable[str]|None=None,
+    features:Iterable[gene_t]|None=None,
     min_abs_lfc:float=0,
     min_pct:float=0,
     pval_thresh:float=1,
@@ -50,7 +51,7 @@ def calculate_de(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
-    features : Iterable of str or None
+    features : Iterable of gene_t or None
         the genes to consider
     min_abs_lfc : float
         genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
@@ -82,7 +83,7 @@ def calculate_de(
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if not isinstance(features, Iterable):
-        raise TypeError(f"features should have type Iterable[str], was {type(features)}")
+        raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
     if not isinstance(min_pct, Number):
@@ -119,7 +120,7 @@ def get_avg_exp(
     condition_oi:str|None=None,
     condition_col:str|None=None,
     layer:str="counts",
-    features:Iterable[str]|None=None
+    features:Iterable[gene_t]|None=None
 ) -> pd.DataFrame:
     '''
     Calculate the average gene expression per cell type.
@@ -137,7 +138,7 @@ def get_avg_exp(
         the column in ann.obs which contains the conditions
     layer : str
         the layer of the AnnData object to use
-    features : Iterable[str] or None
+    features : Iterable[gene_t] or None
         the genes to use, if None, use all genes from the AnnData object
     
     Returns
@@ -161,7 +162,7 @@ def get_avg_exp(
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should have type Iterable[str], was {type(features)}")
+        raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     if features is not None:
@@ -377,7 +378,7 @@ def _prioritization(
 def generate_prioritization_table(
     sender_receiver_info:pd.DataFrame,
     sender_receiver_de:pd.DataFrame,
-    ligand_activities:pd.DataFrame|dict[str, dict[str, float]]|list[tuple[str, dict[str, float]]],
+    ligand_activities:pd.DataFrame|dict[gene_t, dict[str, float]]|list[tuple[gene_t, dict[str, float]]],
     lr_condition_de:pd.DataFrame|None=None,
     prioritizing_weights:dict[str, float]|None=None
 ):

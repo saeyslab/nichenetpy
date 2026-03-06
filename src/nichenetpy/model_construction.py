@@ -1,7 +1,9 @@
 from nichenetpy.utils import subset_matrix
 from nichenetpy.graph import dijkstra_spl
-from nichenetpy.typing import nichenet_matrix
-from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from numbers import Number
 from itertools import chain
@@ -157,12 +159,12 @@ def _quantile_clip(mat, cutoff):
 
 def construct_ligand_tf_matrix(
     weighted_networks:dict[str, pd.DataFrame],
-    ligands:Iterable[Iterable[str]],
+    ligands:Iterable[Iterable[gene_t]],
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
     column_major=False
-) -> tuple[np.ndarray, list[str], list[str]]:
+) -> tuple[np.ndarray, list[gene_t], list[gene_t]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
@@ -171,7 +173,7 @@ def construct_ligand_tf_matrix(
     ----------
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
-    ligands : Iterable of Iterable of str
+    ligands : Iterable of Iterable of gene_t
         all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
@@ -196,9 +198,9 @@ def construct_ligand_tf_matrix(
     -------
     numpy.ndarray
         a matrix containing ligand-target probability scores
-    list of str
+    list of gene_t
         the names of the rows of the matrix
-    list of str
+    list of gene_t
         the name of the columns of the matrix
     
     Raises
@@ -211,7 +213,7 @@ def construct_ligand_tf_matrix(
     if type(weighted_networks) is not dict:
         raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[gene_t], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -226,11 +228,14 @@ def construct_ligand_tf_matrix(
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
-    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    gene2id_keys = set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"]))
+    all_genes = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes))))
-    # keep the original order of ligands, so no set intersection
-    gene2id_keys = set(gene2id.keys())
-    ligands = [[e for e in _ligands if e in gene2id_keys] for _ligands in ligands]
+    ligands = [
+        ligand
+        for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
+        if len(ligand) > 0 # ligand is not in the weighted networks, so it can't be in the matrix
+    ]
     if algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
         lr_sig_mat = csr_matrix(
@@ -321,7 +326,7 @@ def construct_ligand_tf_matrix(
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix, order=("F" if column_major else "C"))
-    row_names = ["-".join(_ligands) for _ligands in ligands]
+    row_names = ["-".join(_ligands) if type(_ligands[0]) is str else _ligands[0] for _ligands in ligands]
     col_names = all_genes
     return (ltf_matrix, row_names, col_names)
 
@@ -329,7 +334,7 @@ def construct_tf_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     standalone_output:bool=False,
     column_major:bool=False
-) -> tuple[csr_matrix|csc_matrix, list[str], list[str]]:
+) -> tuple[csr_matrix|csc_matrix, list[gene_t], list[gene_t]]:
     '''
     Convert integrated gene regulatory weighted network into matrix format.
 
@@ -348,9 +353,9 @@ def construct_tf_target_matrix(
     -------
     numpy.ndarray
         a matrix containing tf-target regulatory weights
-    list of str
+    list of gene_t
         the names of the rows of the matrix
-    list of str
+    list of gene_t
         the name of the columns of the matrix
     
     Raises
@@ -401,7 +406,7 @@ def _set_min(mat):
 def construct_ligand_target_matrix(
     weighted_networks:dict[str, pd.DataFrame],
     lr_network:pd.DataFrame,
-    ligands:Iterable[str|Iterable[str]],
+    ligands:Iterable[gene_t|Iterable[gene_t]],
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
@@ -409,7 +414,7 @@ def construct_ligand_target_matrix(
     ligands_as_cols:bool=True,
     remove_direct_links:str="no",
     return_all_matrices:bool=False
-) -> tuple[nichenet_matrix, list[str], list[str]]|tuple[tuple[nichenet_matrix, list[str], list[str]]]:
+) -> tuple[nichenet_matrix, list[gene_t], list[gene_t]]|tuple[tuple[nichenet_matrix, list[gene_t], list[gene_t]]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
@@ -420,7 +425,7 @@ def construct_ligand_target_matrix(
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
     lr_network : pandas.DataFrame
         the ligand-receptor network
-    ligands : Iterable[str|Iterable[str]]
+    ligands : Iterable[gene_t|Iterable[gene_t]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
@@ -457,9 +462,9 @@ def construct_ligand_target_matrix(
     -------
     numpy.ndarray
         a matrix containing tf-target regulatory weights
-    list of str
+    list of gene_t
         the names of the rows of the matrix
-    list of str
+    list of gene_t
         the name of the columns of the matrix
     
     Raises
@@ -474,7 +479,7 @@ def construct_ligand_target_matrix(
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[str|Iterable[str]], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[gene_t|Iterable[gene_t]], was {type(ligands)}")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -499,7 +504,7 @@ def construct_ligand_target_matrix(
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
-    ligands = [(_ligands,) if type(_ligands) is str else _ligands for _ligands in ligands]
+    ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
     ligand2target = ltf_matrix * grn_matrix
@@ -532,7 +537,7 @@ def construct_model_from_source_weights(
     lr_network:pd.DataFrame,
     gr_network:pd.DataFrame,
     sig_network:pd.DataFrame,
-    ligands:Iterable[str]|None=None,
+    ligands:Iterable[gene_t]|None=None,
     return_all_matrices:bool=True,
     return_weighted_networks:bool=True
 ):
@@ -562,7 +567,7 @@ def construct_model_from_source_weights(
         dataframe which contains gene regulatory interactions
     sig_network : pandas.DataFrame
         dataframe which contains signaling interactions
-    ligands : Iterable of string or None
+    ligands : Iterable of gene_t or None
         the ligands to include in the model, if None all ligands in the ligand-receptor network will be included
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices

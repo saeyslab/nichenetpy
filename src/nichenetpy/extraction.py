@@ -8,7 +8,10 @@ from nichenetpy.ann_utils import (
     subset_ann,
     _subset_layer
 )
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from anndata import AnnData
 from collections.abc import Iterable, Callable
@@ -26,7 +29,7 @@ def _get_expressed_features(
     celltype_col:str,
     layer:str|None,
     exp_func:Callable[[nichenet_matrix], list[float]]
-) -> list[str]:
+) -> list[gene_t]:
     if type(celltype) is str:
         celltype = [celltype]
     elif not isinstance(celltype, Iterable):
@@ -61,7 +64,7 @@ def get_expressed_genes(
     pct:float=0.1,
     celltype_col:str="celltype",
     layer:str|None="data"
-) -> list[str]:
+) -> list[gene_t]:
     '''
     Gets the expressed genes from an AnnData object. 
 
@@ -94,8 +97,8 @@ def get_expressed_genes(
     return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 def get_weighted_ligand_receptor_links(
-    best_upstream_ligands:Iterable[str],
-    expressed_receptors:Iterable[str],
+    best_upstream_ligands:Iterable[gene_t],
+    expressed_receptors:Iterable[gene_t],
     lr_network:LigandReceptorNetwork,
     lr_sig:WeightedNetwork
 ) -> WeightedNetwork:
@@ -104,9 +107,9 @@ def get_weighted_ligand_receptor_links(
 
     Parameters
     ----------
-    best_upstream_ligands : Iterable of str
+    best_upstream_ligands : Iterable of gene_t
         the ligands of interest
-    expressed_receptors : Iterable of str
+    expressed_receptors : Iterable of gene_t
         the receptors expressed in the cell type of interest
     lr_network : LigandReceptorNetwork
         the ligand-receptor network containing the ligand-receptor interactions
@@ -147,9 +150,9 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    features:Iterable[str]|None=None,
+    features:Iterable[gene_t]|None=None,
     scanpy_lfc:bool=False
-) -> tuple[list[str], list[float]]:
+) -> tuple[list[gene_t], list[float]]:
     '''
     Get log fold change of genes between two conditions in cell type of interest from an AnnData object.
 
@@ -169,7 +172,7 @@ def get_lfc_celltype(
         the name of the data layer
     celltype_col : str
         the name of the column in obs that contains the cell types
-    features : Iterable of str or None
+    features : Iterable of gene_t or None
         the genes to consider, consider all genes if None
     scanpy_lfc : bool
         if true, use scanpy.rank_genes_groups to compute the logfoldchanges
@@ -199,7 +202,7 @@ def get_lfc_celltype(
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
     if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should be an Iterable of strings, was {type(features)}")
+        raise TypeError(f"features should be an Iterable of gene_t, was {type(features)}")
     if type(scanpy_lfc) is not bool:
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
     ann_sender = subset_ann(
