@@ -6,6 +6,7 @@ from nichenetpy.evaluation import (
     evaluate_single_importances_ligand_prediction
 )
 from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import gene_t
 
 from collections.abc import (
     Iterable,
@@ -21,7 +22,7 @@ def _average_performances(ligand_oi, performances):
         any(
             ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
             for ligand in (
-                (ligand_oi,) if type(ligand_oi) is str else ligand_oi
+                (ligand_oi,) if isinstance(ligand_oi, gene_t) else ligand_oi
             )
         )
         for true_ligand in performances["ligand"]
@@ -68,7 +69,7 @@ def evaluate_model(
     -----
     When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored. 
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
-    GS set are genes that aren't expressed then the model can't be avaluated on this GS set. 
+    GS set are genes that aren't expressed then the model can't be evaluated on this GS set. 
     '''
     if type(predictor) is not LigandActivityPredictor:
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
@@ -88,7 +89,7 @@ def evaluate_model(
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
             setting["from"]
-            if type(setting["from"]) is str
+            if isinstance(setting["from"], gene_t) # potential BUG when using integers
             else "-".join(setting["from"]),
             setting["response"]
         ).items():
@@ -129,7 +130,7 @@ def evaluate_model(
 
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
-    ligands:Iterable[str]
+    ligands:Iterable[gene_t]
 ) -> tuple[float, float, float, float]:
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -138,7 +139,7 @@ def compute_evaluation_scores(
     ----------
     eval_res : dict[str, pd.DataFrame]
         The output of a call to `nichenetpy.parameter_optimization.evaluate_model`
-    ligands : Iterable of str
+    ligands : Iterable of gene_t
         the ligands of interest
 
     Returns
@@ -204,8 +205,22 @@ def compute_evaluation_scores(
         (np.median(performances_ligand_prediction_averaged_aupr) + np.mean(performances_ligand_prediction_averaged_aupr)) / 2
     )
 
+def _empty_solution():
+    return (
+        {
+            "weighted networks": None,
+            "grn matrix": None,
+            "ltf matrix": None,
+            "ligand-target matrix": None
+        },
+        0,
+        0,
+        0,
+        0
+    )
+
 def construct_and_evaluate(
-    source_weights:dict[str, float]|pd.DataFrame,
+    source_weights:dict[str, float]|dict[int, float]|pd.DataFrame,
     lr_sig_hub:float,
     gr_hub:float,
     ltf_cutoff:float,
@@ -213,7 +228,9 @@ def construct_and_evaluate(
     lr_network:pd.DataFrame,
     gr_network:pd.DataFrame,
     sig_network:pd.DataFrame,
-    evaluation_data:EvaluationData
+    evaluation_data:EvaluationData,
+    return_all_matrices:bool=True,
+    return_weighted_networks:bool=True
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -244,6 +261,10 @@ def construct_and_evaluate(
         dataframe which contains signaling interactions
     evaluation_data : EvaluationData
         The evaluation data
+    return_all_matrices : bool
+        whether or not to return the ligand-tf and tf-target matrices
+    return_weighted_networks : bool
+        whether or not to return the weighted networks
 
     Returns
     -------
@@ -259,18 +280,7 @@ def construct_and_evaluate(
         if the arguments have the wrong type
     '''
     if sum(source_weights.values()) == 0:
-        return (
-            {
-                "weighted networks": None,
-                "grn matrix": None,
-                "ltf matrix": None,
-                "ligand-target matrix": None
-            },
-            0,
-            0,
-            0,
-            0
-        )
+        return _empty_solution()
     model = construct_model_from_source_weights(
         source_weights,
         lr_sig_hub,
@@ -280,13 +290,17 @@ def construct_and_evaluate(
         lr_network,
         gr_network,
         sig_network,
-        ligands=evaluation_data.get_ligands()
+        ligands=evaluation_data.get_ligands(),
+        return_all_matrices=return_all_matrices,
+        return_weighted_networks=return_weighted_networks
     )
     # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
     # the optimization as a whole is also faster despite the copy each trial
     ligand2target, row_names, col_names = model["ligand-target matrix"]
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
+    if np.sum(ligand2target) == 0:
+        return _empty_solution()
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores()
     scores = compute_evaluation_scores(

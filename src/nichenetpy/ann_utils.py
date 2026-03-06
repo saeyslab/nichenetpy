@@ -1,5 +1,5 @@
 from nichenetpy.utils import subset_matrix
-from nichenetpy.exception import AnnError
+from nichenetpy.typing import gene_t
 
 from anndata import AnnData
 from collections.abc import Iterable
@@ -11,9 +11,9 @@ import pandas as pd
 def _subset_layer(
     ann:AnnData,
     layer:str,
-    features:Iterable[str],
-    gene2index:dict[str, int]|None=None
-) -> tuple[np.ndarray, list[str]]:
+    features:Iterable[gene_t],
+    gene2index:dict[gene_t, int]|None=None
+) -> tuple[np.ndarray, list[gene_t]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
     if type(features) is set:
@@ -23,8 +23,8 @@ def _subset_layer(
 
 def subset_ann(
     ann:AnnData,
-    val:str|Iterable[str]|None=None,
-    genes:Iterable[str]|None=None,
+    val:str|gene_t|Iterable[str]|None=None,
+    genes:Iterable[gene_t]|None=None,
     layers:Iterable[str]|None=None,
     val_col:str="celltype",
     subset_X:bool=True
@@ -73,7 +73,7 @@ def subset_ann(
     if val is None:
         row_ids = None
     else:
-        if type(val) is str:
+        if type(val) is str or isinstance(val, gene_t):
             val = {val}
         elif not isinstance(val, Iterable):
             raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")

@@ -29,7 +29,10 @@ from nichenetpy.prioritization import (
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.normalization import scaling_modified_zscore
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from itertools import cycle, chain, repeat
 from collections.abc import Iterable, Callable
@@ -145,7 +148,7 @@ def get_geneset_oi(
         ]["gene"]
     )
 
-def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[str, str, float]]:
+def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[gene_t, gene_t, float]]:
     '''
     Combines weighted ligand-target links of different ligands. 
 
@@ -247,7 +250,7 @@ def run_nichenet(
 
         for the sender-agnostic approach:
 
-            best_upstream_ligands : list of str
+            best_upstream_ligands : list of gene_t
                 the top scoring ligands in the sender-agnostic approach
             ligand_activities_sorted : dict
                 the computed metrics for each ligand in the sender-agnostic approach
@@ -256,20 +259,20 @@ def run_nichenet(
                 links in the sender-agnostic approach
             ligand_receptor_links : WeightedNetwork
                 the weighted ligand-receptor links in the sender-agnostic approach
-            expressed_receptors : set of str
+            expressed_receptors : set of gene_t
                 the expressed receptors
-            expressed_genes_receiver : set of str
+            expressed_genes_receiver : set of gene_t
                 expressed genes in the receiver
-            background_expressed_genes : set of str
+            background_expressed_genes : set of gene_t
                 the background expressed genes
             prioritization_table : pandas.DataFrame
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
-            geneset_oi : set of str
+            geneset_oi : set of gene_t
                 the geneset of interest
         
         and the following additional objects for the sender-focused approach:
 
-            best_upstream_ligands_focused : list of str
+            best_upstream_ligands_focused : list of gene_t
                 the top scoring ligands in the sender-focused approach
             ligand_activities_sorted_focused : dict
                 the computed metrics for each ligand in the sender-focused approach
@@ -283,7 +286,7 @@ def run_nichenet(
             lfcs : list of tuple
                 the log fold changes as a list of tuples of lists where the first list of each tuple contains
                 the ligands and second list contains the values
-            expressed_ligands : set of str
+            expressed_ligands : set of gene_t
                 the expressed ligands
 
         if get_prioritization_table is True, additionally
@@ -446,7 +449,7 @@ def create_ligand_activity_hist(
 
     Parameters
     ----------
-    ligand_activities_sorted : Iterable of str
+    ligand_activities_sorted : Iterable of tuple
         the computed metrics for each ligand
     xtitle : str
         the title of the x-axis
@@ -514,7 +517,7 @@ def create_ligand_activity_heatmap(
 
 def create_regulatory_potential_heatmap(
     predictor:LigandActivityPredictor,
-    active_ligand_target_links:list[tuple[str, str, float]],
+    active_ligand_target_links:list[tuple[gene_t, gene_t, float]],
     xtitle="predicted target genes",
     ytitle="prioritized ligands",
     cbar_label="regulatory potential",
@@ -611,8 +614,8 @@ def create_prior_interaction_potential_heatmap(
 
 def create_lfc_heatmap(
     sender_celltypes:list[str],
-    ligand_activities:dict[str, dict[str, float]],
-    lfcs:list[tuple[list[str], list[float]]],
+    ligand_activities:dict[gene_t, dict[str, float]],
+    lfcs:list[tuple[list[gene_t], list[float]]],
     xtitle="cell types",
     ytitle="prioritized ligands",
     cbar_label="LFC",
@@ -678,7 +681,7 @@ def create_lfc_heatmap(
 
 def _create_circos_plot(
     circos_links:Iterable[tuple[tuple[str, str], tuple[str, str]]],
-    colors:dict[str, str],
+    colors:dict[gene_t, str],
     inter_space:float=5,
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
@@ -811,9 +814,9 @@ def _create_circos_plot(
 def create_ligand_receptor_links_prioritization_circos_plot(
     senders:Iterable[str],
     receivers:Iterable[str],
-    ligands:Iterable[str],
-    receptors:Iterable[str],
-    colors:dict[str, str],
+    ligands:Iterable[gene_t],
+    receptors:Iterable[gene_t],
+    colors:dict[gene_t, str],
     inter_space:float=5,
     intra_space:float=1,
     opacity:Iterable[float]|None=None,
@@ -828,9 +831,9 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the sender celltypes
     receivers : Iterable of str
         the receiver celltypes
-    ligands : Iterable of str
+    ligands : Iterable of gene_t
         the ligands
-    receptors : Iterable of str
+    receptors : Iterable of gene_t
         the receptors
     weights : Iterable of float
         the weights of the links
@@ -860,11 +863,11 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     if not isinstance(receivers, Iterable):
         raise TypeError(f"receivers should have type Iterable[str], was {type(receivers)}")
     if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[str], was {type(ligands)}")
+        raise TypeError(f"ligands should have type Iterable[gene_t], was {type(ligands)}")
     if not isinstance(receptors, Iterable):
-        raise TypeError(f"receptors should have type Iterable[str], was {type(receptors)}")
+        raise TypeError(f"receptors should have type Iterable[gene_t], was {type(receptors)}")
     if type(colors) is not dict:
-        raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
+        raise TypeError(f"colors should have type dict[gene_t, str], was {type(colors)}")
     if not isinstance(inter_space, Number):
         raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
     if not isinstance(intra_space, Number):
@@ -882,7 +885,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
 
 def create_ligand_links_circos_plot(
     circos_links:pd.DataFrame,
-    colors:dict[str, str],
+    colors:dict[gene_t, str],
     dest_name:str,
     inter_space:float=5,
     intra_space:float=1,
@@ -922,7 +925,7 @@ def create_ligand_links_circos_plot(
     if type(circos_links) is not pd.DataFrame:
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
     if type(colors) is not dict:
-        raise TypeError(f"colors should have type dict[str, str], was {type(colors)}")
+        raise TypeError(f"colors should have type dict[gene_t, str], was {type(colors)}")
     if type(dest_name) is not str:
         raise TypeError(f"dest_name should have type str, was {type(dest_name)}")
     if not isinstance(inter_space, Number):
