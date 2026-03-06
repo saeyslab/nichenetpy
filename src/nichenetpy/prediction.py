@@ -87,10 +87,10 @@ class LigandActivityPredictor:
             raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")
         if type(col_names) is not list and type(col_names) is not tuple:
             raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
-        self._row_names = row_names
-        self._col_names = col_names
-        self._ligand2index = dict(zip(self._col_names, range(len(self._col_names))))
-        self._gene2index = dict(zip(self._row_names, range(len(self._row_names))))
+        self.row_names = row_names
+        self.col_names = col_names
+        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
+        self._gene2index = dict(zip(self.row_names, range(len(self.row_names))))
     
     def matrix_density(self) -> float:
         '''
@@ -251,7 +251,7 @@ class LigandActivityPredictor:
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
         # create the prediction model vector
-        prediction = dict(zip(self._row_names, self.get_col(ligand, is_index=False)))
+        prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False)))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
         pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
@@ -397,7 +397,7 @@ class LigandActivityPredictor:
                 (1 if e >= qt else 0 for e in response)
             ))
             for ligand in potential_ligands:
-                prediction = dict(zip(self._row_names, self.get_col(ligand, is_index=False)))
+                prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False)))
                 common_keys = prediction.keys() & response.keys()
                 pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
                 resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])
@@ -473,7 +473,7 @@ class LigandActivityPredictor:
         targets = sorted(
             set(
                 e[0]
-                for e in zip(self._row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)])
+                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)])
                 if e[1] >= top_n_score
             ).intersection(geneset)
         )
@@ -585,8 +585,8 @@ def assess_rf_class_probabilities(
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(LigandActivityPredictor)}")
     if type(ntrees) is not int:
         raise TypeError(f"ntrees should have type int, was {type(ntrees)}")
-    geneset.intersection_update(predictor._row_names)
-    background_expressed_genes.intersection_update(predictor._row_names)
+    geneset.intersection_update(predictor.row_names)
+    background_expressed_genes.intersection_update(predictor.row_names)
     background_expressed_genes = np.array([[e] for e in background_expressed_genes.difference(geneset)])
     geneset = np.array([[e] for e in geneset])
     kf = KFold(n_splits=folds, shuffle=True)

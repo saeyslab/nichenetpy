@@ -72,8 +72,8 @@ class NicheNet:
             lr_sig["to"],
             gr["from"],
             gr["to"],
-            predictor._row_names,
-            predictor._col_names
+            predictor.row_names,
+            predictor.col_names
         )))
         self._sym2id = dict(zip(self._syms, range(len(self._syms))))
         lr_network["from"] = [self._sym2id[e] for e in lr_network["from"]]
@@ -82,20 +82,24 @@ class NicheNet:
         lr_sig["to"] = [self._sym2id[e] for e in lr_sig["to"]]
         gr["from"] = [self._sym2id[e] for e in gr["from"]]
         gr["to"] = [self._sym2id[e] for e in gr["to"]]
-        self.predictor._row_names = (self._sym2id[e] for e in self.predictor._row_names)
-        self.predictor._col_names = (self._sym2id[e] for e in self.predictor._col_names)
         self.predictor = NicheNet._LigandActivityPredictor(
-            ligand_target_matrix=predictor.ligand_target_matrix.copy(),
-            row_names=(self._sym2id[e] for e in predictor._row_names),
-            col_names=(self._sym2id[e] for e in predictor._col_names),
+            ligand_target_matrix=predictor.ligand_target_matrix.copy(order="F"),
+            row_names=tuple(self._sym2id[e] for e in predictor.row_names),
+            col_names=tuple(self._sym2id[e] for e in predictor.col_names),
             model=self
         )
         self.lr_network = NicheNet._LigandReceptorNetwork(
             mapping=lr_network,
             model=self
         )
-        self.lr_sig = WeightedNetwork(weighted_networks["lr_sig"])
-        self.gr = WeightedNetwork(weighted_networks["gr"])
+        self.lr_sig = NicheNet._WeightedNetwork(
+            weighted_networks["lr_sig"],
+            model=self
+        )
+        self.gr = NicheNet._WeightedNetwork(
+            weighted_networks["gr"],
+            model=self
+        )
     
     class _LigandActivityPredictor(LigandActivityPredictor):
         def __init__(
@@ -126,10 +130,10 @@ class NicheNet:
             return super().gene2index(self._sym2id(gene))
         
         def get_ligands(self):
-            return {self._id2sym(e) for e in super().get_ligands()}
+            return {self._id2sym(e) for e in self._ligand2index.keys()}
         
         def get_genes(self):
-            return {self._id2sym(e) for e in super().get_genes()}
+            return {self._id2sym(e) for e in self._gene2index.keys()}
         
         def get_col(
             self,
@@ -281,4 +285,30 @@ class NicheNet:
             return {self._id2sym(e) for e in super().get_receptors()}
     
     class _WeightedNetwork(_Network, WeightedNetwork):
-        pass # TODO
+        def __init__(
+            self,
+            mapping:list|pd.DataFrame|None=None,
+            filename:str|None=None,
+            model=None
+        ):
+            super().__init__(mapping, filename)
+            self.model = model
+        
+        def _sym2id(self, sym:gene_t) -> int:
+            # if sym is an integer it doesn't need to be converted
+            return self._model._sym2id[sym] if type(sym) is str else sym
+
+        def _id2sym(self, id:int) -> str:
+            return self._model._syms[id]
+        
+        def __getitem__(self, key:gene_t):
+            return {
+                self._id2sym(k): v
+                for k, v in super().__get_item__(self._sym2id(key)).items()
+            }
+        
+        def get_ligands(self):
+            return {self._id2sym(e) for e in self.key_iter()}
+        
+        def get_receptors(self):
+            return {self._id2sym(e) for e in super().get_receptors()}

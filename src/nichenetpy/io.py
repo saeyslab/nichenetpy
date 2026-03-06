@@ -63,8 +63,8 @@ def write_ligand_target_matrix(
         if type(predictor) is not LigandActivityPredictor:
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
-        row_names = predictor._row_names
-        col_names = predictor._col_names
+        row_names = predictor.row_names
+        col_names = predictor.col_names
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),
