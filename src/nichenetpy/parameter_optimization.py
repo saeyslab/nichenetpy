@@ -71,7 +71,7 @@ def evaluate_model(
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
     GS set are genes that aren't expressed then the model can't be evaluated on this GS set. 
     '''
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(evaluation_data) is not EvaluationData:
         raise TypeError(f"settings should have type EvaluationData, was {type(evaluation_data)}")

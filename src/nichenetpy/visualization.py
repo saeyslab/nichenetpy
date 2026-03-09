@@ -145,7 +145,7 @@ def prepare_ligand_target_visualization(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(ligand_target_links, Iterable):
         raise TypeError(f"ligand_target_links should have type Iterable, was {type(ligand_target_links)}")
@@ -202,7 +202,7 @@ def prepare_ligand_receptor_visualization(ligand_receptor_links:WeightedNetwork)
     TypeError
         if the arguments have the wrong type
     '''
-    if type(ligand_receptor_links) is not WeightedNetwork:
+    if not isinstance(ligand_receptor_links, WeightedNetwork):
         raise TypeError(f"ligand_receptor_links should have type WeightedNetwork, was {type(ligand_receptor_links)}")
     ligands = sorted(ligand_receptor_links.get_ligands())
     receptors = sorted(ligand_receptor_links.get_receptors())

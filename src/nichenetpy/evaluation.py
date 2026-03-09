@@ -279,7 +279,7 @@ class EvaluationData:
         dict
             the applicable dataset
         '''
-        if type(predictor) is not LigandActivityPredictor:
+        if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
         ligands = predictor.get_ligands()
         pred_genes = predictor.get_genes()
@@ -341,7 +341,7 @@ def get_single_ligand_importances(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
