@@ -59,12 +59,9 @@ class NicheNet:
         if type(weighted_networks) is not dict:
             raise TypeError(f"weighted_networks should have type dict, was {type(weighted_networks)}")
         # do not change the input
-        weighted_networks = {
-            k: v.copy()
-            for k, v in weighted_networks.items()
-        }
-        lr_sig = weighted_networks["lr_sig"]
-        gr = weighted_networks["gr"]
+        lr_network = lr_network.copy()
+        lr_sig = weighted_networks["lr_sig"].copy()
+        gr = weighted_networks["gr"].copy()
         self._syms = sorted(set(chain(
             lr_network["from"],
             lr_network["to"],
@@ -93,11 +90,11 @@ class NicheNet:
             model=self
         )
         self.lr_sig = NicheNet._WeightedNetwork(
-            weighted_networks["lr_sig"],
+            lr_sig,
             model=self
         )
         self.gr = NicheNet._WeightedNetwork(
-            weighted_networks["gr"],
+            gr,
             model=self
         )
     
@@ -226,7 +223,7 @@ class NicheNet:
             model=None
         ):
             super().__init__(mapping, filename)
-            self.model = model
+            self._model = model
         
         def _sym2id(self, sym:gene_t) -> int:
             # if sym is an integer it doesn't need to be converted
@@ -259,7 +256,7 @@ class NicheNet:
             from_to = tuple((self._sym2id(fr), self._sym2id(to)) for fr, to in from_to)
             return type(self)(
                 mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to],
-                model=self.model
+                model=self._model
             )
 
         def subset_sep(self, fr:Collection[gene_t]|None=None, to:Collection[gene_t]|None=None):
@@ -277,7 +274,7 @@ class NicheNet:
                 raise TypeError(f"to should be a Collection of gene_t, was {type(to)}")
             return type(self)(
                 mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to],
-                model=self.model
+                model=self._model
             )
 
     
@@ -292,8 +289,7 @@ class NicheNet:
             filename:str|None=None,
             model=None
         ):
-            super().__init__(mapping, filename)
-            self.model = model
+            super().__init__(mapping, filename, model)
         
         def _sym2id(self, sym:gene_t) -> int:
             # if sym is an integer it doesn't need to be converted
@@ -307,9 +303,6 @@ class NicheNet:
                 self._id2sym(k): v
                 for k, v in super().__get_item__(self._sym2id(key)).items()
             }
-        
-        def get_ligands(self):
-            return {self._id2sym(e) for e in self.key_iter()}
         
         def get_receptors(self):
             return {self._id2sym(e) for e in super().get_receptors()}
