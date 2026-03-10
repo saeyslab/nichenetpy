@@ -628,7 +628,11 @@ def construct_model_from_source_weights(
         "weighted networks": weighted_networks,
         "grn matrix": grn_matrix,
         "ltf matrix": ltf_matrix,
-        "ligand-target matrix": ligand2target if ligand2target.flags.f_contiguous else ligand2target.copy(order="F")
+        "ligand-target matrix": (
+            ligand2target
+            if ligand2target[0].flags.f_contiguous
+            else (ligand2target[0].copy(order="F"), ligand2target[1], ligand2target[2])
+        )
     }
     if not return_all_matrices:
         output.pop("grn matrix")
