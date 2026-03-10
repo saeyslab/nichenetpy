@@ -152,6 +152,7 @@ class NicheNet:
                 {
                     self._sym2id(k): v
                     for k, v in response.items()
+                    if k in self._model._syms
                 }
             )
 
