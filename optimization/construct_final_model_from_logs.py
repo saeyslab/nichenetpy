@@ -148,10 +148,12 @@ if __name__ == "__main__":
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         with open(out, "wb") as file:
-            file.write(pickle.dumps(
-                NicheNet(
-                    predictor,
-                    lr_network,
-                    weighted_networks
-                )
-            ))
+            file.write(pickle.dumps({
+                "predictor": predictor,
+                "lr_network": LigandReceptorNetwork(lr_network),
+                "lr_sig": WeightedNetwork(weighted_networks["lr_sig"]),
+                "gr": WeightedNetwork(weighted_networks["gr"]),
+                "ltf_matrix": ltf_matrix,
+                "grn_matrix": grn_matrix,
+                "source_weights": aggregated_solution
+            }))
