@@ -582,7 +582,11 @@ def construct_model_from_source_weights(
     TypeError
         if the arguments have the wrong type
     '''
-    if sum(source_weights.values()) == 0:
+    if (
+        type(source_weights) is dict and sum(source_weights.values()) == 0
+    ) or (
+        type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
+    ):
         return (
             {
                 "weighted networks": None,
@@ -628,7 +632,11 @@ def construct_model_from_source_weights(
         "weighted networks": weighted_networks,
         "grn matrix": grn_matrix,
         "ltf matrix": ltf_matrix,
-        "ligand-target matrix": ligand2target
+        "ligand-target matrix": (
+            ligand2target
+            if ligand2target[0].flags.f_contiguous
+            else (ligand2target[0].copy(order="F"), ligand2target[1], ligand2target[2])
+        )
     }
     if not return_all_matrices:
         output.pop("grn matrix")

@@ -581,7 +581,7 @@ def assess_rf_class_probabilities(
         raise TypeError(f"background_expressed_genes should have type set[gene_t], was {type(background_expressed_genes)}")
     if not isinstance(ligands_oi, Iterable):
         raise TypeError(f"ligands_oi should have type Iterable[gene_t], was {type(ligands_oi)}")
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(LigandActivityPredictor)}")
     if type(ntrees) is not int:
         raise TypeError(f"ntrees should have type int, was {type(ntrees)}")

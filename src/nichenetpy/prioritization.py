@@ -226,7 +226,7 @@ def process_table_to_ic(
         raise TypeError(f"tab should have type pandas.DataFrame, was {type(tab)}")
     if type(table_type) is not str:
         raise TypeError(f"table_type should have type str, was {type(table_type)}")
-    if type(lr_network) is not LigandReceptorNetwork:
+    if not isinstance(lr_network, LigandReceptorNetwork):
         raise TypeError(f"lr_network should have type LigandReceptorNetwork, was {type(lr_network)}")
     if senders_oi is not None and not isinstance(senders_oi, Collection):
         raise TypeError(f"senders_oi should have type Collection[str], was {type(senders_oi)}")

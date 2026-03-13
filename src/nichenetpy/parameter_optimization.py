@@ -71,7 +71,7 @@ def evaluate_model(
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
     GS set are genes that aren't expressed then the model can't be evaluated on this GS set. 
     '''
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(evaluation_data) is not EvaluationData:
         raise TypeError(f"settings should have type EvaluationData, was {type(evaluation_data)}")
@@ -271,15 +271,23 @@ def construct_and_evaluate(
     dict
         A dictionary with keys 'weighted networks', 'grn matrix', 'ltf matrix' and 'ligand-target matrix'
     float
-        target prediction score
+        target prediction AUROC
     float
-        ligand prediction score
+        target prediction AUPR
+    float
+        ligand prediction AUROC
+    float
+        ligand prediction AUPR
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     '''
-    if sum(source_weights.values()) == 0:
+    if (
+        type(source_weights) is dict and sum(source_weights.values()) == 0
+    ) or (
+        type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
+    ):
         return _empty_solution()
     model = construct_model_from_source_weights(
         source_weights,

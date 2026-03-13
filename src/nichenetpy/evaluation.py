@@ -279,7 +279,7 @@ class EvaluationData:
         dict
             the applicable dataset
         '''
-        if type(predictor) is not LigandActivityPredictor:
+        if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
         ligands = predictor.get_ligands()
         pred_genes = predictor.get_genes()
@@ -341,7 +341,7 @@ def get_single_ligand_importances(
     TypeError
         if the arguments have the wrong type
     '''
-    if type(predictor) is not LigandActivityPredictor:
+    if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
@@ -399,19 +399,23 @@ def evaluate_single_importances_ligand_prediction(
     importances = importances[importances["setting"] == group]
     metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
     added = is_ligand_active(importances)
-    # compute metrics for multiple prediction/response pairs and store them in a dataframe
-    output = pd.DataFrame(
-        dict(zip(
-            metrics,
-            zip(*(
-                list(zip(*sorted(
-                    calculate_prediction_evaluation_metrics(list(importances[metric]), added).items(),
-                    key=lambda x : x[0]
-                )))[1]
-                for metric in metrics
+    try:
+        # compute metrics for multiple prediction/response pairs and store them in a dataframe
+        output = pd.DataFrame(
+            dict(zip(
+                metrics,
+                zip(*(
+                    list(zip(*sorted(
+                        calculate_prediction_evaluation_metrics(list(importances[metric]), added).items(),
+                        key=lambda x : x[0]
+                    )))[1]
+                    for metric in metrics
+                ))
             ))
-        ))
-    )
+        )
+    except ValueError as ex:
+        ex.add_note(f"data set: {group}")
+        raise ex
     output["group"] = list(repeat(group, len(metrics)))
     output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(metrics)))
     output["metric"] = metrics
