@@ -47,6 +47,10 @@ class NicheNet:
         the ligand-receptor-signaling weighted network
     gr : WeightedNetwork
         gene regulatory weighted network
+    
+    NOTES
+    -----
+    This class introduces significant overhead and uses more memory, don't use it
     '''
     def __init__(
         self,
