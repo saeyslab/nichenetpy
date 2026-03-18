@@ -12,9 +12,11 @@ from collections.abc import (
     Iterable,
     Callable
 )
+from traceback import format_exc
 
 import pandas as pd
 import numpy as np
+import warnings
 
 
 def _average_performances(ligand_oi, performances):
@@ -37,8 +39,9 @@ def _evaluate_single_importances_ligand_prediction(
     group
 ):
     try:
-        return evaluate_single_importances_ligand_prediction(ligand_importances, group)
-    except ValueError:
+        return evaluate_single_importances_ligand_prediction(ligand_importances, group, allow_nan=True)
+    except Exception as ex:
+        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}")
         return None
 
 def evaluate_model(
