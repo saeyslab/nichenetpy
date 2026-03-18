@@ -21,6 +21,13 @@ import pandas as pd
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
 _row_name_split = lambda s, i : (s[:i], s[i:])
+_default_csv_split_pattern = compile(
+    r"(?=(?:^|,|(?:,(?:\"|\')[^\"\']*(?:\"|\')))" + # start or comma or something between quotation marks preceeded by a comma
+    r"[^\"\'\,]*)" +                                # no quotation marks or commas
+    r"," +                                          # a comma
+    r"(?=[^\"\'\,]*" +                              # no quotation marks or commas
+    r"(?:$|,|(?:(?:\"|\')[^\"\']*(?:\"|\'),)))"     # end or comma or something between quotation marks followed by a comma
+)
 
 def read_list_from_csv(filename:str) -> list[str]:
     '''
@@ -103,7 +110,7 @@ def read_matrix_from_csv(
 
 def read_csv_rows(
     filename:str,
-    sep:str|Pattern=","
+    sep:str|Pattern=_default_csv_split_pattern
 ) -> tuple[list[str], list[list[str]]]:
     '''
     Reads the rows from a csv file. 
@@ -136,7 +143,7 @@ def read_csv_rows(
 
 def read_csv_cols(
     filename:str,
-    sep:str|Pattern=","
+    sep:str|Pattern=_default_csv_split_pattern
 ) -> dict[str, list[str]]:
     '''
     Reads the columns from a csv file. 
