@@ -16,18 +16,13 @@ from re import (
 
 import numpy as np
 import pandas as pd
+import os
+import pickle
 
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
 _row_name_split = lambda s, i : (s[:i], s[i:])
-_default_csv_split_pattern = compile(
-    r"(?=(?:^|,|(?:,(?:\"|\')[^\"\']*(?:\"|\')))" + # start or comma or something between quotation marks preceeded by a comma
-    r"[^\"\'\,]*)" +                                # no quotation marks or commas
-    r"," +                                          # a comma
-    r"(?=[^\"\'\,]*" +                              # no quotation marks or commas
-    r"(?:$|,|(?:(?:\"|\')[^\"\']*(?:\"|\'),)))"     # end or comma or something between quotation marks followed by a comma
-)
 
 def read_list_from_csv(filename:str) -> list[str]:
     '''
@@ -110,7 +105,7 @@ def read_matrix_from_csv(
 
 def read_csv_rows(
     filename:str,
-    sep:str|Pattern=_default_csv_split_pattern
+    sep:str|Pattern=","
 ) -> tuple[list[str], list[list[str]]]:
     '''
     Reads the rows from a csv file. 
@@ -143,7 +138,7 @@ def read_csv_rows(
 
 def read_csv_cols(
     filename:str,
-    sep:str|Pattern=_default_csv_split_pattern
+    sep:str|Pattern=","
 ) -> dict[str, list[str]]:
     '''
     Reads the columns from a csv file. 
@@ -171,6 +166,35 @@ def read_csv_cols(
         lines = file.readlines()
     lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
     return dict(zip(lines[0], zip(*lines[1:])))
+
+def read_network_file(filename:str):
+    '''
+    reads a network (pandas.DataFrame) from a csv or pickle file
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the network as a data frame
+
+    Raises
+    ------
+    ValueError
+        if the file name does not have an expected extension
+    '''
+    file_ext = (os.path.split(filename)[1]).split(".")[-1]
+    if file_ext == "csv":
+        return pd.DataFrame(read_csv_cols(filename))
+    elif file_ext == "pkl" or file_ext == "pickle":
+        with open(filename, "rb") as file:
+            output = pickle.loads(file.read())
+        return output
+    else:
+        raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
 def subset_matrix(
     mat:nichenet_matrix,
