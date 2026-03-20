@@ -1,6 +1,7 @@
 from nichenetpy.utils import (
     read_csv_cols,
-    read_csv_rows
+    read_csv_rows,
+    read_network_file
 )
 from nichenetpy.parameter_optimization import (
     construct_and_evaluate
@@ -206,9 +207,9 @@ if __name__ == "__main__":
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
-    gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
-    lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
-    sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
+    gr_network = read_network_file(args.gr_network_file)
+    lr_network = read_network_file(args.lr_network_file)
+    sig_network = read_network_file(args.sig_network_file)
     parallel = Parallel(n_jobs=args.n_process)
     file_ext = args.settings_file.split(".")[-1]
     if file_ext == "json":
