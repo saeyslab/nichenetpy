@@ -1,5 +1,5 @@
 from nichenetpy.utils import (
-    read_csv_cols,
+    read_network_file
 )
 from nichenetpy.model_construction import (
     construct_weighted_networks,
@@ -116,9 +116,9 @@ if __name__ == "__main__":
     damping_factor = aggregated_solution.pop("damping_factor")
     # build the model
     for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path):
-        lr_network = pd.DataFrame(read_csv_cols(lr))
-        gr_network = pd.DataFrame(read_csv_cols(gr))
-        sig_network = pd.DataFrame(read_csv_cols(sig))
+        lr_network = read_network_file(lr)
+        gr_network = read_network_file(gr)
+        sig_network = read_network_file(sig)
         weighted_networks = construct_weighted_networks(
             lr_network,
             sig_network,
