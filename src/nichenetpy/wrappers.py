@@ -992,7 +992,6 @@ def generate_info_tables(
             "sender_receiver_info",
             "group_DE"
     '''
-    features = lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
@@ -1000,7 +999,7 @@ def generate_info_tables(
                 celltype_col,
                 condition_oi,
                 condition_col,
-                features=features,
+                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors()),
                 use_scanpy=use_scanpy
             ),
             "celltype_DE",
@@ -1014,8 +1013,7 @@ def generate_info_tables(
                 ann,
                 celltype_col,
                 condition_oi,
-                condition_col,
-                features=features
+                condition_col
             ),
             "expression",
             lr_network_filtered,
@@ -1027,8 +1025,7 @@ def generate_info_tables(
             ann,
             groupby=condition_col,
             group_oi=condition_oi,
-            group_ref=condition_ref,
-            features=features
+            group_ref=condition_ref
         )
         res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(
