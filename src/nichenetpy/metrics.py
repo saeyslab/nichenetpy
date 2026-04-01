@@ -135,7 +135,8 @@ def calculate_auroc(
 
 def calculate_prediction_evaluation_metrics(
     prediction:list[float]|tuple[float]|np.ndarray[float],
-    response:list[float]|tuple[float]|np.ndarray[float]
+    response:list[float]|tuple[float]|np.ndarray[float],
+    allow_nan:bool=False
 ) -> dict[str, float]:
     '''
     Calculates metrics that can be used to rank ligands. 
@@ -152,6 +153,8 @@ def calculate_prediction_evaluation_metrics(
         vector which contains probability scores for each target gene (for one particular ligand)
     response : list or tuple or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    allow_nan : bool
+        if True, return nan values in case a specific metric is undefined, if False the errors are not caught
 
     Returns
     -------
@@ -171,10 +174,28 @@ def calculate_prediction_evaluation_metrics(
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
-    aupr = calculate_aupr(response, prediction)
-    auroc = calculate_auroc(response, prediction)
+    try:
+        aupr = calculate_aupr(response, prediction)
+    except ValueError as ex:
+        if allow_nan:
+            aupr = np.nan
+        else:
+            raise ex
+    try:
+        auroc = calculate_auroc(response, prediction)
+    except ValueError as ex:
+        if allow_nan:
+            auroc = np.nan
+        else:
+            raise ex
     warnings.filterwarnings("ignore")
-    pcc = pearsonr(response, prediction).statistic
+    try:
+        pcc = pearsonr(response, prediction).statistic
+    except ValueError as ex:
+        if allow_nan:
+            pcc = np.nan
+        else:
+            raise ex
     warnings.filterwarnings("default")
     return {
         "auroc": auroc,

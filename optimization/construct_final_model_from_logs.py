@@ -8,7 +8,6 @@ from nichenetpy.model_construction import (
 )
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.model import NicheNet
 
 from optuna.storages import JournalStorage
 from optuna.storages.journal import (
