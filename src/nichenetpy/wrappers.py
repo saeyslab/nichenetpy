@@ -438,6 +438,196 @@ def run_nichenet(
         )
     return output
 
+def run_nichenet_cluster_de(
+    ann:AnnData,
+    predictor:LigandActivityPredictor,
+    lr_network:LigandReceptorNetwork,
+    receiver_affected:str,
+    receiver_reference:str,
+    sender_celltypes:Iterable[str]|None=None,
+    layer:str="data",
+    celltype_col:str="celltype",
+    max_pval_adj:float=0.05,
+    lfc_cutoff:float=0.25,
+    expression_pct:float=0.1,
+    ligands_top_n:int|None=30,
+    targets_top_n:int=200,
+    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1,
+    geneset:str="DE"
+):
+    '''
+    Runs a standard nichenet analysis. 
+
+    Parameters
+    ----------
+    ann : AnnData
+        the AnnData object
+    predictor : LigandActivityPredictor
+        the predictor which contains the ligand-target matrix
+    lr_network : LigandReceptorNetwork
+        the ligand-receptor network containing the ligand-receptor interactions
+    receiver_affected : str
+        Name of cluster identity/identities of "affected" cells that were presumably affected by intercellular communication with other cells
+    receiver_reference : str
+        Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
+    sender_celltypes : Iterable[str] or None
+        Determine the potential sender cells. Name of cluster identity/identities of cells that presumably affect expression in the receiver cell type. In case you want to look at all possible sender cell types in the data, you can  give this argument the value "all". "all" indicates thus that all cell types in the dataset will be considered as possible sender cells. As final option, you could give this argument the value "undefined"."undefined" won't look at ligands expressed by sender cells, but at all ligands for which a corresponding receptor is expressed. This could be useful if the presumably active sender cell is not profiled. Default: "all".
+    layer : str
+        the layer in the AnnData object which contains the data matrix
+    celltype_col : str
+        the name of the column in obs which contains the celltypes
+    max_pval_adj : float
+        the upper bound for pval_adj
+    lfc_cutoff: float
+        the cutoff for the logfold change
+    expression_pct : float
+        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+    ligands_top_n : int
+        the amount of ligands that are considered to be the best upstream ligands
+    targets_top_n : int
+        the number of target genes to consider per ligand when performing the target gene inference
+    lfc_denormalize : Callable or None
+        a denormalization function to apply prior to the calculation of the log fold changes
+    geneset : str
+        geneset Indicate whether to consider all DE genes between condition 1 and 2 ("DE"), or only genes upregulated in condition 1 ("up"), or only genes downregulad in condition 1 ("down").
+    
+    Returns
+    -------
+    dict
+        a dictionary which contains the output of the analysis, it contains the following objects
+
+        for the sender-agnostic approach:
+
+            best_upstream_ligands : list of gene_t
+                the top scoring ligands in the sender-agnostic approach
+            ligand_activities : dict
+                the computed metrics for each ligand
+            active_ligand_target_links : list of tuple
+                list of (ligand, target, weight) tuples representing the ligand-target
+                links in the sender-agnostic approach
+            expressed_genes_sender : set of gene_t
+                expressed genes in the sender
+            expressed_genes_receiver_ref : set of gene_t
+                expressed genes in the reference receiver
+            expressed_genes_receiver_aff : set of gene_t
+                expressed genes in the affected receiver
+            background_expressed_genes : set of gene_t
+                the background expressed genes
+            geneset_oi : set of gene_t
+                the geneset of interest
+    
+    Raises
+    ------
+    ValueError
+        if get_prioritization_table is True and sender_celltypes is not provided
+    '''
+    if type(geneset) is not str:
+        raise TypeError(f"geneset should have type str, was {type(geneset)}")
+    elif geneset not in ("DE", "up", "down"):
+        raise ValueError(f"geneset should be 'DE', 'up' or 'down', was {geneset}")
+    expressed_genes_receiver_ref = set(
+        get_expressed_genes(
+            receiver_reference,
+            ann,
+            pct=expression_pct,
+            celltype_col=celltype_col,
+            layer=layer
+        )
+    )
+    expressed_genes_receiver_aff = set(
+        get_expressed_genes(
+            receiver_affected,
+            ann,
+            pct=expression_pct,
+            celltype_col=celltype_col,
+            layer=layer
+        )
+    )
+    expressed_genes_receiver = expressed_genes_receiver_ref.union(expressed_genes_receiver_aff)
+    if sender_celltypes is None:
+        expressed_genes_sender = set(ann.var_names).union(predictor.row_names, predictor.col_names)
+    else:
+        expressed_genes_sender = {
+            gene for ct in sender_celltypes for gene in get_expressed_genes(
+                ct,
+                ann,
+                pct=expression_pct,
+                celltype_col=celltype_col,
+                layer=layer
+            )
+        }
+    ann_filtered = subset_ann(
+        ann,
+        val=(receiver_reference, receiver_affected),
+        layers=[layer],
+        val_col=celltype_col
+    )
+    if geneset == "DE":
+        group_metrics(
+            ann_filtered,
+            groupby=celltype_col,
+            layer=layer,
+            min_pct=expression_pct,
+            min_abs_lfc=lfc_cutoff,
+            lfc_denormalize=lfc_denormalize
+        )
+        DE_table = ann_filtered.uns["group_metrics"]
+        geneset_oi = set(
+            DE_table[
+                (DE_table["pval_adj"] <= max_pval_adj)
+            ]["gene"]
+        )
+    else:
+        group_metrics(
+            ann_filtered,
+            groupby=celltype_col,
+            layer=layer,
+            min_pct=expression_pct,
+            min_abs_lfc=0,
+            lfc_denormalize=lfc_denormalize
+        )
+        DE_table = ann_filtered.uns["group_metrics"]
+        geneset_oi = set(
+            DE_table[
+                (DE_table["pval_adj"] <= max_pval_adj) &
+                ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= lfc_cutoff))
+            ]["gene"]
+        )
+    geneset_oi.intersection_update(predictor.row_names)
+    background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
+    expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
+    expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
+    potential_ligands = set(
+        key for key, group in lr_network.item_iter()
+        if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
+    )
+    ligand_activities_dct = predictor.predict_ligand_activities(
+        geneset=geneset_oi,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands
+    )
+    ligand_activities = sorted(
+        ligand_activities_dct.items(),
+        key=lambda x : (-x[1]["aupr_corrected"], x[0])
+    )
+    best_upstream_ligands = [
+        e[0] for e in (ligand_activities if ligands_top_n is None else ligand_activities[:ligands_top_n])
+    ]
+    active_ligand_target_links = combine_weighted_ligand_target_links((
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
+        for ligand in best_upstream_ligands
+    ))
+    return {
+        "expressed_genes_receiver_ref": expressed_genes_receiver_ref,
+        "expressed_genes_receiver_aff": expressed_genes_receiver_aff,
+        "expressed_genes_sender": expressed_genes_sender,
+        "geneset_oi": geneset_oi,
+        "background_expressed_genes": background_expressed_genes,
+        "ligand_activities": ligand_activities_dct,
+        "best_upstream_ligands": best_upstream_ligands,
+        "active_ligand_target_links": active_ligand_target_links
+    }
+
 def create_ligand_activity_hist(
     ligand_activities_sorted:Iterable[tuple],
     xtitle:str="ligand activity",
