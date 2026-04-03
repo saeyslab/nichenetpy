@@ -519,7 +519,7 @@ def run_nichenet_cluster_de(
     Raises
     ------
     ValueError
-        if get_prioritization_table is True and sender_celltypes is not provided
+        if geneset is not "DE", "up" or "down"
     '''
     if type(geneset) is not str:
         raise TypeError(f"geneset should have type str, was {type(geneset)}")
