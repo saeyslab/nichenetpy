@@ -9,6 +9,7 @@ from collections.abc import (
 )
 from itertools import repeat
 from re import search
+from warnings import warn
 
 import pandas as pd
 
@@ -363,9 +364,12 @@ def get_single_ligand_importances(
     )
     return ligand_importances
 
+_metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
+
 def evaluate_single_importances_ligand_prediction(
     importances:pd.DataFrame,
-    group:str
+    group:str,
+    allow_nan:bool=False
 ) -> pd.DataFrame:
     '''
     Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
@@ -381,6 +385,8 @@ def evaluate_single_importances_ligand_prediction(
         test_ligand denotes the name of a possibly active ligand, true_ligand the name of the truely active ligand.
     group : str
         the setting of interest
+    allow_nan : bool
+        if True, return nan values in case a specific metric is undefined, if False the errors are not caught
 
     Returns
     -------
@@ -397,26 +403,21 @@ def evaluate_single_importances_ligand_prediction(
     if type(group) is not str:
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
-    metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
     added = is_ligand_active(importances)
-    try:
-        # compute metrics for multiple prediction/response pairs and store them in a dataframe
-        output = pd.DataFrame(
-            dict(zip(
-                metrics,
-                zip(*(
-                    list(zip(*sorted(
-                        calculate_prediction_evaluation_metrics(list(importances[metric]), added).items(),
-                        key=lambda x : x[0]
-                    )))[1]
-                    for metric in metrics
-                ))
+    # compute metrics for multiple prediction/response pairs and store them in a dataframe
+    output = pd.DataFrame(
+        dict(zip(
+            _metrics,
+            zip(*(
+                list(zip(*sorted(
+                    calculate_prediction_evaluation_metrics(list(importances[metric]), added, allow_nan=allow_nan).items(),
+                    key=lambda x : x[0]
+                )))[1]
+                for metric in _metrics
             ))
-        )
-    except ValueError as ex:
-        ex.add_note(f"data set: {group}")
-        raise ex
-    output["group"] = list(repeat(group, len(metrics)))
-    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(metrics)))
-    output["metric"] = metrics
+        ))
+    )
+    output["group"] = list(repeat(group, len(_metrics)))
+    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(_metrics)))
+    output["metric"] = _metrics
     return output.reindex(["metric", "group", "ligand", "aupr", "aupr_corrected", "auroc", "pearson"], axis=1)

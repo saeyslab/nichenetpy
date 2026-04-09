@@ -16,6 +16,8 @@ from re import (
 
 import numpy as np
 import pandas as pd
+import os
+import pickle
 
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
@@ -164,6 +166,35 @@ def read_csv_cols(
         lines = file.readlines()
     lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
     return dict(zip(lines[0], zip(*lines[1:])))
+
+def read_network_file(filename:str):
+    '''
+    reads a network (pandas.DataFrame) from a csv or pickle file
+
+    Parameters
+    ----------
+    filename : str
+        the name of the file to read from
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the network as a data frame
+
+    Raises
+    ------
+    ValueError
+        if the file name does not have an expected extension
+    '''
+    file_ext = (os.path.split(filename)[1]).split(".")[-1]
+    if file_ext == "csv":
+        return pd.DataFrame(read_csv_cols(filename))
+    elif file_ext == "pkl" or file_ext == "pickle":
+        with open(filename, "rb") as file:
+            output = pickle.loads(file.read())
+        return output
+    else:
+        raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
 def subset_matrix(
     mat:nichenet_matrix,

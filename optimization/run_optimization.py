@@ -1,6 +1,7 @@
 from nichenetpy.utils import (
     read_csv_cols,
-    read_csv_rows
+    read_csv_rows,
+    read_network_file
 )
 from nichenetpy.parameter_optimization import (
     construct_and_evaluate
@@ -35,6 +36,7 @@ from joblib import (
 )
 from functools import reduce
 from operator import and_
+from time import time
 
 import pandas as pd
 import json
@@ -72,6 +74,7 @@ def optimize(study_name, storage, sampler):
     )
 
 if __name__ == "__main__":
+    start_time = time()
     parser = argparse.ArgumentParser(
         description="optimize the source weights and hyperparameters"
     )
@@ -185,6 +188,11 @@ if __name__ == "__main__":
         help="Identifier of the log",
         default=""
     )
+    parser.add_argument(
+        "--semantic_similarity_metric",
+        help="The semantic similarity metric to use. Default: None",
+        default=None
+    )
     args = parser.parse_args()
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
@@ -206,9 +214,12 @@ if __name__ == "__main__":
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
-    gr_network = pd.DataFrame(read_csv_cols(args.gr_network_file))
-    lr_network = pd.DataFrame(read_csv_cols(args.lr_network_file))
-    sig_network = pd.DataFrame(read_csv_cols(args.sig_network_file))
+    gr_network = read_network_file(args.gr_network_file)
+    lr_network = read_network_file(args.lr_network_file)
+    sig_network = read_network_file(args.sig_network_file)
+    if args.semantic_similarity_metric is not None:
+        sig_network = sig_network[["from", "to", "source", "database", args.semantic_similarity_metric]]
+        sig_network[args.semantic_similarity_metric] = [0 if e == "" else float(e) for e in sig_network[args.semantic_similarity_metric]]
     parallel = Parallel(n_jobs=args.n_process)
     file_ext = args.settings_file.split(".")[-1]
     if file_ext == "json":
@@ -370,6 +381,16 @@ if __name__ == "__main__":
             low=0.01,
             high=0.99
         ) if args.damping_factor is None else args.damping_factor
+        if args.semantic_similarity_metric is None:
+            _sig_network = sig_network
+        else:
+            ss_cutoff = trial.suggest_float(
+                name="ss_cutoff",
+                low=0,
+                high=1
+            )
+            _sig_network = sig_network[sig_network[args.semantic_similarity_metric] >= ss_cutoff]
+        _sig_network = _sig_network[["from", "to", "source"]]
         # construct the model from the source weights and compute the objectives
         res = construct_and_evaluate(
             dict((sym2id[s], w) for s, w in source_weights.items()),
@@ -379,7 +400,7 @@ if __name__ == "__main__":
             damping_factor,
             lr_network,
             gr_network,
-            sig_network,
+            _sig_network,
             evaluation_data,
             return_all_matrices=False,
             return_weighted_networks=False
@@ -413,3 +434,5 @@ if __name__ == "__main__":
         load_if_exists=args.c
     )
     parallel(optimize(name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))
+    end_time = time()
+    print(f"main process finished after {end_time - start_time} seconds")
