@@ -36,7 +36,6 @@ from joblib import (
 )
 from functools import reduce
 from operator import and_
-from time import time
 
 import pandas as pd
 import json
@@ -74,7 +73,6 @@ def optimize(study_name, storage, sampler):
     )
 
 if __name__ == "__main__":
-    start_time = time()
     parser = argparse.ArgumentParser(
         description="optimize the source weights and hyperparameters"
     )
@@ -434,5 +432,3 @@ if __name__ == "__main__":
         load_if_exists=args.c
     )
     parallel(optimize(name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))
-    end_time = time()
-    print(f"main process finished after {end_time - start_time} seconds")
