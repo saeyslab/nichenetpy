@@ -20,6 +20,7 @@ import warnings
 
 
 def _average_performances(ligand_oi, performances):
+    # true ligand must match with ligand(s) of interest
     performances_oi = performances[[
         any(
             ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand

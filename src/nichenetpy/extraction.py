@@ -139,7 +139,8 @@ def get_weighted_ligand_receptor_links(
     if type(lr_sig) is not WeightedNetwork:
         raise TypeError(f"lr_sig should have type WeightedNetwork, was {type(lr_sig)}")
     lr_sig = lr_sig.subset(set(lr_network))
-    best_upstream_receptors = set(t for f, t in lr_network if f in best_upstream_ligands and t in expressed_receptors)
+    best_upstream_receptors = set(to for fr, to in lr_network if fr in best_upstream_ligands and to in expressed_receptors)
+    # from best upstream ligand to best upstream receptor
     return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
 
 def get_lfc_celltype(
@@ -205,6 +206,7 @@ def get_lfc_celltype(
         raise TypeError(f"features should be an Iterable of gene_t, was {type(features)}")
     if type(scanpy_lfc) is not bool:
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
+    # select celltype of interest
     ann_sender = subset_ann(
         ann,
         celltype,
@@ -213,6 +215,7 @@ def get_lfc_celltype(
         genes=features
     )
     if scanpy_lfc:
+        # compute lfc through scanpy
         sc.tl.rank_genes_groups(
             ann_sender,
             groupby=condition_col,
@@ -227,10 +230,12 @@ def get_lfc_celltype(
             [e[0] for e in res["logfoldchanges"]]
         )
     else:
+        # compute lfc through custom function which returns the same output as seurat v3
         if features is None:
             mat = ann_sender.layers[layer]
             genes = ann_sender.var_names
         else:
+            # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index))))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
