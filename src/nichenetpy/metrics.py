@@ -335,6 +335,7 @@ def _single_group_metrics(
 ):
     cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
     if group_ref is None:
+        # reference cells are all cells that are not cells of interest
         cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
     else:
         cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
@@ -437,6 +438,7 @@ def group_metrics(
         mat = ann.layers[layer]
         genes = ann.var_names
     else:
+        # select genes
         mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     try:
@@ -445,7 +447,9 @@ def group_metrics(
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
     pct = []
+    # start by computing lfc and pct (these are also used for filtering before computing the p-values)
     if group_oi is None:
+        # compare each group with the reference group
         for group in groups:
             x, y = _single_group_metrics(
                 ann,
@@ -491,7 +495,9 @@ def group_metrics(
     output = output.merge(pct, on=["gene", groupby], how="inner")
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
+        # select only the groups the group of interest and the reference group
         ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
+    # compute the p-values
     if wilcoxon_limma:
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])

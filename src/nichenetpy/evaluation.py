@@ -68,7 +68,7 @@ class EvaluationData:
                 for key, val in obj.items():
                     self[key] = val
             elif type(obj) is pd.DataFrame:
-                for key, val in zip(obj[key_name], (dict(zip(obj.columns, r)) for r in zip(*(obj[col] for col in obj.columns)))):
+                for key, val in zip(obj[key_name], (dict(zip(obj.columns, row)) for row in zip(*(obj[col] for col in obj.columns)))):
                     self[key] = val
             elif isinstance(obj, ItemsView):
                 for key, val in obj:
@@ -300,6 +300,8 @@ class EvaluationData:
                 if is_app:
                     yield (k, gs)
 
+_metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
+
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
     evaluation_data:Iterable[dict],
@@ -346,10 +348,10 @@ def get_single_ligand_importances(
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
-    # compute metrics for multiple prediction/response pairs and store them in a dataframe
+    # compute metrics for each ligand/dataset combination
     ligand_importances = pd.DataFrame(
         dict(zip(
-            ("aupr", "aupr_corrected", "auroc", "pearson"),
+            _metrics,
             zip(*(
                 list(zip(*sorted(
                     predictor.evaluate_target_prediction(ligand, setting["response"]).items(),
@@ -363,8 +365,6 @@ def get_single_ligand_importances(
         zip(*((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands))
     )
     return ligand_importances
-
-_metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
 
 def evaluate_single_importances_ligand_prediction(
     importances:pd.DataFrame,
@@ -404,7 +404,7 @@ def evaluate_single_importances_ligand_prediction(
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     added = is_ligand_active(importances)
-    # compute metrics for multiple prediction/response pairs and store them in a dataframe
+    # use ligand importances as prediction (each metric in turn) and true ligand as response
     output = pd.DataFrame(
         dict(zip(
             _metrics,

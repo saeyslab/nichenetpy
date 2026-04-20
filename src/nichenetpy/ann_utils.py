@@ -86,8 +86,8 @@ def subset_ann(
         if len(cells_oi) == 0:
             raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
         else:
-            col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-            row_ids = [col2index[name] for name in cells_oi.index]
+            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+            row_ids = [row2index[name] for name in cells_oi.index]
     if genes is None:
         col_ids = None
     else:
