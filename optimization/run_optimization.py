@@ -45,6 +45,12 @@ import os
 import requests
 import pickle
 
+try:
+    import optunahub
+    optunahub_installed = False
+except ImportError:
+    optunahub_installed = True
+
 
 class FlatCrossover(BaseCrossover):
     n_parents = 2
@@ -113,8 +119,8 @@ if __name__ == "__main__":
         "--algorithm",
         help="the optimization algorithm to use",
         type=str,
-        choices=("TPE", "NSGA-II", "GP"),
-        default="TPE"
+        choices=("TPE", "NSGA-II", "GP", "TuRBO"),
+        default="GP"
     )
     parser.add_argument(
         "--source_path",
@@ -411,7 +417,7 @@ if __name__ == "__main__":
     log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
     with open(log_file, "a" if args.c else "w"):
         pass # the file is created, if not args.c the file is emptied if it already existed
-    lock_obj = JournalFileOpenLock(log_file)
+    lock_obj = JournalFileOpenLock(log_file, grace_period=120)
     storage = JournalStorage(
         JournalFileBackend(log_file, lock_obj)
     )
@@ -424,6 +430,11 @@ if __name__ == "__main__":
         )
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
+    elif args.algorithm == "TuRBO":
+        if optunahub_installed:
+            sampler = optunahub.load_module(package="samplers/turbo").TuRBOSampler()
+        else:
+            raise RuntimeError("optunahub installation is required when using TuRBO algorithm")
     study = create_study(
         sampler=sampler,
         directions=["maximize", "maximize", "maximize", "maximize"],
