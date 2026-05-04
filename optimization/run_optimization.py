@@ -47,9 +47,9 @@ import pickle
 
 try:
     import optunahub
-    optunahub_installed = False
-except ImportError:
     optunahub_installed = True
+except ImportError as e:
+    optunahub_installed = False
 
 
 class FlatCrossover(BaseCrossover):
