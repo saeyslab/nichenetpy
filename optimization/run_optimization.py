@@ -45,12 +45,6 @@ import os
 import requests
 import pickle
 
-try:
-    import optunahub
-    optunahub_installed = True
-except ImportError as e:
-    optunahub_installed = False
-
 
 class FlatCrossover(BaseCrossover):
     n_parents = 2
@@ -119,7 +113,7 @@ if __name__ == "__main__":
         "--algorithm",
         help="the optimization algorithm to use",
         type=str,
-        choices=("TPE", "NSGA-II", "GP", "TuRBO"),
+        choices=("TPE", "NSGA-II", "GP"),
         default="GP"
     )
     parser.add_argument(
@@ -430,11 +424,6 @@ if __name__ == "__main__":
         )
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
-    elif args.algorithm == "TuRBO":
-        if optunahub_installed:
-            sampler = optunahub.load_module(package="samplers/turbo").TuRBOSampler()
-        else:
-            raise RuntimeError("optunahub installation is required when using TuRBO algorithm")
     study = create_study(
         sampler=sampler,
         directions=["maximize", "maximize", "maximize", "maximize"],
