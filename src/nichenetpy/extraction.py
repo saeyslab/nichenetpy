@@ -8,7 +8,10 @@ from nichenetpy.ann_utils import (
     subset_ann,
     _subset_layer
 )
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from anndata import AnnData
 from collections.abc import Iterable, Callable
@@ -19,13 +22,49 @@ import numpy as np
 import pandas as pd
 
 
+def _get_expressed_features(
+    celltype:str|Iterable[str],
+    ann:AnnData,
+    pct:float,
+    celltype_col:str,
+    layer:str|None,
+    exp_func:Callable[[nichenet_matrix], list[float]]
+) -> list[gene_t]:
+    if type(celltype) is str:
+        celltype = [celltype]
+    elif not isinstance(celltype, Iterable):
+        raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
+    if type(ann) is not AnnData:
+        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if not isinstance(pct, Number):
+        raise TypeError(f"pct should be of type float, was {type(pct)}")
+    if type(celltype_col) is not str:
+        raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
+    if layer is not None and type(layer) is not str:
+        raise TypeError(f"layer should be of type str, was {type(layer)}")
+    if pct > 1 or pct < 0:
+        raise ValueError(f"pct should be between 0 and 1, was {pct}")
+    try:
+        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+    except KeyError:
+        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
+    if len(cells_oi) == 0:
+        raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
+    # ncells x ngenes
+    mat = ann.X if layer is None else ann.layers[layer]
+    # select rows corresponding to cells of interest
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
+    exps = exp_func(exprs_m)
+    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
+
 def get_expressed_genes(
     celltype:str|Iterable[str],
     ann:AnnData,
     pct:float=0.1,
     celltype_col:str="celltype",
-    layer:str="data"
-) -> list[str]:
+    layer:str|None="data"
+) -> list[gene_t]:
     '''
     Gets the expressed genes from an AnnData object. 
 
@@ -40,8 +79,8 @@ def get_expressed_genes(
         This number indicates this fraction. 
     celltype_col : str
         the name of the column in obs which contains the celltypes
-    layer : str
-        the name of the layer which contains the data matrix
+    layer : str or None
+        the name of the layer which contains the data matrix, if None use the X attribute
     
     Returns
     -------
@@ -55,37 +94,11 @@ def get_expressed_genes(
     ValueError
         if the arguments are invalid
     '''
-    if type(celltype) is str:
-        celltype = [celltype]
-    elif not isinstance(celltype, Iterable):
-        raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
-    if type(ann) is not AnnData:
-        raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
-    if not isinstance(pct, Number):
-        raise TypeError(f"pct should be of type float, was {type(pct)}")
-    if type(celltype_col) is not str:
-        raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
-    if pct > 1 or pct < 0:
-        raise ValueError(f"pct should be between 0 and 1, was {pct}")
-    try:
-        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
-    except KeyError:
-        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
-    if len(cells_oi) == 0:
-        raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
-    # ncells x ngenes
-    mat = ann.layers[layer]
-    # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
-    exps = gene_expression_pct(exprs_m)
-    return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
+    return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 def get_weighted_ligand_receptor_links(
-    best_upstream_ligands:Iterable[str],
-    expressed_receptors:Iterable[str],
+    best_upstream_ligands:Iterable[gene_t],
+    expressed_receptors:Iterable[gene_t],
     lr_network:LigandReceptorNetwork,
     lr_sig:WeightedNetwork
 ) -> WeightedNetwork:
@@ -94,9 +107,9 @@ def get_weighted_ligand_receptor_links(
 
     Parameters
     ----------
-    best_upstream_ligands : Iterable of str
+    best_upstream_ligands : Iterable of gene_t
         the ligands of interest
-    expressed_receptors : Iterable of str
+    expressed_receptors : Iterable of gene_t
         the receptors expressed in the cell type of interest
     lr_network : LigandReceptorNetwork
         the ligand-receptor network containing the ligand-receptor interactions
@@ -126,7 +139,8 @@ def get_weighted_ligand_receptor_links(
     if type(lr_sig) is not WeightedNetwork:
         raise TypeError(f"lr_sig should have type WeightedNetwork, was {type(lr_sig)}")
     lr_sig = lr_sig.subset(set(lr_network))
-    best_upstream_receptors = set(t for f, t in lr_network if f in best_upstream_ligands and t in expressed_receptors)
+    best_upstream_receptors = set(to for fr, to in lr_network if fr in best_upstream_ligands and to in expressed_receptors)
+    # from best upstream ligand to best upstream receptor
     return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
 
 def get_lfc_celltype(
@@ -137,9 +151,9 @@ def get_lfc_celltype(
     condition_ref:str,
     layer:str,
     celltype_col:str="celltype",
-    features:Iterable[str]|None=None,
+    features:Iterable[gene_t]|None=None,
     scanpy_lfc:bool=False
-) -> tuple[list[str], list[float]]:
+) -> tuple[list[gene_t], list[float]]:
     '''
     Get log fold change of genes between two conditions in cell type of interest from an AnnData object.
 
@@ -159,7 +173,7 @@ def get_lfc_celltype(
         the name of the data layer
     celltype_col : str
         the name of the column in obs that contains the cell types
-    features : Iterable of str or None
+    features : Iterable of gene_t or None
         the genes to consider, consider all genes if None
     scanpy_lfc : bool
         if true, use scanpy.rank_genes_groups to compute the logfoldchanges
@@ -189,9 +203,10 @@ def get_lfc_celltype(
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
     if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should be an Iterable of strings, was {type(features)}")
+        raise TypeError(f"features should be an Iterable of gene_t, was {type(features)}")
     if type(scanpy_lfc) is not bool:
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
+    # select celltype of interest
     ann_sender = subset_ann(
         ann,
         celltype,
@@ -200,6 +215,7 @@ def get_lfc_celltype(
         genes=features
     )
     if scanpy_lfc:
+        # compute lfc through scanpy
         sc.tl.rank_genes_groups(
             ann_sender,
             groupby=condition_col,
@@ -214,10 +230,12 @@ def get_lfc_celltype(
             [e[0] for e in res["logfoldchanges"]]
         )
     else:
+        # compute lfc through custom function which returns the same output as seurat v3
         if features is None:
             mat = ann_sender.layers[layer]
             genes = ann_sender.var_names
         else:
+            # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index))))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index

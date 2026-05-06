@@ -4,7 +4,7 @@ __pycache__
 src/nichenetpy.egg-info/*
 notebooks/tutorial_files/*
 tests/data/tutorial_files/*
-scripts/*
+Rscripts/*
 SeuratVSscanpy/*
 temp/*
 docs/*
@@ -13,3 +13,4 @@ optimization/log
 optimization/output
 optimization/tutorial_files
 optimization/check_results
+optimization/run_optimization*.pbs

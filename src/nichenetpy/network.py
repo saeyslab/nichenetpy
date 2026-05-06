@@ -1,6 +1,7 @@
 from nichenetpy.io import read_network, read_weighted_network
+from nichenetpy.typing import gene_t
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
 from itertools import chain
 
 import pandas as pd
@@ -35,7 +36,7 @@ class Network:
     -----
     You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from. 
     '''
-    def __init__(self, mapping:list|pd.DataFrame|None=None, filename:str|None=None) -> None:
+    def __init__(self, mapping:list|pd.DataFrame|None=None, filename:str|None=None):
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(
@@ -60,12 +61,8 @@ class Network:
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key:str) -> list[str]:
-        try:
-            start, count = self._index[key]
-        except KeyError:
-            raise KeyError(f"there is no edge with '{key}' as source")
-        return set(item[1] for item in self._mapping[start:start+count])
+    def __getitem__(self, key) -> set:
+        return set(self.mapping_iter(key))
     
     def __len__(self):
         return len(self._mapping)
@@ -73,7 +70,7 @@ class Network:
     def __iter__(self):
         return self._mapping.__iter__()
     
-    def __contains__(self, item):
+    def __contains__(self, item:tuple):
         start, count = self._index[item[0]]
         return item in self._mapping[start:start+count]
     
@@ -91,7 +88,7 @@ class Network:
         
         Yields
         ------
-        str
+        gene_t
             the "from" values in the mapping
         '''
         return (self._mapping[start][0] for start, _ in self._index.values())
@@ -107,6 +104,22 @@ class Network:
         '''
         return ((key, self[key]) for key in self.key_iter())
     
+    def mapping_iter(self, key) -> Iterator:
+        '''
+        Iterates over the "to" values that correspond with the specified "from" value. 
+        
+        Yields
+        ------
+        tuple
+            the "to" values in the mapping
+        '''
+        try:
+            start, count = self._index[key]
+        except KeyError:
+            raise KeyError(f"there is no edge with '{key}' as source")
+        for item in self._mapping[start:start+count]:
+            yield item[1]
+    
     def get_all(self) -> set:
         '''
         Return all values that are present in the network. 
@@ -118,7 +131,7 @@ class Network:
         '''
         return set(chain(*zip(*self._mapping)))
     
-    def subset(self, from_to:Collection[tuple[str, str]]):
+    def subset(self, from_to:Collection[tuple[gene_t, gene_t]]):
         '''
         Subset the network by the provided links. 
 
@@ -138,18 +151,18 @@ class Network:
             if the arguments have the wrong type
         '''
         if not isinstance(from_to, Collection):
-            raise TypeError(f"from_to should be a Collection of tuple[str, str], was {type(from_to)}")
+            raise TypeError(f"from_to should be a Collection of tuple[gene_t, gene_t], was {type(from_to)}")
         return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
 
-    def subset_sep(self, fr:Collection[str], to:Collection[str]):
+    def subset_sep(self, fr:Collection[gene_t]|None=None, to:Collection[gene_t]|None=None):
         '''
         Subset the network by the provided "from" and "to" values. 
 
         Parameters
         ----------
-        from : Collection
+        from : Collection or None
             collection of "from" values to subset by
-        to : Collection
+        to : Collection or None
             collection of "to" values to subset by
 
         Returns
@@ -162,11 +175,29 @@ class Network:
         TypeError
             if the arguments have the wrong type
         '''
+        if fr is None:
+            fr = set(self.key_iter())
+        if to is None:
+            to = set(e for _, e in self._mapping)
         if not isinstance(fr, Collection):
-            raise TypeError(f"fr should be a Collection of str, was {type(fr)}")
+            raise TypeError(f"fr should be a Collection of gene_t, was {type(fr)}")
         if not isinstance(to, Collection):
-            raise TypeError(f"to should be a Collection of str, was {type(to)}")
+            raise TypeError(f"to should be a Collection of gene_t, was {type(to)}")
         return type(self)(mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to])
+    
+    def to_dataframe(self):
+        '''
+        Convert the network to a dataframe
+
+        Returns
+        -------
+        pandas.DataFrame
+            the network as a dataframe
+        '''
+        return pd.concat([
+            pd.DataFrame({"from": fr, "to": list(tos)})
+            for fr, tos in self.item_iter()
+        ])
 
 class LigandReceptorNetwork(Network):
     '''
@@ -197,7 +228,7 @@ class LigandReceptorNetwork(Network):
     -----
     You must pass a list SORTED by "from" as mapping or the name of a file to read from. 
     '''
-    def get_ligands(self) -> set[str]:
+    def get_ligands(self) -> set[gene_t]:
         '''
         Get all the ligands present in the network. 
         
@@ -208,7 +239,7 @@ class LigandReceptorNetwork(Network):
         '''
         return set(self.key_iter())
     
-    def get_receptors(self) -> set[str]:
+    def get_receptors(self) -> set[gene_t]:
         '''
         Get all the receptors present in the network. 
         
@@ -257,11 +288,11 @@ class WeightedNetwork(Network):
             )
         super().__init__(mapping=mapping)
     
-    def __getitem__(self, key:str) -> dict[str, float]:
+    def __getitem__(self, key:gene_t) -> dict[gene_t, float]:
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start:start+count])
     
-    def get_ligands(self) -> set[str]:
+    def get_ligands(self) -> set[gene_t]:
         '''
         Get all the ligands present in the network. 
         
@@ -272,7 +303,7 @@ class WeightedNetwork(Network):
         '''
         return set(self.key_iter())
     
-    def get_receptors(self) -> set[str]:
+    def get_receptors(self) -> set[gene_t]:
         '''
         Get all the receptors present in the network. 
         
@@ -282,3 +313,18 @@ class WeightedNetwork(Network):
             set of receptors present in the network
         '''
         return set(receptor for _, receptor, _ in self._mapping)
+    
+    def to_dataframe(self):
+        '''
+        Convert the network to a dataframe
+
+        Returns
+        -------
+        pandas.DataFrame
+            the network as a dataframe
+        '''
+        temp = []
+        for fr, mapping in self.item_iter():
+            tos, ws = zip(*mapping.items())
+            temp.append(pd.DataFrame({"from": fr, "to": tos, "weight": ws}))
+        return pd.concat(temp)

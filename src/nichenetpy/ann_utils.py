@@ -1,4 +1,5 @@
 from nichenetpy.utils import subset_matrix
+from nichenetpy.typing import gene_t
 
 from anndata import AnnData
 from collections.abc import Iterable
@@ -10,9 +11,9 @@ import pandas as pd
 def _subset_layer(
     ann:AnnData,
     layer:str,
-    features:Iterable[str],
-    gene2index:dict[str, int]|None=None
-) -> tuple[np.ndarray, list[str]]:
+    features:Iterable[gene_t],
+    gene2index:dict[gene_t, int]|None=None
+) -> tuple[np.ndarray, list[gene_t]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
     if type(features) is set:
@@ -22,10 +23,11 @@ def _subset_layer(
 
 def subset_ann(
     ann:AnnData,
-    val:str|Iterable[str]|None=None,
-    genes:Iterable[str]|None=None,
+    val:str|gene_t|Iterable[str]|None=None,
+    genes:Iterable[gene_t]|None=None,
     layers:Iterable[str]|None=None,
-    val_col:str="celltype"
+    val_col:str="celltype",
+    subset_X:bool=True
 ) -> AnnData|None:
     '''
     Subsets the cells and/or genes of an AnnData object. 
@@ -43,6 +45,8 @@ def subset_ann(
         layers that aren't subsetted won't be present in the output
     val_col : str
         the name of the column in obs that contains the values to subset by
+    subset_X : bool
+        whether or not to subset X
     
     Returns
     -------
@@ -69,7 +73,7 @@ def subset_ann(
     if val is None:
         row_ids = None
     else:
-        if type(val) is str:
+        if type(val) is str or isinstance(val, gene_t):
             val = {val}
         elif not isinstance(val, Iterable):
             raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")
@@ -82,8 +86,8 @@ def subset_ann(
         if len(cells_oi) == 0:
             raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
         else:
-            col2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
-            row_ids = [col2index[name] for name in cells_oi.index]
+            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+            row_ids = [row2index[name] for name in cells_oi.index]
     if genes is None:
         col_ids = None
     else:
@@ -102,20 +106,30 @@ def subset_ann(
             subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)
         ) for layer in layers
     )
+    if ann.X is not None:
+        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     # subset categories if the column is categorical
     if row_ids is not None and cells_oi[val_col].dtype.name == "category":
         pd.options.mode.chained_assignment = None # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
+    if len(new_layers) > 0:
+        new_shape = new_layers[layers[0]].shape
+    elif ann.X is not None and subset_X:
+        new_shape = new_X.shape
+    else:
+        raise ValueError("if layers=[] then X must be defined and subset_X must be True")
     output = AnnData(
         obs=ann.obs if row_ids is None else cells_oi,
         layers=new_layers,
-        shape=new_layers[layers[0]].shape
+        shape=new_shape
     )
     if genes is None:
         output.var_names = ann.var_names
     else:
         output.var_names = ann.var_names.reindex(genes)[0]
     output.var_names.name = "gene"
+    if ann.X is not None:
+        output.X = new_X
     return output
 
 def prepare_ann(
@@ -133,7 +147,7 @@ def prepare_ann(
     ------
     TypeError
         if the AnnData object has the wrong type
-    ValueError
+    AnnError
         if the AnnData object is not suitable for a nichenet analysis and it is not possible to fix the issues
     '''
     if type(ann) is not AnnData:

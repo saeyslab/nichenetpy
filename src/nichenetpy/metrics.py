@@ -5,6 +5,7 @@ from nichenetpy.wilcoxon import (
 )
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.typing import nichenet_matrix
+from nichenetpy.exception import NicheNetError
 
 from anndata import AnnData
 from collections.abc import Callable, Iterable
@@ -134,7 +135,8 @@ def calculate_auroc(
 
 def calculate_prediction_evaluation_metrics(
     prediction:list[float]|tuple[float]|np.ndarray[float],
-    response:list[float]|tuple[float]|np.ndarray[float]
+    response:list[float]|tuple[float]|np.ndarray[float],
+    allow_nan:bool=False
 ) -> dict[str, float]:
     '''
     Calculates metrics that can be used to rank ligands. 
@@ -151,6 +153,8 @@ def calculate_prediction_evaluation_metrics(
         vector which contains probability scores for each target gene (for one particular ligand)
     response : list or tuple or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    allow_nan : bool
+        if True, return nan values in case a specific metric is undefined, if False the errors are not caught
 
     Returns
     -------
@@ -170,10 +174,28 @@ def calculate_prediction_evaluation_metrics(
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
-    aupr = calculate_aupr(response, prediction)
-    auroc = calculate_auroc(response, prediction)
+    try:
+        aupr = calculate_aupr(response, prediction)
+    except ValueError as ex:
+        if allow_nan:
+            aupr = np.nan
+        else:
+            raise ex
+    try:
+        auroc = calculate_auroc(response, prediction)
+    except ValueError as ex:
+        if allow_nan:
+            auroc = np.nan
+        else:
+            raise ex
     warnings.filterwarnings("ignore")
-    pcc = pearsonr(response, prediction).statistic
+    try:
+        pcc = pearsonr(response, prediction).statistic
+    except ValueError as ex:
+        if allow_nan:
+            pcc = np.nan
+        else:
+            raise ex
     warnings.filterwarnings("default")
     return {
         "auroc": auroc,
@@ -235,38 +257,71 @@ def log_fold_change(
         _sub_log_fold_change(mat2, denormalize, pseudocount)
     ).transpose()
 
+def _calc_pct(
+    mat=nichenet_matrix,
+    direction:str="both"
+) -> list[float]:
+    if type(mat) is csc_matrix or type(mat) is csr_matrix:
+        nrows, ncols = mat.get_shape()
+        if direction == "positive":
+            # set all positive elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1 if mat.data[i] > 0 else 0
+        elif direction == "negative":
+            # set all negative elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1 if mat.data[i] < 0 else 0
+        else:
+            # set all non-zero elements to 1
+            for i in range(len(mat.data)):
+                mat.data[i] = 1
+        output = mat.sum(axis=0) / nrows
+        return [output[0, i] for i in range(ncols)]
+    elif type(mat) is np.ndarray:
+        nrows, ncols = mat.shape
+        if direction == "positive":
+            # set all positive elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    mat[i, j] = 1 if mat[i, j] > 0 else 0
+        elif direction == "negative":
+            # set all negative elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    mat[i, j] = 1 if mat[i, j] < 0 else 0
+        else:
+            # set all non-zero elements to 1
+            for i in range(nrows):
+                for j in range(ncols):
+                    if mat[i, j] != 0:
+                        mat[i, j] = 1
+        return mat.sum(axis=0) / nrows
+    else:
+        raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat)}")
+
 def gene_expression_pct(
     mat=nichenet_matrix
 ) -> list[float]:
     '''
-    For each gene, calculate the percentage of cells that have an expression value greater than 0. 
+    For each gene, calculate the percentage of cells that have an expression value not equal to 0. 
 
     Parameters
     ----------
     mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         (#cells X #genes) matrix containing the expression values
+    direction : 
 
     Returns
     -------
     list
-        for each gene the percentage of cells that have an expression value greater than 0
+        for each gene the percentage of cells that have an expression value not equal to 0
     
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     '''
-    if type(mat) is csc_matrix or type(mat) is csr_matrix:
-        nrows, ncols = mat.get_shape()
-    elif type(mat) is np.ndarray:
-        nrows, ncols = mat.shape
-    else:
-        raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    # set all non-zero elements to 1
-    for i in range(len(mat.data)):
-        mat.data[i] = 1
-    output = mat.sum(axis=0) / nrows
-    return [output[0, i] for i in range(ncols)]
+    return _calc_pct(mat)
 
 def _single_group_metrics(
     ann,
@@ -280,13 +335,14 @@ def _single_group_metrics(
 ):
     cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
     if group_ref is None:
+        # reference cells are all cells that are not cells of interest
         cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
     else:
         cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
     if len(cells_oi) == 0:
-        raise RuntimeError("There are no cells in the group of interest")
+        raise NicheNetError("There are no cells in the group of interest")
     if len(cells_ref) == 0:
-        raise RuntimeError("There are no cells in the reference group")
+        raise NicheNetError("There are no cells in the reference group")
     mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
     mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
@@ -344,7 +400,7 @@ def group_metrics(
     ------
     TypeError
         if the arguments have the wrong type
-    RuntimeError
+    NicheNetError
         if there are no cells in the group of interest
         if there are no cells in the reference group
     ValueError
@@ -382,6 +438,7 @@ def group_metrics(
         mat = ann.layers[layer]
         genes = ann.var_names
     else:
+        # select genes
         mat, genes = _subset_layer(ann, layer, features)
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
     try:
@@ -390,7 +447,9 @@ def group_metrics(
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
     lfc = []
     pct = []
+    # start by computing lfc and pct (these are also used for filtering before computing the p-values)
     if group_oi is None:
+        # compare each group with the reference group
         for group in groups:
             x, y = _single_group_metrics(
                 ann,
@@ -436,7 +495,9 @@ def group_metrics(
     output = output.merge(pct, on=["gene", groupby], how="inner")
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
+        # select only the groups the group of interest and the reference group
         ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
+    # compute the p-values
     if wilcoxon_limma:
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])

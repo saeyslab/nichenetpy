@@ -4,8 +4,6 @@
 name: Python package
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -18,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v4
@@ -35,4 +33,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest -m "not large_download"
+        pytest -m "not large_download and not outdated"

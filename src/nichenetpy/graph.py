@@ -21,8 +21,8 @@ def dijkstra_spl(
     
     Returns
     -------
-    list of float
-        the shortest path lengths from the source vertex to every vertex in the graph
+    list of tuple[float, int]
+        the shortest path length along with the previous node on this path from the source vertex to every vertex in the graph
     
     Raises
     ------
@@ -34,20 +34,22 @@ def dijkstra_spl(
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
     l = graph.shape[0]
-    spl = [np.inf for _ in range(l)]
+    spl = [(np.inf, None) for _ in range(l)] # initiate shortest path length
     done = set()
-    pq = [(0, src)]
-    spl[src] = 0
+    pq = [(0, src)] # priority queue
+    spl[src] = (0, None)
     while len(pq) > 0:
-        cur = heapq.heappop(pq)[1]
+        cur = heapq.heappop(pq)[1] # for this node the spl is computed
         if cur not in done:
+            # update all neighbours
             for nb, val in zip(
                 graph.indices[graph.indptr[cur]:graph.indptr[cur+1]],
                 graph.data[graph.indptr[cur]:graph.indptr[cur+1]]
             ):
-                pl = spl[cur] + val
-                if pl < spl[nb]:
-                    spl[nb] = pl
+                pl = spl[cur][0] + val
+                if pl < spl[nb][0]:
+                    # update shortest path length found so far and add to queue
+                    spl[nb] = (pl, cur)
                     heapq.heappush(pq, (pl, nb))
             done.add(cur)
     return spl

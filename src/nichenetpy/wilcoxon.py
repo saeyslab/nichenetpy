@@ -1,5 +1,8 @@
 from nichenetpy.utils import subset_matrix
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import (
+    nichenet_matrix,
+    gene_t
+)
 
 from scipy.sparse import csc_matrix
 from scipy.stats import t
@@ -97,8 +100,8 @@ def wilcoxon_rank_sum_test(
     groupby:str,
     as_dataframe:bool=False,
     tie_correction:bool=True,
-    layer:str="data",
-    genes:list[str]|tuple[str]|None=None
+    layer:str|None="data",
+    genes:list[gene_t]|tuple[gene_t]|None=None
 ):
     '''
     perform the wilcoxon rank sum test and return the p-values
@@ -113,9 +116,9 @@ def wilcoxon_rank_sum_test(
         if True, a pandas DataFrame is returned
     tie_correction : bool
         if True, tie correction is performed
-    layer : str
+    layer : str or None
         the layer of the AnnData object to use
-    genes : list of str or tuple of str or None
+    genes : list of gene_t or tuple of gene_t or None
         if provided, only consider these genes
     
     Returns
@@ -144,16 +147,20 @@ def wilcoxon_rank_sum_test(
         raise TypeError(f"as_dataframe should have type bool, was {type(as_dataframe)}")
     if type(tie_correction) is not bool:
         raise TypeError(f"tie_correction should have type bool, was {type(tie_correction)}")
-    if type(layer) is not str:
-        raise TypeError(f"layer should have type str, was {type(layer)}")
+    if layer is not None:
+        if type(layer) is not str:
+            raise TypeError(f"layer should have type str, was {type(layer)}")
+        if layer not in ann.layers:
+            raise ValueError(f"There is no layer '{layer}' in the AnnData object")
     if groupby not in ann.obs.columns:
         raise ValueError(f"There is no column '{groupby}' in the AnnData object")
-    if layer not in ann.layers:
-        raise ValueError(f"There is no layer '{layer}' in the AnnData object")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
     pvals = dict()
-    mat = ann.layers[layer]
+    if layer is None:
+        mat = ann.X
+    else:
+        mat = ann.layers[layer]
     if genes is None:
         genes = ann.var_names
     else:
