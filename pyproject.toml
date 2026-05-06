@@ -58,6 +58,6 @@ markers = [
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "src/*.py",
+  "src/nichenetpy/*.py",
   "data/*"
 ]
