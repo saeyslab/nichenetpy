@@ -2,9 +2,12 @@
 path = ".hatch"
 python = "3.12"
 
+[tool.hatch.version]
+path = "src/nichenetpy/__init__.py"
+
 [project]
 name = "nichenetpy"
-version = "0.1.0"
+dynamic = ["version"]
 
 description = """
 nichenetpy: the python implementation of the NicheNet method.
