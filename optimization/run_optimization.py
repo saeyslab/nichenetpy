@@ -114,7 +114,7 @@ if __name__ == "__main__":
         help="the optimization algorithm to use",
         type=str,
         choices=("TPE", "NSGA-II", "GP"),
-        default="TPE"
+        default="GP"
     )
     parser.add_argument(
         "--source_path",
@@ -411,7 +411,7 @@ if __name__ == "__main__":
     log_file = os.path.join(args.log_dir, f"{args.id}_{name}_{args.algorithm}.log")
     with open(log_file, "a" if args.c else "w"):
         pass # the file is created, if not args.c the file is emptied if it already existed
-    lock_obj = JournalFileOpenLock(log_file)
+    lock_obj = JournalFileOpenLock(log_file, grace_period=120)
     storage = JournalStorage(
         JournalFileBackend(log_file, lock_obj)
     )
