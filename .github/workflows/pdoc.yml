@@ -1,8 +1,10 @@
 name: website
 
-# build the documentation whenever there are new commits on main
+# build the documentation after a merge to main was succesfully done
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
       - main
 
@@ -24,7 +26,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.12'
 
       - run: |
             pip install --upgrade pip

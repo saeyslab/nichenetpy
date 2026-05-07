@@ -1,5 +1,7 @@
 <!-- badges: start -->
 [![pytest](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml)
+
+[![pdoc](https://github.com/saeyslab/nichenetpy/actions/workflows/pdoc.yml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/pdoc.yml)
 <!-- badges: end -->
 
 **NicheNetPy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
