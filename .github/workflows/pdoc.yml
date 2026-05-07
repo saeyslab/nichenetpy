@@ -1,4 +1,4 @@
-name: website
+name: documentation
 
 # build the documentation after a merge to main was succesfully done
 on:
