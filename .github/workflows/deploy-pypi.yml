@@ -1,8 +1,10 @@
 name: deploy-pypi
 
-# deploy whenever there are new commits on main
+# deploy after a merge to main was succesfully done
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
       - main
 
