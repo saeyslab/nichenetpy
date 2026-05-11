@@ -1,3 +1,8 @@
+'''
+Here we test the custom oi functions. These functions are not very useful though as they
+turned out to have the same memory consumption as pickle files. 
+'''
+
 from nichenetpy.io import (
     write_ligand_target_matrix,
     read_ligand_target_matrix,

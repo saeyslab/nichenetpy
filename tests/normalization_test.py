@@ -1,3 +1,7 @@
+'''
+Here we test the normalization functions. 
+'''
+
 from nichenetpy.normalization import scale_quantile, scale_quantile_adapted
 
 import numpy as np

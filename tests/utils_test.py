@@ -1,3 +1,7 @@
+'''
+Here we test some functions from nichenetpy.utils
+'''
+
 from nichenetpy.utils import subset_matrix, remove_zero_rows_cols, combine_by_key, combine_dicts
 
 from scipy.sparse import csc_matrix, csr_matrix

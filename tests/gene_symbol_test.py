@@ -1,3 +1,7 @@
+'''
+Here we test if the gene symbol conversion is the same as in NicheNetR. 
+'''
+
 import pytest
 from nichenetpy.gene_symbol import mouse_alias_info, human_alias_info, gene_info
 

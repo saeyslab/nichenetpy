@@ -1,3 +1,7 @@
+'''
+A small test for get_expressed_genes
+'''
+
 from nichenetpy.extraction import get_expressed_genes
 from nichenetpy.utils import read_list_from_csv
 

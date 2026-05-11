@@ -1,3 +1,7 @@
+'''
+Here we test if the NicheNetPy vignettes produce the same results as their R counterparts
+'''
+
 from nichenetpy.utils import (
     combine_by_key,
     ligand_activities_df

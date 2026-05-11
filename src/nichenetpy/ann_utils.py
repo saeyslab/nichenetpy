@@ -153,6 +153,7 @@ def prepare_ann(
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
     if ann.var_names is None:
+        # nichenetpy expects the gene names to be stored here
         if "gene" in ann.var:
             ann.var_names = ann.var["gene"]
         else:
