@@ -8,9 +8,14 @@ Rscripts/*
 SeuratVSscanpy/*
 temp/*
 docs/*
+dist/*
 tests/data/TGFB1/*
 optimization/log
 optimization/output
 optimization/tutorial_files
 optimization/check_results
 optimization/run_optimization*.pbs
+pypath_log/*
+source_files/*
+tutorial_files/*
+debug.log
