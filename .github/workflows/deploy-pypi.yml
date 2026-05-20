@@ -1,0 +1,51 @@
+name: deploy-pypi
+
+# deploy after a merge to main was succesfully done
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+# Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+
+# security: restrict permissions for CI jobs.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: |
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install hatch
+            pip install -e
+      - run: | # TODO change to pypi
+            hatch build && hatch publish -r test
+        
+  pypi-publish:
+    name: Upload release to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/nichenetpy
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+    steps:
+    - name: Publish package to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.TEST_PYPI_API_TOKEN }} # TODO change to pypi
+        repository-url: https://test.pypi.org/legacy/ # TODO change to pypi
