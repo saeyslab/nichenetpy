@@ -1,3 +1,7 @@
+'''
+Here we test the evaluation metrics. 
+'''
+
 from nichenetpy.metrics import calculate_aupr
 
 import pytest

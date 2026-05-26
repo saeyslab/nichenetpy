@@ -1,3 +1,7 @@
+'''
+Here we test some parts of the optimization process. 
+'''
+
 from nichenetpy.parameter_optimization import (
     evaluate_model,
     compute_evaluation_scores,

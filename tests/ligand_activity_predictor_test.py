@@ -1,3 +1,7 @@
+'''
+Here we test the LigandActivityPredictor class. 
+'''
+
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.utils import (
     read_matrix_from_csv,

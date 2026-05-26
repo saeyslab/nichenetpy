@@ -1,3 +1,7 @@
+'''
+Here we test some errors. 
+'''
+
 from nichenetpy.metrics import group_metrics
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.io import read_csc_matrix

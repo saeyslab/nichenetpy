@@ -1,3 +1,7 @@
+'''
+Here we test some of the processing functions from nichenetpy.visualization
+'''
+
 from nichenetpy.visualization import (
     _construct_ligand_signaling_df,
     get_ligand_signaling_path

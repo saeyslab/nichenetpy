@@ -337,7 +337,7 @@ def get_single_ligand_importances(
         A data frame with for each ligand - data set combination, classification evaluation metrics indicating
         how well the query ligand predicts the response in the particular dataset. Evaluation metrics are
         the same as in evaluate_target_prediction. In addition to the metrics, the name of the particular setting,
-        the name of the query ligand(test_ligand), the name of the true active ligand (if known: ligand).
+        the name of the query ligand (test_ligand), the name of the true active ligand (if known: ligand).
     
     Raises
     ------

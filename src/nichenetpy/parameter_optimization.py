@@ -400,3 +400,34 @@ def choose_pareto_optimal_solution(
         )
         for xs in objective_values
     ])
+
+def choose_pareto_optimal_solution_normalized(
+    objective_values:Iterable[Iterable[float]],
+    weights:Iterable[float]
+) -> int:
+    '''
+    Choose one solution from a set of pareto optimal solutions using the weighted stress function method on normalized objectives
+
+    Parameters
+    ----------
+    objective_values : Iterable of Iterable of float
+        the values of the objectives for each solution
+    weights : Iterable of float
+        the preference weights of the objectives
+
+    Returns
+    -------
+    int
+        the chosen solution
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    '''
+    objective_values = list(zip(*objective_values))
+    for i in range(len(objective_values)):
+        vals = np.array(objective_values[i])
+        vals = (vals - np.min(vals)) / (np.max(vals) - np.min(vals))
+        objective_values[i] = vals
+    return choose_pareto_optimal_solution(zip(*objective_values), weights)
