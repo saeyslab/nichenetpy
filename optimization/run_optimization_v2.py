@@ -273,7 +273,7 @@ if __name__ == "__main__":
             raise ValueError(f"the training data should be a json (.json) or pickle (.pkl) file")
         return (evaluation_data, gr_network)
 
-    evaluation_data = [process_evaluation_data(settings_file) for settings_file in args.setting_file]
+    evaluation_data = [process_evaluation_data(settings_file) for settings_file in args.settings_file]
     # define the source weights that should be updated
     if len(args.included_source) > 0:
         source_names = sorted(set(args.included_source))
@@ -423,8 +423,8 @@ if __name__ == "__main__":
                 return_weighted_networks=False
             )[1:] for eval, gr in evaluation_data
         ]
-        # arithmetic mean of average objective vector over all folds
-        return np.exp(np.mean(np.log(np.mean(res, axis=0))))
+        # average objective vector over all folds
+        return np.mean(res, axis=0)
     
     if not os.path.exists(args.log_dir):
         os.mkdir(args.log_dir)
