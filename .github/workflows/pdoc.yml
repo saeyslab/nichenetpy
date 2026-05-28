@@ -1,16 +1,9 @@
 name: documentation
 
-# build the documentation after a merge to main was succesfully done
+# deploy after making a new release
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
-
-# Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
+  release:
+    types: [published]
 
 # security: restrict permissions for CI jobs.
 permissions:
