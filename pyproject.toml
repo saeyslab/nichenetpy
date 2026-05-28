@@ -61,15 +61,13 @@ markers = [
 [tool.hatch.build.targets.sdist]
 packages = ["src/nichenetpy"]
 include = [
-  "src/nichenetpy/*.py",
-  "data/*"
+  "src/nichenetpy/*.py"
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nichenetpy"]
 include = [
   "src/nichenetpy/*.py",
-  "data/*"
 ]
 
 [tool.hatch.envs.hatch-build]

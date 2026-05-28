@@ -3,10 +3,6 @@ from nichenetpy.network import Network
 from anndata import AnnData
 from collections.abc import Iterable
 
-import os
-
-
-_root = os.path.dirname(__file__)
 
 class GeneAliasInfo:
     '''
@@ -109,16 +105,6 @@ class GeneAliasInfo:
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
 
-mouse_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_mouse.csv"))
-'''
-gene alias info for mice
-'''
-
-human_alias_info = GeneAliasInfo(os.path.join(_root, "../../data/gene_info/geneinfo_alias_human.csv"))
-'''
-gene alias info for humans
-'''
-
 class GeneInfo:
     '''
     This class facilitates gene conversion between mouse and human symbols. 
@@ -214,8 +200,3 @@ class GeneInfo:
                 yield self._mouse2human[symbol]
             except KeyError:
                 yield None
-
-gene_info = GeneInfo(os.path.join(_root, "../../data/gene_info/geneinfo.csv"))
-'''
-mapper between mouse and human symbols
-'''
