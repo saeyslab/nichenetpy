@@ -31,8 +31,8 @@ jobs:
             pip install -r requirements.txt
             pip install hatch
             pip install -e
-      - run: | # TODO change to pypi
-            hatch build && hatch publish -r test
+      - run: |
+            hatch build
         
   pypi-publish:
     name: Upload release to PyPI
@@ -47,5 +47,5 @@ jobs:
     - name: Publish package to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ secrets.NICHENET_API_TOKEN_TESTPYPI }} # TODO change to pypi
-        repository-url: https://test.pypi.org/legacy/ # TODO change to pypi
+        password: ${{ secrets.NICHENET_API_TOKEN_PYPI }}
+        repository-url: https://upload.pypi.org/legacy/
