@@ -5,8 +5,6 @@ on:
   release:
     types: [published]
 
-  workflow_dispatch: # TODO: delete
-
 
 # security: restrict permissions for CI jobs.
 permissions:
@@ -31,7 +29,7 @@ jobs:
         run: |
             hatch build
       - name: Upload distribution
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
             name: distribution
             path: dist
@@ -47,9 +45,10 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
       - name: Download distribution
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
             name: distribution
+            path: dist
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

@@ -158,4 +158,4 @@ evolutionarily conserved hepatic macrophage niches. Cell (2022)
 <doi:10.1016/j.cell.2021.12.018>
 '''
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
