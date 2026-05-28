@@ -68,7 +68,6 @@ include = [
 packages = ["src/nichenetpy"]
 include = [
   "src/nichenetpy/*.py",
-  "data/*"
 ]
 
 [tool.hatch.envs.hatch-build]
