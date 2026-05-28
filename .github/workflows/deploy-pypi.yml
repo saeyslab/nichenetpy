@@ -1,15 +1,11 @@
 name: deploy-pypi
 
-# deploy after a merge to main was succesfully done
+# deploy after making e new release
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
+  release:
+    types: [published]
 
-# Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+  workflow_dispatch: # TODO: delete
 
 
 # security: restrict permissions for CI jobs.
@@ -26,13 +22,19 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - run: |
+      - name: install dependencies
+        run: |
             pip install --upgrade pip
             pip install -r requirements.txt
             pip install hatch
-            pip install -e .
-      - run: |
+      - name: build distribution
+        run: |
             hatch build
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+            name: distribution
+            path: dist
         
   pypi-publish:
     name: Upload release to PyPI
@@ -44,8 +46,13 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-    - name: Publish package to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.NICHENET_API_TOKEN_PYPI }}
-        repository-url: https://upload.pypi.org/legacy/
+      - name: Download distribution
+        uses: actions/download-artifact@v5
+        with:
+            name: distribution
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+            user: __token__
+            password: ${{ secrets.NICHENET_API_TOKEN_PYPI }}
+            repository-url: https://upload.pypi.org/legacy/
