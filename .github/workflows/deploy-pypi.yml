@@ -30,7 +30,7 @@ jobs:
             pip install --upgrade pip
             pip install -r requirements.txt
             pip install hatch
-            pip install -e
+            pip install -e .
       - run: |
             hatch build
         
