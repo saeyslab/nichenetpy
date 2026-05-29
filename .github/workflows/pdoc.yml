@@ -5,6 +5,8 @@ on:
   release:
     types: [published]
 
+  workflow_dispatch:
+
 # security: restrict permissions for CI jobs.
 permissions:
   contents: read
