@@ -141,7 +141,7 @@ For a comparison between Seurat's FindAllMarkers (which is ported into nichenetp
 
 ## FAQ
 
--   Check the FAQ pages at [FAQ NicheNetPy](faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
+-   Check the FAQ pages at [FAQ NicheNetPy](https://github.com/saeyslab/nichenetpy/blob/main/faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
 
 ## References
 
