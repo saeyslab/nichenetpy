@@ -1,6 +1,6 @@
 name: deploy-pypi
 
-# deploy after making e new release
+# deploy after making a new release
 on:
   release:
     types: [published]
