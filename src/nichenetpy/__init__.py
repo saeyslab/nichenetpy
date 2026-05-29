@@ -69,7 +69,7 @@ visualizations of the main predictions (e.g., via circos plots as shown
 here below).
 
 <br><br>
-<img src="images/circos.png" width="600" />
+<img src="https://github.com/saeyslab/nichenetpy/blob/main/images/circos.png" width="600" />
 
 As input to NicheNet, users must provide cell type-annotated expression
 data that reflects a cell-cell communication (CCC) event. The input can
