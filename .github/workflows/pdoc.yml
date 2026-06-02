@@ -1,16 +1,11 @@
 name: documentation
 
-# build the documentation after a merge to main was succesfully done
+# deploy after making a new release
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
+  release:
+    types: [published]
 
-# Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-
 
 # security: restrict permissions for CI jobs.
 permissions:
@@ -36,7 +31,7 @@ jobs:
         
       - run: pdoc -o docs -d numpy nichenetpy
 
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/
 

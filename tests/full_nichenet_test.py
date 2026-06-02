@@ -13,8 +13,7 @@ from nichenetpy.extraction import (
     get_lfc_celltype
 )
 from nichenetpy.gene_symbol import (
-    mouse_alias_info,
-    human_alias_info
+    GeneAliasInfo
 )
 from nichenetpy.metrics import group_metrics, calculate_prediction_evaluation_metrics
 from nichenetpy.wrappers import (
@@ -563,7 +562,6 @@ DE_top_10_ligand_receptor_links = [
 def test_steps():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    #mouse_alias_info.alias_to_symbol(ann)
     predictor : LigandActivityPredictor = model["predictor"]
     lr_network : LigandReceptorNetwork = model["lr_network"]
     lr_sig : WeightedNetwork = model["lr_sig"]
@@ -723,7 +721,6 @@ def test_steps():
 def test_wrapper():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    #mouse_alias_info.alias_to_symbol(ann)
     predictor : LigandActivityPredictor = model["predictor"]
     lr_network : LigandReceptorNetwork = model["lr_network"]
     lr_sig : WeightedNetwork = model["lr_sig"]
@@ -794,6 +791,8 @@ def test_wrapper():
     assert equals(df["Il2"]["DC"], 1.3173053)
 
 def test_ligand_activity_geneset():
+    get_network_files()
+    human_alias_info = GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_human.csv"))
     model = get_model_pickle("human")
     get_hnscc_file()
     predictor : LigandActivityPredictor = model["predictor"]
@@ -958,7 +957,6 @@ def test_ligand_activity_geneset():
 def test_steps_prioritization():
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
-    #mouse_alias_info.alias_to_symbol(ann)
     predictor : LigandActivityPredictor = model["predictor"]
     lr_network : LigandReceptorNetwork = model["lr_network"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
@@ -1620,7 +1618,6 @@ def test_target_prediction_evaluation_geneset():
     # not deterministic, so allow for some variance
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
-    #mouse_alias_info.alias_to_symbol(ann)
     model = get_model_pickle("mouse")
     predictor : LigandActivityPredictor = model["predictor"]
     lr_network : LigandReceptorNetwork = model["lr_network"]
@@ -1784,7 +1781,6 @@ def test_model_construction_with_liana():
         )
     )
     ann = get_anndata_file("annData3531889.h5")
-    #mouse_alias_info.alias_to_symbol(ann)
     lr_network_liana = decomplexify(select_resource("mouseconsensus"))
     lr_network_liana.rename(columns={
         "ligand": "from",

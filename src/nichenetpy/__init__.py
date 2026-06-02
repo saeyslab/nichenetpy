@@ -69,7 +69,7 @@ visualizations of the main predictions (e.g., via circos plots as shown
 here below).
 
 <br><br>
-<img src="https://github.com/saeyslab/nichenetpy/raw/working/images/circos.png" width="600" />
+<img src="https://github.com/saeyslab/nichenetpy/blob/main/images/circos.png" width="600" />
 
 As input to NicheNet, users must provide cell type-annotated expression
 data that reflects a cell-cell communication (CCC) event. The input can
@@ -88,7 +88,7 @@ feature can be found in the introductory notebooks.
 
 A very basic tutorial for people who are unfamiliar with python can be found here. 
 
--   [Basic Tutorial](notebooks/basic_tutorial.ipynb)
+-   [Basic Tutorial](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/basic_tutorial.ipynb)
 
 The following notebooks contain the explanation on how to perform a
 basic NicheNet analysis on an AnnData object. This includes prioritizing
@@ -98,9 +98,9 @@ of a single wrapper function.
 
 -   [Perform NicheNet analysis starting from an AnnData object:
     step-by-step
-    analysis](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/steps.ipynb)
+    analysis](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/steps.ipynb)
 -   [Perform NicheNet analysis starting from an AnnData
-    object: wrapper](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/wrapper.ipynb)
+    object: wrapper](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/wrapper.ipynb)
 
 Case study on HNSCC tumor which demonstrates the flexibility of
 NicheNet. Here, the gene set of interest was determined by the original
@@ -108,40 +108,40 @@ authors, and the expression data is a matrix rather than an AnnData
 object.
 
 -   [NicheNet’s ligand activity analysis on a gene set of
-    interest](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/ligand_activity_geneset.ipynb)
+    interest](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/ligand_activity_geneset.ipynb)
 
 The following notebooks explain how to do some follow-up
 analyses:
 
 -   [Prioritization of ligands based on expression
-    values](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/steps_prioritization.ipynb)
+    values](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/steps_prioritization.ipynb)
 -   [Inferring ligand-to-target signaling
-    paths](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/ligand_target_signaling_path.ipynb)
+    paths](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/ligand_target_signaling_path.ipynb)
 -   [Assess how well top-ranked ligands can predict a gene set of
-    interest](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/target_prediction_evaluation_geneset.ipynb)
+    interest](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/target_prediction_evaluation_geneset.ipynb)
 -   [Single-cell NicheNet’s ligand activity
-    analysis](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/ligand_activity_single_cell.ipynb)
+    analysis](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/ligand_activity_single_cell.ipynb)
 
 If you want to make a circos plot visualization of the NicheNet output
 to show active ligand-target links between interacting cells, you can
 check following notebooks:
 
--   [circos visualization](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/circos.ipynb)
+-   [circos visualization](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/circos.ipynb)
 
 People interested in building their own models or benchmarking their own
 models against NicheNet can read the following notebooks:
 
--   [Model construction](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/model_construction.ipynb)
--   [Using LIANA ligand-receptor databases to construct the ligand-target model](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/model_construction_with_liana.ipynb)
--   [Model evaluation: target gene and ligand activity prediction](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/model_evaluation.ipynb)
+-   [Model construction](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/model_construction.ipynb)
+-   [Using LIANA ligand-receptor databases to construct the ligand-target model](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/model_construction_with_liana.ipynb)
+-   [Model evaluation: target gene and ligand activity prediction](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/model_evaluation.ipynb)
 
 For a comparison between Seurat's FindAllMarkers (which is ported into nichenetpy) and Scanpy's rank_genes_groups, see the following notebook:
 
--   [Comparison: Seurat vs Scanpy](https://github.com/saeyslab/nichenetpy/blob/working/notebooks/seuratVSscanpy.ipynb)
+-   [Comparison: Seurat vs Scanpy](https://github.com/saeyslab/nichenetpy/blob/main/notebooks/seuratVSscanpy.ipynb)
 
 ## FAQ
 
--   Check the FAQ pages at [FAQ NicheNetPy](faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
+-   Check the FAQ pages at [FAQ NicheNetPy](https://github.com/saeyslab/nichenetpy/blob/main/faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
 
 ## References
 
@@ -158,4 +158,4 @@ evolutionarily conserved hepatic macrophage niches. Cell (2022)
 <doi:10.1016/j.cell.2021.12.018>
 '''
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"

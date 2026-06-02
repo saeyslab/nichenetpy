@@ -3,7 +3,21 @@ Here we test if the gene symbol conversion is the same as in NicheNetR.
 '''
 
 import pytest
-from nichenetpy.gene_symbol import mouse_alias_info, human_alias_info, gene_info
+import os
+from nichenetpy.gene_symbol import (
+    GeneAliasInfo,
+    GeneInfo
+)
+from common import (
+    get_network_files,
+    network_path
+)
+
+
+get_network_files()
+mouse_alias_info = GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_mouse.csv"))
+human_alias_info = GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_human.csv"))
+gene_info = GeneInfo(os.path.join(network_path, "geneinfo.csv"))
 
 def template_gene_alias_info(alias_info, alias, exp):
     res = alias_info[alias]

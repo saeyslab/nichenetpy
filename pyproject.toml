@@ -44,7 +44,7 @@ dependencies = [
 ]
 
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3.12",
@@ -61,15 +61,13 @@ markers = [
 [tool.hatch.build.targets.sdist]
 packages = ["src/nichenetpy"]
 include = [
-  "src/nichenetpy/*.py",
-  "data/*"
+  "src/nichenetpy/*.py"
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nichenetpy"]
 include = [
   "src/nichenetpy/*.py",
-  "data/*"
 ]
 
 [tool.hatch.envs.hatch-build]

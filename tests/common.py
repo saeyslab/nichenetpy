@@ -132,11 +132,14 @@ def get_network_files():
         "lr_sig_mouse.csv",
         "source_weights.csv",
         "optimized_source_weights.csv",
-        "annotation_data_sources.csv"
+        "annotation_data_sources.csv",
+        "geneinfo.csv",
+        "geneinfo_alias_human.csv",
+        "geneinfo_alias_mouse.csv"
     ):
         file_path = os.path.join(network_path, filename)
         if not os.path.exists(file_path):
-            res = download(f"https://zenodo.org/records/15168364/files/{filename}")
+            res = download(f"https://zenodo.org/records/20395877/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
 
