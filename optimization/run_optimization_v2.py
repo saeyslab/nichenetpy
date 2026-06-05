@@ -424,7 +424,7 @@ if __name__ == "__main__":
             )[1:] for eval, gr in evaluation_data
         ]
         # average objective vector over all folds
-        return np.mean(res, axis=0)
+        return tuple(np.mean(res, axis=0))
     
     if not os.path.exists(args.log_dir):
         os.mkdir(args.log_dir)
