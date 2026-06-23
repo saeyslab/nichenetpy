@@ -33,4 +33,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest -m "not large_download and not outdated"
+        python -X faulthandler -m pytest -m "not large_download and not outdated" -p no:faulthandler
