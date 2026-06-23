@@ -66,6 +66,10 @@ def construct_weighted_networks(
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+    
+    NOTES
+    -----
+    time complexity `O(s * l)` with `s` the amount of sources and `l` the amount of links in the networks
     '''
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
@@ -209,6 +213,15 @@ def construct_ligand_tf_matrix(
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+    NOTES
+    -----
+    `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
+    and `E` the amount of links in the lr_sig weighted matrix
+
+    `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
+    and `E` the amount of links in the lr_sig weighted matrix
+
+    `direct` time complexity `O(l * c)` with `l` the amount of ligands and `c` the amount of columns in lr_sig weighted matrix
     '''
     if type(weighted_networks) is not dict:
         raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
