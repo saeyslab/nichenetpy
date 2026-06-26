@@ -167,7 +167,8 @@ def construct_ligand_tf_matrix(
     ltf_cutoff:float=0.99,
     algorithm:str="PPR",
     damping_factor:float=0.5,
-    column_major=False
+    column_major=False,
+    split_ppr=False
 ) -> tuple[np.ndarray, list[gene_t], list[gene_t]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
@@ -196,7 +197,9 @@ def construct_ligand_tf_matrix(
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
-    
+    split_ppr : bool
+        in case of ppr algorithm, whether to split off the reflexive scores,
+        if true a tuple of matrices is returned, the first contains the reflexive scores and the second one the non-reflexive scores
     
     Returns
     -------
@@ -239,6 +242,10 @@ def construct_ligand_tf_matrix(
         raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
+    if type(split_ppr) is not bool:
+        raise TypeError(f"split_ppr should have type bool, was {type(split_ppr)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     gene2id_keys = set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"]))
@@ -265,8 +272,14 @@ def construct_ligand_tf_matrix(
         pv = np.zeros(shape=lr_sig_mat.shape[0])
         pr = PageRank(damping_factor=damping_factor)
         complete_matrix = []
+        if split_ppr:
+            mask = []
         for _ligands in ligands:
             partial_matrix = []
+            if split_ppr:
+                mask.append(np.array([False for _ in range(len(pv))]))
+                for ligand in _ligands:
+                    mask[-1][gene2id[ligand]] = True
             for ligand in _ligands:
                 pv.fill(0)
                 pv[gene2id[ligand]] = 1
@@ -341,6 +354,9 @@ def construct_ligand_tf_matrix(
     ltf_matrix = np.array(complete_matrix, order=("F" if column_major else "C"))
     row_names = ["-".join(_ligands) if type(_ligands[0]) is str else _ligands[0] for _ligands in ligands]
     col_names = all_genes
+    if algorithm == "PPR" and split_ppr:
+        mask = np.array(mask)
+        return ((np.multiply(ltf_matrix, mask), np.multiply(ltf_matrix, ~mask)), row_names, col_names)
     return (ltf_matrix, row_names, col_names)
 
 def construct_tf_target_matrix(
@@ -361,7 +377,6 @@ def construct_tf_target_matrix(
     column_major : bool
         whether to use column_major or row_major data format
     
-    
     Returns
     -------
     numpy.ndarray
@@ -380,6 +395,8 @@ def construct_tf_target_matrix(
         raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
     if type(standalone_output) is not bool:
         raise TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
@@ -426,7 +443,9 @@ def construct_ligand_target_matrix(
     secondary_targets:bool=False,
     ligands_as_cols:bool=True,
     remove_direct_links:str="no",
-    return_all_matrices:bool=False
+    return_all_matrices:bool=False,
+    split_direct:str="no",
+    direct_penalty:float=0
 ) -> tuple[nichenet_matrix, list[gene_t], list[gene_t]]|tuple[tuple[nichenet_matrix, list[gene_t], list[gene_t]]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
@@ -469,7 +488,15 @@ def construct_ligand_target_matrix(
         Default: "no"
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
-    
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average. 
+        "no": don't split;
+        "ltf": split the ltf matrix;
+        "tft": split the tft matrix;
+        "ltf-tft": split both the ltf and tft matrices;
+        Default: "no"
+    direct_penalty : float
+        penalty for direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
     
     Returns
     -------
@@ -517,13 +544,104 @@ def construct_ligand_target_matrix(
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
+    if type(split_direct) is not str:
+        raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
+    elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
+        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
+    if not isinstance(direct_penalty, Number):
+        raise TypeError(f"direct_penalty should have type float, was {type(direct_penalty)}")
+    elif direct_penalty < 0 or direct_penalty > 1:
+        raise ValueError(f"direct_penalty should be between 0 and 1, was {direct_penalty}")
     ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
-    ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
-    grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target = ltf_matrix * grn_matrix
+    if split_direct == "no":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        ligand2target = ltf_matrix @ tft_matrix
+    elif split_direct == "ltf":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            split_ppr=True
+        )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        rp_direct = ltf_direct @ tft_matrix
+        rp_indirect = ltf_indirect @ tft_matrix
+        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
+    elif split_direct == "tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tf2id = dict(zip(tft_matrix[1], range(len(tft_matrix[1]))))
+        target2id = dict(zip(tft_matrix[2], range(len(tft_matrix[2]))))
+        gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
+        direct_links = gr_network[gr_network["from"].isin(ligands)]
+        mask = csr_matrix(
+            (
+                [True for _ in range(len(direct_links))],
+                (
+                    direct_links["from"].apply(lambda x : tf2id[x]),
+                    direct_links["to"].apply(lambda x : target2id[x])
+                )
+            ),
+            shape=tft_matrix[0].shape,
+            dtype=np.bool
+        )
+        tft_direct = tft_matrix[0].multiply(mask)
+        tft_indirect = tft_matrix[0].multiply(~mask.toarray())
+        rp_direct = ltf_matrix @ tft_direct
+        rp_indirect = ltf_matrix @ tft_indirect
+        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
+    elif split_direct == "ltf-tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            split_ppr=True
+        )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tf2id = dict(zip(tft_matrix[1], range(len(tft_matrix[1]))))
+        target2id = dict(zip(tft_matrix[2], range(len(tft_matrix[2]))))
+        gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
+        direct_links = gr_network[gr_network["from"].isin(ligands)]
+        mask = csr_matrix(
+            (
+                [True for _ in range(len(direct_links))],
+                (
+                    direct_links["from"].apply(lambda x : tf2id[x]),
+                    direct_links["to"].apply(lambda x : target2id[x])
+                )
+            ),
+            shape=tft_matrix[0].shape,
+            dtype=np.bool
+        )
+        tft_direct = tft_matrix[0].multiply(mask)
+        tft_indirect = tft_matrix[0].multiply(~mask.toarray())
+        rp_direct = ltf_direct @ tft_direct
+        rp_indirect = ltf_indirect @ tft_indirect
+        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary = ligand2target * grn_matrix
+        ligand2target_secondary = ligand2target * tft_matrix
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = (ligand2target**-1 + ligand2target_secondary**-1)**-1
@@ -532,12 +650,12 @@ def construct_ligand_target_matrix(
             return (
                 (ligand2target.transpose(), grn_cols, ltf_rows),
                 (ltf_matrix.transpose(), ltf_cols, ltf_rows),
-                (grn_matrix.transpose(), grn_cols, grn_rows)
+                (tft_matrix.transpose(), grn_cols, grn_rows)
             )
         return (
             (ligand2target, ltf_rows, grn_cols),
             (ltf_matrix, ltf_rows, ltf_cols),
-            (grn_matrix, grn_rows, grn_cols)
+            (tft_matrix, grn_rows, grn_cols)
         )
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
