@@ -555,7 +555,7 @@ def decomplexify(
         raise ValueError(f"There is no column '{to_col}' in the data frame")
     frs = []
     tos = []
-    for fr, to in zip(df[from_col], df[to_col]):
+    for fr, to in zip(df[from_col].tolist(), df[to_col].tolist()):
         for nfr in fr.split("_"):
             for nto in to.split("_"):
                 frs.append(nfr)

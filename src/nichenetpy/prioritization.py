@@ -311,9 +311,9 @@ def process_table_to_ic(
     else:
         raise ValueError("table_type argument should be 'expression', 'celltype_DE' or 'group_DE'")
     if senders_oi is not None:
-        sender_table = sender_table[[sender in senders_oi for sender in sender_table["sender"]]]
+        sender_table = sender_table[sender_table["sender"].isin(senders_oi)]
     if receivers_oi is not None:
-        receiver_table = receiver_table[[receiver in receivers_oi for receiver in receiver_table["receiver"]]]
+        receiver_table = receiver_table[receiver_table["receiver"].isin(receivers_oi)]
     sender_receiver_table = (
         pd.DataFrame(lr_network)
         .rename(columns={0: "ligand", 1: "receptor"})
@@ -321,26 +321,16 @@ def process_table_to_ic(
         .merge(receiver_table, on="receptor", how="inner")
     )
     if table_type == "expression":
-        sender_receiver_table["ligand_receptor_prod"] = [
-            x * y
-            for x, y in zip(
-                sender_receiver_table["avg_ligand"],
-                sender_receiver_table["avg_receptor"]
-            )
-        ]
+        sender_receiver_table["ligand_receptor_prod"] = sender_receiver_table["avg_ligand"] * sender_receiver_table["avg_receptor"]
         sender_receiver_table.sort_values(
             by="ligand_receptor_prod",
             ascending=False,
             inplace=True
         )
     else:
-        sender_receiver_table["ligand_receptor_lfc_avg"] = [
-            (x + y) / 2
-            for x, y in zip(
-                sender_receiver_table["lfc_ligand"],
-                sender_receiver_table["lfc_receptor"]
-            )
-        ]
+        sender_receiver_table["ligand_receptor_lfc_avg"] = (
+            sender_receiver_table["lfc_ligand"] + sender_receiver_table["lfc_receptor"]
+        ) / 2
         sender_receiver_table.sort_values(
             by="ligand_receptor_lfc_avg",
             ascending=False,

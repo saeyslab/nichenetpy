@@ -45,7 +45,7 @@ def _get_expressed_features(
     if pct > 1 or pct < 0:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
-        cells_oi = list(ann.obs.loc[[ct in celltype for ct in ann.obs[celltype_col]]].index)
+        cells_oi = list(ann.obs.loc[ann.obs[celltype_col].isin(celltype)].index)
     except KeyError:
         raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
     if len(cells_oi) == 0:
