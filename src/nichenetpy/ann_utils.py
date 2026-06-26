@@ -80,7 +80,7 @@ def subset_ann(
         elif type(val) is not set:
             val = set(val)
         try:
-            cells_oi = ann.obs.loc[[ct in val for ct in ann.obs[val_col]]]
+            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]
         except KeyError:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object")
         if len(cells_oi) == 0:

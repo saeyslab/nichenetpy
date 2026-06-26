@@ -40,7 +40,7 @@ class Network:
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(
-                    zip(mapping["from"], mapping["to"]),
+                    zip(mapping["from"].tolist(), mapping["to"].tolist()),
                     key=lambda x : x[0]
                 )
             elif type(mapping) is not list:
