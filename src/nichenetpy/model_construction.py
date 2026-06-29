@@ -66,6 +66,10 @@ def construct_weighted_networks(
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+    
+    NOTES
+    -----
+    time complexity `O(s * l)` with `s` the amount of sources and `l` the amount of links in the networks
     '''
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
@@ -209,6 +213,15 @@ def construct_ligand_tf_matrix(
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+    NOTES
+    -----
+    `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
+    and `E` the amount of links in the lr_sig weighted matrix
+
+    `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
+    and `E` the amount of links in the lr_sig weighted matrix
+
+    `direct` time complexity `O(l * c)` with `l` the amount of ligands and `c` the amount of columns in lr_sig weighted matrix
     '''
     if type(weighted_networks) is not dict:
         raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
@@ -228,7 +241,7 @@ def construct_ligand_tf_matrix(
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
-    gene2id_keys = set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"]))
+    gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     all_genes = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes))))
     ligands = [
@@ -242,8 +255,8 @@ def construct_ligand_tf_matrix(
             (
                 lr_sig["weight"],
                 (
-                    [gene2id[e] for e in lr_sig["from"]],
-                    [gene2id[e] for e in lr_sig["to"]]
+                    lr_sig["from"].apply(lambda x : gene2id[x]),
+                    lr_sig["to"].apply(lambda x : gene2id[x])
                 )
             ),
             shape=(len(gene2id), len(gene2id))
@@ -272,8 +285,8 @@ def construct_ligand_tf_matrix(
             (
                 [1/e for e in lr_sig["weight"]],
                 (
-                    [gene2id[e] for e in lr_sig["from"]],
-                    [gene2id[e] for e in lr_sig["to"]]
+                    lr_sig["from"].apply(lambda x : gene2id[x]),
+                    lr_sig["to"].apply(lambda x : gene2id[x])
                 )
             ),
             shape=(len(gene2id), len(gene2id))
@@ -312,8 +325,8 @@ def construct_ligand_tf_matrix(
             (
                 lr_sig["weight"],
                 (
-                    [gene2id[e] for e in lr_sig["from"]],
-                    [gene2id[e] for e in lr_sig["to"]]
+                    lr_sig["from"].apply(lambda x : gene2id[x]),
+                    lr_sig["to"].apply(lambda x : gene2id[x])
                 )
             ),
             shape=(len(gene2id), len(gene2id))
@@ -369,15 +382,15 @@ def construct_tf_target_matrix(
         raise TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
-    all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
+    all_genes = sorted(set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist())))
     gene2id = dict(zip(all_genes, range(len(all_genes))))
-    fr = [gene2id[e] for e in gr["from"]]
+    fr = gr["from"].apply(lambda x : gene2id[x])
     grn_matrix = (csc_matrix if column_major else csr_matrix)(
         (
             gr["weight"],
             (
                 fr,
-                [gene2id[e] for e in gr["to"]]
+                gr["to"].apply(lambda x : gene2id[x])
             )
         ),
         shape=(len(gene2id), len(gene2id))

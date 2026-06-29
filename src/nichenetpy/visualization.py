@@ -607,8 +607,8 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
-        zip(tf_signaling["from"], tf_signaling["to"], tf_signaling["weight"], repeat(gr_color)),
-        zip(tf_regulatory["from"], tf_regulatory["to"], tf_regulatory["weight"], repeat(sig_color))
+        zip(tf_signaling["from"].tolist(), tf_signaling["to"].tolist(), tf_signaling["weight"].tolist(), repeat(gr_color)),
+        zip(tf_regulatory["from"].tolist(), tf_regulatory["to"].tolist(), tf_regulatory["weight"].tolist(), repeat(sig_color))
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
@@ -1215,9 +1215,9 @@ def create_mushroom_plot(
     if max_rows > interactions.shape[0]:
         max_rows = interactions.shape[0]
     interactions = interactions.iloc[:max_rows]
-    interactions = [f"{ligand} - {receptor}" for ligand, receptor in zip(interactions["ligand"], interactions["receptor"])]
+    interactions = [f"{ligand} - {receptor}" for ligand, receptor in zip(interactions["ligand"].tolist(), interactions["receptor"].tolist())]
     interaction2index = dict(zip(interactions, range(1, len(interactions)+1)))
-    senders = sorted(set(df["sender"]))
+    senders = sorted(df["sender"].unique().tolist())
     sender2index = dict(zip(senders, range(len(senders))))
     xmin = 0
     ymin = 0
@@ -1254,15 +1254,15 @@ def create_mushroom_plot(
     receptor_cm = cm["Reds"]
     max_wedge_size = 0.49
     for ligand, receptor, sender, size_ligand, size_receptor, color_ligand, color_receptor, rank, show in zip(
-        df["ligand"],
-        df["receptor"],
-        df["sender"],
-        df[f"{size_prefix}_ligand"],
-        df[f"{size_prefix}_receptor"],
-        df[f"{color_prefix}_ligand"],
-        df[f"{color_prefix}_receptor"],
-        df["prioritization_rank"],
-        df["show"]
+        df["ligand"].tolist(),
+        df["receptor"].tolist(),
+        df["sender"].tolist(),
+        df[f"{size_prefix}_ligand"].tolist(),
+        df[f"{size_prefix}_receptor"].tolist(),
+        df[f"{color_prefix}_ligand"].tolist(),
+        df[f"{color_prefix}_receptor"].tolist(),
+        df["prioritization_rank"].tolist(),
+        df["show"].tolist()
     ):
         try:
             x = sender2index[sender] + 1

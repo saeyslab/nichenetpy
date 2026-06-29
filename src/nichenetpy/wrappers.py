@@ -1126,8 +1126,8 @@ def create_ligand_links_circos_plot(
         raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
     return _create_circos_plot(
         zip(
-            zip(circos_links["ligand_type"], circos_links["ligand"]),
-            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name])
+            zip(circos_links["ligand_type"].tolist(), circos_links["ligand"].tolist()),
+            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name].tolist())
         ),
         colors,
         inter_space,
