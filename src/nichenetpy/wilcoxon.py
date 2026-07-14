@@ -22,7 +22,7 @@ def _rank_cells(
 ):
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
-        cell_groups = tuple(cell_groups)
+        cell_groups = cell_groups.tolist()
     if type(mat) is not csc_matrix:
         try:
             mat = csc_matrix(mat)
