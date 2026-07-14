@@ -671,7 +671,9 @@ def construct_model_from_source_weights(
     sig_network:pd.DataFrame,
     ligands:Iterable[gene_t]|None=None,
     return_all_matrices:bool=True,
-    return_weighted_networks:bool=True
+    return_weighted_networks:bool=True,
+    split_direct:str="no",
+    direct_coef:float=0
 ):
     '''
     Construct the ligand-target matrix starting from the source weights. 
@@ -705,6 +707,16 @@ def construct_model_from_source_weights(
         whether or not to return the ligand-tf and tf-target matrices
     return_weighted_networks : bool
         whether or not to return the weighted networks
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average. 
+        "no": don't split;
+        "ltf": split the ltf matrix;
+        "tft": split the tft matrix;
+        "ltf-tft": split both the ltf and tft matrices;
+        Default: "no"
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     Returns
     -------
     dict
@@ -744,7 +756,9 @@ def construct_model_from_source_weights(
             ligands,
             damping_factor=damping_factor,
             ltf_cutoff=ltf_cutoff,
-            return_all_matrices=return_all_matrices
+            return_all_matrices=return_all_matrices,
+            split_direct=split_direct,
+            direct_coef=direct_coef
         )
         if return_all_matrices:
             ligand2target, grn_matrix, ltf_matrix = res

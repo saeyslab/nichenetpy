@@ -198,6 +198,19 @@ if __name__ == "__main__":
         help="The semantic similarity metric to use. Default: None",
         default=None
     )
+    parser.add_argument(
+        "--split_direct",
+        help="""
+            Whether or not to split the matrix into direct and indirect submatrices and take a weighted average. 
+            "no": don't split;
+            "ltf": split the ltf matrix;
+            "tft": split the tft matrix;
+            "ltf-tft": split both the ltf and tft matrices;
+            Default: "no"
+        """,
+        choices=("no", "ltf", "tft", "ltf-tft"),
+        default="no"
+    )
     args = parser.parse_args()
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
@@ -397,6 +410,11 @@ if __name__ == "__main__":
             low=0.01,
             high=0.99
         ) if args.damping_factor is None else args.damping_factor
+        direct_coef = trial.suggest_float(
+            name="direct_coef",
+            low=0, # no direct RP
+            high=0.5 # RP is average of direct and indirect RP
+        ) if args.split_direct != "no" else None
         if args.semantic_similarity_metric is None:
             _sig_network = sig_network
         else:
@@ -420,7 +438,9 @@ if __name__ == "__main__":
                 _sig_network,
                 eval,
                 return_all_matrices=False,
-                return_weighted_networks=False
+                return_weighted_networks=False,
+                split_direct=args.split_direct,
+                direct_coef=direct_coef
             )[1:] for eval, gr in evaluation_data
         ]
         # average objective vector over all folds
