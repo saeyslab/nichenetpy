@@ -445,7 +445,7 @@ def construct_ligand_target_matrix(
     remove_direct_links:str="no",
     return_all_matrices:bool=False,
     split_direct:str="no",
-    direct_penalty:float=0
+    direct_coef:float=0
 ) -> tuple[nichenet_matrix, list[gene_t], list[gene_t]]|tuple[tuple[nichenet_matrix, list[gene_t], list[gene_t]]]:
     '''
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
@@ -495,8 +495,9 @@ def construct_ligand_target_matrix(
         "tft": split the tft matrix;
         "ltf-tft": split both the ltf and tft matrices;
         Default: "no"
-    direct_penalty : float
-        penalty for direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     
     Returns
     -------
@@ -548,10 +549,10 @@ def construct_ligand_target_matrix(
         raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
         raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
-    if not isinstance(direct_penalty, Number):
-        raise TypeError(f"direct_penalty should have type float, was {type(direct_penalty)}")
-    elif direct_penalty < 0 or direct_penalty > 1:
-        raise ValueError(f"direct_penalty should be between 0 and 1, was {direct_penalty}")
+    if not isinstance(direct_coef, Number):
+        raise TypeError(f"direct_penalty should have type float, was {type(direct_coef)}")
+    elif direct_coef < 0 or direct_coef > 1:
+        raise ValueError(f"direct_penalty should be between 0 and 1, was {direct_coef}")
     ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
     if split_direct == "no":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
@@ -577,7 +578,7 @@ def construct_ligand_target_matrix(
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         rp_direct = ltf_direct @ tft_matrix
         rp_indirect = ltf_indirect @ tft_matrix
-        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     elif split_direct == "tft":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
@@ -606,7 +607,7 @@ def construct_ligand_target_matrix(
         tft_indirect = tft_matrix[0].multiply(~mask.toarray())
         rp_direct = ltf_matrix @ tft_direct
         rp_indirect = ltf_matrix @ tft_indirect
-        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     elif split_direct == "ltf-tft":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
@@ -638,7 +639,7 @@ def construct_ligand_target_matrix(
         tft_indirect = tft_matrix[0].multiply(~mask.toarray())
         rp_direct = ltf_direct @ tft_direct
         rp_indirect = ltf_indirect @ tft_indirect
-        ligand2target = direct_penalty * rp_direct + (1 - direct_penalty) * rp_indirect
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
         ligand2target_secondary = ligand2target * tft_matrix
