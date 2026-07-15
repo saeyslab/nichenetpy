@@ -588,7 +588,7 @@ def construct_ligand_target_matrix(
             damping_factor
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tf2id = dict(zip(tft_matrix[1], range(len(tft_matrix[1]))))
+        tf2id = dict(zip(grn_rows, range(len(grn_rows))))
         target2id = dict(zip(tft_matrix[2], range(len(tft_matrix[2]))))
         gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
         direct_links = gr_network[gr_network["from"].isin(ligands)]
@@ -600,11 +600,11 @@ def construct_ligand_target_matrix(
                     direct_links["to"].apply(lambda x : target2id[x])
                 )
             ),
-            shape=tft_matrix[0].shape,
+            shape=tft_matrix.shape,
             dtype=np.bool
         )
-        tft_direct = tft_matrix[0].multiply(mask)
-        tft_indirect = tft_matrix[0].multiply(~mask.toarray())
+        tft_direct = tft_matrix.multiply(mask)
+        tft_indirect = tft_matrix.multiply(~mask.toarray())
         rp_direct = ltf_matrix @ tft_direct
         rp_indirect = ltf_matrix @ tft_indirect
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -620,8 +620,8 @@ def construct_ligand_target_matrix(
         ltf_direct = ltf_matrix[0]
         ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tf2id = dict(zip(tft_matrix[1], range(len(tft_matrix[1]))))
-        target2id = dict(zip(tft_matrix[2], range(len(tft_matrix[2]))))
+        tf2id = dict(zip(grn_rows, range(len(grn_rows))))
+        target2id = dict(zip(grn_cols, range(len(grn_cols))))
         gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
         direct_links = gr_network[gr_network["from"].isin(ligands)]
         mask = csr_matrix(
@@ -632,11 +632,11 @@ def construct_ligand_target_matrix(
                     direct_links["to"].apply(lambda x : target2id[x])
                 )
             ),
-            shape=tft_matrix[0].shape,
+            shape=tft_matrix.shape,
             dtype=np.bool
         )
-        tft_direct = tft_matrix[0].multiply(mask)
-        tft_indirect = tft_matrix[0].multiply(~mask.toarray())
+        tft_direct = tft_matrix.multiply(mask)
+        tft_indirect = tft_matrix.multiply(~mask.toarray())
         rp_direct = ltf_direct @ tft_direct
         rp_indirect = ltf_indirect @ tft_indirect
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
