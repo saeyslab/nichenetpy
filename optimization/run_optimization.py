@@ -319,15 +319,15 @@ if __name__ == "__main__":
         ))
     )))
     sym2id = dict(zip(syms, range(len(syms))))
-    lr_network["from"] = [sym2id[e] for e in lr_network["from"]]
-    lr_network["to"] = [sym2id[e] for e in lr_network["to"]]
-    lr_network["source"] = [sym2id[e] for e in lr_network["source"]]
-    gr_network["from"] = [sym2id[e] for e in gr_network["from"]]
-    gr_network["to"] = [sym2id[e] for e in gr_network["to"]]
-    gr_network["source"] = [sym2id[e] for e in gr_network["source"]]
-    sig_network["from"] = [sym2id[e] for e in sig_network["from"]]
-    sig_network["to"] = [sym2id[e] for e in sig_network["to"]]
-    sig_network["source"] = [sym2id[e] for e in sig_network["source"]]
+
+    def network_sym2id(network):
+        network["from"] = network["from"].apply(lambda x : sym2id[x])
+        network["to"] = network["to"].apply(lambda x : sym2id[x])
+        network["source"] = network["source"].apply(lambda x : sym2id[x])
+
+    network_sym2id(lr_network)
+    network_sym2id(gr_network)
+    network_sym2id(sig_network)
     for dct in evaluation_data.values():
         ligand = dct[evaluation_data._ligand_name]
         dct[evaluation_data._ligand_name] = sym2id[ligand] if isinstance(ligand, gene_t) else tuple(sym2id[e] for e in ligand)

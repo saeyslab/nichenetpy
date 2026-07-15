@@ -348,9 +348,9 @@ if __name__ == "__main__":
     sym2id = dict(zip(syms, range(len(syms))))
 
     def network_sym2id(network):
-        network["from"] = [sym2id[e] for e in network["from"]]
-        network["to"] = [sym2id[e] for e in network["to"]]
-        network["source"] = [sym2id[e] for e in network["source"]]
+        network["from"] = network["from"].apply(lambda x : sym2id[x])
+        network["to"] = network["to"].apply(lambda x : sym2id[x])
+        network["source"] = network["source"].apply(lambda x : sym2id[x])
     
     def evaluation_data_sym2id(eval):
         for dct in eval.values():
