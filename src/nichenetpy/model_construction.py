@@ -550,9 +550,9 @@ def construct_ligand_target_matrix(
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
         raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
     if not isinstance(direct_coef, Number):
-        raise TypeError(f"direct_penalty should have type float, was {type(direct_coef)}")
+        raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
     elif direct_coef < 0 or direct_coef > 1:
-        raise ValueError(f"direct_penalty should be between 0 and 1, was {direct_coef}")
+        raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
     ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
     if split_direct == "no":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
