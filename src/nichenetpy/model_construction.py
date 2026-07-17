@@ -589,7 +589,7 @@ def construct_ligand_target_matrix(
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         tf2id = dict(zip(grn_rows, range(len(grn_rows))))
-        target2id = dict(zip(tft_matrix[2], range(len(tft_matrix[2]))))
+        target2id = dict(zip(grn_cols, range(len(grn_cols))))
         gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
         direct_links = gr_network[gr_network["from"].isin(ligands)]
         mask = csr_matrix(
@@ -650,7 +650,15 @@ def construct_ligand_target_matrix(
         if ligands_as_cols:
             return (
                 (ligand2target.transpose(), grn_cols, ltf_rows),
-                (ltf_matrix.transpose(), ltf_cols, ltf_rows),
+                (
+                    (
+                        (ltf_matrix[0].transpose(), ltf_matrix[1].transpose())
+                        if split_direct[:3] == "ltf"
+                        else ltf_matrix.transpose()
+                    ),
+                    ltf_cols,
+                    ltf_rows
+                ),
                 (tft_matrix.transpose(), grn_cols, grn_rows)
             )
         return (
