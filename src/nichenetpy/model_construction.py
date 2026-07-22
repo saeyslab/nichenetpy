@@ -637,8 +637,11 @@ def construct_ligand_target_matrix(
         )
         tft_direct = tft_matrix.multiply(mask)
         tft_indirect = tft_matrix.multiply(~mask.toarray())
+        # same as rp_direct when split_direct == "ltf"?
         rp_direct = ltf_direct @ tft_direct
+        # same as rp_indirect when split_direct == "tft"?
         rp_indirect = ltf_indirect @ tft_indirect
+        # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
