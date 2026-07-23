@@ -591,7 +591,7 @@ def construct_ligand_target_matrix(
         tf2id = dict(zip(grn_rows, range(len(grn_rows))))
         target2id = dict(zip(grn_cols, range(len(grn_cols))))
         gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
-        direct_links = gr_network[gr_network["from"].isin(ligands)]
+        direct_links = gr_network[gr_network["from"].apply(lambda x : (x,)).isin(ligands)]
         mask = csr_matrix(
             (
                 [True for _ in range(len(direct_links))],
@@ -623,7 +623,7 @@ def construct_ligand_target_matrix(
         tf2id = dict(zip(grn_rows, range(len(grn_rows))))
         target2id = dict(zip(grn_cols, range(len(grn_cols))))
         gr_network = weighted_networks["gr"] # contains the same links as the unweighted network
-        direct_links = gr_network[gr_network["from"].isin(ligands)]
+        direct_links = gr_network[gr_network["from"].apply(lambda x : (x,)).isin(ligands)]
         mask = csr_matrix(
             (
                 [True for _ in range(len(direct_links))],
