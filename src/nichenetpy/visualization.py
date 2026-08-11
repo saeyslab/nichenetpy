@@ -708,7 +708,7 @@ def assign_ligands_to_celltype(
     for celltype in celltypes:
         ann_celltype = subset_ann(
             ann_sub,
-            val_col="celltype",
+            val_col=celltype_col,
             val=celltype,
             layers=[layer]
         )
