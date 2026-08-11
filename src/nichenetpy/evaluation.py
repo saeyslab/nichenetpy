@@ -348,7 +348,14 @@ def get_single_ligand_importances(
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
-    # compute metrics for each ligand/dataset combination
+    '''
+    target prediction score:
+        - the column of the ligand is taken from the ligand-target matrix
+        - this vector can be used to create a simple target predictor by choosing a threshold to compare the vector components with
+        if a component is larger than this threshold the associated gene is predicted to be differentially expressed
+        - a few threshold are chosen and for each target gene predictor the precision and recall are computed
+        - the area under the precision recall curve is computed
+    '''
     ligand_importances = pd.DataFrame(
         dict(zip(
             _metrics,
@@ -404,7 +411,16 @@ def evaluate_single_importances_ligand_prediction(
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     added = is_ligand_active(importances)
-    # use ligand importances as prediction (each metric in turn) and true ligand as response
+    '''
+    target prediction score:
+        - the column of the ligand is taken from the ligand-target matrix
+        - this vector can be used to create a simple target predictor by choosing a threshold to compare the vector components with
+        if a component is larger than this threshold the associated gene is predicted to be differentially expressed
+        - a few threshold are chosen and for each target gene predictor the precision and recall are computed
+        - the area under the precision recall curve is computed
+    ligand prediction score:
+        The same principle is applied here but in stead of a column from the ligand-target matrix you use the vector of AUPRs of the ligands
+    '''
     output = pd.DataFrame(
         dict(zip(
             _metrics,

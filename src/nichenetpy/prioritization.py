@@ -180,7 +180,7 @@ def get_avg_exp(
         avg_celltype,
         id_vars=["gene"],
         value_vars=celltypes,
-        var_name="celltype",
+        var_name=celltype_col,
         value_name="avg_exp"
     )
 
