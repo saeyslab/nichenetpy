@@ -62,6 +62,16 @@ if __name__ == "__main__":
         action="append",
         default=[]
     )
+    parser.add_argument(
+        "--split_direct",
+        help=
+        '''
+            "Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+            "no": don't split; "ltf": split the ltf matrix; "tft": split the tft matrix; "ltf-tft":
+            split both the ltf and tft matrices; Default: "no""
+        ''',
+        default="no"
+    )
     args = parser.parse_args()
     lock_obj = JournalFileOpenLock(args.log_path)
     storage = JournalStorage(
@@ -100,7 +110,9 @@ if __name__ == "__main__":
             set(lr_network["from"]),
             damping_factor=damping_factor,
             ltf_cutoff=ltf_cutoff,
-            return_all_matrices=True
+            return_all_matrices=True,
+            split_direct=args.split_direct,
+            direct_coef=chosen_solution.pop("direct_coef")
         )
         mat, row_names, col_names = lt_matrix
         # convert to column-major memory layout
