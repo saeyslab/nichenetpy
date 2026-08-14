@@ -1,5 +1,5 @@
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.metrics import calculate_prediction_evaluation_metrics
+from nichenetpy.metrics import calculate_evaluation_metrics
 from nichenetpy.utils import is_ligand_active
 from nichenetpy.typing import gene_t
 
@@ -7,7 +7,10 @@ from collections.abc import (
     Iterable,
     ItemsView
 )
-from itertools import repeat
+from itertools import (
+    repeat,
+    chain
+)
 from re import search
 from warnings import warn
 
@@ -300,12 +303,11 @@ class EvaluationData:
                 if is_app:
                     yield (k, gs)
 
-_metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
-
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
     evaluation_data:Iterable[dict],
-    all_ligands:Iterable[gene_t]
+    all_ligands:Iterable[gene_t],
+    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
 ) -> pd.DataFrame:
     '''
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict
@@ -330,6 +332,8 @@ def get_single_ligand_importances(
                         or not in the setting of interest
     all_ligands : Iterable of gene_t
         the possible ligands that will be considered for the ligand activity state prediction
+    target_evaluation_metrics : Iterable of string
+        the target prediction evaluation metrics to compute
 
     Returns
     -------
@@ -351,10 +355,10 @@ def get_single_ligand_importances(
     # compute metrics for each ligand/dataset combination
     ligand_importances = pd.DataFrame(
         dict(zip(
-            _metrics,
+            target_evaluation_metrics,
             zip(*(
                 list(zip(*sorted(
-                    predictor.evaluate_target_prediction(ligand, setting["response"]).items(),
+                    predictor.evaluate_target_prediction(ligand, setting["response"], target_evaluation_metrics).items(),
                     key=lambda x : x[0]
                 )))[1]
                 for setting in evaluation_data for ligand in all_ligands
@@ -369,7 +373,8 @@ def get_single_ligand_importances(
 def evaluate_single_importances_ligand_prediction(
     importances:pd.DataFrame,
     group:str,
-    allow_nan:bool=False
+    allow_nan:bool=False,
+    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
 ) -> pd.DataFrame:
     '''
     Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
@@ -387,6 +392,8 @@ def evaluate_single_importances_ligand_prediction(
         the setting of interest
     allow_nan : bool
         if True, return nan values in case a specific metric is undefined, if False the errors are not caught
+    ligand_evaluation_metrics : Iterable of string
+        the ligand prediction evaluation metrics to compute
 
     Returns
     -------
@@ -403,21 +410,27 @@ def evaluate_single_importances_ligand_prediction(
     if type(group) is not str:
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
+    target_evaluation_metrics = importances["metric"].unique().to_list()
     added = is_ligand_active(importances)
     # use ligand importances as prediction (each metric in turn) and true ligand as response
     output = pd.DataFrame(
         dict(zip(
-            _metrics,
+            ligand_evaluation_metrics,
             zip(*(
                 list(zip(*sorted(
-                    calculate_prediction_evaluation_metrics(list(importances[metric]), added, allow_nan=allow_nan).items(),
+                    calculate_evaluation_metrics(
+                        list(importances[metric]),
+                        added,
+                        metrics=ligand_evaluation_metrics,
+                        allow_nan=allow_nan
+                    ).items(),
                     key=lambda x : x[0]
                 )))[1]
-                for metric in _metrics
+                for metric in target_evaluation_metrics
             ))
         ))
     )
-    output["group"] = list(repeat(group, len(_metrics)))
-    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(_metrics)))
-    output["metric"] = _metrics
-    return output.reindex(["metric", "group", "ligand", "aupr", "aupr_corrected", "auroc", "pearson"], axis=1)
+    output["group"] = list(repeat(group, len(ligand_evaluation_metrics)))
+    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(ligand_evaluation_metrics)))
+    output["metric"] = ligand_evaluation_metrics
+    return output.reindex(list(chain(["metric", "group", "ligand"], ligand_evaluation_metrics)), axis=1)
