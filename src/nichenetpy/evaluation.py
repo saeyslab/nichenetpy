@@ -374,7 +374,8 @@ def evaluate_single_importances_ligand_prediction(
     importances:pd.DataFrame,
     group:str,
     allow_nan:bool=False,
-    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
+    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
 ) -> pd.DataFrame:
     '''
     Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
@@ -394,6 +395,8 @@ def evaluate_single_importances_ligand_prediction(
         if True, return nan values in case a specific metric is undefined, if False the errors are not caught
     ligand_evaluation_metrics : Iterable of string
         the ligand prediction evaluation metrics to compute
+    target_evaluation_metrics : Iterable of string
+        the target prediction evaluation metrics to compute
 
     Returns
     -------
@@ -410,7 +413,6 @@ def evaluate_single_importances_ligand_prediction(
     if type(group) is not str:
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
-    target_evaluation_metrics = importances["metric"].unique().to_list()
     added = is_ligand_active(importances)
     # use ligand importances as prediction (each metric in turn) and true ligand as response
     output = pd.DataFrame(
