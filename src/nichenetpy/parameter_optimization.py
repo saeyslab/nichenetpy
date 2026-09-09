@@ -13,13 +13,18 @@ from collections.abc import (
     Callable
 )
 from traceback import format_exc
+from itertools import chain
 
 import pandas as pd
 import numpy as np
 import warnings
 
 
-def _average_performances(ligand_oi, performances):
+def _average_performances(
+    ligand_oi,
+    performances,
+    metrics=("auroc", "aupr_corrected")
+):
     # true ligand must match with ligand(s) of interest
     performances_oi = performances[[
         any(
@@ -30,24 +35,31 @@ def _average_performances(ligand_oi, performances):
         )
         for true_ligand in performances["ligand"]
     ]]
-    return (
-        performances_oi["auroc"].median(),
-        performances_oi["aupr_corrected"].median()
-    )
+    return tuple((performances_oi[metric].median() for metric in metrics))
 
 def _evaluate_single_importances_ligand_prediction(
     ligand_importances,
-    group
+    group,
+    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
 ):
     try:
-        return evaluate_single_importances_ligand_prediction(ligand_importances, group, allow_nan=True)
+        return evaluate_single_importances_ligand_prediction(
+            ligand_importances,
+            group,
+            allow_nan=True,
+            ligand_evaluation_metrics=ligand_evaluation_metrics,
+            target_evaluation_metrics=target_evaluation_metrics
+        )
     except Exception as ex:
         warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}")
         return None
 
 def evaluate_model(
     predictor:LigandActivityPredictor,
-    evaluation_data:EvaluationData
+    evaluation_data:EvaluationData,
+    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
 ):
     '''
     Evaluate the ligand-target matrix. 
@@ -58,6 +70,10 @@ def evaluate_model(
         The predictor that holds the ligand-target matrix to evaluate
     evaluation_data : EvaluationData
         The evaluation data
+    ligand_evaluation_metrics : Iterable of string
+        the ligand prediction evaluation metrics to compute
+    target_evaluation_metrics : Iterable of string
+        the target prediction evaluation metrics to compute
 
     Returns
     -------
@@ -92,10 +108,13 @@ def evaluate_model(
         performances_target_prediction["setting"].append(setting_id)
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
-            setting["from"]
-            if isinstance(setting["from"], gene_t) # potential BUG when using integers
-            else "-".join(setting["from"]),
-            setting["response"]
+            (
+                setting["from"]
+                if isinstance(setting["from"], gene_t) # potential BUG when using integers
+                else "-".join(setting["from"])
+            ),
+            setting["response"],
+            target_evaluation_metrics
         ).items():
             performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
@@ -114,12 +133,21 @@ def evaluate_model(
             ligand_importances["setting"].append(setting_id)
             ligand_importances["test_ligand"].append(ligand)
             ligand_importances["true_ligand"].append(setting["from"])
-            for k, v in predictor.evaluate_target_prediction(ligand, setting["response"]).items():
+            for k, v in predictor.evaluate_target_prediction(
+                ligand,
+                setting["response"],
+                target_evaluation_metrics
+            ).items():
                 ligand_importances[k].append(v)
     ligand_importances = pd.DataFrame(ligand_importances)
     performances_ligand_prediction_single = [
         e for e in (
-            _evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)
+            _evaluate_single_importances_ligand_prediction(
+                ligand_importances,
+                group=setting_id,
+                ligand_evaluation_metrics=ligand_evaluation_metrics,
+                target_evaluation_metrics=target_evaluation_metrics
+            )
             for setting_id in set(ligand_importances["setting"])
         ) if e is not None
     ]
@@ -158,12 +186,23 @@ def compute_evaluation_scores(
     TypeError
         if the arguments have the wrong type
     '''
-    performances_target_prediction_averaged_auroc, performances_target_prediction_averaged_aupr = zip(
-        *(_average_performances(ligand, eval_res["performances_target_prediction"])
-        for ligand in ligands
+    target_evaluation_metrics = set(eval_res["performances_target_prediction"].columns)
+    for e in ("setting", "ligand"):
+        target_evaluation_metrics.pop(e)
+    ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
+    for e in ("metric", "group", "ligand"):
+        ligand_evaluation_metrics.pop(e)
+    performances_target_prediction_averaged = dict(zip(
+        target_evaluation_metrics,
+        zip(
+            *(
+                _average_performances(ligand, eval_res["performances_target_prediction"])
+                for ligand in ligands
+            )
+        )
     ))
-    performances_target_prediction_averaged_auroc = [e for e in performances_target_prediction_averaged_auroc if not np.isnan(e)]
-    performances_target_prediction_averaged_aupr = [e for e in performances_target_prediction_averaged_aupr if not np.isnan(e)]
+    for e in performances_target_prediction_averaged:
+        performances_target_prediction_averaged[e] = [e for e in performances_target_prediction_averaged[e] if not np.isnan(e)]
     if eval_res["performances_ligand_prediction"] is None:
         return (
             np.mean(performances_target_prediction_averaged_auroc),
@@ -171,13 +210,12 @@ def compute_evaluation_scores(
             0,
             0
         )
-    ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][[
-        "metric",
-        "aupr",
-        "aupr_corrected",
-        "auroc",
-        "pearson"
-    ]].groupby("metric").mean()
+    ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][
+        list(chain(
+            ("metric",),
+            ligand_evaluation_metrics
+        ))
+    ].groupby("metric").mean()
     ligand_activity_performance_setting_summary["geom_average"] = [
         np.exp((np.log(aupr) + np.log(auroc)) / 2)
         for aupr, auroc in zip(
@@ -199,6 +237,15 @@ def compute_evaluation_scores(
     performances_ligand_prediction_averaged_auroc, performances_ligand_prediction_averaged_aupr = zip(
         *(_average_performances(ligand, performances_ligand_prediction_summary)
         for ligand in ligands
+    ))
+    performances_ligand_prediction_averaged = dict(zip(
+        ligand_evaluation_metrics,
+        zip(
+            *(
+                _average_performances(ligand, performances_ligand_prediction_summary)
+                for ligand in ligands
+            )
+        )
     ))
     performances_ligand_prediction_averaged_auroc = [e for e in performances_ligand_prediction_averaged_auroc if not np.isnan(e)]
     performances_ligand_prediction_averaged_aupr = [e for e in performances_ligand_prediction_averaged_aupr if not np.isnan(e)]

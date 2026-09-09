@@ -211,7 +211,27 @@ if __name__ == "__main__":
         choices=("no", "ltf", "tft", "ltf-tft"),
         default="no"
     )
+    parser.add_argument(
+        "--ligand_prediction_evaluation_metric",
+        help="metrics to evaluate ligand prediction",
+        action="append",
+        default=[]
+    )
+    parser.add_argument(
+        "--target_prediction_evaluation_metric",
+        help="metrics to evaluate target prediction",
+        action="append",
+        default=[]
+    )
     args = parser.parse_args()
+    if len(args.ligand_prediction_evaluation_metric) > 0:
+        lig_eval_metrics = args.ligand_prediction_evaluation_metric
+    else:
+        lig_eval_metrics = ("aupr_corrected", "auroc")
+    if len(args.target_prediction_evaluation_metric) > 0:
+        tar_eval_metrics = args.target_prediction_evaluation_metric
+    else:
+        tar_eval_metrics = ("aupr_corrected", "auroc")
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
     source_path = os.path.normpath("./source_files/")
