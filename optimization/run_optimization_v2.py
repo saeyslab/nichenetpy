@@ -414,7 +414,7 @@ if __name__ == "__main__":
             name="direct_coef",
             low=0, # no direct RP
             high=0.5 # RP is average of direct and indirect RP
-        ) if args.split_direct != "no" else None
+        ) if args.split_direct != "no" else 0.5
         if args.semantic_similarity_metric is None:
             _sig_network = sig_network
         else:
