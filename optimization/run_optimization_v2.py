@@ -234,6 +234,13 @@ if __name__ == "__main__":
         tar_eval_metrics = ("aupr_corrected", "auroc")
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
+    
+    def make_objective_vector(res):
+        return tuple(chain(
+            (res[1]["target_prediction"][met] for met in tar_eval_metrics),
+            (res[1]["ligand_prediction"][met] for met in lig_eval_metrics)
+        ))
+    
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -447,7 +454,7 @@ if __name__ == "__main__":
         _sig_network = _sig_network[["from", "to", "source"]]
         # construct the models from the source weights (one per fold) and compute the objectives
         res = [
-            construct_and_evaluate(
+            make_objective_vector(construct_and_evaluate(
                 dict((sym2id[s], w) for s, w in source_weights.items()),
                 lr_sig_hub,
                 gr_hub,
@@ -460,8 +467,10 @@ if __name__ == "__main__":
                 return_all_matrices=False,
                 return_weighted_networks=False,
                 split_direct=args.split_direct,
-                direct_coef=direct_coef
-            )[1:] for eval, gr in evaluation_data
+                direct_coef=direct_coef,
+                ligand_evaluation_metrics=lig_eval_metrics,
+                target_evaluation_metrics=tar_eval_metrics
+            )) for eval, gr in evaluation_data
         ]
         # average objective vector over all folds
         return tuple(np.mean(res, axis=0))
@@ -491,4 +500,5 @@ if __name__ == "__main__":
         storage=storage,
         load_if_exists=args.c
     )
+    study.set_metric_names(list(chain((f"target_{met}" for met in tar_eval_metrics), (f"ligand_{met}" for met in lig_eval_metrics))))
     parallel(optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))
