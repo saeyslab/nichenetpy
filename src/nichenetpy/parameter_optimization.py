@@ -182,10 +182,11 @@ def compute_evaluation_scores(
     '''
     target_evaluation_metrics = set(eval_res["performances_target_prediction"].columns)
     for e in ("setting", "ligand"):
-        target_evaluation_metrics.pop(e)
+        target_evaluation_metrics.remove(e)
     ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
     for e in ("metric", "group", "ligand"):
-        ligand_evaluation_metrics.pop(e)
+        ligand_evaluation_metrics.remove(e)
+    # median metric value per ligand for each metric
     performances_target_prediction_averaged = dict(zip(
         target_evaluation_metrics,
         zip(
@@ -202,6 +203,7 @@ def compute_evaluation_scores(
     for e in performances_target_prediction_averaged.keys():
         performances_target_prediction_averaged[e] = [e for e in performances_target_prediction_averaged[e] if not np.isnan(e)]
     if eval_res["performances_ligand_prediction"] is None:
+        # only target prediction
         return {
             "target_prediction": {
                 k: np.mean(v) for k, v in performances_target_prediction_averaged.items()
@@ -216,6 +218,7 @@ def compute_evaluation_scores(
             ligand_evaluation_metrics
         ))
     ].groupby("metric").mean()
+    # compute the geometric average of ligand prediction evaluation metrics
     ligand_activity_performance_setting_summary["geom_average"] = [ # originally only aupr_corrected and auroc
         np.exp(sum((np.log(e) for e in mts)) / len(mts))
         for mts in zip(
@@ -223,6 +226,7 @@ def compute_evaluation_scores(
         )
     ]
     ligand_activity_performance_setting_summary.reset_index(inplace=True)
+    # find the best target prediction evaluation metric by comparing the geometric average of each metric
     best_metric = max(
         zip(
             ligand_activity_performance_setting_summary["metric"],
@@ -230,9 +234,11 @@ def compute_evaluation_scores(
         ),
         key=lambda x : x[1]
     )[0]
+    # only keep the best target prediction evaluation metric
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
+    # median metric value per ligand for each metric
     performances_ligand_prediction_averaged = dict(zip(
         ligand_evaluation_metrics,
         zip(
@@ -248,6 +254,7 @@ def compute_evaluation_scores(
     ))
     for e in performances_ligand_prediction_averaged.keys():
         performances_ligand_prediction_averaged[e] = [e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)]
+    # aggregate metrics over ligands
     return {
         "target_prediction": {
             k: np.mean(v) for k, v in performances_target_prediction_averaged.items()
