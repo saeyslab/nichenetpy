@@ -71,9 +71,9 @@ def evaluate_model(
     evaluation_data : EvaluationData
         The evaluation data
     ligand_evaluation_metrics : Iterable of string
-        the ligand prediction evaluation metrics to compute
+        the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
 
     Returns
     -------
@@ -339,9 +339,9 @@ def construct_and_evaluate(
         The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
         note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     ligand_evaluation_metrics : Iterable of string
-            the ligand prediction evaluation metrics to compute
+            the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
 
     Returns
     -------

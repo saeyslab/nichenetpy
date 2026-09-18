@@ -394,9 +394,9 @@ def evaluate_single_importances_ligand_prediction(
     allow_nan : bool
         if True, return nan values in case a specific metric is undefined, if False the errors are not caught
     ligand_evaluation_metrics : Iterable of string
-        the ligand prediction evaluation metrics to compute
+        the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
 
     Returns
     -------
