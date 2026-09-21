@@ -493,12 +493,13 @@ if __name__ == "__main__":
         )
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
+    metric_names = list(chain((f"target_{met}" for met in tar_eval_metrics), (f"ligand_{met}" for met in lig_eval_metrics)))
     study = create_study(
         sampler=sampler,
-        directions=["maximize", "maximize", "maximize", "maximize"],
+        directions=["maximize" for _ in range(len(metric_names))],
         study_name=args.name,
         storage=storage,
         load_if_exists=args.c
     )
-    study.set_metric_names(list(chain((f"target_{met}" for met in tar_eval_metrics), (f"ligand_{met}" for met in lig_eval_metrics))))
+    study.set_metric_names(metric_names)
     parallel(optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))

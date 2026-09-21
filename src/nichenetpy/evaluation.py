@@ -432,7 +432,7 @@ def evaluate_single_importances_ligand_prediction(
             ))
         ))
     )
-    output["group"] = list(repeat(group, len(ligand_evaluation_metrics)))
-    output["ligand"] = list(repeat(importances["true_ligand"].iloc[1], len(ligand_evaluation_metrics)))
-    output["metric"] = ligand_evaluation_metrics
+    output["group"] = group
+    output["ligand"] = importances["true_ligand"].iloc[1]
+    output["metric"] = target_evaluation_metrics
     return output.reindex(list(chain(["metric", "group", "ligand"], ligand_evaluation_metrics)), axis=1)
