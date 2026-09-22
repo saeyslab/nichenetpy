@@ -159,7 +159,7 @@ def evaluate_model(
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
     ligands:Iterable[gene_t]
-) -> tuple[float, float, float, float]:
+):
     '''
     Construct and evaluate the ligand-target matrix. 
 
@@ -264,7 +264,10 @@ def compute_evaluation_scores(
         }
     }
 
-def _empty_solution():
+def _empty_solution(
+    ligand_evaluation_metrics:Iterable[str],
+    target_evaluation_metrics:Iterable[str]
+):
     return (
         {
             "weighted networks": None,
@@ -272,10 +275,10 @@ def _empty_solution():
             "ltf matrix": None,
             "ligand-target matrix": None
         },
-        0,
-        0,
-        0,
-        0
+        {
+            "target_prediction": {e: 0 for e in target_evaluation_metrics},
+            "ligand_prediction": {e: 0 for e in ligand_evaluation_metrics}
+        }
     )
 
 def construct_and_evaluate(
@@ -359,7 +362,10 @@ def construct_and_evaluate(
     ) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
     ):
-        return _empty_solution()
+        return _empty_solution(
+            ligand_evaluation_metrics,
+            target_evaluation_metrics
+        )
     model = construct_model_from_source_weights(
         source_weights,
         lr_sig_hub,
@@ -381,7 +387,10 @@ def construct_and_evaluate(
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
     if np.sum(ligand2target) == 0:
-        return _empty_solution()
+        return _empty_solution(
+            ligand_evaluation_metrics,
+            target_evaluation_metrics
+        )
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores()
     scores = compute_evaluation_scores(
