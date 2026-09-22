@@ -158,7 +158,18 @@ def evaluate_model(
 
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
-    ligands:Iterable[gene_t]
+    ligands:Iterable[gene_t],
+    metric_score_f:Callable=lambda aupr_corrected, auroc : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
+    objective_fs:dict[str, dict[str, Callable]]={
+        "target_prediction": {
+            "aupr_corrected": np.mean,
+            "auroc": np.mean
+        },
+        "ligand_prediction": {
+            "aupr_corrected": lambda x : np.mean(x) + np.median(x),
+            "auroc": lambda x : np.mean(x) + np.median(x)
+        }
+    }
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -168,7 +179,14 @@ def compute_evaluation_scores(
     eval_res : dict[str, pd.DataFrame]
         The output of a call to `nichenetpy.parameter_optimization.evaluate_model`
     ligands : Iterable of gene_t
-        the ligands of interest
+        The ligands of interest
+    metric_score_f : Callable
+        Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
+        prediction evaluation metrics
+    objective_fs : dict of dict[str, Callable]
+        Dictionary which maps the keys "target_prediction" and "ligand_prediction" to dictionaries which map metrics to
+        functions that aggregate values of said metric. These functions are used to compute the optimization objectives
+        which are aggregated from metric values computed over multiple data sets. 
 
     Returns
     -------
@@ -180,6 +198,16 @@ def compute_evaluation_scores(
     TypeError
         if the arguments have the wrong type
     '''
+    if type(eval_res) is not dict:
+        raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
+    if not isinstance(ligands, Iterable):
+        raise TypeError(f"ligands should have type Iterable, was {type(ligands)}")
+    if not isinstance(metric_score_f, Callable):
+        raise TypeError(f"metric_score_f should have type Callable, was {type(metric_score_f)}")
+    if type(objective_fs) is not dict:
+        raise TypeError(f"objective_fs should have type dict, was {type(objective_fs)}")
+    if len(objective_fs) != 2 or "target_prediction" not in objective_fs.keys() or "ligand_prediction" not in objective_fs.keys():
+        raise KeyError(f"objective_fs should have exactly 'target_prediction' and 'ligand_prediction' as keys, got {objective_fs.keys()}")
     target_evaluation_metrics = set(eval_res["performances_target_prediction"].columns)
     for e in ("setting", "ligand"):
         target_evaluation_metrics.remove(e)
@@ -206,10 +234,10 @@ def compute_evaluation_scores(
         # only target prediction
         return {
             "target_prediction": {
-                k: np.mean(v) for k, v in performances_target_prediction_averaged.items()
+                metric: f(performances_target_prediction_averaged[metric]) for metric, f in objective_fs["target_prediction"].items()
             },
             "ligand_prediction": {
-                k: 0 for k in ligand_evaluation_metrics
+                metric: 0 for metric in objective_fs["ligand_prediction"].keys()
             }
         }
     ligand_activity_performance_setting_summary = eval_res["performances_ligand_prediction"][
@@ -218,9 +246,9 @@ def compute_evaluation_scores(
             ligand_evaluation_metrics
         ))
     ].groupby("metric").mean()
-    # compute the geometric average of ligand prediction evaluation metrics
-    ligand_activity_performance_setting_summary["geom_average"] = [ # originally only aupr_corrected and auroc
-        np.exp(sum((np.log(e) for e in mts)) / len(mts))
+    # compute a score for ligand prediction evaluation metrics (so we can rank them)
+    ligand_activity_performance_setting_summary["score"] = [
+        metric_score_f(**dict(zip(ligand_evaluation_metrics, mts))) # dictionary init takes ~1/6 as much time as geom avg? needs check... 
         for mts in zip(
             *(ligand_activity_performance_setting_summary[met] for met in ligand_evaluation_metrics)
         )
@@ -230,7 +258,7 @@ def compute_evaluation_scores(
     best_metric = max(
         zip(
             ligand_activity_performance_setting_summary["metric"],
-            ligand_activity_performance_setting_summary["geom_average"]
+            ligand_activity_performance_setting_summary["score"]
         ),
         key=lambda x : x[1]
     )[0]
@@ -238,7 +266,7 @@ def compute_evaluation_scores(
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
-    # median metric value per ligand for each metric
+    # median metric value for each metric per ligand
     performances_ligand_prediction_averaged = dict(zip(
         ligand_evaluation_metrics,
         zip(
@@ -256,12 +284,10 @@ def compute_evaluation_scores(
         performances_ligand_prediction_averaged[e] = [e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)]
     # aggregate metrics over ligands
     return {
-        "target_prediction": {
-            k: np.mean(v) for k, v in performances_target_prediction_averaged.items()
-        },
-        "ligand_prediction": {
-            k: (np.mean(v) + np.median(v)) / 2 for k, v in performances_ligand_prediction_averaged.items()
+        metric_type: {
+            metric: f(performances_target_prediction_averaged[metric]) for metric, f in fs.items()
         }
+        for metric_type, fs in objective_fs.items()
     }
 
 def _empty_solution(
