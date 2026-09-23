@@ -166,8 +166,8 @@ def compute_evaluation_scores(
             "auroc": np.mean
         },
         "ligand_prediction": {
-            "aupr_corrected": lambda x : np.mean(x) + np.median(x),
-            "auroc": lambda x : np.mean(x) + np.median(x)
+            "aupr_corrected": lambda x : (np.mean(x) + np.median(x)) / 2,
+            "auroc": lambda x : (np.mean(x) + np.median(x)) / 2
         }
     }
 ):
