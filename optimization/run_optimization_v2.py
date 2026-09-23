@@ -213,13 +213,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ligand_prediction_evaluation_metric",
-        help="metrics to evaluate ligand prediction",
+        help="metrics to evaluate ligand prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
         action="append",
         default=[]
     )
     parser.add_argument(
         "--target_prediction_evaluation_metric",
-        help="metrics to evaluate target prediction",
+        help="metrics to evaluate target prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
         action="append",
         default=[]
     )
@@ -236,9 +236,11 @@ if __name__ == "__main__":
         raise ValueError("included_database and excluded_database are incompatible with eachother")
     
     def make_objective_vector(res):
+        tp = res[1]["target_prediction"]
+        lp = res[1]["ligand_prediction"]
         return tuple(chain(
-            (res[1]["target_prediction"][met] for met in tar_eval_metrics),
-            (res[1]["ligand_prediction"][met] for met in lig_eval_metrics)
+            tuple(e[0] for e in sorted(((tp[met], tar_eval_metrics.index(met)) for met in tp.keys()), key=lambda x : x[1])),
+            tuple(e[0] for e in sorted(((lp[met], lig_eval_metrics.index(met)) for met in lp.keys()), key=lambda x : x[1]))
         ))
     
     source_path = os.path.normpath("./source_files/")
@@ -391,6 +393,19 @@ if __name__ == "__main__":
         evaluation_data_sym2id(eval)
         network_sym2id(gr)
 
+    # TODO: make this customizable
+    metric_score_f = lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts]))
+    objective_fs = {
+        "target_prediction": {
+            "aupr_corrected": np.mean,
+            "auroc": np.mean
+        },
+        "ligand_prediction": {
+            "map": lambda x : (np.mean(x) + np.median(x)) / 2,
+            "ndcg": lambda x : (np.mean(x) + np.median(x)) / 2
+        }
+    }
+
     def objective(trial:Trial):
         # define source weights
         if args.source_path is not None and len(args.var_database) > 0:
@@ -469,7 +484,9 @@ if __name__ == "__main__":
                 split_direct=args.split_direct,
                 direct_coef=direct_coef,
                 ligand_evaluation_metrics=lig_eval_metrics,
-                target_evaluation_metrics=tar_eval_metrics
+                target_evaluation_metrics=tar_eval_metrics,
+                metric_score_f=metric_score_f,
+                objective_fs=objective_fs
             )) for eval, gr in evaluation_data
         ]
         # average objective vector over all folds
@@ -493,7 +510,10 @@ if __name__ == "__main__":
         )
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
-    metric_names = list(chain((f"target_{met}" for met in tar_eval_metrics), (f"ligand_{met}" for met in lig_eval_metrics)))
+    metric_names = list(chain(
+        (f"target_{met}" for met in objective_fs["target_prediction"].keys()),
+        (f"ligand_{met}" for met in objective_fs["ligand_prediction"].keys())
+    ))
     study = create_study(
         sampler=sampler,
         directions=["maximize" for _ in range(len(metric_names))],

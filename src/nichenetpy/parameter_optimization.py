@@ -159,7 +159,7 @@ def evaluate_model(
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
     ligands:Iterable[gene_t],
-    metric_score_f:Callable=lambda aupr_corrected, auroc : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
+    metric_score_f:Callable=lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
     objective_fs:dict[str, dict[str, Callable]]={
         "target_prediction": {
             "aupr_corrected": np.mean,
@@ -182,7 +182,8 @@ def compute_evaluation_scores(
         The ligands of interest
     metric_score_f : Callable
         Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
-        prediction evaluation metrics
+        prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function. 
+        (tip: use `**kwargs` to make sure you catch them)
     objective_fs : dict of dict[str, Callable]
         Dictionary which maps the keys "target_prediction" and "ligand_prediction" to dictionaries which map metrics to
         functions that aggregate values of said metric. These functions are used to compute the optimization objectives
@@ -322,7 +323,18 @@ def construct_and_evaluate(
     split_direct:str="no",
     direct_coef:float=0,
     ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
+    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    metric_score_f:Callable=lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
+    objective_fs:dict[str, dict[str, Callable]]={
+        "target_prediction": {
+            "aupr_corrected": np.mean,
+            "auroc": np.mean
+        },
+        "ligand_prediction": {
+            "aupr_corrected": lambda x : (np.mean(x) + np.median(x)) / 2,
+            "auroc": lambda x : (np.mean(x) + np.median(x)) / 2
+        }
+    }
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -371,6 +383,14 @@ def construct_and_evaluate(
             the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
         the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+    metric_score_f : Callable
+        Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
+        prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function. 
+        (tip: use `**kwargs` to make sure you catch them)
+    objective_fs : dict of dict[str, Callable]
+        Dictionary which maps the keys "target_prediction" and "ligand_prediction" to dictionaries which map metrics to
+        functions that aggregate values of said metric. These functions are used to compute the optimization objectives
+        which are aggregated from metric values computed over multiple data sets. 
 
     Returns
     -------
@@ -423,10 +443,12 @@ def construct_and_evaluate(
         evaluate_model(
             predictor,
             evaluation_data,
-            ligand_evaluation_metrics,
-            target_evaluation_metrics
+            ligand_evaluation_metrics=ligand_evaluation_metrics,
+            target_evaluation_metrics=target_evaluation_metrics
         ),
-        evaluation_data.get_ligands(combination=True)
+        evaluation_data.get_ligands(combination=True),
+        metric_score_f=metric_score_f,
+        objective_fs=objective_fs
     )
     return (
         model,
