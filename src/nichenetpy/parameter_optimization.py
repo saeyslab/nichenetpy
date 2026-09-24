@@ -20,6 +20,53 @@ import numpy as np
 import warnings
 
 
+objective_fs_dct = {
+    "NNv2": {
+        "target_prediction": {
+            "aupr_corrected": np.mean,
+            "auroc": np.mean
+        },
+        "ligand_prediction": {
+            "aupr_corrected": lambda x : (np.mean(x) + np.median(x)) / 2,
+            "auroc": lambda x : (np.mean(x) + np.median(x)) / 2
+        }
+    },
+    "map&ndcg": {
+        "target_prediction": {
+            "aupr_corrected": np.mean,
+            "auroc": np.mean
+        },
+        "ligand_prediction": {
+            "map": lambda x : (np.mean(x) + np.median(x)) / 2,
+            "ndcg": lambda x : (np.mean(x) + np.median(x)) / 2
+        }
+    }
+}
+# TODO: test presence in documentation
+objective_fs_dct.__doc__ = """
+    sets of objective functions for the source weight optimization
+    NNv2
+        The objective functions used in NicheNetV2. 
+        Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
+    map&ndcg
+        Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
+"""
+
+metric_score_f_dct = {
+    "NNv2": lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
+    "all_geometric_mean": lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts.values()]))
+}
+# TODO: test presence in documentation
+metric_score_f_dct.__doc__ = """
+    sets of objective functions for the source weight optimization
+    NNv2
+        The metric score function used in NicheNetV2. 
+        Computes the geometric mean of `aupr_corrected` and `auroc`. 
+    all_geometric_mean
+        The metric score function used in NicheNetV2. 
+        Computes the geometric mean of all available target evaluation metrics. 
+"""
+
 def _average_performances(
     ligand_oi,
     performances,
@@ -159,17 +206,8 @@ def evaluate_model(
 def compute_evaluation_scores(
     eval_res:dict[str, pd.DataFrame],
     ligands:Iterable[gene_t],
-    metric_score_f:Callable=lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
-    objective_fs:dict[str, dict[str, Callable]]={
-        "target_prediction": {
-            "aupr_corrected": np.mean,
-            "auroc": np.mean
-        },
-        "ligand_prediction": {
-            "aupr_corrected": lambda x : (np.mean(x) + np.median(x)) / 2,
-            "auroc": lambda x : (np.mean(x) + np.median(x)) / 2
-        }
-    }
+    metric_score_f:Callable=metric_score_f_dct["NNv2"],
+    objective_fs:dict[str, dict[str, Callable]]=objective_fs_dct["NNv2"]
 ):
     '''
     Construct and evaluate the ligand-target matrix. 
@@ -327,17 +365,8 @@ def construct_and_evaluate(
     direct_coef:float=0,
     ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    metric_score_f:Callable=lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
-    objective_fs:dict[str, dict[str, Callable]]={
-        "target_prediction": {
-            "aupr_corrected": np.mean,
-            "auroc": np.mean
-        },
-        "ligand_prediction": {
-            "aupr_corrected": lambda x : (np.mean(x) + np.median(x)) / 2,
-            "auroc": lambda x : (np.mean(x) + np.median(x)) / 2
-        }
-    }
+    metric_score_f:Callable=metric_score_f_dct["NNv2"],
+    objective_fs:dict[str, dict[str, Callable]]=objective_fs_dct["NNv2"]
 ):
     '''
     Construct and evaluate the ligand-target matrix. 

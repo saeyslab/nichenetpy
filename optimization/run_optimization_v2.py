@@ -4,7 +4,9 @@ from nichenetpy.utils import (
     read_network_file
 )
 from nichenetpy.parameter_optimization import (
-    construct_and_evaluate
+    construct_and_evaluate,
+    objective_fs_dct,
+    metric_score_f_dct
 )
 from nichenetpy.evaluation import EvaluationData
 from nichenetpy.typing import gene_t
@@ -214,14 +216,43 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ligand_prediction_evaluation_metric",
         help="metrics to evaluate ligand prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
+        choices=("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg"),
         action="append",
         default=[]
     )
     parser.add_argument(
         "--target_prediction_evaluation_metric",
-        help="metrics to evaluate target prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
+        help="metrics to evaluate target prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson')",
+        choices=("aupr", "aupr_corrected", "auroc", "pearson"),
         action="append",
         default=[]
+    )
+    parser.add_argument(
+        "--objective_functions",
+        help="""
+            sets of objective functions for the source weight optimization
+            NNv2
+                The objective functions used in NicheNetV2. 
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
+            map&ndcg
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
+        """,
+        choices=("NNv2", "map&ndcg"),
+        default="NNv2"
+    )
+    parser.add_argument(
+        "--metric_score_function",
+        help="""
+            sets of objective functions for the source weight optimization
+            NNv2
+                The metric score function used in NicheNetV2. 
+                Computes the geometric mean of `aupr_corrected` and `auroc`. 
+            all_geometric_mean
+                The metric score function used in NicheNetV2. 
+                Computes the geometric mean of all available target evaluation metrics. 
+        """,
+        choices=("NNv2", "all_geometric_mean"),
+        default="NNv2"
     )
     args = parser.parse_args()
     if len(args.ligand_prediction_evaluation_metric) > 0:
@@ -234,6 +265,8 @@ if __name__ == "__main__":
         tar_eval_metrics = ("aupr_corrected", "auroc")
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
+    objective_fs = objective_fs_dct[args.objective_functions]
+    metric_score_f = metric_score_f_dct[args.metric_score_function]
     
     def make_objective_vector(res):
         tp = res[1]["target_prediction"]
@@ -392,19 +425,6 @@ if __name__ == "__main__":
     for eval, gr in evaluation_data:
         evaluation_data_sym2id(eval)
         network_sym2id(gr)
-
-    # TODO: make this customizable
-    metric_score_f = lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts.values()]))
-    objective_fs = {
-        "target_prediction": {
-            "aupr_corrected": np.mean,
-            "auroc": np.mean
-        },
-        "ligand_prediction": {
-            "map": lambda x : (np.mean(x) + np.median(x)) / 2,
-            "ndcg": lambda x : (np.mean(x) + np.median(x)) / 2
-        }
-    }
 
     def objective(trial:Trial):
         # define source weights
