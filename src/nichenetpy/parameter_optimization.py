@@ -215,6 +215,7 @@ def compute_evaluation_scores(
     ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
     for e in ("metric", "group", "ligand"):
         ligand_evaluation_metrics.remove(e)
+    performances_prediction_averaged = dict()
     # median metric value per ligand for each metric
     performances_target_prediction_averaged = dict(zip(
         target_evaluation_metrics,
@@ -229,6 +230,7 @@ def compute_evaluation_scores(
             )
         )
     ))
+    performances_prediction_averaged["target_prediction"] = performances_target_prediction_averaged
     for e in performances_target_prediction_averaged.keys():
         performances_target_prediction_averaged[e] = [e for e in performances_target_prediction_averaged[e] if not np.isnan(e)]
     if eval_res["performances_ligand_prediction"] is None:
@@ -281,12 +283,13 @@ def compute_evaluation_scores(
             )
         )
     ))
+    performances_prediction_averaged["ligand_prediction"] = performances_ligand_prediction_averaged
     for e in performances_ligand_prediction_averaged.keys():
         performances_ligand_prediction_averaged[e] = [e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)]
     # aggregate metrics over ligands
     return {
         metric_type: {
-            metric: f(performances_target_prediction_averaged[metric]) for metric, f in fs.items()
+            metric: f(performances_prediction_averaged[metric_type][metric]) for metric, f in fs.items()
         }
         for metric_type, fs in objective_fs.items()
     }

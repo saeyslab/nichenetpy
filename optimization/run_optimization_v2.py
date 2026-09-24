@@ -394,7 +394,7 @@ if __name__ == "__main__":
         network_sym2id(gr)
 
     # TODO: make this customizable
-    metric_score_f = lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts]))
+    metric_score_f = lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts.values()]))
     objective_fs = {
         "target_prediction": {
             "aupr_corrected": np.mean,
