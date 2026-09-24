@@ -231,9 +231,11 @@ if __name__ == "__main__":
         "--objective_functions",
         help="""
             sets of objective functions for the source weight optimization
+
             NNv2
                 The objective functions used in NicheNetV2. 
                 Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
+                
             map&ndcg
                 Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
         """,
@@ -243,10 +245,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--metric_score_function",
         help="""
-            sets of objective functions for the source weight optimization
+            the function that computes the metric score (which decides the best metric to rank the ligands with)
+
             NNv2
                 The metric score function used in NicheNetV2. 
                 Computes the geometric mean of `aupr_corrected` and `auroc`. 
+
             all_geometric_mean
                 The metric score function used in NicheNetV2. 
                 Computes the geometric mean of all available target evaluation metrics. 

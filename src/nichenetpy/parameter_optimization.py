@@ -20,6 +20,31 @@ import numpy as np
 import warnings
 
 
+# Can only add docstrings to single line variable declarations (note: *.__doc__ is read-only)
+objective_fs_dct = None
+"""
+sets of objective functions for the source weight optimization
+
+NNv2
+    The objective functions used in NicheNetV2. 
+    Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
+
+map&ndcg
+    Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
+"""
+metric_score_f_dct = None
+"""
+the function that computes the metric score (which decides the best metric to rank the ligands with)
+
+NNv2
+    The metric score function used in NicheNetV2. 
+    Computes the geometric mean of `aupr_corrected` and `auroc`. 
+
+all_geometric_mean
+    The metric score function used in NicheNetV2. 
+    Computes the geometric mean of all available target evaluation metrics. 
+"""
+
 objective_fs_dct = {
     "NNv2": {
         "target_prediction": {
@@ -42,30 +67,11 @@ objective_fs_dct = {
         }
     }
 }
-# TODO: test presence in documentation
-objective_fs_dct.__doc__ = """
-    sets of objective functions for the source weight optimization
-    NNv2
-        The objective functions used in NicheNetV2. 
-        Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
-    map&ndcg
-        Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
-"""
 
 metric_score_f_dct = {
     "NNv2": lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
     "all_geometric_mean": lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts.values()]))
 }
-# TODO: test presence in documentation
-metric_score_f_dct.__doc__ = """
-    sets of objective functions for the source weight optimization
-    NNv2
-        The metric score function used in NicheNetV2. 
-        Computes the geometric mean of `aupr_corrected` and `auroc`. 
-    all_geometric_mean
-        The metric score function used in NicheNetV2. 
-        Computes the geometric mean of all available target evaluation metrics. 
-"""
 
 def _average_performances(
     ligand_oi,
