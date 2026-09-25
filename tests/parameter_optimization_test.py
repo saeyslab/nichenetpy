@@ -15,7 +15,7 @@ from nichenetpy.evaluation import EvaluationData
 from nichenetpy.typing import gene_t
 
 from common import (
-    equals_iter,
+    equals_dict,
     get_model_pickle,
     get_optimization_files,
     get_network_files,
@@ -28,66 +28,95 @@ import os
 import json
 import pandas as pd
 
+def template_optimization_score(filename, exp, err_bound=0.05):
+    model = get_model_pickle("human")
+    get_optimization_files()
+    with open(os.path.join(train_path, filename), "rb") as file:
+        settings_CV = json.loads(file.read())
+    evaluation_data = EvaluationData(settings_CV["settings"])
+    scores = compute_evaluation_scores(
+        evaluate_model(model["predictor"], evaluation_data),
+        evaluation_data.get_ligands(combination=True)
+    )
+    assert equals_dict(scores, exp, err_bound=err_bound)
 
 def test_optimization_score_0():
-    model = get_model_pickle("human")
-    get_optimization_files()
-    with open(os.path.join(train_path, "settings_training_f1234.json"), "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+    template_optimization_score(
+        "settings_training_f1234.json",
+        {
+            "target_prediction": {
+                "aupr_corrected": 0.588,
+                "auroc": 0.978
+            },
+            "ligand_prediction": {
+                "aupr_corrected": 0.949,
+                "auroc": 0.991
+            }
+        }
     )
-    assert equals_iter(scores, (0.978, 0.588, 0.991, 0.949), err_bound=0.05)
 
 def test_optimization_score_1():
-    model = get_model_pickle("human")
-    get_optimization_files()
-    with open(os.path.join(train_path, "settings_training_f1235.json"), "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+    template_optimization_score(
+        "settings_training_f1235.json",
+        {
+            "target_prediction": {
+                "aupr_corrected": 0.624,
+                "auroc": 0.98
+            },
+            "ligand_prediction": {
+                "aupr_corrected": 0.954,
+                "auroc": 0.991
+            }
+        }
     )
-    assert equals_iter(scores, (0.98, 0.624, 0.991, 0.954), err_bound=0.05)
 
 def test_optimization_score_2():
-    model = get_model_pickle("human")
-    get_optimization_files()
-    with open(os.path.join(train_path, "settings_training_f1245.json"), "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+    template_optimization_score(
+        "settings_training_f1245.json",
+        {
+            "target_prediction": {
+                "aupr_corrected": 0.636,
+                "auroc": 0.978
+            },
+            "ligand_prediction": {
+                "aupr_corrected": 0.959,
+                "auroc": 0.995
+            }
+        }
     )
-    assert equals_iter(scores, (0.978, 0.636, 0.995, 0.959), err_bound=0.05)
 
 def test_optimization_score_3():
-    model = get_model_pickle("human")
-    get_optimization_files()
-    with open(os.path.join(train_path, "settings_training_f1345.json"), "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+    # third objective is 1.0, a bit more deviation from NNv2 than usual
+    template_optimization_score(
+        "settings_training_f1345.json",
+        {
+            "target_prediction": {
+                "aupr_corrected": 0.607,
+                "auroc": 0.98
+            },
+            "ligand_prediction": {
+                "aupr_corrected": 0.97,
+                "auroc": 0.949
+            }
+        },
+        err_bound=0.06
     )
-    assert equals_iter(scores, (0.98, 0.607, 0.949, 0.97), err_bound=0.06) # third objective is 1.0, a bit more deviation from NNv2 than usual
 
 def test_optimization_score_4():
-    model = get_model_pickle("human")
-    get_optimization_files()
-    with open(os.path.join(train_path, "settings_training_f2345.json"), "rb") as file:
-        settings_CV = json.loads(file.read())
-    evaluation_data = EvaluationData(settings_CV["settings"])
-    scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+    template_optimization_score(
+        "settings_training_f2345.json",
+        {
+            "target_prediction": {
+                "aupr_corrected": 0.629,
+                "auroc": 0.986
+            },
+            "ligand_prediction": {
+                "aupr_corrected": 0.966,
+                "auroc": 0.994
+            }
+        }
+        (0.986, 0.629, 0.994, 0.966)
     )
-    assert equals_iter(scores, (0.986, 0.629, 0.994, 0.966), err_bound=0.05)
 
 def optuna_objective(
     lr_network,

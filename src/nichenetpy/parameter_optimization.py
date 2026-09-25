@@ -69,7 +69,7 @@ objective_fs_dct = {
 }
 
 metric_score_f_dct = {
-    "NNv2": lambda aupr_corrected, auroc, **r : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
+    "NNv2": lambda aupr_corrected, auroc, **_ : np.exp((np.log(aupr_corrected) + np.log(auroc)) / 2),
     "all_geometric_mean": lambda **mts : np.exp(np.mean([np.log(mt) for mt in mts.values()]))
 }
 

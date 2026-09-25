@@ -57,9 +57,13 @@ def equals_ndarray(
 ):
     return equals_iter(xs.reshape(-1), ys.reshape(-1), err_bound, zero_bound)
 
-def equals_dict(x, y):
+def equals_dict(x,
+    y,
+    err_bound=1e-2,
+    zero_bound=1e-100
+):
     for key, val in y.items():
-        if not equals(x[key], val):
+        if not equals(x[key], val, err_bound, zero_bound):
             return False
     return True
 
