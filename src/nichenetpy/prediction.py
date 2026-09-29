@@ -1,5 +1,5 @@
 from nichenetpy.metrics import (
-    calculate_prediction_evaluation_metrics,
+    calculate_evaluation_metrics,
     calculate_aupr,
     calculate_auroc
 )
@@ -220,7 +220,8 @@ class LigandActivityPredictor:
     def evaluate_target_prediction(
         self,
         ligand:gene_t,
-        response:dict[gene_t, int]
+        response:dict[gene_t, int],
+        target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
     ):
         '''
         Evaluate how well the model (i.e. the inferred ligand-target probability scores) is able to predict the observed response
@@ -233,6 +234,8 @@ class LigandActivityPredictor:
             the ligand of interest
         response : dict[gene_t, int]
             a dictionary indicating whether a target is a true target of the possibly active ligand
+        target_evaluation_metrics : Iterable of string
+            the target prediction evaluation metrics to compute
 
         Returns
         -------
@@ -256,7 +259,7 @@ class LigandActivityPredictor:
         common_keys = prediction.keys() & response.keys()
         pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])
         resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])
-        return calculate_prediction_evaluation_metrics(pred, resp)
+        return calculate_evaluation_metrics(pred, resp, target_evaluation_metrics)
 
     def predict_ligand_activities(
         self,

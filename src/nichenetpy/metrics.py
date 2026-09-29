@@ -133,6 +133,165 @@ def calculate_auroc(
     fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
     return -_auc_reverse(fp, tp)
 
+def precision_at_k(
+    ranking:list[float]|tuple[float]|np.ndarray[float],
+    response:list[float]|tuple[float]|np.ndarray[float],
+    k:int
+):
+    '''
+    Calculates the precision at index k in the ranking. 
+
+    Parameters
+    ----------
+    ranking : list or tuple or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    response : list or tuple  or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    k : int
+        the index at which to compute the precision
+
+    Returns
+    -------
+    float
+        the precision at k
+    '''
+    return sum(response[e] for e in ranking[:k+1]) / (k + 1)
+
+def average_precision_at_k(response, prediction, k=None):
+    '''
+    Calculates the average precision at index k in the ranking. 
+
+    Parameters
+    ----------
+    response : list or tuple  or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    prediction : list or tuple  or numpy.ndarray of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+    k : int
+        the index at which to compute the precision
+
+    Returns
+    -------
+    float
+        the precision at k
+    '''
+    if k is None:
+        k = len(response) - 1
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x : x[1], reverse=True)]
+    n = sum(response)
+    if n == 1:
+        i = 0
+        while response[ranking[i]] != 1:
+            i += 1
+        return 1 / (i + 1) if i <= k else 0
+    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k+1)) / n
+
+def dcg_at_k(ranking, response, k):
+    '''
+    Calculates the discounted cumulative gain at index k in the ranking. 
+
+    Parameters
+    ----------
+    ranking : list or tuple or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    response : list or tuple  or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    k : int
+        the index at which to compute the dcg
+
+    Returns
+    -------
+    float
+        the discounted cumulative gain at k
+    '''
+    return sum(response[e] / np.log2(i+2) for i, e in enumerate(ranking[:k+1]))
+
+def ndcg_at_k(response, prediction, k=None):
+    '''
+    Calculates the normalized discounted cumulative gain at index k in the ranking. 
+
+    Parameters
+    ----------
+    ranking : list or tuple or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    response : list or tuple  or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    k : int
+        the index at which to compute the ndcg
+
+    Returns
+    -------
+    float
+        the normalized discounted cumulative gain at k
+    '''
+    if k is None:
+        k = len(response) - 1
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x : x[1], reverse=True)]
+    n = sum(response)
+    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x : x[1], reverse=True)]
+    # if n is 1 then ideal dcg@k is 1, so let's take a shortcut
+    return dcg_at_k(ranking, response, k) / (1 if n == 1 else dcg_at_k(gs_ranking, response, k))
+
+_metric_dct = {
+    "aupr": calculate_aupr,
+    "aupr_corrected": lambda response, prediction : calculate_aupr(response, prediction) - sum(response)/len(response),
+    "auroc": calculate_auroc,
+    "pearson": lambda response, prediction : pearsonr(response, prediction).statistic,
+    "map": average_precision_at_k,
+    "ndcg": ndcg_at_k
+}
+
+def calculate_evaluation_metrics(
+    prediction:list[float]|tuple[float]|np.ndarray[float],
+    response:list[float]|tuple[float]|np.ndarray[float],
+    metrics:Iterable[str],
+    allow_nan:bool=False
+) -> dict[str, float]:
+    '''
+    Calculates evaluation metrics that can be used to rank ligands or to evaluate the ligand ranking. 
+
+    Parameters
+    ----------
+    prediction : list or tuple or numpy.ndarray of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+    response : list or tuple or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    metrics : Iterable of str
+        the metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+    allow_nan : bool
+        if True, return nan values in case a specific metric is undefined, if False the errors are not caught
+
+    Returns
+    -------
+    dict[str, float]
+        dictionary with as keys the names of the supported metrics and as values the computed metrics
+    
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if response doesn't contain any true samples
+    '''
+    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
+    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
+        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if sum(response) == 0:
+        raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
+    output = dict()
+    warnings.filterwarnings("ignore")
+    for metric in metrics:
+        try:
+            output[metric] = _metric_dct[metric](response, prediction)
+        except ValueError as ex:
+            if allow_nan:
+                output[metric] = np.nan
+            else:
+                raise ex
+    warnings.filterwarnings("default")
+    return output
+
 def calculate_prediction_evaluation_metrics(
     prediction:list[float]|tuple[float]|np.ndarray[float],
     response:list[float]|tuple[float]|np.ndarray[float],
@@ -168,41 +327,12 @@ def calculate_prediction_evaluation_metrics(
     ValueError
         if response doesn't contain any true samples
     '''
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
-    if sum(response) == 0:
-        raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
-    try:
-        aupr = calculate_aupr(response, prediction)
-    except ValueError as ex:
-        if allow_nan:
-            aupr = np.nan
-        else:
-            raise ex
-    try:
-        auroc = calculate_auroc(response, prediction)
-    except ValueError as ex:
-        if allow_nan:
-            auroc = np.nan
-        else:
-            raise ex
-    warnings.filterwarnings("ignore")
-    try:
-        pcc = pearsonr(response, prediction).statistic
-    except ValueError as ex:
-        if allow_nan:
-            pcc = np.nan
-        else:
-            raise ex
-    warnings.filterwarnings("default")
-    return {
-        "auroc": auroc,
-        "pearson": pcc,
-        "aupr": aupr,
-        "aupr_corrected": aupr - sum(response)/len(response)
-    }
+    return calculate_evaluation_metrics(
+        prediction=prediction,
+        response=response,
+        metrics=("aupr", "aupr_corrected", "auroc", "pearson"),
+        allow_nan=allow_nan
+    )
 
 def _sub_log_fold_change(
     data:csc_matrix|csr_matrix,
