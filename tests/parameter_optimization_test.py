@@ -86,7 +86,7 @@ def test_optimization_score_2():
     )
 
 def test_optimization_score_3():
-    # third objective is 1.0, a bit more deviation from NNv2 than usual
+    # a bit more deviation from NNv2 than usual
     template_optimization_score(
         "settings_training_f1345.json",
         {
@@ -115,7 +115,6 @@ def test_optimization_score_4():
                 "auroc": 0.994
             }
         }
-        (0.986, 0.629, 0.994, 0.966)
     )
 
 def optuna_objective(
@@ -142,7 +141,7 @@ def optuna_objective(
         return_all_matrices=False,
         return_weighted_networks=False
     )
-    return (res[1], res[2], res[3], res[4])
+    return res[1]
 
 def test_optuna_objective_optimized_source_weights():
     get_network_files()
@@ -166,10 +165,10 @@ def test_optuna_objective_optimized_source_weights():
         damping_factor=0.789,
         evaluation_data=evaluation_data
     )
-    assert scores[0] > 0.9
-    assert scores[1] > 0.4
-    assert scores[2] > 0.9
-    assert scores[3] > 0.9
+    assert scores["target_prediction"]["auroc"] > 0.9
+    assert scores["target_prediction"]["aupr_corrected"] > 0.4
+    assert scores["ligand_prediction"]["auroc"]  > 0.9
+    assert scores["ligand_prediction"]["aupr_corrected"]  > 0.9
 
 def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     get_network_files()
@@ -227,7 +226,7 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
         damping_factor=0.789,
         evaluation_data=evaluation_data
     )
-    assert scores[0] > 0.9
-    assert scores[1] > 0.4
-    assert scores[2] > 0.9
-    assert scores[3] > 0.9
+    assert scores["target_prediction"]["auroc"] > 0.9
+    assert scores["target_prediction"]["aupr_corrected"] > 0.4
+    assert scores["ligand_prediction"]["auroc"]  > 0.9
+    assert scores["ligand_prediction"]["aupr_corrected"]  > 0.9
