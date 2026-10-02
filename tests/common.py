@@ -6,6 +6,8 @@ import anndata
 import os
 import requests
 import pickle
+import random
+import string
 
 
 root_path = os.path.normpath("./tests/data/tutorial_files")
@@ -171,3 +173,8 @@ def get_optimization_files():
             res = download(f"https://zenodo.org/records/15799578/files/{filename}")
             with open(file_path, "wb") as file:
                 file.write(res.content)
+
+_random_char_choices = string.ascii_lowercase + string.digits
+
+def random_string(n=6):
+    return ''.join(random.choices(_random_char_choices, k=random.randint(1, n)))

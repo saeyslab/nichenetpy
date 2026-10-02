@@ -15,18 +15,28 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from pickle import dumps
 from os import remove
 
+import numpy as np
+import random
+
 from common import (
-    get_model_pickle,
+    random_string,
     equals_iter
 )
 
 
-def test_io():
+def test_io(n=10):
     filename = "temp.bin"
-    model = get_model_pickle()
-    predictor_init : LigandActivityPredictor = model["predictor"]
-    lr_network_init : LigandReceptorNetwork = model["lr_network"]
-    lr_sig_init : WeightedNetwork = model["lr_sig"]
+    predictor_init = LigandActivityPredictor(
+        np.array(np.random.rand(n, n), order="F"),
+        [random_string() for _ in range(n)],
+        [random_string() for _ in range(n)]
+    )
+    lr_network_init = LigandReceptorNetwork(
+        mapping=sorted([(random_string(), random_string()) for _ in range(n)], key=lambda x : x[0])
+    )
+    lr_sig_init = WeightedNetwork(
+        mapping=sorted([(random_string(), random_string(), random.random()) for _ in range(n)], key=lambda x : x[0])
+    )
     write_ligand_target_matrix(
         filename,
         predictor_init,
