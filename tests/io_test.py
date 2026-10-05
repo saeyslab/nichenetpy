@@ -23,6 +23,8 @@ from common import (
     equals_iter
 )
 
+pickle_protocol = 4
+
 
 def test_io(n=10):
     filename = "temp.bin"
@@ -43,7 +45,7 @@ def test_io(n=10):
         column_major=True
     )
     predictor_wrt = LigandActivityPredictor(*read_ligand_target_matrix(filename, column_major=True))
-    assert dumps(predictor_init) == dumps(predictor_wrt)
+    assert dumps(predictor_init, protocol=pickle_protocol) == dumps(predictor_wrt, protocol=pickle_protocol)
     write_network(filename, lr_network_init._mapping)
     lr_network_wrt = LigandReceptorNetwork(filename=filename)
     assert equals_iter(lr_network_init._mapping, lr_network_wrt._mapping, err_bound=0, zero_bound=0)
