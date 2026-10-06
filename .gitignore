@@ -5,6 +5,7 @@ buck-out/
 temp/
 
 # Compiled files
+.venv
 .venv/
 uv.lock
 __pycache__/
