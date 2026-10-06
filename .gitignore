@@ -15,7 +15,7 @@ __pycache__/
 /dist/
 
 # Tests and coverage
-/data/
+tests/data/
 /node_modules/
 /.coverage*
 
