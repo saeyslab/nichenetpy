@@ -7,7 +7,6 @@ tests/data/tutorial_files/*
 Rscripts/*
 SeuratVSscanpy/*
 temp/*
-docs/*
 dist/*
 tests/data/TGFB1/*
 optimization/log
