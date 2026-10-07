@@ -50,7 +50,7 @@ def test_convert_alias_to_gene_human_2():
 def test_convert_alias_to_gene_human_3():
     template_gene_alias_info(human_alias_info, "DJS", ("ABCC2", 1244))
 
-def test_convert_alias_to_gene_human_3():
+def test_convert_alias_to_gene_human_4():
     template_gene_alias_info(human_alias_info, "PALMCOX", ("ACOX1", 51))
 
 def alias_to_symbol_template(input, exp, sort=False):
