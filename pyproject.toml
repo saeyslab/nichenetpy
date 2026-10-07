@@ -1,10 +1,3 @@
-[tool.hatch.envs.default]
-path = ".hatch"
-python = "3.14"
-
-[tool.hatch.version]
-path = "src/nichenetpy/__init__.py"
-
 [project]
 name = "nichenetpy"
 dynamic = ["version"]
@@ -47,10 +40,7 @@ dependencies = [
     "networkx>=3.4.2",
     "adjustText>=1.3.0"
 ]
-# https://docs.pypi.org/project_metadata/#project-urls
-urls.Documentation = "https://nichenetpy.readthedocs.io/"
-urls.Homepage = "https://github.com/scverse/nichenetpy"
-urls.Source = "https://github.com/scverse/nichenetpy"
+urls.source = "https://github.com/saeyslab/nichenetpy"
 
 [dependency-groups]
 dev = [
@@ -81,17 +71,10 @@ typecheck = [
   "pandas-stubs",
 ]
 
-[project.urls]
-"Source" = "https://github.com/saeyslab/nichenetpy"
-
-[tool.hatch.build.targets.sdist]
-packages = ["src/nichenetpy"]
-include = [
-  "src/nichenetpy/*.py"
-]
-
 [tool.hatch]
-build.targets.sdist.exclude = [ "/docs", "/tests" ]
+version.path = "src/nichenetpy/__init__.py"
+envs.default.path = ".hatch"
+envs.default.python = "3.14"
 envs.default.installer = "uv"
 envs.default.dependency-groups = [ "dev" ]
 envs.docs.scripts.build = "sphinx-build -M html docs docs/_build -W {args}"
@@ -124,6 +107,12 @@ envs.hatch-build.installer = "pip"
 packages = ["src/nichenetpy"]
 include = [
   "src/nichenetpy/*.py",
+]
+
+[tool.hatch.build.targets.sdist]
+packages = ["src/nichenetpy"]
+include = [
+  "src/nichenetpy/*.py"
 ]
 
 [tool.ruff]
