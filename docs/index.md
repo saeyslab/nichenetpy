@@ -2,10 +2,6 @@
 
 ```
 
-```{include} ../optimization
-
-```
-
 ```{toctree}
 :hidden: true
 :maxdepth: 1
