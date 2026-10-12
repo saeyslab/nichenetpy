@@ -165,9 +165,6 @@ addopts = [
 ]
 strict = true
 testpaths = [ "tests" ]
-ini_options.markers = [
-    "large_download",
-]
 
 [tool.coverage]
 run.source = [ "nichenetpy" ]
