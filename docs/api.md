@@ -3,117 +3,207 @@
 ## Main NicheNet Functionality
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: prediction
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.prediction
-    nichenetpy.network
-    nichenetpy.prioritization
-    nichenetpy.wrappers
-    nichenetpy.extraction
-    nichenetpy.gene_symbol
+    prediction
+```
+
+```{eval-rst}
+.. module:: network
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    network
+```
+
+```{eval-rst}
+.. module:: prioritization
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    prioritization
+```
+
+```{eval-rst}
+.. module:: wrappers
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    wrappers
+```
+
+```{eval-rst}
+.. module:: extraction
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    extraction
+```
+
+```{eval-rst}
+.. module:: gene_symbol
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    gene_symbol
 ```
 
 ## Utility Functions
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: utils
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.utils
-    nichenetpy.ann_utils
+    utils
+```
+
+```{eval-rst}
+.. module:: ann_utils
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    ann_utils
 ```
 
 ## Evaluation
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: evaluation
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.evaluation
-    nichenetpy.metrics
+    evaluation
+```
+
+```{eval-rst}
+.. module:: metrics
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+    
+    metrics
 ```
 
 ## Visualization
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: visualization
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.visualization
+    visualization
 ```
 
 ## Types and Exceptions
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: typing
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.typing
-    nichenetpy.exception
+    typing
+```
+
+```{eval-rst}
+.. module:: exception
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    exception
 ```
 
 ## Model Construction
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: model_construction
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.model_construction
-    nichenetpy.parameter_optimization
+    model_construction
+```
+
+```{eval-rst}
+.. module:: parameter_optimization
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    parameter_optimization
 ```
 
 ## Algorithms
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: graph
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.graph
-    nichenetpy.wilcoxon
+    graph
+```
+
+```{eval-rst}
+.. module:: wilcoxon
+.. currentmodule:: nichenetpy
+
+.. autosummary::
+    :toctree: generated
+
+    wilcoxon
 ```
 
 ## Normalization
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: normalization
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.normalization
+    normalization
 ```
 
 ## Input / Output
 
 ```{eval-rst}
-.. module:: nichenetpy
+.. module:: io
 .. currentmodule:: nichenetpy
 
 .. autosummary::
     :toctree: generated
 
-    nichenetpy.io
+    io
 ```

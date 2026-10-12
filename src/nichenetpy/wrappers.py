@@ -1178,9 +1178,9 @@ def generate_info_tables(
     -------
     dict
         dictionary containing the three dataframes:
-            "sender_receiver_de",
-            "sender_receiver_info",
-            "group_DE"
+        "sender_receiver_de",
+        "sender_receiver_info",
+        "group_DE"
     '''
     output = {
         "sender_receiver_de": process_table_to_ic(

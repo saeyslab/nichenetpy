@@ -2,11 +2,16 @@
 
 ```
 
+```{include} ../optimization
+
+```
+
 ```{toctree}
 :hidden: true
 :maxdepth: 1
 
 api.md
+faq.md
 changelog.md
 references.md
 

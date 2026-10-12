@@ -307,7 +307,7 @@ def gene_expression_pct(
 
     Parameters
     ----------
-    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         (#cells X #genes) matrix containing the expression values
     direction : 
 

@@ -186,7 +186,8 @@ skip = [
   "docs/changelog.md",
   "docs/references.bib",
   "docs/references.md",
-  "docs/notebooks/example.ipynb",
+  "docs/faq.md",
+  "docs/notebooks",
 ]
 
 [build-system]

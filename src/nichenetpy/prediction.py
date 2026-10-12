@@ -48,9 +48,9 @@ class LigandActivityPredictor:
     ----------
     ligand_target_matrix : numpy.ndarray
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : list of gene_t
+    row_names : list of nichenetpy.typing.gene_t
         list of names of the rows/genes
-    col_names : list of gene_t
+    col_names : list of nichenetpy.typing.gene_t
         list of names of the columns/ligands
     _ligand2index : dict
         mapping of ligand names to indices
@@ -443,7 +443,7 @@ class LigandActivityPredictor:
         -------
         dict
             dictionary which contains:
-                the input ligand, the target genes and the regulatory potential scores between the ligand and each target
+            the input ligand, the target genes and the regulatory potential scores between the ligand and each target
         
         Raises
         ------

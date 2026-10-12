@@ -374,9 +374,9 @@ def generate_prioritization_table(
 ):
     '''
     User can choose the importance attached to each of the following prioritization criteria:
-        differential expression of ligand and receptor,
-        cell-type specificity of expression of ligand and receptor,
-        NicheNet ligand activity
+    differential expression of ligand and receptor,
+    cell-type specificity of expression of ligand and receptor,
+    NicheNet ligand activity
 
     Parameters
     ----------
@@ -391,13 +391,13 @@ def generate_prioritization_table(
     prioritizing_weights : dict or None
         a dictionary indicating the relative weights of each prioritization criterion
         If provided, the dictionary must contain the following names:
-            "de_ligand",
-            "de_receptor",
-            "activity_scaled",
-            "exprs_ligand",
-            "exprs_receptor",
-            "ligand_condition_specificity",
-            "receptor_condition_specificity"
+        "de_ligand",
+        "de_receptor",
+        "activity_scaled",
+        "exprs_ligand",
+        "exprs_receptor",
+        "ligand_condition_specificity",
+        "receptor_condition_specificity"
     
     Returns
     -------
