@@ -1047,7 +1047,13 @@ def create_barcode_plot(
         pos += segment_height
     return (fig, ax)
 
-def gradient_image(ax, extent, direction=0.3, cmap_range=(0, 1), **kwargs):
+def gradient_image(
+    ax:Axes,
+    extent:tuple[float, float, float, float],
+    direction:float=0.3,
+    cmap_range:tuple[float, float]=(0, 1),
+    **kwargs
+):
     """
     Draw a gradient image based on a colormap.
 
