@@ -136,6 +136,10 @@ For a comparison between Seurat's FindAllMarkers (which is ported into nichenetp
 
 -   [Comparison: Seurat vs Scanpy](https://github.com/saeyslab/nichenetpy/blob/main/docs/notebooks/seuratVSscanpy.ipynb)
 
+## Documentation
+
+Documentation is available at [NicheNetPy docs](https://saeyslab.github.io/nichenetpy/nichenetpy.html)
+
 ## FAQ
 
 -   Check the FAQ pages at [FAQ NicheNetPy](https://github.com/saeyslab/nichenetpy/blob/main/docs/faq.md) and [FAQ Nichenet](https://github.com/saeyslab/nichenetr/blob/master/vignettes/faq.md)
