@@ -9,7 +9,7 @@ from nichenetpy.parameter_optimization import (
 )
 from nichenetpy.utils import (
     read_csv_rows,
-    read_csv_cols
+    read_network_file
 )
 from nichenetpy.evaluation import EvaluationData
 from nichenetpy.typing import gene_t
@@ -119,9 +119,9 @@ def test_optuna_objective_optimized_source_weights():
     get_network_files()
     source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
     source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
-    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
-    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
-    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
+    sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
+    gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
     get_optimization_files()
     with open(os.path.join(train_path, "settings_training_f1245.json"), "rb") as file:
         settings_CV = json.loads(file.read())
@@ -146,9 +146,9 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     get_network_files()
     source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
     source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
-    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
-    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
-    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
+    lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
+    sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
+    gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
     get_optimization_files()
     with open(os.path.join(train_path, "settings_training_f1245.json"), "rb") as file:
         settings_CV = json.loads(file.read())
