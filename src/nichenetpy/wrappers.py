@@ -1,72 +1,52 @@
-from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.network import (
-    LigandReceptorNetwork,
-    WeightedNetwork
-)
-from nichenetpy.utils import (
-    combine_by_key,
-    combine_dicts,
-    df_grouped_apply,
-    rank_genes_groups_to_dataframe
-)
-from nichenetpy.extraction import (
-    get_expressed_genes,
-    get_weighted_ligand_receptor_links,
-    get_lfc_celltype
-)
-from nichenetpy.visualization import (
-    prepare_ligand_target_visualization,
-    prepare_ligand_receptor_visualization,
-    heatmap_2d,
-    heatmap_1d
-)
-from nichenetpy.prioritization import (
-    calculate_de,
-    get_avg_exp,
-    process_table_to_ic,
-    generate_prioritization_table
-)
-from nichenetpy.metrics import group_metrics
-from nichenetpy.ann_utils import subset_ann
-from nichenetpy.normalization import scaling_modified_zscore
-from nichenetpy.typing import (
-    nichenet_matrix,
-    gene_t
-)
-
-from itertools import cycle, chain, repeat
-from collections.abc import Iterable, Callable
-from anndata import AnnData
-from pycirclize import Circos
-from matplotlib.patches import Patch
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-from scipy.stats import fisher_exact
+from collections.abc import Callable, Iterable
+from itertools import chain, cycle, repeat
 from numbers import Number
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import scanpy as sc
+from anndata import AnnData
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch
+from pycirclize import Circos
+from scipy.stats import fisher_exact
+
+from nichenetpy.ann_utils import subset_ann
+from nichenetpy.extraction import get_expressed_genes, get_lfc_celltype, get_weighted_ligand_receptor_links
+from nichenetpy.metrics import group_metrics
+from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
+from nichenetpy.normalization import scaling_modified_zscore
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
+from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
+from nichenetpy.visualization import (
+    heatmap_1d,
+    heatmap_2d,
+    prepare_ligand_receptor_visualization,
+    prepare_ligand_target_visualization,
+)
 
 
 def get_geneset_oi(
-    ann:AnnData,
-    receiver:str,
-    condition_col:str,
-    condition_oi:str,
-    layer:str="data",
-    max_pval_adj:float=0.05,
-    min_abs_lfc:float=0.25,
-    min_pct:float=0.05,
-    use_scanpy:bool=False,
-    scanpy_corr_method:str="benjamini-hochberg",
-    scanpy_tie_correct:bool=False,
-    celltype_col:str="celltype",
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    ann: AnnData,
+    receiver: str,
+    condition_col: str,
+    condition_oi: str,
+    layer: str = "data",
+    max_pval_adj: float = 0.05,
+    min_abs_lfc: float = 0.25,
+    min_pct: float = 0.05,
+    use_scanpy: bool = False,
+    scanpy_corr_method: str = "benjamini-hochberg",
+    scanpy_tie_correct: bool = False,
+    celltype_col: str = "celltype",
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
 ) -> set[str]:
-    '''
-    Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event. 
+    """
+    Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
 
     Parameters
     ----------
@@ -98,24 +78,19 @@ def get_geneset_oi(
         a denormalization function to apply prior to the calculation of the log fold changes
 
         only used with use_scanpy=False
-    
+
     Returns
     -------
     list
         the geneset of interest
-    
+
     Notes
     -----
     With use_scanpy=True, scanpy_corr_method="bonferroni" and scanpy_tie_correct=True
     only the log fold changes will be different compared to use_scanpy=False
-    '''
-    ann_receiver = subset_ann(
-        ann,
-        val=receiver,
-        layers=[layer],
-        val_col=celltype_col
-    )
-    if use_scanpy: # lfc will be different
+    """
+    ann_receiver = subset_ann(ann, val=receiver, layers=[layer], val_col=celltype_col)
+    if use_scanpy:  # lfc will be different
         sc.tl.rank_genes_groups(
             ann_receiver,
             groupby=condition_col,
@@ -123,13 +98,13 @@ def get_geneset_oi(
             pts=True,
             method="wilcoxon",
             corr_method=scanpy_corr_method,
-            tie_correct=scanpy_tie_correct
+            tie_correct=scanpy_tie_correct,
         )
         DE_table = rank_genes_groups_to_dataframe(ann_receiver, condition_col)
         DE_table = DE_table[
-            (DE_table["pval_adj"] <= max_pval_adj) &
-            (abs(DE_table["lfc"]) >= min_abs_lfc) &
-            (DE_table["pct"] >= min_pct)
+            (DE_table["pval_adj"] <= max_pval_adj)
+            & (abs(DE_table["lfc"]) >= min_abs_lfc)
+            & (DE_table["pct"] >= min_pct)
         ]
     else:
         group_metrics(
@@ -138,62 +113,57 @@ def get_geneset_oi(
             layer=layer,
             min_pct=min_pct,
             min_abs_lfc=min_abs_lfc,
-            lfc_denormalize=lfc_denormalize
+            lfc_denormalize=lfc_denormalize,
         )
         DE_table = ann_receiver.uns["group_metrics"]
-    return set(
-        DE_table[
-            (DE_table[condition_col] == condition_oi) &
-            (DE_table["pval_adj"] <= max_pval_adj)
-        ]["gene"]
-    )
+    return set(DE_table[(DE_table[condition_col] == condition_oi) & (DE_table["pval_adj"] <= max_pval_adj)]["gene"])
 
-def combine_weighted_ligand_target_links(active_ligand_target_links:Iterable[dict]) -> list[tuple[gene_t, gene_t, float]]:
-    '''
-    Combines weighted ligand-target links of different ligands. 
+
+def combine_weighted_ligand_target_links(
+    active_ligand_target_links: Iterable[dict],
+) -> list[tuple[gene_t, gene_t, float]]:
+    """
+    Combines weighted ligand-target links of different ligands.
 
     Parameters
     ----------
     active_ligand_target_links : list
         list of ligand-target links as returned by LigandActivityPredictor.get_weighted_ligand_target_links
-    
+
     Returns
     -------
     list
         list of (ligand, target, weight) tuples representing the combined ligand-target links
-    '''
-    return list(
-        chain(
-            *(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)
-        )
-    )
+    """
+    return list(chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)))
+
 
 def run_nichenet(
-    ann:AnnData,
-    predictor:LigandActivityPredictor,
-    lr_network:LigandReceptorNetwork,
-    receiver:str,
-    condition_col:str,
-    condition_oi:str,
-    condition_ref:str,
-    sender_celltypes:Iterable[str]|None=None,
-    layer:str="data",
-    celltype_col:str="celltype",
-    max_pval_adj:float=0.05,
-    min_abs_lfc:float=0.25,
-    expression_pct:float=0.1,
-    ligands_top_n:int=30,
-    targets_top_n:int=200,
-    lr_sig:WeightedNetwork|None=None,
-    get_ltl:bool=False,
-    get_lfc:bool=False,
-    get_prioritization_table:bool=False,
-    case_control:bool=True,
-    use_scanpy:bool=False,
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    ann: AnnData,
+    predictor: LigandActivityPredictor,
+    lr_network: LigandReceptorNetwork,
+    receiver: str,
+    condition_col: str,
+    condition_oi: str,
+    condition_ref: str,
+    sender_celltypes: Iterable[str] | None = None,
+    layer: str = "data",
+    celltype_col: str = "celltype",
+    max_pval_adj: float = 0.05,
+    min_abs_lfc: float = 0.25,
+    expression_pct: float = 0.1,
+    ligands_top_n: int = 30,
+    targets_top_n: int = 200,
+    lr_sig: WeightedNetwork | None = None,
+    get_ltl: bool = False,
+    get_lfc: bool = False,
+    get_prioritization_table: bool = False,
+    case_control: bool = True,
+    use_scanpy: bool = False,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
 ):
-    '''
-    Runs a standard nichenet analysis. 
+    """
+    Runs a standard nichenet analysis.
 
     Parameters
     ----------
@@ -242,7 +212,7 @@ def run_nichenet(
         if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
-    
+
     Returns
     -------
     dict
@@ -269,7 +239,7 @@ def run_nichenet(
                 Data frame of prioritized sender-ligand-receiver-receptor interactions
             geneset_oi : set of gene_t
                 the geneset of interest
-        
+
         and the following additional objects for the sender-focused approach:
 
             best_upstream_ligands_focused : list of gene_t
@@ -292,21 +262,15 @@ def run_nichenet(
         if get_prioritization_table is True, additionally
 
             prioritization_table : pandas.DataFrame
-    
+
     Raises
     ------
     ValueError
         if get_prioritization_table is True and sender_celltypes is not provided
-    '''
+    """
     output = dict()
     expressed_genes_receiver = set(
-        get_expressed_genes(
-            receiver,
-            ann,
-            pct=expression_pct,
-            celltype_col=celltype_col,
-            layer=layer
-        )
+        get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
     output["expressed_genes_receiver"] = expressed_genes_receiver
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
@@ -314,8 +278,7 @@ def run_nichenet(
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     output["background_expressed_genes"] = background_expressed_genes
     potential_ligands = set(
-        key for key, group in lr_network.item_iter()
-        if len(group.intersection(expressed_receptors)) > 0
+        key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0
     )
     geneset = get_geneset_oi(
         ann,
@@ -328,44 +291,32 @@ def run_nichenet(
         min_pct=expression_pct,
         use_scanpy=use_scanpy,
         celltype_col=celltype_col,
-        lfc_denormalize=lfc_denormalize
+        lfc_denormalize=lfc_denormalize,
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     ligand_activities = predictor.predict_ligand_activities(
-        geneset=geneset,
-        background_expressed_genes=background_expressed_genes,
-        potential_ligands=potential_ligands
+        geneset=geneset, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
     )
-    ligand_activities_sorted = sorted(
-        ligand_activities.items(),
-        key=lambda x : (-x[1]["aupr_corrected"], x[0])
-    )
+    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
     output["ligand_activities_sorted"] = ligand_activities_sorted
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
     output["best_upstream_ligands"] = best_upstream_ligands
     if get_ltl:
-        output["active_ligand_target_links"] = combine_weighted_ligand_target_links((
+        output["active_ligand_target_links"] = combine_weighted_ligand_target_links(
             predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
             for ligand in best_upstream_ligands
-        ))
+        )
     if lr_sig is not None:
         output["ligand_receptor_links"] = get_weighted_ligand_receptor_links(
-            best_upstream_ligands,
-            expressed_receptors,
-            lr_network,
-            lr_sig
+            best_upstream_ligands, expressed_receptors, lr_network, lr_sig
         )
     if sender_celltypes is not None:
         expressed_genes_sender = {
-            gene for ct in sender_celltypes for gene in get_expressed_genes(
-                ct,
-                ann,
-                pct=expression_pct,
-                celltype_col=celltype_col,
-                layer=layer
-            )
+            gene
+            for ct in sender_celltypes
+            for gene in get_expressed_genes(ct, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
         }
         expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
         output["expressed_ligands"] = expressed_ligands
@@ -374,30 +325,21 @@ def run_nichenet(
             (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
         )
         ligand_activities_sorted_focused = sorted(
-            ligand_activities_focused.items(),
-            key=lambda x : (-x[1]["aupr_corrected"], x[0])
+            ligand_activities_focused.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0])
         )
         output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
         output["best_upstream_ligands_focused"] = best_upstream_ligands_focused
         if get_ltl:
-            output["active_ligand_target_links_focused"] = combine_weighted_ligand_target_links((
+            output["active_ligand_target_links_focused"] = combine_weighted_ligand_target_links(
                 predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
                 for ligand in best_upstream_ligands_focused
-            ))
+            )
         if lr_sig is not None:
             output["ligand_receptor_links_focused"] = get_weighted_ligand_receptor_links(
-                best_upstream_ligands_focused,
-                expressed_receptors,
-                lr_network,
-                lr_sig
+                best_upstream_ligands_focused, expressed_receptors, lr_network, lr_sig
             )
-        ann_focused = subset_ann(
-            ann,
-            val=sender_celltypes,
-            layers=[layer],
-            val_col=celltype_col
-        )
+        ann_focused = subset_ann(ann, val=sender_celltypes, layers=[layer], val_col=celltype_col)
         ann_focused.X = ann_focused.layers[layer]
         output["ann_focused"] = ann_focused
         if get_lfc:
@@ -410,7 +352,7 @@ def run_nichenet(
                     condition_ref=condition_ref,
                     layer=layer,
                     celltype_col=celltype_col,
-                    features=best_upstream_ligands_focused
+                    features=best_upstream_ligands_focused,
                 )
                 for celltype in sender_celltypes
             ]
@@ -428,35 +370,36 @@ def run_nichenet(
             condition_oi,
             condition_ref,
             case_control,
-            use_scanpy=use_scanpy
+            use_scanpy=use_scanpy,
         )
         output["prioritization_table"] = generate_prioritization_table(
             info_tables["sender_receiver_info"],
             info_tables["sender_receiver_de"],
             ligand_activities_sorted,
-            info_tables["lr_condition_de"]
+            info_tables["lr_condition_de"],
         )
     return output
 
+
 def run_nichenet_cluster_de(
-    ann:AnnData,
-    predictor:LigandActivityPredictor,
-    lr_network:LigandReceptorNetwork,
-    receiver_affected:str,
-    receiver_reference:str,
-    sender_celltypes:Iterable[str]|None=None,
-    layer:str="data",
-    celltype_col:str="celltype",
-    max_pval_adj:float=0.05,
-    lfc_cutoff:float=0.25,
-    expression_pct:float=0.1,
-    ligands_top_n:int|None=30,
-    targets_top_n:int=200,
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1,
-    geneset:str="DE"
+    ann: AnnData,
+    predictor: LigandActivityPredictor,
+    lr_network: LigandReceptorNetwork,
+    receiver_affected: str,
+    receiver_reference: str,
+    sender_celltypes: Iterable[str] | None = None,
+    layer: str = "data",
+    celltype_col: str = "celltype",
+    max_pval_adj: float = 0.05,
+    lfc_cutoff: float = 0.25,
+    expression_pct: float = 0.1,
+    ligands_top_n: int | None = 30,
+    targets_top_n: int = 200,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
+    geneset: str = "DE",
 ):
-    '''
-    Runs a standard nichenet analysis. 
+    """
+    Runs a standard nichenet analysis.
 
     Parameters
     ----------
@@ -490,7 +433,7 @@ def run_nichenet_cluster_de(
         a denormalization function to apply prior to the calculation of the log fold changes
     geneset : str
         geneset Indicate whether to consider all DE genes between condition 1 and 2 ("DE"), or only genes upregulated in condition 1 ("up"), or only genes downregulad in condition 1 ("down").
-    
+
     Returns
     -------
     dict
@@ -515,53 +458,32 @@ def run_nichenet_cluster_de(
                 the background expressed genes
             geneset_oi : set of gene_t
                 the geneset of interest
-    
+
     Raises
     ------
     ValueError
         if geneset is not "DE", "up" or "down"
-    '''
+    """
     if type(geneset) is not str:
         raise TypeError(f"geneset should have type str, was {type(geneset)}")
     elif geneset not in ("DE", "up", "down"):
         raise ValueError(f"geneset should be 'DE', 'up' or 'down', was {geneset}")
     expressed_genes_receiver_ref = set(
-        get_expressed_genes(
-            receiver_reference,
-            ann,
-            pct=expression_pct,
-            celltype_col=celltype_col,
-            layer=layer
-        )
+        get_expressed_genes(receiver_reference, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
     expressed_genes_receiver_aff = set(
-        get_expressed_genes(
-            receiver_affected,
-            ann,
-            pct=expression_pct,
-            celltype_col=celltype_col,
-            layer=layer
-        )
+        get_expressed_genes(receiver_affected, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
     expressed_genes_receiver = expressed_genes_receiver_ref.union(expressed_genes_receiver_aff)
     if sender_celltypes is None:
         expressed_genes_sender = set(ann.var_names).union(predictor.row_names, predictor.col_names)
     else:
         expressed_genes_sender = {
-            gene for ct in sender_celltypes for gene in get_expressed_genes(
-                ct,
-                ann,
-                pct=expression_pct,
-                celltype_col=celltype_col,
-                layer=layer
-            )
+            gene
+            for ct in sender_celltypes
+            for gene in get_expressed_genes(ct, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
         }
-    ann_filtered = subset_ann(
-        ann,
-        val=(receiver_reference, receiver_affected),
-        layers=[layer],
-        val_col=celltype_col
-    )
+    ann_filtered = subset_ann(ann, val=(receiver_reference, receiver_affected), layers=[layer], val_col=celltype_col)
     if geneset == "DE":
         group_metrics(
             ann_filtered,
@@ -569,14 +491,10 @@ def run_nichenet_cluster_de(
             layer=layer,
             min_pct=expression_pct,
             min_abs_lfc=lfc_cutoff,
-            lfc_denormalize=lfc_denormalize
+            lfc_denormalize=lfc_denormalize,
         )
         DE_table = ann_filtered.uns["group_metrics"]
-        geneset_oi = set(
-            DE_table[
-                (DE_table["pval_adj"] <= max_pval_adj)
-            ]["gene"]
-        )
+        geneset_oi = set(DE_table[(DE_table["pval_adj"] <= max_pval_adj)]["gene"])
     else:
         group_metrics(
             ann_filtered,
@@ -584,13 +502,13 @@ def run_nichenet_cluster_de(
             layer=layer,
             min_pct=expression_pct,
             min_abs_lfc=0,
-            lfc_denormalize=lfc_denormalize
+            lfc_denormalize=lfc_denormalize,
         )
         DE_table = ann_filtered.uns["group_metrics"]
         geneset_oi = set(
             DE_table[
-                (DE_table["pval_adj"] <= max_pval_adj) &
-                ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= lfc_cutoff))
+                (DE_table["pval_adj"] <= max_pval_adj)
+                & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= lfc_cutoff))
             ]["gene"]
         )
     geneset_oi.intersection_update(predictor.row_names)
@@ -598,25 +516,20 @@ def run_nichenet_cluster_de(
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
     potential_ligands = set(
-        key for key, group in lr_network.item_iter()
+        key
+        for key, group in lr_network.item_iter()
         if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
     )
     ligand_activities_dct = predictor.predict_ligand_activities(
-        geneset=geneset_oi,
-        background_expressed_genes=background_expressed_genes,
-        potential_ligands=potential_ligands
+        geneset=geneset_oi, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
     )
-    ligand_activities = sorted(
-        ligand_activities_dct.items(),
-        key=lambda x : (-x[1]["aupr_corrected"], x[0])
-    )
+    ligand_activities = sorted(ligand_activities_dct.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
     best_upstream_ligands = [
         e[0] for e in (ligand_activities if ligands_top_n is None else ligand_activities[:ligands_top_n])
     ]
-    active_ligand_target_links = combine_weighted_ligand_target_links((
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n)
-        for ligand in best_upstream_ligands
-    ))
+    active_ligand_target_links = combine_weighted_ligand_target_links(
+        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n) for ligand in best_upstream_ligands
+    )
     return {
         "expressed_genes_receiver_ref": expressed_genes_receiver_ref,
         "expressed_genes_receiver_aff": expressed_genes_receiver_aff,
@@ -625,17 +538,18 @@ def run_nichenet_cluster_de(
         "background_expressed_genes": background_expressed_genes,
         "ligand_activities": ligand_activities_dct,
         "best_upstream_ligands": best_upstream_ligands,
-        "active_ligand_target_links": active_ligand_target_links
+        "active_ligand_target_links": active_ligand_target_links,
     }
 
+
 def create_ligand_activity_hist(
-    ligand_activities_sorted:Iterable[tuple],
-    xtitle:str="ligand activity",
-    ytitle:str="# ligands",
-    figsize:tuple[float, float]=(6, 6)
+    ligand_activities_sorted: Iterable[tuple],
+    xtitle: str = "ligand activity",
+    ytitle: str = "# ligands",
+    figsize: tuple[float, float] = (6, 6),
 ):
-    '''
-    Creates a ligand activity histogram. 
+    """
+    Creates a ligand activity histogram.
 
     Parameters
     ----------
@@ -654,7 +568,7 @@ def create_ligand_activity_hist(
         the figure
     Axes
         the axes
-    '''
+    """
     fig, ax = plt.subplots(figsize=figsize)
     vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
@@ -663,15 +577,16 @@ def create_ligand_activity_hist(
     plt.ylabel(ytitle)
     return (fig, ax)
 
+
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted:Iterable[tuple],
-    title:str="ligand activity",
-    cbar_label:str="AUPR",
-    cmap:str="YlOrRd",
-    figsize:tuple[float, float]=(6, 6)
+    ligand_activities_sorted: Iterable[tuple],
+    title: str = "ligand activity",
+    cbar_label: str = "AUPR",
+    cmap: str = "YlOrRd",
+    figsize: tuple[float, float] = (6, 6),
 ):
-    '''
-    Creates a ligand activity heatmap. 
+    """
+    Creates a ligand activity heatmap.
 
     Parameters
     ----------
@@ -685,14 +600,14 @@ def create_ligand_activity_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
-    
+
     Returns
     -------
     Figure
         the figure
     Axes
         the axes
-    '''
+    """
     ligands, metrics = zip(*ligand_activities_sorted)
     fig, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
@@ -700,22 +615,23 @@ def create_ligand_activity_heatmap(
         title=title,
         cbar_label=cbar_label,
         cmap=cmap,
-        figsize=figsize
+        figsize=figsize,
     )
     ax.invert_yaxis()
     return (fig, ax)
 
+
 def create_regulatory_potential_heatmap(
-    predictor:LigandActivityPredictor,
-    active_ligand_target_links:list[tuple[gene_t, gene_t, float]],
+    predictor: LigandActivityPredictor,
+    active_ligand_target_links: list[tuple[gene_t, gene_t, float]],
     xtitle="predicted target genes",
     ytitle="prioritized ligands",
     cbar_label="regulatory potential",
     cmap="Blues",
-    figsize:tuple[float, float]=(6, 6)
+    figsize: tuple[float, float] = (6, 6),
 ):
-    '''
-    Creates a regulatory potential heatmap. 
+    """
+    Creates a regulatory potential heatmap.
 
     Parameters
     ----------
@@ -733,18 +649,16 @@ def create_regulatory_potential_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
-    
+
     Returns
     -------
     Figure
         the figure
     Axes
         the axes
-    '''
+    """
     ligand_target_vis, targets, ligands = prepare_ligand_target_visualization(
-        predictor,
-        active_ligand_target_links,
-        cutoff=0.33
+        predictor, active_ligand_target_links, cutoff=0.33
     )
     return heatmap_2d(
         ligand_target_vis.transpose(),
@@ -754,19 +668,20 @@ def create_regulatory_potential_heatmap(
         ytitle=ytitle,
         cbar_label=cbar_label,
         cmap=cmap,
-        figsize=figsize
+        figsize=figsize,
     )
 
+
 def create_prior_interaction_potential_heatmap(
-    ligand_receptor_links:WeightedNetwork,
+    ligand_receptor_links: WeightedNetwork,
     xtitle="receptors",
     ytitle="ligands",
     cbar_label="prior interaction potential",
     cmap="Oranges",
-    figsize:tuple[float, float]=(6, 6)
+    figsize: tuple[float, float] = (6, 6),
 ):
-    '''
-    Creates a prior interaction potential heatmap. 
+    """
+    Creates a prior interaction potential heatmap.
 
     Parameters
     ----------
@@ -782,14 +697,14 @@ def create_prior_interaction_potential_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
-    
+
     Returns
     -------
     Figure
         the figure
     Axes
         the axes
-    '''
+    """
     mat, ligands, receptors = prepare_ligand_receptor_visualization(ligand_receptor_links)
     return heatmap_2d(
         mat,
@@ -799,21 +714,22 @@ def create_prior_interaction_potential_heatmap(
         ytitle=ytitle,
         cbar_label=cbar_label,
         cmap=cmap,
-        figsize=figsize
+        figsize=figsize,
     )
 
+
 def create_lfc_heatmap(
-    sender_celltypes:list[str],
-    ligand_activities:dict[gene_t, dict[str, float]],
-    lfcs:list[tuple[list[gene_t], list[float]]],
+    sender_celltypes: list[str],
+    ligand_activities: dict[gene_t, dict[str, float]],
+    lfcs: list[tuple[list[gene_t], list[float]]],
     xtitle="cell types",
     ytitle="prioritized ligands",
     cbar_label="LFC",
     cmap="seismic",
-    figsize:tuple[float, float]=(6, 6)
+    figsize: tuple[float, float] = (6, 6),
 ):
-    '''
-    Creates an LFC heatmap. 
+    """
+    Creates an LFC heatmap.
 
     Parameters
     ----------
@@ -833,25 +749,24 @@ def create_lfc_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
-    
+
     Returns
     -------
     Figure
         the figure
     Axes
         the axes
-    '''
+    """
     lfcs = combine_by_key(*lfcs)
     # sort by ligand activity
-    ligands, vals = zip(*(
-        (ligand, metrics_vals[1])
-        for ligand, metrics_vals in
-        sorted(
-            combine_dicts(ligand_activities, lfcs).items(),
-            key=lambda x : x[1][0]["aupr_corrected"],
-            reverse=True
+    ligands, vals = zip(
+        *(
+            (ligand, metrics_vals[1])
+            for ligand, metrics_vals in sorted(
+                combine_dicts(ligand_activities, lfcs).items(), key=lambda x: x[1][0]["aupr_corrected"], reverse=True
+            )
         )
-    ))
+    )
     fig, ax = heatmap_2d(
         np.vstack(vals),
         xlabels=sender_celltypes,
@@ -862,52 +777,47 @@ def create_lfc_heatmap(
         cbar_position="right",
         cbar_orientation="vertical",
         cmap=cmap,
-        figsize=figsize
+        figsize=figsize,
     )
     ax.invert_yaxis()
     ax.xaxis.tick_top()
-    ax.xaxis.set_label_position('top') 
+    ax.xaxis.set_label_position("top")
     return (fig, ax)
 
+
 def _create_circos_plot(
-    circos_links:Iterable[tuple[tuple[str, str], tuple[str, str]]],
-    colors:dict[gene_t, str],
-    inter_space:float=5,
-    intra_space:float=1,
-    opacity:Iterable[float]|None=None,
-    separate_sender_receiver:bool=True,
-    sender_receiver_space:float=0
+    circos_links: Iterable[tuple[tuple[str, str], tuple[str, str]]],
+    colors: dict[gene_t, str],
+    inter_space: float = 5,
+    intra_space: float = 1,
+    opacity: Iterable[float] | None = None,
+    separate_sender_receiver: bool = True,
+    sender_receiver_space: float = 0,
 ) -> tuple[Axes, Figure]:
     link_count_in = dict()
     link_count_out = dict()
     links = []
-    if not type(circos_links) is list or type(circos_links) is tuple:
+    if type(circos_links) is not list or type(circos_links) is tuple:
         circos_links = tuple(circos_links)
     max_weight = 1 if opacity is None else max(opacity)
     # define unique identifiers for each rectangle and create a list of links between rectangles
     # the opacity and start/end positions of the links are also specified
-    for link in (circos_links if opacity is None else zip(circos_links, opacity)):
+    for link in circos_links if opacity is None else zip(circos_links, opacity):
         sender, receiver = link if opacity is None else link[0]
         weight = 1 if opacity is None else link[1]
         sender_group, sender = sender
         receiver_group, receiver = receiver
-        key_out = f"{"send_" if separate_sender_receiver else ""}{sender_group}_{sender}"
+        key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"
         if key_out in link_count_out:
             link_count_out[key_out] += 1
         else:
             link_count_out[key_out] = 1
-        key_in = f"{"rec_" if separate_sender_receiver else ""}{receiver_group}_{receiver}"
+        key_in = f"{'rec_' if separate_sender_receiver else ''}{receiver_group}_{receiver}"
         if key_in in link_count_in:
             link_count_in[key_in] += 1
         else:
             link_count_in[key_in] = 1
-        links.append((
-            key_out,
-            key_in,
-            weight/max_weight,
-            link_count_out[key_out],
-            link_count_in[key_in]
-        ))
+        links.append((key_out, key_in, weight / max_weight, link_count_out[key_out], link_count_in[key_in]))
     groups = dict()
     group_sizes = dict()
     # group the rectangles into sectors and keep track of the size of each group
@@ -928,19 +838,22 @@ def _create_circos_plot(
     # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
     rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
     if separate_sender_receiver:
-        group_sizes = dict(sorted(group_sizes.items(), key=lambda x : x[0]))
+        group_sizes = dict(sorted(group_sizes.items(), key=lambda x: x[0]))
         if sender_receiver_space > 0:
             keys = list(group_sizes.keys())
             for i in (0, rec_sector_count - 1):
                 group_sizes[keys[i]] += sender_receiver_space
     circos = Circos(
         sectors=group_sizes,
-        space=(inter_space * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space)))
+        space=(
+            inter_space
+            * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space))
+        ),
     )
     link_count = dict(chain(link_count_in.items(), link_count_out.items()))
     rects = dict()
     # create a track for each sector and add the rectangles
-    start = (sender_receiver_space if separate_sender_receiver else 0)
+    start = sender_receiver_space if separate_sender_receiver else 0
     for i, sector in enumerate(circos.sectors):
         group = sector.name
         sub_rects = dict()
@@ -948,18 +861,10 @@ def _create_circos_plot(
         track = sector.add_track((95, 100))
         for elem in groups[group]:
             end = start + link_count[f"{group}_{elem}"]
-            track.rect(
-                start,
-                end,
-                fc=colors[group.split("_")[1] if separate_sender_receiver else group]
-            )
+            track.rect(start, end, fc=colors[group.split("_")[1] if separate_sender_receiver else group])
             sub_rects[elem] = start
             track.text(
-                elem,
-                (end + start) / 2,
-                r=track.r_center + track.r_size + len(elem) + 4,
-                size=6,
-                orientation="vertical"
+                elem, (end + start) / 2, r=track.r_center + track.r_size + len(elem) + 4, size=6, orientation="vertical"
             )
             start = end + intra_space
         start = 0
@@ -974,46 +879,40 @@ def _create_circos_plot(
             sender_group, sender = sender.split("_")
             receiver_group, receiver_gene = receiver.split("_")
         circos.link(
-            (
-                sender_group,
-                rects[sender_group][sender] + send_pos - 1,
-                rects[sender_group][sender] + send_pos
-            ),
+            (sender_group, rects[sender_group][sender] + send_pos - 1, rects[sender_group][sender] + send_pos),
             (
                 receiver_group,
                 rects[receiver_group][receiver_gene] + rec_pos - 1,
-                rects[receiver_group][receiver_gene] + rec_pos
+                rects[receiver_group][receiver_gene] + rec_pos,
             ),
             direction=1,
             color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
-            alpha=weight
+            alpha=weight,
         )
     # add a legend to the plot
     fig = circos.plotfig()
     circos.ax.legend(
-        handles=[
-            Patch(color=color, label=celltype)
-            for celltype, color in colors.items()
-        ],
+        handles=[Patch(color=color, label=celltype) for celltype, color in colors.items()],
         bbox_to_anchor=(0, 1.1),
         loc="right",
         ncols=1,
     )
     return (circos.ax, fig)
 
+
 def create_ligand_receptor_links_prioritization_circos_plot(
-    senders:Iterable[str],
-    receivers:Iterable[str],
-    ligands:Iterable[gene_t],
-    receptors:Iterable[gene_t],
-    colors:dict[gene_t, str],
-    inter_space:float=5,
-    intra_space:float=1,
-    opacity:Iterable[float]|None=None,
-    sender_receiver_space:float=0
+    senders: Iterable[str],
+    receivers: Iterable[str],
+    ligands: Iterable[gene_t],
+    receptors: Iterable[gene_t],
+    colors: dict[gene_t, str],
+    inter_space: float = 5,
+    intra_space: float = 1,
+    opacity: Iterable[float] | None = None,
+    sender_receiver_space: float = 0,
 ) -> tuple[Axes, Figure]:
-    '''
-    Creates a circos plot showing the links between ligands and receptors. 
+    """
+    Creates a circos plot showing the links between ligands and receptors.
 
     Parameters
     ----------
@@ -1037,17 +936,17 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the opacity of each link
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
-    
+
     Returns
     -------
     matplotlib.Figure
         the plotted figure
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if not isinstance(senders, Iterable):
         raise TypeError(f"senders should have type Iterable[str], was {type(senders)}")
     if not isinstance(receivers, Iterable):
@@ -1070,20 +969,21 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         inter_space=inter_space,
         intra_space=intra_space,
         opacity=opacity,
-        sender_receiver_space=sender_receiver_space
+        sender_receiver_space=sender_receiver_space,
     )
 
+
 def create_ligand_links_circos_plot(
-    circos_links:pd.DataFrame,
-    colors:dict[gene_t, str],
-    dest_name:str,
-    inter_space:float=5,
-    intra_space:float=1,
-    opacity:Iterable[float]|None=None,
-    sender_receiver_space:float=0
+    circos_links: pd.DataFrame,
+    colors: dict[gene_t, str],
+    dest_name: str,
+    inter_space: float = 5,
+    intra_space: float = 1,
+    opacity: Iterable[float] | None = None,
+    sender_receiver_space: float = 0,
 ) -> tuple[Axes, Figure]:
-    '''
-    Creates a circos plot showing the links between ligands and targets. 
+    """
+    Creates a circos plot showing the links between ligands and targets.
 
     Parameters
     ----------
@@ -1101,17 +1001,17 @@ def create_ligand_links_circos_plot(
         the opacity of each link
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
-    
+
     Returns
     -------
     matplotlib.Figure
         the plotted figure
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(circos_links) is not pd.DataFrame:
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
     if type(colors) is not dict:
@@ -1127,29 +1027,30 @@ def create_ligand_links_circos_plot(
     return _create_circos_plot(
         zip(
             zip(circos_links["ligand_type"].tolist(), circos_links["ligand"].tolist()),
-            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name].tolist())
+            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name].tolist()),
         ),
         colors,
         inter_space,
         intra_space,
         opacity=opacity,
-        sender_receiver_space=sender_receiver_space
+        sender_receiver_space=sender_receiver_space,
     )
 
+
 def generate_info_tables(
-    ann:AnnData,
-    celltype_col:str,
-    senders_oi:list[str],
-    receivers_oi:list[str],
-    lr_network_filtered:LigandReceptorNetwork,
-    condition_col:str,
-    condition_oi:str,
-    condition_ref:str,
-    case_control:bool=False,
-    use_scanpy:bool=False
+    ann: AnnData,
+    celltype_col: str,
+    senders_oi: list[str],
+    receivers_oi: list[str],
+    lr_network_filtered: LigandReceptorNetwork,
+    condition_col: str,
+    condition_oi: str,
+    condition_ref: str,
+    case_control: bool = False,
+    use_scanpy: bool = False,
 ) -> dict[str, pd.DataFrame]:
-    '''
-    Calculate differential expression, average expression, and condition specificity of ligands and receptors. 
+    """
+    Calculate differential expression, average expression, and condition specificity of ligands and receptors.
 
     Parameters
     ----------
@@ -1173,7 +1074,7 @@ def generate_info_tables(
         if True, calculate condition specificity, else only calculate cell type specificity
     use_scanpy : bool
         if true, use scanpy.rank_genes_groups to compute the metrics
-    
+
     Returns
     -------
     dict
@@ -1181,7 +1082,7 @@ def generate_info_tables(
         "sender_receiver_de",
         "sender_receiver_info",
         "group_DE"
-    '''
+    """
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
@@ -1190,51 +1091,39 @@ def generate_info_tables(
                 condition_oi,
                 condition_col,
                 features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors()),
-                use_scanpy=use_scanpy
+                use_scanpy=use_scanpy,
             ),
             "celltype_DE",
             lr_network_filtered,
             senders_oi,
             receivers_oi,
-            celltype_col=celltype_col
+            celltype_col=celltype_col,
         ),
         "sender_receiver_info": process_table_to_ic(
-            get_avg_exp(
-                ann,
-                celltype_col,
-                condition_oi,
-                condition_col
-            ),
+            get_avg_exp(ann, celltype_col, condition_oi, condition_col),
             "expression",
             lr_network_filtered,
-            celltype_col=celltype_col
-        )
+            celltype_col=celltype_col,
+        ),
     }
     if case_control:
-        group_metrics(
-            ann,
-            groupby=condition_col,
-            group_oi=condition_oi,
-            group_ref=condition_ref
-        )
+        group_metrics(ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref)
         res = ann.uns["group_metrics"]
         output["lr_condition_de"] = process_table_to_ic(
-            res[["gene", "lfc", "pval", "pval_adj"]],
-            "group_DE",
-            lr_network_filtered,
-            celltype_col=celltype_col
+            res[["gene", "lfc", "pval", "pval_adj"]], "group_DE", lr_network_filtered, celltype_col=celltype_col
         )
     return output
 
+
 def infer_supporting_datasources(
-    tf_signaling:pd.DataFrame,
-    tf_regulatory:pd.DataFrame,
-    lr_network:pd.DataFrame,
-    sig_network:pd.DataFrame,
-    gr_network:pd.DataFrame
+    tf_signaling: pd.DataFrame,
+    tf_regulatory: pd.DataFrame,
+    lr_network: pd.DataFrame,
+    sig_network: pd.DataFrame,
+    gr_network: pd.DataFrame,
 ):
-    '''
-    Get the data sources that support the specific interactions in the extracted ligand-target signaling subnetwork. 
+    """
+    Get the data sources that support the specific interactions in the extracted ligand-target signaling subnetwork.
 
     Parameters
     ----------
@@ -1260,7 +1149,7 @@ def infer_supporting_datasources(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(tf_signaling) is not pd.DataFrame:
         raise TypeError(f"tf_signaling should have type pandas.DataFrame, was {type(tf_signaling)}")
     if type(tf_regulatory) is not pd.DataFrame:
@@ -1277,16 +1166,13 @@ def infer_supporting_datasources(
     regulatory_filtered = tf_regulatory[["from", "to"]]
     regulatory_filtered = regulatory_filtered.merge(gr_network, on=("from", "to"), how="inner")
     regulatory_filtered["layer"] = "regulatory"
-    return pd.concat((
-        regulatory_filtered,
-        signaling_filtered
-    ))
+    return pd.concat((regulatory_filtered, signaling_filtered))
+
 
 def calculate_fraction_top_predicted(
-    affected_gene_predictions:pd.DataFrame,
-    quantile_cutoff:float=0.95
+    affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95
 ) -> pd.DataFrame:
-    '''
+    """
     Determine the fraction of genes belonging to the geneset or background to the top-predicted genes.
 
     Parameters
@@ -1308,30 +1194,38 @@ def calculate_fraction_top_predicted(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(affected_gene_predictions) is not pd.DataFrame:
-        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+        raise TypeError(
+            f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}"
+        )
     if not isinstance(quantile_cutoff, Number):
         raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
-    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
-        prediction >= np.quantile(prediction, quantile_cutoff)
-    ].groupby("response").count()
+    predicted_positive = (
+        affected_gene_predictions[["response", "prediction"]]
+        .rename(columns={"prediction": "positive_prediction"})[prediction >= np.quantile(prediction, quantile_cutoff)]
+        .groupby("response")
+        .count()
+    )
     predicted_positive.index.name = "true_target"
     predicted_positive.reset_index(inplace=True)
-    all = affected_gene_predictions[["response", "prediction"]].rename(
-        columns={"response": "true_target", "prediction": "n"}
-    ).groupby("true_target").count()
+    all = (
+        affected_gene_predictions[["response", "prediction"]]
+        .rename(columns={"response": "true_target", "prediction": "n"})
+        .groupby("true_target")
+        .count()
+    )
     all.reset_index(inplace=True)
     all = all.merge(predicted_positive, on="true_target", how="inner")
-    all["fraction_positive_predicted"] = all["positive_prediction"]/all["n"]
+    all["fraction_positive_predicted"] = all["positive_prediction"] / all["n"]
     return all
 
+
 def calculate_fraction_top_predicted_fisher(
-    affected_gene_predictions:pd.DataFrame,
-    quantile_cutoff:float=0.95
+    affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95
 ) -> object:
-    '''
+    """
     Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
     of the top-predicted targets.
 
@@ -1352,17 +1246,27 @@ def calculate_fraction_top_predicted_fisher(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(affected_gene_predictions) is not pd.DataFrame:
-        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+        raise TypeError(
+            f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}"
+        )
     if not isinstance(quantile_cutoff, Number):
         raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
-    predicted_positive = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "positive_prediction"})[
-        prediction >= np.quantile(prediction, quantile_cutoff)
-    ].groupby("response").count()
+    predicted_positive = (
+        affected_gene_predictions[["response", "prediction"]]
+        .rename(columns={"prediction": "positive_prediction"})[prediction >= np.quantile(prediction, quantile_cutoff)]
+        .groupby("response")
+        .count()
+    )
     predicted_positive.reset_index(inplace=True)
-    all = affected_gene_predictions[["response", "prediction"]].rename(columns={"prediction": "n"}).groupby("response").count()
+    all = (
+        affected_gene_predictions[["response", "prediction"]]
+        .rename(columns={"prediction": "n"})
+        .groupby("response")
+        .count()
+    )
     all.reset_index(inplace=True)
     df = all.merge(predicted_positive, on="response", how="left")
     df["positive_prediction"] = np.nan_to_num(df["positive_prediction"])
@@ -1374,11 +1278,9 @@ def calculate_fraction_top_predicted_fisher(
     tn = false_res["n"].iloc[0] - false_res["positive_prediction"].iloc[0]
     return fisher_exact(np.array([[tp, fp], [fn, tn]]), alternative="greater")
 
-def get_top_predicted_genes(
-    affected_gene_predictions:pd.DataFrame,
-    quantile_cutoff:float=0.95
-) -> pd.DataFrame:
-    '''
+
+def get_top_predicted_genes(affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95) -> pd.DataFrame:
+    """
     Find which genes were among the top-predicted targets genes in a specific cross-validation round and see whether these
     genes belong to the gene set of interest as well.
 
@@ -1400,19 +1302,22 @@ def get_top_predicted_genes(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(affected_gene_predictions) is not pd.DataFrame:
-        raise TypeError(f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}")
+        raise TypeError(
+            f"affected_gene_predictions should have type pandas.DataFrame, was {type(affected_gene_predictions)}"
+        )
     if not isinstance(quantile_cutoff, Number):
         raise TypeError(f"quantile_cutoff should have type float, was {type(quantile_cutoff)}")
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions.copy()
-    predicted_positive["predicted_top_target"] = (prediction >= np.quantile(prediction, quantile_cutoff))
+    predicted_positive["predicted_top_target"] = prediction >= np.quantile(prediction, quantile_cutoff)
     predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
     return predicted_positive[["gene", "true_target", "predicted_top_target"]]
 
-def normalize_single_cell_ligand_activities(ligand_activities:pd.DataFrame) -> pd.DataFrame:
-    '''
+
+def normalize_single_cell_ligand_activities(ligand_activities: pd.DataFrame) -> pd.DataFrame:
+    """
     Normalize single-cell ligand activities to make ligand activities over different cells comparable.
 
     Parameters
@@ -1425,18 +1330,18 @@ def normalize_single_cell_ligand_activities(ligand_activities:pd.DataFrame) -> p
     pandas.DataFrame
         A dataframe giving the normalized ligand activity scores for single cells.
         Following columns in the tibble: cell, ligand, pearson, which is the normalized ligand activity value.
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(ligand_activities) is not pd.DataFrame:
         raise TypeError(f"ligand_activities should have type pandas.DataFrame, was {type(ligand_activities)}")
     single_ligand_activities_aupr_norm = df_grouped_apply(
         ligand_activities[["cell", "ligand", "aupr"]],
         groupby="cell",
-        func=lambda x : scaling_modified_zscore(np.array(x["aupr"])),
-        dest="aupr"
+        func=lambda x: scaling_modified_zscore(np.array(x["aupr"])),
+        dest="aupr",
     )
     return single_ligand_activities_aupr_norm.pivot(index="cell", columns="ligand", values="aupr")

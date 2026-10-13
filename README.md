@@ -90,7 +90,7 @@ feature can be found in the introductory notebooks.
 
 ## Learning to use nichenetpy
 
-A very basic tutorial for people who are unfamiliar with python can be found here. 
+A very basic tutorial for people who are unfamiliar with python can be found here.
 
 -   [Basic Tutorial](https://github.com/saeyslab/nichenetpy/blob/main/docs/notebooks/basic_tutorial.ipynb)
 
@@ -98,7 +98,7 @@ The following notebooks contain the explanation on how to perform a
 basic NicheNet analysis on an AnnData object. This includes prioritizing
 ligands and predicting target genes of prioritized ligands. We recommend
 starting with the step-by-step analysis, but we also demonstrate the use
-of a single wrapper function. 
+of a single wrapper function.
 
 -   [Perform NicheNet analysis starting from an AnnData object: step-by-step analysis](https://github.com/saeyslab/nichenetpy/blob/main/docs/notebooks/steps.ipynb)
 -   [Perform NicheNet analysis starting from an AnnData object: wrapper](https://github.com/saeyslab/nichenetpy/blob/main/docs/notebooks/wrapper.ipynb)
@@ -153,4 +153,3 @@ Macrophage Niche. Immunity (2019) <doi:10.1016/j.immuni.2019.08.017>
 Guilliams et al. Spatial proteogenomics reveals distinct and
 evolutionarily conserved hepatic macrophage niches. Cell (2022)
 <doi:10.1016/j.cell.2021.12.018>
-

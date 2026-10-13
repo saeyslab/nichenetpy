@@ -1,27 +1,16 @@
-'''
-Here we test the LigandActivityPredictor class. 
-'''
-
-from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.utils import (
-    read_matrix_from_csv,
-    read_list_from_csv,
-    read_csv_cols,
-    ligand_activities_df
-)
-from nichenetpy.network import (
-    LigandReceptorNetwork
-)
+"""
+Here we test the LigandActivityPredictor class.
+"""
 
 import os
-import requests
+
 import pandas as pd
+import requests
+from common import equals_iter, get_model_pickle
 
-from common import (
-    get_model_pickle,
-    equals_iter
-)
-
+from nichenetpy.network import LigandReceptorNetwork
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.utils import ligand_activities_df, read_csv_cols, read_list_from_csv, read_matrix_from_csv
 
 FIBRO_top_10_ligand_activities = [
     ("TGFB1", 0.7053512, 0.4250502, 0.24693812, 0.35939569),
@@ -33,7 +22,7 @@ FIBRO_top_10_ligand_activities = [
     ("FGF1", 0.6210493, 0.2925995, 0.11448738, 0.16029547),
     ("NOG", 0.6375389, 0.2918207, 0.11370866, 0.18599441),
     ("BDNF", 0.6195013, 0.2897681, 0.11165606, 0.17457172),
-    ("FGF2", 0.6115726, 0.2887976, 0.11068553, 0.17116988)
+    ("FGF2", 0.6115726, 0.2887976, 0.11068553, 0.17116988),
 ]
 
 H1HESC_top_10_ligand_activities = [
@@ -46,7 +35,7 @@ H1HESC_top_10_ligand_activities = [
     ("LRIG2", 0.5435611, 0.006134705, 1.624691e-03, 1.411201e-02),
     ("SLITRK1", 0.5742214, 0.005667876, 1.157862e-03, 1.547085e-02),
     ("BDNF", 0.4823916, 0.005578658, 1.068644e-03, 4.616971e-03),
-    ("BMP7", 0.5099153, 0.005508112, 9.980982e-04, 2.545053e-02)
+    ("BMP7", 0.5099153, 0.005508112, 9.980982e-04, 2.545053e-02),
 ]
 
 HSC_top_10_ligand_activities = [
@@ -59,7 +48,7 @@ HSC_top_10_ligand_activities = [
     ("GDF5", 0.6359335, 0.2473969, 0.11819915, 0.16990932),
     ("FGF7", 0.6335544, 0.2467590, 0.11756128, 0.17172997),
     ("IGF2", 0.6345342, 0.2460899, 0.11689218, 0.16745465),
-    ("NOG", 0.6544142, 0.2420827, 0.11288496, 0.18578765)
+    ("NOG", 0.6544142, 0.2420827, 0.11288496, 0.18578765),
 ]
 
 PC_PANC1_top_10_ligand_activities = [
@@ -72,7 +61,7 @@ PC_PANC1_top_10_ligand_activities = [
     ("COL5A1", 0.6439879, 0.06032205, 0.03685367, 0.08727523),
     ("FGF2", 0.6459635, 0.06021913, 0.03675075, 0.11575300),
     ("ZDHHC5", 0.6856707, 0.05898545, 0.03551708, 0.10398222),
-    ("SLC6A8", 0.6532393, 0.05890604, 0.03543766, 0.10442897)
+    ("SLC6A8", 0.6532393, 0.05890604, 0.03543766, 0.10442897),
 ]
 
 PROST_FIB_top_10_ligand_activities = [
@@ -85,7 +74,7 @@ PROST_FIB_top_10_ligand_activities = [
     ("FGF1", 0.6714325, 0.1514308, 0.08478590, 0.14998648),
     ("PDGFD", 0.6409933, 0.1467668, 0.08012184, 0.17795645),
     ("BMP4", 0.6648839, 0.1455312, 0.07888625, 0.14922262),
-    ("IGF2", 0.6639373, 0.1430035, 0.07635853, 0.14689385)
+    ("IGF2", 0.6639373, 0.1430035, 0.07635853, 0.14689385),
 ]
 
 root = os.path.dirname(__file__)
@@ -98,7 +87,7 @@ for filename in (
     "TGFB1_24_H_H1HESC_GSE247021.csv",
     "TGFB1_48_H_HSC_GSE151251.csv",
     "TGFB1_72_H_PC_PANC1_GSE88757.csv",
-    "TGFB1_72_H_PROST_FIB_GSE205378.csv"
+    "TGFB1_72_H_PROST_FIB_GSE205378.csv",
 ):
     file_path = os.path.join(data_path, filename)
     if not os.path.exists(file_path):
@@ -106,7 +95,8 @@ for filename in (
         with open(file_path, "wb") as file:
             file.write(res.content)
 
-def process_expected_output(cols:dict[str, list[str]]) -> dict[str, dict[str, float]]:
+
+def process_expected_output(cols: dict[str, list[str]]) -> dict[str, dict[str, float]]:
     return dict(
         zip(
             cols["test_ligand"],
@@ -115,130 +105,150 @@ def process_expected_output(cols:dict[str, list[str]]) -> dict[str, dict[str, fl
                 [float(e) for e in cols["aupr"]],
                 [float(e) for e in cols["aupr_corrected"]],
                 [float(e) for e in cols["pearson"]],
-                [float(e) for e in cols["rank"]]
-            )
+                [float(e) for e in cols["rank"]],
+            ),
         )
     )
 
+
 def template_predict_ligand_activities(test_id):
-    predictor = LigandActivityPredictor(*read_matrix_from_csv(os.path.join(root, f"data/predictor/{test_id}/ligand_target_matrix.csv")))
+    predictor = LigandActivityPredictor(
+        *read_matrix_from_csv(os.path.join(root, f"data/predictor/{test_id}/ligand_target_matrix.csv"))
+    )
     geneset = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/geneset_oi.csv"))
-    background_expressed_genes = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/background_expressed_genes.csv"))
+    background_expressed_genes = read_list_from_csv(
+        os.path.join(root, f"data/predictor/{test_id}/background_expressed_genes.csv")
+    )
     potential_ligands = read_list_from_csv(os.path.join(root, f"data/predictor/{test_id}/potential_ligands.csv"))
     expected_output = process_expected_output(read_csv_cols(os.path.join(root, f"data/predictor/{test_id}/output.csv")))
-    ligand_activities = predictor.predict_ligand_activities(
-        geneset,
-        background_expressed_genes,
-        potential_ligands
-    )
+    ligand_activities = predictor.predict_ligand_activities(geneset, background_expressed_genes, potential_ligands)
     assert len(ligand_activities) == len(expected_output), (
-        f"expected {len(expected_output)} ligands, got {len(ligand_activities)}")
+        f"expected {len(expected_output)} ligands, got {len(ligand_activities)}"
+    )
     for ligand, values in expected_output.items():
         assert ligand in ligand_activities, f"the expected ligand {ligand} is missing in the output"
         assert abs(ligand_activities[ligand]["aupr"] - values[1]) < err_bound, (
-            f"expected aupr for {ligand} to be {values[1]}, got {ligand_activities[ligand]["aupr"]}")
+            f"expected aupr for {ligand} to be {values[1]}, got {ligand_activities[ligand]['aupr']}"
+        )
         assert abs(ligand_activities[ligand]["aupr_corrected"] - values[2]) < err_bound, (
-            f"expected aupr_corrected for {ligand} to be {values[2]}, got {ligand_activities[ligand]["aupr_corrected"]}")
+            f"expected aupr_corrected for {ligand} to be {values[2]}, got {ligand_activities[ligand]['aupr_corrected']}"
+        )
+
 
 def test_predict_ligand_activities_0():
     template_predict_ligand_activities(0)
 
+
 def test_prediction_TGFB1():
     model = get_model_pickle("human")
-    predictor : LigandActivityPredictor = model["predictor"]
-    lr_network : LigandReceptorNetwork = model["lr_network"]
+    predictor: LigandActivityPredictor = model["predictor"]
+    lr_network: LigandReceptorNetwork = model["lr_network"]
     ligand_activities = dict()
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
             geneset=data[data["is_de"] == "TRUE"][""],
             background_expressed_genes=data[""],
-            potential_ligands=lr_network.get_ligands().intersection(data[""])
+            potential_ligands=lr_network.get_ligands().intersection(data[""]),
         )
         ligand_activities[filename] = ligand_activities_df(act)
     assert equals_iter(
-        ligand_activities["TGFB1_24_H_FIBRO_GSE277437.csv"][
-            ["auroc", "aupr", "aupr_corrected", "pearson"]
-        ].sort_values(by="aupr", ascending=False).reset_index().head(10).to_numpy(),
-        FIBRO_top_10_ligand_activities
+        ligand_activities["TGFB1_24_H_FIBRO_GSE277437.csv"][["auroc", "aupr", "aupr_corrected", "pearson"]]
+        .sort_values(by="aupr", ascending=False)
+        .reset_index()
+        .head(10)
+        .to_numpy(),
+        FIBRO_top_10_ligand_activities,
     )
+
 
 def test_prediction_H1HESC():
     model = get_model_pickle("human")
-    predictor : LigandActivityPredictor = model["predictor"]
-    lr_network : LigandReceptorNetwork = model["lr_network"]
+    predictor: LigandActivityPredictor = model["predictor"]
+    lr_network: LigandReceptorNetwork = model["lr_network"]
     ligand_activities = dict()
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
             geneset=data[data["is_de"] == "TRUE"][""],
             background_expressed_genes=data[""],
-            potential_ligands=lr_network.get_ligands().intersection(data[""])
+            potential_ligands=lr_network.get_ligands().intersection(data[""]),
         )
         ligand_activities[filename] = ligand_activities_df(act)
     assert equals_iter(
-        ligand_activities["TGFB1_24_H_H1HESC_GSE247021.csv"][
-            ["auroc", "aupr", "aupr_corrected", "pearson"]
-        ].sort_values(by="aupr", ascending=False).reset_index().head(10).to_numpy(),
-        H1HESC_top_10_ligand_activities
+        ligand_activities["TGFB1_24_H_H1HESC_GSE247021.csv"][["auroc", "aupr", "aupr_corrected", "pearson"]]
+        .sort_values(by="aupr", ascending=False)
+        .reset_index()
+        .head(10)
+        .to_numpy(),
+        H1HESC_top_10_ligand_activities,
     )
+
 
 def test_prediction_HSC():
     model = get_model_pickle("human")
-    predictor : LigandActivityPredictor = model["predictor"]
-    lr_network : LigandReceptorNetwork = model["lr_network"]
+    predictor: LigandActivityPredictor = model["predictor"]
+    lr_network: LigandReceptorNetwork = model["lr_network"]
     ligand_activities = dict()
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
             geneset=data[data["is_de"] == "TRUE"][""],
             background_expressed_genes=data[""],
-            potential_ligands=lr_network.get_ligands().intersection(data[""])
+            potential_ligands=lr_network.get_ligands().intersection(data[""]),
         )
         ligand_activities[filename] = ligand_activities_df(act)
     assert equals_iter(
-        ligand_activities["TGFB1_48_H_HSC_GSE151251.csv"][
-            ["auroc", "aupr", "aupr_corrected", "pearson"]
-        ].sort_values(by="aupr", ascending=False).reset_index().head(10).to_numpy(),
-        HSC_top_10_ligand_activities
+        ligand_activities["TGFB1_48_H_HSC_GSE151251.csv"][["auroc", "aupr", "aupr_corrected", "pearson"]]
+        .sort_values(by="aupr", ascending=False)
+        .reset_index()
+        .head(10)
+        .to_numpy(),
+        HSC_top_10_ligand_activities,
     )
+
 
 def test_prediction_PC_PANC1():
     model = get_model_pickle("human")
-    predictor : LigandActivityPredictor = model["predictor"]
-    lr_network : LigandReceptorNetwork = model["lr_network"]
+    predictor: LigandActivityPredictor = model["predictor"]
+    lr_network: LigandReceptorNetwork = model["lr_network"]
     ligand_activities = dict()
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
             geneset=data[data["is_de"] == "TRUE"][""],
             background_expressed_genes=data[""],
-            potential_ligands=lr_network.get_ligands().intersection(data[""])
+            potential_ligands=lr_network.get_ligands().intersection(data[""]),
         )
         ligand_activities[filename] = ligand_activities_df(act)
     assert equals_iter(
-        ligand_activities["TGFB1_72_H_PC_PANC1_GSE88757.csv"][
-            ["auroc", "aupr", "aupr_corrected", "pearson"]
-        ].sort_values(by="aupr", ascending=False).reset_index().head(10).to_numpy(),
-        PC_PANC1_top_10_ligand_activities
+        ligand_activities["TGFB1_72_H_PC_PANC1_GSE88757.csv"][["auroc", "aupr", "aupr_corrected", "pearson"]]
+        .sort_values(by="aupr", ascending=False)
+        .reset_index()
+        .head(10)
+        .to_numpy(),
+        PC_PANC1_top_10_ligand_activities,
     )
+
 
 def test_prediction_PROST_FIB():
     model = get_model_pickle("human")
-    predictor : LigandActivityPredictor = model["predictor"]
-    lr_network : LigandReceptorNetwork = model["lr_network"]
+    predictor: LigandActivityPredictor = model["predictor"]
+    lr_network: LigandReceptorNetwork = model["lr_network"]
     ligand_activities = dict()
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
             geneset=data[data["is_de"] == "TRUE"][""],
             background_expressed_genes=data[""],
-            potential_ligands=lr_network.get_ligands().intersection(data[""])
+            potential_ligands=lr_network.get_ligands().intersection(data[""]),
         )
         ligand_activities[filename] = ligand_activities_df(act)
     assert equals_iter(
-        ligand_activities["TGFB1_72_H_PROST_FIB_GSE205378.csv"][
-            ["auroc", "aupr", "aupr_corrected", "pearson"]
-        ].sort_values(by="aupr", ascending=False).reset_index().head(10).to_numpy(),
-        PROST_FIB_top_10_ligand_activities
+        ligand_activities["TGFB1_72_H_PROST_FIB_GSE205378.csv"][["auroc", "aupr", "aupr_corrected", "pearson"]]
+        .sort_values(by="aupr", ascending=False)
+        .reset_index()
+        .head(10)
+        .to_numpy(),
+        PROST_FIB_top_10_ligand_activities,
     )

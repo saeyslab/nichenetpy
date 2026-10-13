@@ -102,7 +102,7 @@
 
 .. autosummary::
     :toctree: generated
-    
+
     metrics
 ```
 

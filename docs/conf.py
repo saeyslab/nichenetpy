@@ -110,7 +110,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
-    "matplotlib": ("https://matplotlib.org/stable/", None)
+    "matplotlib": ("https://matplotlib.org/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -152,10 +152,7 @@ nitpick_ignore = [
     ("py:class", "gene_t"),
     ("py:class", "nichenet_matrix"),
     ("py:obj", "nichenetpy.typing.nichenet_matrix"),
-    ("py:obj", "nichenetpy.typing.gene_t")
+    ("py:obj", "nichenetpy.typing.gene_t"),
 ]
 
-autodoc_type_aliases = {
-    "gene_t": "nichenetpy.typing.gene_t",
-    "nichenet_matrix": "nichenetpy.typing.nichenet_matrix"
-}
+autodoc_type_aliases = {"gene_t": "nichenetpy.typing.gene_t", "nichenet_matrix": "nichenetpy.typing.nichenet_matrix"}

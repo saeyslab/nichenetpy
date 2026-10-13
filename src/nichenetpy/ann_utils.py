@@ -1,18 +1,15 @@
-from nichenetpy.utils import subset_matrix
-from nichenetpy.typing import gene_t
-
-from anndata import AnnData
 from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
+from anndata import AnnData
+
+from nichenetpy.typing import gene_t
+from nichenetpy.utils import subset_matrix
 
 
 def _subset_layer(
-    ann:AnnData,
-    layer:str,
-    features:Iterable[gene_t],
-    gene2index:dict[gene_t, int]|None=None
+    ann: AnnData, layer: str, features: Iterable[gene_t], gene2index: dict[gene_t, int] | None = None
 ) -> tuple[np.ndarray, list[gene_t]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
@@ -21,16 +18,17 @@ def _subset_layer(
     ids = [gene2index[gene] for gene in features]
     return (subset_matrix(ann.layers[layer], cols=ids), features)
 
+
 def subset_ann(
-    ann:AnnData,
-    val:str|gene_t|Iterable[str]|None=None,
-    genes:Iterable[gene_t]|None=None,
-    layers:Iterable[str]|None=None,
-    val_col:str="celltype",
-    subset_X:bool=True
-) -> AnnData|None:
-    '''
-    Subsets the cells and/or genes of an AnnData object. 
+    ann: AnnData,
+    val: str | gene_t | Iterable[str] | None = None,
+    genes: Iterable[gene_t] | None = None,
+    layers: Iterable[str] | None = None,
+    val_col: str = "celltype",
+    subset_X: bool = True,
+) -> AnnData | None:
+    """
+    Subsets the cells and/or genes of an AnnData object.
 
     Parameters
     ----------
@@ -47,19 +45,19 @@ def subset_ann(
         the name of the column in obs that contains the values to subset by
     subset_X : bool
         whether or not to subset X
-    
+
     Returns
     -------
     AnnData
         the subsetted AnnData object
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if val_col is not None and type(val_col) is not str:
@@ -100,17 +98,12 @@ def subset_ann(
             raise ValueError(f"The gene '{error.args[0]}' is not present in the AnnData object")
     if row_ids is None and col_ids is None:
         return None
-    new_layers = dict(
-        (
-            layer,
-            subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)
-        ) for layer in layers
-    )
+    new_layers = dict((layer, subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)) for layer in layers)
     if ann.X is not None:
         new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     # subset categories if the column is categorical
     if row_ids is not None and cells_oi[val_col].dtype.name == "category":
-        pd.options.mode.chained_assignment = None # false positive warning removal
+        pd.options.mode.chained_assignment = None  # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
     if len(new_layers) > 0:
         new_shape = new_layers[layers[0]].shape
@@ -118,11 +111,7 @@ def subset_ann(
         new_shape = new_X.shape
     else:
         raise ValueError("if layers=[] then X must be defined and subset_X must be True")
-    output = AnnData(
-        obs=ann.obs if row_ids is None else cells_oi,
-        layers=new_layers,
-        shape=new_shape
-    )
+    output = AnnData(obs=ann.obs if row_ids is None else cells_oi, layers=new_layers, shape=new_shape)
     if genes is None:
         output.var_names = ann.var_names
     else:
@@ -132,24 +121,23 @@ def subset_ann(
         output.X = new_X
     return output
 
-def prepare_ann(
-    ann:AnnData
-):
-    '''
-    Makes sure the AnnData object is suitable for a nichenet analysis. 
+
+def prepare_ann(ann: AnnData):
+    """
+    Makes sure the AnnData object is suitable for a nichenet analysis.
 
     Parameters
     ----------
     ann : AnnData
         the AnnData object to subset
-    
+
     Raises
     ------
     TypeError
         if the AnnData object has the wrong type
     AnnError
         if the AnnData object is not suitable for a nichenet analysis and it is not possible to fix the issues
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
     if ann.var_names is None:

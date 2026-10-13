@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- Support for latest python versions. 
+- Support for latest python versions.
 
 ### Changed
 
