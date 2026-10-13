@@ -1,6 +1,7 @@
 <!-- badges: start -->
 [![pytest](https://github.com/saeyslab/nichenetpy/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/test.yaml)
 [![pypi](https://github.com/saeyslab/nichenetpy/actions/workflows/release.yaml/badge.svg?event=release)](https://github.com/saeyslab/nichenetpy/actions/workflows/release.yaml)
+[![codecov](https://codecov.io/gh/saeyslab/nichenetpy/graph/badge.svg?token=MKXHDZDEPB)](https://codecov.io/gh/saeyslab/nichenetpy)
 <!-- badges: end -->
 
 **NicheNetPy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
