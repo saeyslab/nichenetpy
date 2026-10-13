@@ -72,8 +72,7 @@ def df2dict(df, key_cols, val_col):
     ))
 
 def get_model_pickle(type="mouse"):
-    if not os.path.exists(root_path):
-        os.makedirs(root_path)
+    os.makedirs(root_path, exist_ok=True)
     filename = f"nichenet_{type}.pkl"
     file_path = os.path.join(root_path, filename)
     if not os.path.exists(file_path):
@@ -85,8 +84,7 @@ def get_model_pickle(type="mouse"):
     return model
 
 def get_ltf_matrix(type="mouse"):
-    if not os.path.exists(root_path):
-        os.makedirs(root_path)
+    os.makedirs(root_path, exist_ok=True)
     filename = f"ltf_matrix_{type}.pkl"
     file_path = os.path.join(root_path, filename)
     if not os.path.exists(file_path):
@@ -98,8 +96,7 @@ def get_ltf_matrix(type="mouse"):
     return model
 
 def get_anndata_file(filename):
-    if not os.path.exists(ann_path):
-        os.makedirs(ann_path)
+    os.makedirs(ann_path, exist_ok=True)
     file_path = os.path.join(ann_path, filename)
     if not os.path.exists(file_path):
         res = download(f"https://zenodo.org/records/15574665/files/{filename}")
@@ -108,8 +105,7 @@ def get_anndata_file(filename):
     return anndata.io.read_h5ad(file_path)
 
 def get_hnscc_file():
-    if not os.path.exists(hnscc_path):
-        os.makedirs(hnscc_path)
+    os.makedirs(hnscc_path, exist_ok=True)
     for filename in (
         "expressed_genes.csv",
         "hnscc_expression.bin",
@@ -123,8 +119,7 @@ def get_hnscc_file():
                 file.write(res.content)
 
 def get_network_files():
-    if not os.path.exists(network_path):
-        os.makedirs(network_path)
+    os.makedirs(network_path, exist_ok=True)
     for filename in (
         "gr_human.csv",
         "lr_network_human.csv",
@@ -146,8 +141,7 @@ def get_network_files():
                 file.write(res.content)
 
 def get_evaluation_files():
-    if not os.path.exists(eval_path):
-        os.makedirs(eval_path)
+    os.makedirs(eval_path, exist_ok=True)
     for filename in (
         #"cytosig_settings.json",
         "expression_settings_validation.json",
@@ -159,8 +153,7 @@ def get_evaluation_files():
                 file.write(res.content)
 
 def get_optimization_files():
-    if not os.path.exists(train_path):
-        os.makedirs(train_path)
+    os.makedirs(train_path, exist_ok=True)
     for filename in (
         "settings_training_f1234.json",
         "settings_training_f1235.json",
