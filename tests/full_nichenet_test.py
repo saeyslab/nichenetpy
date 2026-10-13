@@ -59,10 +59,6 @@ from nichenetpy.network import (
 from itertools import cycle, chain, repeat
 from math import log
 from scipy.stats import pearsonr
-from liana.resource import (
-    show_resources,
-    select_resource
-)
 
 from common import (
     equals,
