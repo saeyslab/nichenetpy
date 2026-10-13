@@ -1,0 +1,31 @@
+# GitHub
+.github/
+
+# Temp files
+.DS_Store
+*~
+buck-out/
+temp/
+
+# Compiled files
+.venv
+.venv/
+uv.lock
+__pycache__/
+.*cache/
+
+# Distribution / packaging
+/dist/
+
+# Tests and coverage
+tests/data/
+/node_modules/
+/.coverage*
+
+# docs
+/docs/generated/
+/docs/_build/
+
+# log
+debug.log
+pypath_log/
