@@ -1,7 +1,6 @@
 <!-- badges: start -->
-[![pytest](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/python-package.yml)
-[![pdoc](https://github.com/saeyslab/nichenetpy/actions/workflows/pdoc.yml/badge.svg?event=release)](https://github.com/saeyslab/nichenetpy/actions/workflows/pdoc.yml)
-[![pypi](https://github.com/saeyslab/nichenetpy/actions/workflows/deploy-pypi.yml/badge.svg?event=release)](https://github.com/saeyslab/nichenetpy/actions/workflows/deploy-pypi.yml)
+[![pytest](https://github.com/saeyslab/nichenetpy/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/saeyslab/nichenetpy/actions/workflows/test.yaml)
+[![pypi](https://github.com/saeyslab/nichenetpy/actions/workflows/release.yaml/badge.svg?event=release)](https://github.com/saeyslab/nichenetpy/actions/workflows/release.yaml)
 <!-- badges: end -->
 
 **NicheNetPy: the python implementation of the NicheNet method. (ported from [NicheNetR](https://github.com/saeyslab/nichenetr/tree/master))** The goal of
