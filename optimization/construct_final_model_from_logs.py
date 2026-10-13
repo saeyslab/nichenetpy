@@ -35,7 +35,7 @@ if __name__ == "__main__":
         default="average",
     )
     args = parser.parse_args()
-    pareto_set = dict()
+    pareto_set = {}
     for log_file in os.listdir(args.log_dir):
         log_file = os.path.join(args.log_dir, log_file)
         lock_obj = JournalFileOpenLock(log_file)
@@ -73,8 +73,8 @@ if __name__ == "__main__":
             (  # aggregation function
                 np.median if args.aggregation_method == "median" else np.mean
             )(  # aggregation function arguments
-                [list(zip(*sorted(sol.items(), key=lambda x: x[0])))[1] for _, _, sol in ranked_solutions], axis=0
-            ),
+                [list(zip(*sorted(sol.items(), key=lambda x: x[0]), strict=True))[1] for _, _, sol in ranked_solutions], axis=0
+            ), strict=True
         )
     )
     # separate the hyperparameters from the source weights
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     ltf_cutoff = aggregated_solution.pop("ltf_cutoff")
     damping_factor = aggregated_solution.pop("damping_factor")
     # build the model
-    for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path):
+    for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path, strict=True):
         lr_network = read_network_file(lr)
         gr_network = read_network_file(gr)
         sig_network = read_network_file(sig)

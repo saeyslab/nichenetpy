@@ -45,7 +45,7 @@ if __name__ == "__main__":
     ltf_cutoff = chosen_solution.pop("ltf_cutoff")
     damping_factor = chosen_solution.pop("damping_factor")
     # build the model
-    for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path):
+    for lr, gr, sig, out in zip(args.lr_network, args.gr_network, args.sig_network, args.model_path, strict=True):
         lr_network = read_network_file(lr)
         gr_network = read_network_file(gr)
         sig_network = read_network_file(sig)

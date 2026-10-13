@@ -28,7 +28,7 @@ class Pareto:
     def __add__(self, other):
         if len(self) != len(other):
             raise ValueError("vectors should have same size")
-        return Pareto(x + y for x, y in zip(self, other))
+        return Pareto(x + y for x, y in zip(self, other, strict=True))
 
     def __iadd__(self, other):
         if len(self) != len(other):
@@ -40,7 +40,7 @@ class Pareto:
     def __sub__(self, other):
         if len(self) != len(other):
             raise ValueError("vectors should have same size")
-        return Pareto(x - y for x, y in zip(self, other))
+        return Pareto(x - y for x, y in zip(self, other, strict=True))
 
     def __isub__(self, other):
         if len(self) != len(other):
@@ -106,7 +106,7 @@ class Pareto:
 
 class ParetoSet:
     def __init__(self):
-        self._content = dict()
+        self._content = {}
 
     def __str__(self):
         return str(self._content.items())

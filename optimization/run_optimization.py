@@ -132,10 +132,10 @@ if __name__ == "__main__":
                 with open(file_path, "wb") as file:
                     file.write(res.content)
         optimized_source_weights = tuple(
-            zip(*read_csv_rows(os.path.join(source_path, "optimized_source_weights.csv"))[1])
+            zip(*read_csv_rows(os.path.join(source_path, "optimized_source_weights.csv"))[1], strict=True)
         )
         optimized_source_weights = dict(
-            zip(optimized_source_weights[0], (float(e) for e in optimized_source_weights[1]))
+            zip(optimized_source_weights[0], (float(e) for e in optimized_source_weights[1]), strict=True)
         )
         source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
@@ -239,7 +239,7 @@ if __name__ == "__main__":
             )
         )
     )
-    sym2id = dict(zip(syms, range(len(syms))))
+    sym2id = dict(zip(syms, range(len(syms)), strict=True))
     lr_network["from"] = [sym2id[e] for e in lr_network["from"]]
     lr_network["to"] = [sym2id[e] for e in lr_network["to"]]
     lr_network["source"] = [sym2id[e] for e in lr_network["source"]]
@@ -260,9 +260,9 @@ if __name__ == "__main__":
         # define source weights
         if args.source_path is not None and len(args.var_database) > 0:
             # some source weights have been fixed a priori
-            source_weights = dict(
-                (source_name, trial.suggest_float(name=source_name, low=0, high=1)) for source_name in source_names_var
-            )
+            source_weights = {
+                source_name: trial.suggest_float(name=source_name, low=0, high=1) for source_name in source_names_var
+            }
             for source_name in source_names_fixed:
                 if source_name in optimized_source_weights:
                     source_weights[source_name] = optimized_source_weights[source_name]
@@ -291,7 +291,7 @@ if __name__ == "__main__":
         _sig_network = _sig_network[["from", "to", "source"]]
         # construct the model from the source weights and compute the objectives
         res = construct_and_evaluate(
-            dict((sym2id[s], w) for s, w in source_weights.items()),
+            {sym2id[s]: w for s, w in source_weights.items()},
             lr_sig_hub,
             gr_hub,
             ltf_cutoff,
