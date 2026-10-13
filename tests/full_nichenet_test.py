@@ -29,6 +29,7 @@ from nichenetpy.io import read_csc_matrix
 from nichenetpy.utils import (
     read_csv_rows,
     read_csv_cols,
+    read_network_file,
     subset_matrix,
     decomplexify
 )
@@ -1415,9 +1416,9 @@ def test_ligand_activity_single_cell():
 
 def test_model_construction():
     get_network_files()
-    gr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "gr_human.csv")))
-    lr_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_network_human.csv")))
-    sig_network = pd.DataFrame(read_csv_cols(os.path.join(network_path, "lr_sig_human.csv")))
+    gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
+    lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
+    sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
     source_weights = dict(zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1)))
     weighted_networks = construct_weighted_networks(
         lr_network,
