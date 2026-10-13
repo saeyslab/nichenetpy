@@ -160,13 +160,6 @@ lint.pydocstyle.convention = "numpy"
 [tool.mypy]
 files = [ "src", "tests" ]
 
-[tool.pytest]
-addopts = [
-    "--import-mode=importlib", # allow using test files with same name
-]
-strict = true
-testpaths = [ "tests" ]
-
 [tool.coverage]
 run.source = [ "nichenetpy" ]
 run.omit = [
