@@ -31,7 +31,7 @@ author_name_email = author_pat.findall(info["Author-email"])[0]
 author = author_name_email[0]
 if len(author_name_email) > 1:
     author_email = author_name_email[1]
-copyright = f"{datetime.now():%Y}, {author}."
+copyright = f"{datetime.now():%Y}, SaeysLab."
 version = info["Version"]
 urls = dict(pu.split(", ") for pu in info.get_all("Project-URL"))
 repository_url = urls["Source"]
@@ -144,7 +144,18 @@ pygments_style = "default"
 katex_prerender = shutil.which(katex.NODEJS_BINARY) is not None
 
 nitpick_ignore = [
+    # python standard library bugs
     ("py:class", "type"),
     ("py:class", "any"),
-    ("py:class", "string")
+    ("py:class", "string"),
+    # autodoc type alias bug
+    ("py:class", "gene_t"),
+    ("py:class", "nichenet_matrix"),
+    ("py:obj", "nichenetpy.typing.nichenet_matrix"),
+    ("py:obj", "nichenetpy.typing.gene_t")
 ]
+
+autodoc_type_aliases = {
+    "gene_t": "nichenetpy.typing.gene_t",
+    "nichenet_matrix": "nichenetpy.typing.nichenet_matrix"
+}
