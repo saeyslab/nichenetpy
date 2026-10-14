@@ -5,10 +5,8 @@ on:
   release:
     types: [published]
 
-
-# security: restrict permissions for CI jobs.
-permissions:
-  contents: read
+# Use "trusted publishing", see https://docs.pypi.org/trusted-publishers/
+permissions: {}
 
 jobs:
   release:
@@ -33,8 +31,4 @@ jobs:
       - name: Build package
         run: uv build
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-            user: __token__
-            password: ${{ secrets.NICHENET_API_TOKEN_PYPI }}
-            repository-url: https://upload.pypi.org/legacy/
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
