@@ -73,8 +73,10 @@ if __name__ == "__main__":
             (  # aggregation function
                 np.median if args.aggregation_method == "median" else np.mean
             )(  # aggregation function arguments
-                [list(zip(*sorted(sol.items(), key=lambda x: x[0]), strict=True))[1] for _, _, sol in ranked_solutions], axis=0
-            ), strict=True
+                [list(zip(*sorted(sol.items(), key=lambda x: x[0]), strict=True))[1] for _, _, sol in ranked_solutions],
+                axis=0,
+            ),
+            strict=True,
         )
     )
     # separate the hyperparameters from the source weights

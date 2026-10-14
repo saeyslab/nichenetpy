@@ -55,7 +55,7 @@ class EvaluationData:
         ligand_name: str = "from",
         de_genes_name: str = "response",
     ):
-        self._data = dict()
+        self._data = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
@@ -65,7 +65,12 @@ class EvaluationData:
                     self[key] = val
             elif type(obj) is pd.DataFrame:
                 for key, val in zip(
-                    obj[key_name], (dict(zip(obj.columns, row)) for row in zip(*(obj[col] for col in obj.columns)))
+                    obj[key_name],
+                    (
+                        dict(zip(obj.columns, row, strict=True))
+                        for row in zip(*(obj[col] for col in obj.columns), strict=True)
+                    ),
+                    strict=True,
                 ):
                     self[key] = val
             elif isinstance(obj, ItemsView):
@@ -355,18 +360,22 @@ def get_single_ligand_importances(
                                 *sorted(
                                     predictor.evaluate_target_prediction(ligand, setting["response"]).items(),
                                     key=lambda x: x[0],
-                                )
+                                ),
+                                strict=True,
                             )
                         )[1]
                         for setting in evaluation_data
                         for ligand in all_ligands
-                    )
+                    ),
+                    strict=True,
                 ),
+                strict=True,
             )
         )
     )
     ligand_importances["setting"], ligand_importances["test_ligand"], ligand_importances["true_ligand"] = zip(
-        *((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands)
+        *((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands),
+        strict=True,
     )
     return ligand_importances
 
@@ -430,12 +439,15 @@ def evaluate_single_importances_ligand_prediction(
                                         list(importances[metric]), added, allow_nan=allow_nan
                                     ).items(),
                                     key=lambda x: x[0],
-                                )
+                                ),
+                                strict=True,
                             )
                         )[1]
                         for metric in _metrics
-                    )
+                    ),
+                    strict=True,
                 ),
+                strict=True,
             )
         )
     )

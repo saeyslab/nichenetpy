@@ -97,8 +97,10 @@ def optuna_objective(
 
 def test_optuna_objective_optimized_source_weights():
     get_network_files()
-    source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
-    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    source_weights = tuple(
+        zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1], strict=True)
+    )
+    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]], strict=True))
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
     sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
     gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
@@ -125,8 +127,10 @@ def test_optuna_objective_optimized_source_weights():
 
 def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     get_network_files()
-    source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
-    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]]))
+    source_weights = tuple(
+        zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1], strict=True)
+    )
+    source_weights = dict(zip(source_weights[0], [float(e) for e in source_weights[1]], strict=True))
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
     sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
     gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
@@ -156,7 +160,7 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
             )
         )
     )
-    sym2id = dict(zip(syms, range(len(syms))))
+    sym2id = dict(zip(syms, range(len(syms)), strict=True))
     lr_network["from"] = [sym2id[e] for e in lr_network["from"]]
     lr_network["to"] = [sym2id[e] for e in lr_network["to"]]
     lr_network["source"] = [sym2id[e] for e in lr_network["source"]]

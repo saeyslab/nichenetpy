@@ -10,7 +10,7 @@ err_bound = 0.001
 
 
 def equals_iter(xs, ys):
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=True):
         if abs(x - y) > err_bound:
             return False
     return True

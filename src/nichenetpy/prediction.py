@@ -18,7 +18,7 @@ from nichenetpy.utils import subset_matrix
 
 class LigandActivityPredictor:
     """
-    This class facilitates the computation of ligand activities using a ligand-target matrix.
+    LigandActivityPredictor facilitates the computation of ligand activities using a ligand-target matrix.
 
     Parameters
     ----------
@@ -61,7 +61,8 @@ class LigandActivityPredictor:
         self.ligand_target_matrix = ligand_target_matrix
         if type(ligand_target_matrix) is csr_matrix:
             warnings.warn(
-                "a scipy.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format"
+                "a scipy.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
+                stacklevel=2,
             )
             if self.matrix_density() > 0.5:
                 self.ligand_target_matrix = self.ligand_target_matrix.toarray(order="F")
@@ -71,12 +72,14 @@ class LigandActivityPredictor:
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(
-                    f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead"
+                    f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
+                    stacklevel=2,
                 )
         elif type(ligand_target_matrix) is np.ndarray:
             if ligand_target_matrix.flags.c_contiguous:
                 warnings.warn(
-                    "a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing"
+                    "a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing",
+                    stacklevel=2,
                 )
         else:
             raise TypeError(
@@ -88,8 +91,8 @@ class LigandActivityPredictor:
             raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
         self.row_names = row_names
         self.col_names = col_names
-        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names))))
-        self._gene2index = dict(zip(self.row_names, range(len(self.row_names))))
+        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
+        self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
 
     def matrix_density(self) -> float:
         """
@@ -192,10 +195,10 @@ class LigandActivityPredictor:
         if not is_index:
             try:
                 index = self.ligand2index(index)
-            except KeyError:
+            except KeyError as error:
                 raise IndexError(
                     f"{index} is not a gene symbol with a corresponding column in the ligand-target matrix"
-                )
+                ) from error
         elif type(index) is not int:
             raise TypeError(f"index should have type int if is_index, was {type(index)}")
         if index >= self.ligand_target_matrix.shape[1]:
@@ -212,7 +215,7 @@ class LigandActivityPredictor:
                 self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[index + 1]
             ]
             col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
-            for i, v in zip(indices_non_zero, values_non_zero):
+            for i, v in zip(indices_non_zero, values_non_zero, strict=True):
                 col[i] = v
             return np.array(col)
 
@@ -246,7 +249,7 @@ class LigandActivityPredictor:
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
         # create the prediction model vector
-        prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False)))
+        prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
         pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])])
@@ -295,15 +298,17 @@ class LigandActivityPredictor:
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
         if len(geneset) < 20 or len(geneset) > 2000:
             warnings.warn(
-                f"It is recommended that the size of the gene set of interest is between 20 and 2000, was {len(geneset)}"
+                f"It is recommended that the size of the gene set of interest is between 20 and 2000, was {len(geneset)}",
+                stacklevel=2,
             )
         if len(background_expressed_genes) < 10 * len(geneset):
             warnings.warn(
-                f"The background set is small compared to the geneset of interest, a background size of at least {10 * len(geneset)} is recommended, was {len(background_expressed_genes)}"
+                f"The background set is small compared to the geneset of interest, a background size of at least {10 * len(geneset)} is recommended, was {len(background_expressed_genes)}",
+                stacklevel=2,
             )
-        output = dict()
+        output = {}
         # create the expected gene expression response vector
-        response = dict((gene, 0) for gene in background_expressed_genes if gene not in geneset)
+        response = {gene: 0 for gene in background_expressed_genes if gene not in geneset}
         for gene in geneset:
             response[gene] = 1
         # compute the metrics for each ligand
@@ -384,7 +389,7 @@ class LigandActivityPredictor:
             raise TypeError(f"calc_auroc should have type bool, was {type(calc_auroc)}")
         if type(calc_pearson) is not bool:
             raise TypeError(f"calc_pearson should have type bool, was {type(calc_pearson)}")
-        row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows))))
+        row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows)), strict=True))
         if calc_aupr:
             aupr = []
             aupr_corrected = []
@@ -397,9 +402,9 @@ class LigandActivityPredictor:
                 raise ValueError(f"{cell} not in ligand_target_matrix")
             response = expression_scaled[row2id[cell], :]
             qt = np.quantile(response, quantile_cutoff)
-            response = dict(zip(expression_scaled_cols, (1 if e >= qt else 0 for e in response)))
+            response = dict(zip(expression_scaled_cols, (1 if e >= qt else 0 for e in response), strict=True))
             for ligand in potential_ligands:
-                prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False)))
+                prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
                 common_keys = prediction.keys() & response.keys()
                 pred = np.array(
                     [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]
@@ -464,11 +469,11 @@ class LigandActivityPredictor:
         else:
             top_n_score = min(sorted(self.ligand_target_matrix[:, self.ligand2index(ligand)], reverse=True)[:n])
         targets = sorted(
-            set(
+            {
                 e[0]
-                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)])
+                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)], strict=True)
                 if e[1] >= top_n_score
-            ).intersection(geneset)
+            }.intersection(geneset)
         )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
@@ -482,9 +487,7 @@ class LigandActivityPredictor:
             }
 
     def replace_zero_col_by_noisy_scores(self):
-        """
-        Replace zero columns with a very low noisy random score.
-        """
+        """Replace zero columns with a very low noisy random score."""
         m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
         for j in range(self.ligand_target_matrix.shape[1]):
             if sum(self.ligand_target_matrix[:, j]) == 0:
@@ -585,14 +588,15 @@ def assess_rf_class_probabilities(
     geneset = np.array([[e] for e in geneset])
     kf = KFold(n_splits=folds, shuffle=True)
     geneset_predictions_all = []
-    for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset)):
+    for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset), strict=True):
         geneset_train, geneset_test = geneset_split
         beg_train, beg_test = beg_split
         row_names, res = zip(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_train),
                 ((background_expressed_genes[id][0], 0) for id in beg_train),
-            )
+            ),
+            strict=True,
         )
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,
@@ -607,7 +611,8 @@ def assess_rf_class_probabilities(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_test),
                 ((background_expressed_genes[id][0], 0) for id in beg_test),
-            )
+            ),
+            strict=True,
         )
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,

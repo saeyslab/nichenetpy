@@ -106,7 +106,9 @@ def process_expected_output(cols: dict[str, list[str]]) -> dict[str, dict[str, f
                 [float(e) for e in cols["aupr_corrected"]],
                 [float(e) for e in cols["pearson"]],
                 [float(e) for e in cols["rank"]],
+                strict=True,
             ),
+            strict=True,
         )
     )
 
@@ -143,7 +145,7 @@ def test_prediction_TGFB1():
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
-    ligand_activities = dict()
+    ligand_activities = {}
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
@@ -166,7 +168,7 @@ def test_prediction_H1HESC():
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
-    ligand_activities = dict()
+    ligand_activities = {}
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
@@ -189,7 +191,7 @@ def test_prediction_HSC():
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
-    ligand_activities = dict()
+    ligand_activities = {}
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
@@ -212,7 +214,7 @@ def test_prediction_PC_PANC1():
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
-    ligand_activities = dict()
+    ligand_activities = {}
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(
@@ -235,7 +237,7 @@ def test_prediction_PROST_FIB():
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
-    ligand_activities = dict()
+    ligand_activities = {}
     for filename in os.listdir(data_path):
         data = pd.DataFrame(read_csv_cols(os.path.join(data_path, filename)))
         act = predictor.predict_ligand_activities(

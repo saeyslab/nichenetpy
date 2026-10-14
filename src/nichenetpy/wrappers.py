@@ -135,7 +135,9 @@ def combine_weighted_ligand_target_links(
     list
         list of (ligand, target, weight) tuples representing the combined ligand-target links
     """
-    return list(chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links)))
+    return list(
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
+    )
 
 
 def run_nichenet(
@@ -268,7 +270,7 @@ def run_nichenet(
     ValueError
         if get_prioritization_table is True and sender_celltypes is not provided
     """
-    output = dict()
+    output = {}
     expressed_genes_receiver = set(
         get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
@@ -277,9 +279,9 @@ def run_nichenet(
     output["expressed_receptors"] = expressed_receptors
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     output["background_expressed_genes"] = background_expressed_genes
-    potential_ligands = set(
+    potential_ligands = {
         key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0
-    )
+    }
     geneset = get_geneset_oi(
         ann,
         receiver=receiver,
@@ -321,9 +323,9 @@ def run_nichenet(
         expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
         output["expressed_ligands"] = expressed_ligands
         potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
-        ligand_activities_focused = dict(
-            (key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused
-        )
+        ligand_activities_focused = {
+            key: val for key, val in ligand_activities.items() if key in potential_ligands_focused
+        }
         ligand_activities_sorted_focused = sorted(
             ligand_activities_focused.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0])
         )
@@ -515,11 +517,11 @@ def run_nichenet_cluster_de(
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
-    potential_ligands = set(
+    potential_ligands = {
         key
         for key, group in lr_network.item_iter()
         if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
-    )
+    }
     ligand_activities_dct = predictor.predict_ligand_activities(
         geneset=geneset_oi, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
     )
@@ -608,7 +610,7 @@ def create_ligand_activity_heatmap(
     Axes
         the axes
     """
-    ligands, metrics = zip(*ligand_activities_sorted)
+    ligands, metrics = zip(*ligand_activities_sorted, strict=True)
     fig, ax = heatmap_1d(
         [e["aupr_corrected"] for e in metrics],
         labels=ligands,
@@ -765,7 +767,8 @@ def create_lfc_heatmap(
             for ligand, metrics_vals in sorted(
                 combine_dicts(ligand_activities, lfcs).items(), key=lambda x: x[1][0]["aupr_corrected"], reverse=True
             )
-        )
+        ),
+        strict=True,
     )
     fig, ax = heatmap_2d(
         np.vstack(vals),
@@ -794,15 +797,15 @@ def _create_circos_plot(
     separate_sender_receiver: bool = True,
     sender_receiver_space: float = 0,
 ) -> tuple[Axes, Figure]:
-    link_count_in = dict()
-    link_count_out = dict()
+    link_count_in = {}
+    link_count_out = {}
     links = []
     if type(circos_links) is not list or type(circos_links) is tuple:
         circos_links = tuple(circos_links)
     max_weight = 1 if opacity is None else max(opacity)
     # define unique identifiers for each rectangle and create a list of links between rectangles
     # the opacity and start/end positions of the links are also specified
-    for link in circos_links if opacity is None else zip(circos_links, opacity):
+    for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
         sender, receiver = link if opacity is None else link[0]
         weight = 1 if opacity is None else link[1]
         sender_group, sender = sender
@@ -818,8 +821,8 @@ def _create_circos_plot(
         else:
             link_count_in[key_in] = 1
         links.append((key_out, key_in, weight / max_weight, link_count_out[key_out], link_count_in[key_in]))
-    groups = dict()
-    group_sizes = dict()
+    groups = {}
+    group_sizes = {}
     # group the rectangles into sectors and keep track of the size of each group
     for key, count in chain(link_count_in.items(), link_count_out.items()):
         if separate_sender_receiver:
@@ -836,7 +839,7 @@ def _create_circos_plot(
         else:
             group_sizes[group] = count
     # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
-    rec_sector_count = len(set(key.split("_")[1] for key in link_count_in.keys()))
+    rec_sector_count = len({key.split("_")[1] for key in link_count_in.keys()})
     if separate_sender_receiver:
         group_sizes = dict(sorted(group_sizes.items(), key=lambda x: x[0]))
         if sender_receiver_space > 0:
@@ -851,12 +854,12 @@ def _create_circos_plot(
         ),
     )
     link_count = dict(chain(link_count_in.items(), link_count_out.items()))
-    rects = dict()
+    rects = {}
     # create a track for each sector and add the rectangles
     start = sender_receiver_space if separate_sender_receiver else 0
-    for i, sector in enumerate(circos.sectors):
+    for sector in circos.sectors:
         group = sector.name
-        sub_rects = dict()
+        sub_rects = {}
         rects[group] = sub_rects
         track = sector.add_track((95, 100))
         for elem in groups[group]:
@@ -964,7 +967,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     if opacity is not None and not isinstance(opacity, Iterable):
         raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
     return _create_circos_plot(
-        zip(zip(senders, ligands), zip(receivers, receptors)),
+        zip(zip(senders, ligands, strict=True), zip(receivers, receptors, strict=True), strict=True),
         colors=colors,
         inter_space=inter_space,
         intra_space=intra_space,
@@ -1026,8 +1029,9 @@ def create_ligand_links_circos_plot(
         raise TypeError(f"opacity should have type Iterable[float], was {type(opacity)}")
     return _create_circos_plot(
         zip(
-            zip(circos_links["ligand_type"].tolist(), circos_links["ligand"].tolist()),
-            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name].tolist()),
+            zip(circos_links["ligand_type"].tolist(), circos_links["ligand"].tolist(), strict=True),
+            zip(repeat(dest_name, len(circos_links)), circos_links[dest_name].tolist(), strict=True),
+            strict=True,
         ),
         colors,
         inter_space,

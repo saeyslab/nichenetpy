@@ -41,6 +41,7 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[float]:
             for nb, val in zip(
                 graph.indices[graph.indptr[cur] : graph.indptr[cur + 1]],
                 graph.data[graph.indptr[cur] : graph.indptr[cur + 1]],
+                strict=True,
             ):
                 pl = spl[cur][0] + val
                 if pl < spl[nb][0]:

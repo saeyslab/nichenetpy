@@ -40,7 +40,7 @@ class Network:
     def __init__(self, mapping: list | pd.DataFrame | None = None, filename: str | None = None):
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
-                mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist()), key=lambda x: x[0])
+                mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])
             elif type(mapping) is not list:
                 raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
             self._mapping = mapping
@@ -50,7 +50,7 @@ class Network:
             self._mapping = sorted(read_network(filename), key=lambda x: x[0])
         else:
             raise ValueError("either mapping or filename must be provided as arguments")
-        self._index = dict()
+        self._index = {}
         self._build_index()
 
     def __str__(self) -> str:
@@ -110,8 +110,8 @@ class Network:
         """
         try:
             start, count = self._index[key]
-        except KeyError:
-            raise KeyError(f"there is no edge with '{key}' as source")
+        except KeyError as error:
+            raise KeyError(f"there is no edge with '{key}' as source") from error
         for item in self._mapping[start : start + count]:
             yield item[1]
 
@@ -124,7 +124,7 @@ class Network:
         set
             all values present in the network
         """
-        return set(chain(*zip(*self._mapping)))
+        return set(chain(*zip(*self._mapping, strict=True)))
 
     def subset(self, from_to: Collection[tuple[gene_t, gene_t]]):
         """
@@ -173,7 +173,7 @@ class Network:
         if fr is None:
             fr = set(self.key_iter())
         if to is None:
-            to = set(e for _, e in self._mapping)
+            to = {e for _, e in self._mapping}
         if not isinstance(fr, Collection):
             raise TypeError(f"fr should be a Collection of gene_t, was {type(fr)}")
         if not isinstance(to, Collection):
@@ -242,7 +242,7 @@ class LigandReceptorNetwork(Network):
         set
             set of receptors present in the network
         """
-        return set(receptor for _, receptor in self._mapping)
+        return {receptor for _, receptor in self._mapping}
 
 
 class WeightedNetwork(Network):
@@ -275,7 +275,7 @@ class WeightedNetwork(Network):
                 raise TypeError(f"filename should have type str, was {type(filename)}")
             mapping = sorted(read_weighted_network(filename), key=lambda x: x[0])
         elif type(mapping) is pd.DataFrame:
-            mapping = sorted(zip(mapping["from"], mapping["to"], mapping["weight"]), key=lambda x: x[0])
+            mapping = sorted(zip(mapping["from"], mapping["to"], mapping["weight"], strict=True), key=lambda x: x[0])
         super().__init__(mapping=mapping)
 
     def __getitem__(self, key: gene_t) -> dict[gene_t, float]:
@@ -302,7 +302,7 @@ class WeightedNetwork(Network):
         set
             set of receptors present in the network
         """
-        return set(receptor for _, receptor, _ in self._mapping)
+        return {receptor for _, receptor, _ in self._mapping}
 
     def to_dataframe(self):
         """
@@ -315,6 +315,6 @@ class WeightedNetwork(Network):
         """
         temp = []
         for fr, mapping in self.item_iter():
-            tos, ws = zip(*mapping.items())
+            tos, ws = zip(*mapping.items(), strict=True)
             temp.append(pd.DataFrame({"from": fr, "to": tos, "weight": ws}))
         return pd.concat(temp)

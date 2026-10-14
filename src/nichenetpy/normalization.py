@@ -112,7 +112,8 @@ def scale_quantile(
                     )
                 else:
                     return np.concatenate(
-                        [_scale_quantile_seq(col, cutoff=cutoff).reshape(-1, 1) for col in zip(*data)], axis=1
+                        [_scale_quantile_seq(col, cutoff=cutoff).reshape(-1, 1) for col in zip(*data, strict=True)],
+                        axis=1,
                     )
             elif type(data[0]) is float or type(data[0]) is int:
                 return _scale_quantile_seq(data, cutoff=cutoff)

@@ -91,7 +91,7 @@ def read_matrix_from_csv(
     with open(filename) as file:
         lines = file.readlines()
     col_names = extract_col_name(lines[0].rstrip())
-    row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]))
+    row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]), strict=True)
     rows = [[float(e.strip("\"'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
     return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("'\"") for row_name in row_names], col_names)
 
@@ -153,7 +153,7 @@ def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, list[str
     with open(filename) as file:
         lines = file.readlines()
     lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]
-    return dict(zip(lines[0], zip(*lines[1:])))
+    return dict(zip(lines[0], zip(*lines[1:], strict=True), strict=True))
 
 
 def read_network_file(filename: str):
@@ -302,9 +302,9 @@ def combine_by_key(*args: tuple[list[str], list]) -> dict[str, list]:
         "d": [5, 2, 3]
     }
     """
-    output = dict()
+    output = {}
     for arg in args:
-        for key, val in zip(arg[0], arg[1]):
+        for key, val in zip(arg[0], arg[1], strict=True):
             if key in output:
                 output[key].append(val)
             else:
@@ -386,7 +386,7 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
         raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
     if type(dict2) is not dict:
         raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
-    return dict((key, func(dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
+    return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 
 
 def ligand_activities_df(
@@ -411,9 +411,9 @@ def ligand_activities_df(
         if the arguments have the wrong type
     """
     if type(ligand_activities) is dict:
-        ligands, activities = zip(*ligand_activities.items())
+        ligands, activities = zip(*ligand_activities.items(), strict=True)
     elif isinstance(ligand_activities, Iterable):
-        ligands, activities = zip(*ligand_activities)
+        ligands, activities = zip(*ligand_activities, strict=True)
     else:
         raise TypeError(f"ligand_activities should be of type dict or Iterable, was {type(ligand_activities)}")
     columns = tuple(activities[0].keys())
@@ -535,7 +535,7 @@ def decomplexify(df: pd.DataFrame, from_col: str = "ligand", to_col: str = "rece
         raise ValueError(f"There is no column '{to_col}' in the data frame")
     frs = []
     tos = []
-    for fr, to in zip(df[from_col].tolist(), df[to_col].tolist()):
+    for fr, to in zip(df[from_col].tolist(), df[to_col].tolist(), strict=True):
         for nfr in fr.split("_"):
             for nto in to.split("_"):
                 frs.append(nfr)
@@ -612,7 +612,7 @@ def get_ties(it: Iterable, key: Callable):
         raise TypeError(f"it should have type Iterable, was {type(it)}")
     if not isinstance(key, Callable):
         raise TypeError(f"key should have type Callable, was {type(key)}")
-    output = dict()
+    output = {}
     for i, v in enumerate(it):
         v = key(v)
         if v in output:
@@ -638,7 +638,7 @@ def is_ligand_active(importances: pd.DataFrame):
     """
     return [
         test_ligand == true_ligand if isinstance(test_ligand, gene_t) else test_ligand in true_ligand
-        for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"])
+        for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]
 
 

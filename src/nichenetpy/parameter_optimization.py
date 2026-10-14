@@ -29,7 +29,7 @@ def _evaluate_single_importances_ligand_prediction(ligand_importances, group):
     try:
         return evaluate_single_importances_ligand_prediction(ligand_importances, group, allow_nan=True)
     except Exception as ex:
-        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}")
+        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}", stacklevel=2)
         return None
 
 
@@ -146,7 +146,7 @@ def compute_evaluation_scores(
         if the arguments have the wrong type
     """
     performances_target_prediction_averaged_auroc, performances_target_prediction_averaged_aupr = zip(
-        *(_average_performances(ligand, eval_res["performances_target_prediction"]) for ligand in ligands)
+        *(_average_performances(ligand, eval_res["performances_target_prediction"]) for ligand in ligands), strict=True
     )
     performances_target_prediction_averaged_auroc = [
         e for e in performances_target_prediction_averaged_auroc if not np.isnan(e)
@@ -171,6 +171,7 @@ def compute_evaluation_scores(
         for aupr, auroc in zip(
             ligand_activity_performance_setting_summary["aupr_corrected"],
             ligand_activity_performance_setting_summary["auroc"],
+            strict=True,
         )
     ]
     ligand_activity_performance_setting_summary.reset_index(inplace=True)
@@ -178,6 +179,7 @@ def compute_evaluation_scores(
         zip(
             ligand_activity_performance_setting_summary["metric"],
             ligand_activity_performance_setting_summary["geom_average"],
+            strict=True,
         ),
         key=lambda x: x[1],
     )[0]
@@ -185,7 +187,7 @@ def compute_evaluation_scores(
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
     ]
     performances_ligand_prediction_averaged_auroc, performances_ligand_prediction_averaged_aupr = zip(
-        *(_average_performances(ligand, performances_ligand_prediction_summary) for ligand in ligands)
+        *(_average_performances(ligand, performances_ligand_prediction_summary) for ligand in ligands), strict=True
     )
     performances_ligand_prediction_averaged_auroc = [
         e for e in performances_ligand_prediction_averaged_auroc if not np.isnan(e)
@@ -403,9 +405,9 @@ def choose_pareto_optimal_solution_normalized(
     TypeError
         if the arguments have the wrong type
     """
-    objective_values = list(zip(*objective_values))
+    objective_values = list(zip(*objective_values, strict=True))
     for i in range(len(objective_values)):
         vals = np.array(objective_values[i])
         vals = (vals - np.min(vals)) / (np.max(vals) - np.min(vals))
         objective_values[i] = vals
-    return choose_pareto_optimal_solution(zip(*objective_values), weights)
+    return choose_pareto_optimal_solution(zip(*objective_values, strict=True), weights)

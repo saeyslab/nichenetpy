@@ -13,12 +13,12 @@ def matrix_equal(m1, m2):
         if m1.shape != m2.shape:
             return False
         if m1.shape == 1:
-            for e1, e2 in zip(m1[0], m2[0]):
+            for e1, e2 in zip(m1[0], m2[0], strict=True):
                 if e1 != e2:
                     return False
             return True
         else:
-            for e1, e2 in zip(m1, m2):
+            for e1, e2 in zip(m1, m2, strict=True):
                 if not matrix_equal(e1, e2):
                     return False
             return True

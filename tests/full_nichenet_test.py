@@ -60,7 +60,6 @@ from nichenetpy.wrappers import (
     calculate_fraction_top_predicted_fisher,
     combine_weighted_ligand_target_links,
     generate_info_tables,
-    get_weighted_ligand_receptor_links,
     normalize_single_cell_ligand_activities,
     run_nichenet,
 )
@@ -68,7 +67,7 @@ from nichenetpy.wrappers import (
 
 def get_exp(mat, cols):
     agg_exp = [log(sum(10 * (2**x - 1) for x in mat[:, i]) / mat.shape[0] + 1, 2) for i in range(mat.shape[1])]
-    return {gene for gene, x in zip(cols, agg_exp) if x >= 4}
+    return {gene for gene, x in zip(cols, agg_exp, strict=True) if x >= 4}
 
 
 BASIC_top_10_ligand_activities = [
@@ -544,9 +543,9 @@ def test_steps():
     expressed_genes_receiver = set(get_expressed_genes(receiver, ann, 0.05))
     all_receptors = lr_network.get_receptors()
     expressed_receptors = all_receptors.intersection(expressed_genes_receiver)
-    potential_ligands = set(
+    potential_ligands = {
         key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0
-    )
+    }
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
     expressed_genes_sender = {gene for ct in sender_celltypes for gene in get_expressed_genes(ct, ann, pct=0.05)}
     potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
@@ -580,7 +579,7 @@ def test_steps():
     ]
     # combine weighted ligand-target links of different ligands
     active_ligand_target_links = list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links))
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
     )
     assert len(active_ligand_target_links) == 579
     assert equals_iter(
@@ -595,7 +594,7 @@ def test_steps():
         sorted(ligand_receptor_links._mapping, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_ligand_receptor_links,
     )
-    ligand_activities = dict((key, val) for key, val in ligand_activities.items() if key in potential_ligands_focused)
+    ligand_activities = {key: val for key, val in ligand_activities.items() if key in potential_ligands_focused}
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
     assert len(ligand_activities_sorted) == 122
     assert equals_iter(
@@ -607,7 +606,7 @@ def test_steps():
         predictor.get_weighted_ligand_target_links(ligand, geneset, n=100) for ligand in best_upstream_ligands
     ]
     active_ligand_target_links = list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"]) for e in active_ligand_target_links))
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
     )
     assert len(active_ligand_target_links) == 313
     assert equals_iter(
@@ -748,7 +747,7 @@ def test_ligand_activity_geneset():
     tumors_remove = {"HN10", "HN", "HN12", "HN13", "HN24", "HN7", "HN8", "HN23"}
     CAF_cells = [e[5] for e in sample_info if e[1] == 0 and e[4] == "CAF" and e[6] not in tumors_remove]
     malignant_cells = [e[5] for e in sample_info if e[1] == 0 and e[2] == 1 and e[6] not in tumors_remove]
-    row2id = dict(zip(rows, range(len(rows))))
+    row2id = dict(zip(rows, range(len(rows)), strict=True))
     exp_mat = exp_mat.toarray()
     expressed_genes_sender = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in CAF_cells]), cols)
     assert len(expressed_genes_sender) == 6706
@@ -790,7 +789,7 @@ def test_ligand_activity_geneset():
     assert equals_iter(
         sorted(ligand_receptor_links._mapping, key=lambda x: x[2], reverse=True)[:10], LAG_top_10_ligand_receptor_links
     )
-    col2id = dict(zip(cols, range(len(cols))))
+    col2id = dict(zip(cols, range(len(cols)), strict=True))
     exp_mat_caf = subset_matrix(
         exp_mat, [row2id[cell] for cell in CAF_cells], [col2id[ligand] for ligand in best_upstream_ligands]
     )
@@ -964,7 +963,7 @@ def test_steps_prioritization():
     assert equals(row["scaled_lfc_pval_receptor_group"], 0.8636364)
     assert equals(row["scaled_pval_adapted_receptor_group"], 0.83333333)
     # prioritization across multiple receivers
-    nichenet_output = dict()
+    nichenet_output = {}
     for receiver in ("CD8 T", "CD4 T", "Treg"):
         res = run_nichenet(
             ann,
@@ -1054,7 +1053,7 @@ def test_steps_prioritization():
         ].to_numpy(),
         PRIOR_top_10_prior_table,
     )
-    prior_table_oi = prior_table_combined.sort_values(by="prioritization_score", ascending=False)[:50]
+    prior_table_combined.sort_values(by="prioritization_score", ascending=False)[:50]
     receiver_oi = "CD8 T"
     prior_table_combined[prior_table_combined["receiver"] == receiver_oi]
 
@@ -1153,7 +1152,7 @@ def test_ligand_activity_single_cell():
     tumors_remove = {"HN10", "HN", "HN12", "HN13", "HN24", "HN7", "HN8", "HN23"}
     CAF_cells = [e[5] for e in sample_info if e[1] == 0 and e[4] == "CAF" and e[6] not in tumors_remove]
     malignant_cells = [e[5] for e in sample_info if e[1] == 0 and e[2] == 1 and e[6] not in tumors_remove]
-    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows))))
+    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows)), strict=True))
     exp_mat = np.array(exp_mat.todense())
     expressed_genes_CAFs = get_exp(subset_matrix(exp_mat, [row2id[cell] for cell in CAF_cells]), exp_mat_cols)
     expressed_genes_malignant = get_exp(
@@ -1173,9 +1172,11 @@ def test_ligand_activity_single_cell():
     assert len(potential_ligands) == 203
     background_expressed_genes = expressed_genes_malignant.intersection(predictor.row_names)
     assert len(background_expressed_genes) == 5891
-    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows))))
-    col2id = dict(zip(exp_mat_cols, range(len(exp_mat_cols))))
-    expression_scaled_col_ids, expression_scaled_cols = zip(*sorted((col2id[e], e) for e in background_expressed_genes))
+    row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows)), strict=True))
+    col2id = dict(zip(exp_mat_cols, range(len(exp_mat_cols)), strict=True))
+    expression_scaled_col_ids, expression_scaled_cols = zip(
+        *sorted((col2id[e], e) for e in background_expressed_genes), strict=True
+    )
     expression_scaled = scale_quantile(
         subset_matrix(exp_mat, rows=[row2id[e] for e in malignant_cells], cols=expression_scaled_col_ids)
     )
@@ -1192,7 +1193,7 @@ def test_ligand_activity_single_cell():
         .to_numpy(),
         LASC_top_10_ligand_activities,
     )
-    row2id = dict(zip(malignant_cells, range(len(malignant_cells))))
+    row2id = dict(zip(malignant_cells, range(len(malignant_cells)), strict=True))
     cell_scores = pd.DataFrame(
         {
             "cell": malignant_hn5_cells,
@@ -1280,7 +1281,9 @@ def test_model_construction():
     gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
     sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
-    source_weights = dict(zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1)))
+    source_weights = dict(
+        zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1), strict=True)
+    )
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
     weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
@@ -1315,8 +1318,12 @@ def test_model_construction():
         MC_top_10_ligand_target_matrix_direct_0,
         err_bound=0.12,  # TODO: acceptable?
     )
-    optimized_source_weights = tuple(zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1]))
-    optimized_source_weights = dict(zip(optimized_source_weights[0], [float(e) for e in optimized_source_weights[1]]))
+    optimized_source_weights = tuple(
+        zip(*read_csv_rows(os.path.join(network_path, "optimized_source_weights.csv"))[1], strict=True)
+    )
+    optimized_source_weights = dict(
+        zip(optimized_source_weights[0], [float(e) for e in optimized_source_weights[1]], strict=True)
+    )
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, optimized_source_weights)
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)
     weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=0.0803)
@@ -1347,7 +1354,7 @@ def test_model_construction():
     data_sources_to_keep = set(
         annotations[[e in ["literature", "comprehensive_db", "ChIP"] for e in annotations["type_db"]]]["source"]
     )
-    new_source_weights = dict((key, val) for key, val in source_weights.items() if key in data_sources_to_keep)
+    new_source_weights = {(key, val) for key, val in source_weights.items() if key in data_sources_to_keep}
     new_lr_network = lr_network[[e in data_sources_to_keep for e in lr_network["source"]]]
     new_sig_network = sig_network[[e in data_sources_to_keep for e in sig_network["source"]]]
     new_gr_network = gr_network[[e in data_sources_to_keep for e in gr_network["source"]]]
@@ -1449,7 +1456,7 @@ def test_target_prediction_evaluation_geneset():
         0.0179661,
         err_bound=non_deterministic_err_bound,
     )
-    target_prediction_performances_discrete_fisher = [
+    [
         calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list
     ]
     """
@@ -1474,7 +1481,9 @@ def test_model_evaluation():
                 "from": v["from"],
                 "response": dict(
                     (gene, 1) if (abs(lfc) >= 1 and qval <= 0.1) else (gene, 0)
-                    for gene, lfc, qval in zip(v["diffexp"]["gene"], v["diffexp"]["lfc"], v["diffexp"]["qval"])
+                    for gene, lfc, qval in zip(
+                        v["diffexp"]["gene"], v["diffexp"]["lfc"], v["diffexp"]["qval"], strict=True
+                    )
                 ),
             }
             for v in expression_settings_validation.values()

@@ -39,7 +39,7 @@ def test_calculate_aupr_2():
 
 
 def test_calculate_aupr_invalid_0():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         calculate_aupr(
             (1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0),
             (0.5, 0.12, 0.47, 0.36, 0.0, 1.0, 0.78, 0.66),
@@ -47,5 +47,5 @@ def test_calculate_aupr_invalid_0():
 
 
 def test_calculate_aupr_invalid_1():
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         calculate_aupr((1.0, 0.0, 1.0, 0.0, 0.0), (0.5, 0.12, 0.47, 0.36, 0.0, 1.0, 0.78, 0.66))

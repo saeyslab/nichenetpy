@@ -126,7 +126,7 @@ def prepare_ligand_target_visualization(
         raise TypeError(f"ligand_target_links should have type Iterable, was {type(ligand_target_links)}")
     if not isinstance(cutoff, Number):
         raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
-    ligands, targets, weights = zip(*ligand_target_links)
+    ligands, targets, weights = zip(*ligand_target_links, strict=True)
     ligands = sorted(set(ligands))
     targets = sorted(set(targets))
     # select ligands and targets that appear in ligand_target_links
@@ -135,8 +135,8 @@ def prepare_ligand_target_visualization(
         [predictor.gene2index(target) for target in targets],
         [predictor.ligand2index(ligand) for ligand in ligands],
     )
-    ligand2index = dict(zip(ligands, range(len(ligands))))
-    target2index = dict(zip(targets, range(len(targets))))
+    ligand2index = dict(zip(ligands, range(len(ligands)), strict=True))
+    target2index = dict(zip(targets, range(len(targets)), strict=True))
     # define a cutoff on the ligand-target links
     cutoff = np.quantile(weights, [cutoff])[0]
     nrows, ncols = ligand_target_vis.shape
@@ -184,8 +184,8 @@ def prepare_ligand_receptor_visualization(
         raise TypeError(f"ligand_receptor_links should have type WeightedNetwork, was {type(ligand_receptor_links)}")
     ligands = sorted(ligand_receptor_links.get_ligands())
     receptors = sorted(ligand_receptor_links.get_receptors())
-    ligand2index = dict(zip(ligands, range(len(ligands))))
-    receptor2index = dict(zip(receptors, range(len(receptors))))
+    ligand2index = dict(zip(ligands, range(len(ligands)), strict=True))
+    receptor2index = dict(zip(receptors, range(len(receptors)), strict=True))
     mat = np.zeros(shape=(len(ligands), len(receptors)))
     for ligand, receptor, weight in ligand_receptor_links:
         mat[ligand2index[ligand], receptor2index[receptor]] = weight
@@ -377,7 +377,7 @@ def _construct_ligand_signaling_df(
     k: int,
 ) -> pd.DataFrame:
     pd.options.mode.chained_assignment = None  # false positive warnings removal
-    target2id = dict(zip(all_targets, range(len(all_targets))))
+    target2id = dict(zip(all_targets, range(len(all_targets)), strict=True))
     dfs = []
     for ligand in ligands_oi:
         ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)
@@ -403,7 +403,7 @@ def _get_shortest_path_signaling(ligand_oi, signaling_df, lr_sig_mat, gene2id):
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
     ligand_id = gene2id[ligand_oi]
     spl = dijkstra_spl(lr_sig_mat, ligand_id)
-    return set.union(*(set(linked_iter(tf, lambda x: spl[x][1], lambda _, x: x == None)) for tf in tfs))
+    return set.union(*(set(linked_iter(tf, lambda x: spl[x][1], lambda _, x: x is None)) for tf in tfs))
 
 
 def _minmax_scaling(df):
@@ -483,7 +483,7 @@ def get_ligand_signaling_path(
         ligands_oi, targets_oi, all_ligands, all_targets, gr, ltf_matrix, top_n_regulators
     )
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
-    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     lr_sig_mat = csr_matrix(
         ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]]))
     )
@@ -492,12 +492,12 @@ def get_ligand_signaling_path(
     tfs = {all_genes[e] for e in tfs}
     # ligand-tf or tf-tf
     tf_signaling = lr_sig[
-        [(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"])]
+        [(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"], strict=True)]
     ]
     tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
     combined_df_tf = set(combined_df["TF"])
     # incoming edges of target nodes
-    tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"])]]
+    tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"], strict=True)]]
     if minmax_scaling:
         _minmax_scaling(tf_signaling)
         _minmax_scaling(tf_regulatory)
@@ -573,23 +573,25 @@ def visualize_ligand_signaling_graph(
             tf_signaling["to"].tolist(),
             tf_signaling["weight"].tolist(),
             repeat(gr_color),
+            strict=True,
         ),
         zip(
             tf_regulatory["from"].tolist(),
             tf_regulatory["to"].tolist(),
             tf_regulatory["weight"].tolist(),
             repeat(sig_color),
+            strict=True,
         ),
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
-    node2color = dict(
-        (node, (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color))
+    node2color = {
+        node: (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color)
         for node in graph.nodes
-    )
+    }
     nx.draw_networkx_nodes(graph, pos, node_color=[node2color[node] for node in graph.nodes], node_size=node_size)
     nx.draw_networkx_labels(
-        graph, pos, labels=dict(zip(graph.nodes, graph.nodes)), font_size=label_size, font_color="white"
+        graph, pos, labels=dict(zip(graph.nodes, graph.nodes, strict=True)), font_size=label_size, font_color="white"
     )
     nx.draw_networkx_edges(
         graph,
@@ -681,7 +683,7 @@ def assign_ligands_to_celltype(
         celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}
         for i, celltype in enumerate(celltypes)
     }
-    count = dict()
+    count = {}
     for e in chain(*sender_ligand_assignment.values()):
         if e in count:
             count[e] += 1
@@ -797,9 +799,9 @@ def create_barcode_plot(
         raise TypeError(f"max_ligands should have type iny, was {type(max_ligands)}")
     columns = ("rank", "ligand")
     scores1 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0]))
-    ranking1 = pd.DataFrame(zip(range(1, len(scores1)), (e[0] for e in scores1)), columns=columns)
+    ranking1 = pd.DataFrame(zip(range(1, len(scores1)), (e[0] for e in scores1), strict=True), columns=columns)
     scores2 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0]))
-    ranking2 = pd.DataFrame(zip(range(1, len(scores2)), (e[0] for e in scores2)), columns=columns)
+    ranking2 = pd.DataFrame(zip(range(1, len(scores2)), (e[0] for e in scores2), strict=True), columns=columns)
     ranking = ranking1.merge(ranking2, on="ligand", how="outer", suffixes=("_agnostic", "_focused"))
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_axis_off()
@@ -813,7 +815,7 @@ def create_barcode_plot(
     ax.add_artist(Text(x_col_focused, top_offset / ymax, "Focused", horizontalalignment="center", size=12))
     # add marks and lines
     for ligand, rank_agnostic, rank_focused in zip(
-        ranking["ligand"], ranking["rank_agnostic"], ranking["rank_focused"]
+        ranking["ligand"], ranking["rank_agnostic"], ranking["rank_focused"], strict=True
     ):
         xy1 = (x_col_agnostic, (rank_agnostic + top_offset) / ymax)
         xy2 = (x_col_focused, (rank_focused + top_offset) / ymax)
@@ -1090,11 +1092,11 @@ def create_mushroom_plot(
     interactions = interactions.iloc[:max_rows]
     interactions = [
         f"{ligand} - {receptor}"
-        for ligand, receptor in zip(interactions["ligand"].tolist(), interactions["receptor"].tolist())
+        for ligand, receptor in zip(interactions["ligand"].tolist(), interactions["receptor"].tolist(), strict=True)
     ]
-    interaction2index = dict(zip(interactions, range(1, len(interactions) + 1)))
+    interaction2index = dict(zip(interactions, range(1, len(interactions) + 1), strict=True))
     senders = sorted(df["sender"].unique().tolist())
-    sender2index = dict(zip(senders, range(len(senders))))
+    sender2index = dict(zip(senders, range(len(senders)), strict=True))
     xmin = 0
     ymin = 0
     xmax = len(senders) + 1
@@ -1127,6 +1129,7 @@ def create_mushroom_plot(
         df[f"{color_prefix}_receptor"].tolist(),
         df["prioritization_rank"].tolist(),
         df["show"].tolist(),
+        strict=True,
     ):
         try:
             x = sender2index[sender] + 1
@@ -1318,7 +1321,7 @@ def marker_plot(
         raise TypeError(f"c should have type list, tuple or numpy.ndarray, was {type(c)}")
     _c = set(c)
     if val2color is None:
-        val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c)))))
+        val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c))), strict=True))
     if type(val2color) is dict:
         val2color_dict = val2color
         val2color = lambda x: marker_cm(val2color_dict[x])
@@ -1346,7 +1349,7 @@ def marker_plot(
     amax = np.max(a)
     amin = np.min(a)
     texts = []
-    for xp, yp, ap, cp, label in zip(x, y, a, c, labels):
+    for xp, yp, ap, cp, label in zip(x, y, a, c, labels, strict=True):
         # linear with radius
         size_mult = ap / amax
         # linear with area
@@ -1475,7 +1478,7 @@ def marker_plot(
     return (fig, ax)
 
 
-# copied from https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
+# copied and modified from https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
 def _radar_factory(num_vars, frame="circle"):
     """
     Create a radar chart with `num_vars` Axes.
@@ -1513,7 +1516,7 @@ def _radar_factory(num_vars, frame="circle"):
 
         def fill(self, *args, closed=True, **kwargs):
             """Override fill so that line is closed by default"""
-            return super().fill(closed=closed, *args, **kwargs)
+            return super().fill(*args, closed=closed, **kwargs)
 
         def plot(self, *args, **kwargs):
             """Override plot so that line is closed by default"""
@@ -1540,7 +1543,7 @@ def _radar_factory(num_vars, frame="circle"):
             elif frame == "polygon":
                 return RegularPolygon((0.5, 0.5), num_vars, radius=0.5, edgecolor="k")
             else:
-                raise ValueError("Unknown value for 'frame': %s" % frame)
+                raise ValueError(f"Unknown value for 'frame': {frame}")
 
         def _gen_axes_spines(self):
             if frame == "circle":
@@ -1554,7 +1557,7 @@ def _radar_factory(num_vars, frame="circle"):
                 spine.set_transform(Affine2D().scale(0.5).translate(0.5, 0.5) + self.transAxes)
                 return {"polar": spine}
             else:
-                raise ValueError("Unknown value for 'frame': %s" % frame)
+                raise ValueError(f"Unknown value for 'frame': {frame}")
 
     register_projection(RadarAxes)
     return theta
@@ -1612,7 +1615,7 @@ def create_radar_plot(
         raise TypeError(f"max_val should have type float, was {type(max_val)}")
     cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame="polygon")
-    fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw=dict(projection="radar"))
+    fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
     ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])
     for i, d in enumerate(data):
         color = cmap(i / len(data))

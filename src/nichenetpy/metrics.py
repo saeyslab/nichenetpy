@@ -92,7 +92,7 @@ def calculate_aupr(
     if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        warnings.warn("There are no true samples in response, AUPR is undefined")
+        warnings.warn("There are no true samples in response, AUPR is undefined", stacklevel=2)
         return np.nan
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
@@ -126,7 +126,7 @@ def calculate_auroc(
     if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
-    fp, tp = zip(*sorted(zip(fp, tp), key=lambda x: x[0]))
+    fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
 
 
@@ -425,11 +425,11 @@ def group_metrics(
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
-    except KeyError:
-        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
+    except KeyError as error:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
     lfc = []
     pct = []
     # start by computing lfc and pct (these are also used for filtering before computing the p-values)

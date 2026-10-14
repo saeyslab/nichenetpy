@@ -75,9 +75,11 @@ def construct_weighted_networks(
         for source, weight in source_weights.items():
             if weight < 0 or weight > 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
-        source_weights = pd.DataFrame(dict(zip(("source", "weight"), zip(*source_weights.items()))))
+        source_weights = pd.DataFrame(
+            dict(zip(("source", "weight"), zip(*source_weights.items(), strict=True), strict=True))
+        )
     elif type(source_weights) is pd.DataFrame:
-        for source, weight in zip(source_weights["source"], source_weights["weight"]):
+        for source, weight in zip(source_weights["source"], source_weights["weight"], strict=True):
             if weight < 0 or weight > 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
     else:
@@ -234,7 +236,7 @@ def construct_ligand_tf_matrix(
     gr = weighted_networks["gr"]
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     all_genes = sorted(gene2id_keys)
-    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     ligands = [
         ligand
         for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
@@ -358,7 +360,7 @@ def construct_tf_target_matrix(
     all_genes = sorted(
         set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     )
-    gene2id = dict(zip(all_genes, range(len(all_genes))))
+    gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     fr = gr["from"].apply(lambda x: gene2id[x])
     grn_matrix = (csc_matrix if column_major else csr_matrix)(
         (gr["weight"], (fr, gr["to"].apply(lambda x: gene2id[x]))), shape=(len(gene2id), len(gene2id))

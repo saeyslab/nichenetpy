@@ -12,7 +12,7 @@ def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[gene_t], gene2index: dict[gene_t, int] | None = None
 ) -> tuple[np.ndarray, list[gene_t]]:
     if gene2index is None:
-        gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
+        gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
     if type(features) is set:
         features = sorted(features)
     ids = [gene2index[gene] for gene in features]
@@ -79,26 +79,26 @@ def subset_ann(
             val = set(val)
         try:
             cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]
-        except KeyError:
-            raise ValueError(f"There is no column '{val_col}' in the AnnData object")
+        except KeyError as error:
+            raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
         if len(cells_oi) == 0:
             raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
         else:
-            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
             row_ids = [row2index[name] for name in cells_oi.index]
     if genes is None:
         col_ids = None
     else:
         if type(genes) is set:
             genes = sorted(genes)
-        gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
+        gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         try:
             col_ids = [gene2index[gene] for gene in genes]
         except KeyError as error:
-            raise ValueError(f"The gene '{error.args[0]}' is not present in the AnnData object")
+            raise ValueError(f"The gene '{error.args[0]}' is not present in the AnnData object") from error
     if row_ids is None and col_ids is None:
         return None
-    new_layers = dict((layer, subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids)) for layer in layers)
+    new_layers = {layer: subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids) for layer in layers}
     if ann.X is not None:
         new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X
     # subset categories if the column is categorical

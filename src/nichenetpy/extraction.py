@@ -37,14 +37,14 @@ def _get_expressed_features(
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
         cells_oi = list(ann.obs.loc[ann.obs[celltype_col].isin(celltype)].index)
-    except KeyError:
-        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object")
+    except KeyError as error:
+        raise ValueError(f"There is no column '{celltype_col}' in the AnnData object") from error
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
     mat = ann.X if layer is None else ann.layers[layer]
     # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
     exps = exp_func(exprs_m)
     return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
@@ -132,11 +132,9 @@ def get_weighted_ligand_receptor_links(
     if type(lr_sig) is not WeightedNetwork:
         raise TypeError(f"lr_sig should have type WeightedNetwork, was {type(lr_sig)}")
     lr_sig = lr_sig.subset(set(lr_network))
-    best_upstream_receptors = set(
-        to for fr, to in lr_network if fr in best_upstream_ligands and to in expressed_receptors
-    )
+    best_upstream_receptors = {to for fr, to in lr_network if fr in best_upstream_ligands and to in expressed_receptors}
     # from best upstream ligand to best upstream receptor
-    return lr_sig.subset_sep(best_upstream_ligands.intersection(set(e[0] for e in lr_network)), best_upstream_receptors)
+    return lr_sig.subset_sep(best_upstream_ligands.intersection({e[0] for e in lr_network}), best_upstream_receptors)
 
 
 def get_lfc_celltype(
@@ -224,7 +222,7 @@ def get_lfc_celltype(
         else:
             # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
-        row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index))))
+        row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
         cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
         lfc = log_fold_change(
@@ -283,18 +281,19 @@ def average_expression(
     if keys is None:
         try:
             keys = set(ann.obs[groupby])
-        except KeyError:
-            raise ValueError(f"There is no column '{groupby}' in the AnnData object")
+        except KeyError as error:
+            raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
     elif not isinstance(keys, Iterable):
         raise TypeError(f"keys should be an Iterable of strings, was {type(keys)}")
-    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     # make sure all keys are in ann.obs
     keys = set(ann.obs[groupby]).intersection(keys)
     col_names, cols = zip(
         *(
             (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
             for key in keys
-        )
+        ),
+        strict=True,
     )
     df = pd.DataFrame(np.column_stack([col.T for col in cols]))
     df.index = ann.var_names

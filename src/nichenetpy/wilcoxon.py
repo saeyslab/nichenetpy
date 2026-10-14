@@ -19,8 +19,8 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Iterable[str], tie_correction
     if type(mat) is not csc_matrix:
         try:
             mat = csc_matrix(mat)
-        except TypeError:
-            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}")
+        except TypeError as error:
+            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}") from error
     output = []
     group_mat = []
     nrows, ncols = mat.shape
@@ -34,7 +34,10 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Iterable[str], tie_correction
         # reorder the groups of the cells so it matches the ranking
         if len(values_non_zero) > 0:
             groups_sorted, non_zero = zip(
-                *sorted(zip((cell_groups[i] for i in indices_non_zero), values_non_zero), key=lambda x: x[1])
+                *sorted(
+                    zip((cell_groups[i] for i in indices_non_zero), values_non_zero, strict=True), key=lambda x: x[1]
+                ),
+                strict=True,
             )
         else:
             non_zero = []
@@ -142,7 +145,7 @@ def wilcoxon_rank_sum_test(
         raise ValueError(f"There is no column '{groupby}' in the AnnData object")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
-    pvals = dict()
+    pvals = {}
     if layer is None:
         mat = ann.X
     else:
@@ -152,15 +155,15 @@ def wilcoxon_rank_sum_test(
     else:
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
-        gene2index = dict(zip(ann.var_names, range(len(ann.var_names))))
+        gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])
     ranks, sorted_groups, tie_stats = _rank_cells(mat, ann.obs[groupby], tie_correction=tie_correction)
-    rank_sums = dict()
+    rank_sums = {}
     # for each gene
-    for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats):
+    for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats, strict=True):
         for group in group_sizes.keys():
             rank_sums[group] = 0.0
-        for rank, group in zip(ranking, groups):
+        for rank, group in zip(ranking, groups, strict=True):
             rank_sums[group] += rank
         total_rank = sum(rank_sums.values())
         # for each group

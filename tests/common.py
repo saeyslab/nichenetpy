@@ -37,7 +37,7 @@ def equals(x, y, err_bound=1e-2, zero_bound=1e-100):
 
 
 def equals_iter(xs, ys, err_bound=1e-2, zero_bound=1e-100):
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=True):
         if not equals(x, y, err_bound, zero_bound):
             return False
     return True
@@ -55,7 +55,7 @@ def equals_dict(x, y):
 
 
 def df2dict(df, key_cols, val_col):
-    return dict(zip(zip(*(df[col] for col in key_cols)), df[val_col]))
+    return dict(zip(zip(*(df[col] for col in key_cols), strict=True), df[val_col], strict=True))
 
 
 def get_model_pickle(type="mouse"):

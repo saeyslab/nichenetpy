@@ -7,7 +7,7 @@ from nichenetpy.network import Network
 
 class GeneAliasInfo:
     """
-    This class facilitates gene alias conversion.
+    GeneAliasInfo facilitates gene alias conversion.
 
     Parameters
     ----------
@@ -25,9 +25,11 @@ class GeneAliasInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, entrez, alias = zip(
-                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:])
+                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:]), strict=True
             )
-            self._mapping = dict(zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez))))
+            self._mapping = dict(
+                zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez), strict=True), strict=True)
+            )
         elif type(arg) is dict:
             self._mapping = arg
         else:
@@ -39,8 +41,8 @@ class GeneAliasInfo:
     def __getitem__(self, key: str) -> tuple[str, int | None]:
         try:
             return self._mapping[key]
-        except KeyError:
-            raise KeyError(f"{key} is not a recognized gene")
+        except KeyError as error:
+            raise KeyError(f"{key} is not a recognized gene") from error
 
     def __iter__(self):
         return self._mapping.__iter__()
@@ -87,7 +89,7 @@ class GeneAliasInfo:
         """
         if type(obj) is list or type(obj) is tuple:
             output = []
-            mapped_genes = dict()
+            mapped_genes = {}
             for gene in obj:
                 ngene = self[gene][0] if gene in self else gene
                 output.append(ngene)
@@ -112,7 +114,7 @@ class GeneAliasInfo:
 
 class GeneInfo:
     """
-    This class facilitates gene conversion between mouse and human symbols.
+    GeneInfo facilitates gene conversion between mouse and human symbols.
 
     Parameters
     ----------
@@ -130,16 +132,16 @@ class GeneInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(
-                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:])
+                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:]), strict=True
             )
-            self.__init__(list(zip(symbol, symbol_mouse)))
+            self.__init__(list(zip(symbol, symbol_mouse, strict=True)))
         elif isinstance(arg, Iterable):
             # one to many
             self._human2mouse = Network(
                 sorted(((sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"), key=lambda x: x[0])
             )
             # one to one
-            self._mouse2human = dict(((sm, sh) for sh, sm in arg))
+            self._mouse2human = {(sm, sh) for sh, sm in arg}
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")
 

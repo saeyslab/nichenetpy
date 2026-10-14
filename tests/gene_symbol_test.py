@@ -56,7 +56,7 @@ def test_convert_alias_to_gene_human_3():
     template_gene_alias_info(human_alias_info, "DJS", ("ABCC2", 1244))
 
 
-def test_convert_alias_to_gene_human_3():
+def test_convert_alias_to_gene_human_4():
     template_gene_alias_info(human_alias_info, "PALMCOX", ("ACOX1", 51))
 
 
@@ -88,7 +88,7 @@ def test_alias_to_symbol_no_list():
 
 
 def test_alias_to_symbol_not_iterable():
-    with pytest.raises(Exception):
+    with pytest.raises(TypeError):
         mouse_alias_info.alias_to_symbol(72)
 
 

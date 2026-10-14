@@ -243,8 +243,8 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(mapping) is not list:
         raise TypeError(f"mapping should have type list[tuple[str, str]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    grouped_mapping = {}
+    name2id = {}
     for fr, to in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append(to)
@@ -286,8 +286,8 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(mapping) is not list:
         raise TypeError(f"mapping should have type list[tuple[str, str, float]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    grouped_mapping = {}
+    name2id = {}
     for fr, to, w in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append((to, w))
