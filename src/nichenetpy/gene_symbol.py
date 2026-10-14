@@ -1,9 +1,13 @@
 from collections.abc import Iterable
+import re
 
 from anndata import AnnData
 
 from nichenetpy.network import Network
 
+
+_pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
+_pat_gene_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 
 class GeneAliasInfo:
     """
@@ -25,7 +29,8 @@ class GeneAliasInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, entrez, alias = zip(
-                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:]), strict=True
+                *([word.strip("\"'") for word in _pat_gene_alias_info.findall(line.rstrip())[0]] for line in lines[1:]),
+                strict=True
             )
             self._mapping = dict(
                 zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez), strict=True), strict=True)
@@ -132,7 +137,7 @@ class GeneInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(
-                *([word.strip("\"'") for word in line.rstrip().split(",")] for line in lines[1:]), strict=True
+                *([word.strip("\"'") for word in _pat_gene_info.findall(line.rstrip())[0]] for line in lines[1:]), strict=True
             )
             self.__init__(list(zip(symbol, symbol_mouse, strict=True)))
         elif isinstance(arg, Iterable):
@@ -141,7 +146,7 @@ class GeneInfo:
                 sorted(((sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"), key=lambda x: x[0])
             )
             # one to one
-            self._mouse2human = {(sm, sh) for sh, sm in arg}
+            self._mouse2human = {sm: sh for sh, sm in arg}
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")
 
