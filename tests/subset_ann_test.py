@@ -15,7 +15,7 @@ ann_2000_50 = anndata.io.read_h5ad(os.path.join(root, "data/AnnData/anndata_2000
 def template_subset_ann_celltype(ann, celltype, layers=None, celltype_col="celltype", empty=False):
     res = subset_ann(ann, val=celltype, layers=layers, val_col=celltype_col)
     if empty:
-        assert res == None, "expected None to be returned"
+        assert res is None, "expected None to be returned"
         return
     else:
         assert type(res) is anndata.AnnData, f"wrong return type, expected AnnData, got {type(res)}"

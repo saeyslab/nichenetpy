@@ -1,13 +1,15 @@
-from collections.abc import Iterable
 import re
+from collections.abc import Iterable
 
 from anndata import AnnData
 
 from nichenetpy.network import Network
 
-
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
-_pat_gene_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
+_pat_gene_info = re.compile(
+    r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$"
+)
+
 
 class GeneAliasInfo:
     """
@@ -30,7 +32,7 @@ class GeneAliasInfo:
                 lines = file.readlines()
             symbol, entrez, alias = zip(
                 *([word.strip("\"'") for word in _pat_gene_alias_info.findall(line.rstrip())[0]] for line in lines[1:]),
-                strict=True
+                strict=True,
             )
             self._mapping = dict(
                 zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez), strict=True), strict=True)
@@ -137,7 +139,8 @@ class GeneInfo:
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(
-                *([word.strip("\"'") for word in _pat_gene_info.findall(line.rstrip())[0]] for line in lines[1:]), strict=True
+                *([word.strip("\"'") for word in _pat_gene_info.findall(line.rstrip())[0]] for line in lines[1:]),
+                strict=True,
             )
             self.__init__(list(zip(symbol, symbol_mouse, strict=True)))
         elif isinstance(arg, Iterable):

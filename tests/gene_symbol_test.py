@@ -39,6 +39,7 @@ def test_convert_alias_to_gene_mouse_3():
 def test_convert_alias_to_gene_mouse_4():
     template_gene_alias_info(mouse_alias_info, "13.MMHAP42FLE1", ("13.MMHAP42FLE1", 110442))
 
+
 def test_convert_alias_to_gene_mouse_5():
     template_gene_alias_info(mouse_alias_info, "B-1,4-GalT", ("B4galt1", 14595))
 

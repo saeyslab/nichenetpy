@@ -266,7 +266,7 @@ def test_subset_data_format_csc_0():
     assert type(res) is csc_matrix
 
 
-def test_subset_data_format_csc_0():
+def test_subset_data_format_csc_1():
     res = subset_matrix(
         csc_matrix(
             [[1, 2, 27, 0], [6, 7, 4, 42], [11, 12, 25, 32], [16, 17, 45, 36], [21, 22, 50, 31], [26, 27, 31, 29]]
@@ -276,7 +276,7 @@ def test_subset_data_format_csc_0():
     assert type(res) is csc_matrix
 
 
-def test_subset_data_format_csc_0():
+def test_subset_data_format_csc_2():
     res = subset_matrix(
         csc_matrix(
             [[1, 2, 27, 0], [6, 7, 4, 42], [11, 12, 25, 32], [16, 17, 45, 36], [21, 22, 50, 31], [26, 27, 31, 29]]

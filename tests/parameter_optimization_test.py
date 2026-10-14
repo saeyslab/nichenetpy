@@ -180,7 +180,7 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
         lr_network,
         gr_network,
         sig_network,
-        dict((sym2id[s], w) for s, w in source_weights.items()),
+        {sym2id[s]: w for s, w in source_weights.items()},
         lr_sig_hub=0.115,
         gr_hub=0.0803,
         ltf_cutoff=0.926,

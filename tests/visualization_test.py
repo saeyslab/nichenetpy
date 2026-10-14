@@ -115,5 +115,5 @@ def get_ligand_signaling_path_template(ligands_oi, targets_oi, exp_tf_signaling,
     assert equals_iter(tf_regulatory.to_numpy(), exp_tf_regulatory)
 
 
-def test_construct_ligand_signaling_df_0():
+def test_get_ligand_signaling_path_0():
     get_ligand_signaling_path_template(["IL1B"], ["TNFRSF11B", "CSF1", "NFKB2"], tf_signaling_0, tf_regulatory_0)

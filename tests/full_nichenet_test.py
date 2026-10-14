@@ -1456,9 +1456,7 @@ def test_target_prediction_evaluation_geneset():
         0.0179661,
         err_bound=non_deterministic_err_bound,
     )
-    [
-        calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list
-    ]
+    [calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list]
     """
     assert equals(
         sum(target_prediction_performances_discrete_fisher)/len(target_prediction_performances_discrete_fisher),
