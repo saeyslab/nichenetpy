@@ -2,7 +2,7 @@ import os
 import pickle
 from collections.abc import Callable, Iterable
 from re import Pattern, compile, finditer, search, split
-from typing import Any
+from typing import Any, Sequence, overload
 
 import numpy as np
 import pandas as pd
@@ -44,9 +44,9 @@ def read_list_from_csv(filename: str) -> list[str]:
 
 def read_matrix_from_csv(
     filename: str,
-    extract_row_name: Callable[[str], tuple[str, str]] | Pattern | None = None,
-    extract_col_name: Callable[[str], list[str]] | Pattern | None = None,
-) -> tuple[np.ndarray, str, str]:
+    extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
+    extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
+) -> tuple[np.ndarray, list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 
@@ -77,14 +77,14 @@ def read_matrix_from_csv(
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if extract_row_name is None:
         extract_row_name = _default_row_name_pattern
-    if type(extract_row_name) is Pattern:
+    if isinstance(extract_row_name, Pattern):
         row_name_pattern = extract_row_name
-        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())
+        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end()) # type: ignore (if search returns None then runtime error)
     if not isinstance(extract_row_name, Callable):
         raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
     if extract_col_name is None:
         extract_col_name = _default_col_name_pattern
-    if type(extract_col_name) is Pattern:
+    if isinstance(extract_col_name, Pattern):
         col_name_pattern = extract_col_name
         extract_col_name = lambda x: [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
     if not isinstance(extract_col_name, Callable):
@@ -128,7 +128,7 @@ def read_csv_rows(filename: str, sep: str | Pattern = ",") -> tuple[list[str], l
     return (lines[0], lines[1:])
 
 
-def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, list[str]]:
+def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence[str]]:
     """
     Reads the columns from a csv file.
 
@@ -186,6 +186,19 @@ def read_network_file(filename: str):
     else:
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
+@overload
+def subset_matrix(
+    mat: np.ndarray,
+    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+) -> np.ndarray: ...
+
+@overload
+def subset_matrix(
+    mat: csr_matrix | csc_matrix,
+    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+) -> csr_matrix | csc_matrix: ...
 
 def subset_matrix(
     mat: nichenet_matrix,
@@ -245,17 +258,17 @@ def subset_matrix(
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
-            output = vstack([output[row, :] for row in rows], format="csc")
+            output = vstack([output[row, :] for row in rows], format="csc") # type: ignore (should be fine given the input to vstack)
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
             output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
-            output = hstack([output[:, col] for col in cols], format="csr")
+            output = hstack([output[:, col] for col in cols], format="csr") # type: ignore (should be fine given the input to hstack)
     else:
         raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    return output
+    return output # type: ignore (should be fine given the input to hstack and vstack)
 
 
 def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
