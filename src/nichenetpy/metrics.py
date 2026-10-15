@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable, Iterable
 from numbers import Number
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -131,8 +132,8 @@ def calculate_auroc(
 
 
 def calculate_prediction_evaluation_metrics(
-    prediction: list[float] | tuple[float] | np.ndarray,
-    response: list[float] | tuple[float] | np.ndarray,
+    prediction: Sequence[float] | np.ndarray,
+    response: Sequence[float] | np.ndarray,
     allow_nan: bool = False,
 ) -> dict[str, float]:
     """

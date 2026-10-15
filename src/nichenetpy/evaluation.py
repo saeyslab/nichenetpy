@@ -79,7 +79,7 @@ class EvaluationData:
                     self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
-                    self.add(item)
+                    self.add(item) # type: ignore (obj has type Iterable[dict[str, dict]] due to above conditions)
             else:
                 raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
