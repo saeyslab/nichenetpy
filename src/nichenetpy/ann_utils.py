@@ -36,7 +36,7 @@ def subset_ann(
         the AnnData object to subset
     val : str or Iterable of str or None
         the values to subset by
-    genes : Iterable of str or None
+    genes : Iterable of gene_t or None
         the genes to select
     layers : Iterable of str or None
         the layers to subset (additionally to subsetting obs), if None all layers are subsetted
@@ -74,7 +74,7 @@ def subset_ann(
         if type(val) is gene_t:
             val = {val}
         elif not isinstance(val, Iterable):
-            raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")
+            raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")
         elif type(val) is not set:
             val = set(val)
         try:
