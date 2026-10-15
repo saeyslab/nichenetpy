@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import gene_t
+from nichenetpy.typing import (gene_t, nichenet_matrix)
 from nichenetpy.utils import subset_matrix
 
 
 def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[gene_t], gene2index: dict[gene_t, int] | None = None
-) -> tuple[np.ndarray, list[gene_t]]:
+) -> tuple[nichenet_matrix, Iterable[gene_t]]:
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
     if type(features) is set:
@@ -21,9 +21,9 @@ def _subset_layer(
 
 def subset_ann(
     ann: AnnData,
-    val: str | gene_t | Iterable[str] | None = None,
+    val: gene_t | Iterable[gene_t] | None = None,
     genes: Iterable[gene_t] | None = None,
-    layers: Iterable[str] | None = None,
+    layers: Iterable[str|None] | None = None,
     val_col: str = "celltype",
     subset_X: bool = True,
 ) -> AnnData | None:
@@ -71,7 +71,7 @@ def subset_ann(
     if val is None:
         row_ids = None
     else:
-        if type(val) is str or isinstance(val, gene_t):
+        if type(val) is gene_t:
             val = {val}
         elif not isinstance(val, Iterable):
             raise TypeError(f"val should be a string or an Iterable of strings, was {type(val)}")
@@ -106,7 +106,7 @@ def subset_ann(
         pd.options.mode.chained_assignment = None  # false positive warning removal
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)
     if len(new_layers) > 0:
-        new_shape = new_layers[layers[0]].shape
+        new_shape = new_layers[next(iter(layers))].shape
     elif ann.X is not None and subset_X:
         new_shape = new_X.shape
     else:

@@ -29,7 +29,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> niche
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(data, nichenet_matrix):
+    if type(data) is not nichenet_matrix:
         raise TypeError(f"data should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")

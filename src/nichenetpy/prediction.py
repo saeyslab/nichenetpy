@@ -244,7 +244,7 @@ class LigandActivityPredictor:
         ValueError
             if the arguments are invalid
         """
-        if not isinstance(ligand, gene_t):
+        if type(ligand) is not gene_t:
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
@@ -458,7 +458,7 @@ class LigandActivityPredictor:
         ValueError
             if the arguments are invalid
         """
-        if not isinstance(ligand, gene_t):
+        if type(ligand) is not gene_t:
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if not isinstance(geneset, Iterable):
             raise TypeError(f"geneset should have type Iterable, was {type(geneset)}")

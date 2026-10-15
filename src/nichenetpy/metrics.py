@@ -240,9 +240,9 @@ def log_fold_change(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(mat1, nichenet_matrix):
+    if type(mat1) is not nichenet_matrix:
         raise TypeError(f"mat1 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat1)}")
-    if not isinstance(mat2, nichenet_matrix):
+    if type(mat2) is not nichenet_matrix:
         raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")

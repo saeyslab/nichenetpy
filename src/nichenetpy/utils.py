@@ -637,7 +637,7 @@ def is_ligand_active(importances: pd.DataFrame):
         a list of booleans indicating whether a ligand is active or not
     """
     return [
-        test_ligand == true_ligand if isinstance(test_ligand, gene_t) else test_ligand in true_ligand
+        test_ligand == true_ligand if type(test_ligand) is gene_t else test_ligand in true_ligand
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]
 

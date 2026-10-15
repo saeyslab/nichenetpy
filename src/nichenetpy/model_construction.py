@@ -488,7 +488,7 @@ def construct_ligand_target_matrix(
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
-    ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
+    ligands = [(_ligands,) if type(_ligands) is gene_t else _ligands for _ligands in ligands]
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
         weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor
     )

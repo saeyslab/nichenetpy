@@ -17,7 +17,7 @@ def _average_performances(ligand_oi, performances):
         [
             any(
                 ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
-                for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t) else ligand_oi)
+                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi)
             )
             for true_ligand in performances["ligand"]
         ]
@@ -78,7 +78,7 @@ def evaluate_model(predictor: LigandActivityPredictor, evaluation_data: Evaluati
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
             setting["from"]
-            if isinstance(setting["from"], gene_t)  # potential BUG when using integers
+            if type(setting["from"]) is gene_t  # potential BUG when using integers
             else "-".join(setting["from"]),
             setting["response"],
         ).items():
