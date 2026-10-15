@@ -1,5 +1,6 @@
 from collections.abc import ItemsView, Iterable
 from itertools import repeat
+from typing import cast
 
 import pandas as pd
 
@@ -50,7 +51,7 @@ class EvaluationData:
 
     def __init__(
         self,
-        obj: dict[str, dict] | Iterable[dict] | ItemsView | pd.DataFrame | None = None,
+        obj: dict[str, dict] | Iterable[dict[str, dict]] | ItemsView | pd.DataFrame | None = None,
         key_name: str = "name",
         ligand_name: str = "from",
         de_genes_name: str = "response",

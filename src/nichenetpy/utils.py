@@ -2,6 +2,7 @@ import os
 import pickle
 from collections.abc import Callable, Iterable
 from re import Pattern, compile, finditer, search, split
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -622,7 +623,7 @@ def get_ties(it: Iterable, key: Callable):
     return output
 
 
-def is_ligand_active(importances: pd.DataFrame):
+def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     """
     Returns a list of booleans indicating whether a ligand is active or not.
 
@@ -642,7 +643,7 @@ def is_ligand_active(importances: pd.DataFrame):
     ]
 
 
-def linked_iter(start: any, nxt: Callable[[any], any], stp: Callable[[any, any], bool]):
+def linked_iter(start: Any, nxt: Callable[[Any], Any], stp: Callable[[Any, Any], bool]):
     """
     Yields all values reached by calling nxt on the current value until stp returns True
 

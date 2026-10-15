@@ -17,7 +17,7 @@ from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_w
 
 
 def _auc_reverse(
-    x: list[float] | tuple[float] | np.ndarray[float], y: list[float] | tuple[float] | np.ndarray[float]
+    x: list[float] | tuple[float] | np.ndarray, y: list[float] | tuple[float] | np.ndarray
 ) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
@@ -57,7 +57,7 @@ def _auc_reverse(
 
 
 def calculate_aupr(
-    response: list[float] | tuple[float] | np.ndarray[float], prediction: list[float] | tuple[float] | np.ndarray[float]
+    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
 ) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
@@ -99,7 +99,7 @@ def calculate_aupr(
 
 
 def calculate_auroc(
-    response: list[float] | tuple[float] | np.ndarray[float], prediction: list[float] | tuple[float] | np.ndarray[float]
+    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
 ) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
@@ -131,8 +131,8 @@ def calculate_auroc(
 
 
 def calculate_prediction_evaluation_metrics(
-    prediction: list[float] | tuple[float] | np.ndarray[float],
-    response: list[float] | tuple[float] | np.ndarray[float],
+    prediction: list[float] | tuple[float] | np.ndarray,
+    response: list[float] | tuple[float] | np.ndarray,
     allow_nan: bool = False,
 ) -> dict[str, float]:
     """
@@ -200,7 +200,7 @@ def calculate_prediction_evaluation_metrics(
 
 
 def _sub_log_fold_change(
-    data: csc_matrix | csr_matrix,
+    data: nichenet_matrix,
     denormalize: Callable[[nichenet_matrix], nichenet_matrix] = np.expm1,
     pseudocount: int = 1,
 ):
