@@ -1,41 +1,33 @@
-from nichenetpy.extraction import average_expression
-from nichenetpy.normalization import (
-    relative_counts,
-    scaling_zscore,
-    scale_quantile_adapted
-)
-from nichenetpy.network import LigandReceptorNetwork
-from nichenetpy.utils import (
-    ligand_activities_df,
-    df_grouped_apply,
-    rank_genes_groups_to_dataframe
-)
-from nichenetpy.metrics import group_metrics
-from nichenetpy.ann_utils import subset_ann
-from nichenetpy.typing import gene_t
-
-from anndata import AnnData
-from collections.abc import Iterable, Collection
+from collections.abc import Collection, Iterable
 from numbers import Number
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import scanpy as sc
+from anndata import AnnData
+
+from nichenetpy.ann_utils import subset_ann
+from nichenetpy.extraction import average_expression
+from nichenetpy.metrics import group_metrics
+from nichenetpy.network import LigandReceptorNetwork
+from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
+from nichenetpy.typing import gene_t
+from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
 def calculate_de(
-    ann:AnnData,
-    celltype_col:str,
-    condition_oi:str,
-    condition_col:str,
+    ann: AnnData,
+    celltype_col: str,
+    condition_oi: str,
+    condition_col: str,
     layer="data",
-    features:Iterable[gene_t]|None=None,
-    min_abs_lfc:float=0,
-    min_pct:float=0,
-    pval_thresh:float=1,
-    use_scanpy:bool=False
+    features: Iterable[gene_t] | None = None,
+    min_abs_lfc: float = 0,
+    min_pct: float = 0,
+    pval_thresh: float = 1,
+    use_scanpy: bool = False,
 ) -> pd.DataFrame:
-    '''
+    """
     Calculate differential expression of one cell type versus all other cell types.
     If condition_oi is provided, only consider cells from that condition.
 
@@ -61,7 +53,7 @@ def calculate_de(
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     use_scanpy : bool
         if True, use scanpy.rank_genes_groups
-    
+
     Returns
     -------
     pandas.DataFrame
@@ -71,7 +63,7 @@ def calculate_de(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
     if type(celltype_col) is not str:
@@ -90,17 +82,11 @@ def calculate_de(
         raise TypeError(f"min_pct should have type float, was {type(min_pct)}")
     if not isinstance(pval_thresh, Number):
         raise TypeError(f"pval_thresh should have type float, was {type(pval_thresh)}")
-    if not type(use_scanpy) is bool:
+    if type(use_scanpy) is not bool:
         raise TypeError(f"use_scanpy should have type bool, was {type(use_scanpy)}")
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     if use_scanpy:
-        sc.tl.rank_genes_groups(
-            ann,
-            groupby=celltype_col,
-            method="wilcoxon",
-            layer=layer,
-            pts=True
-        )
+        sc.tl.rank_genes_groups(ann, groupby=celltype_col, method="wilcoxon", layer=layer, pts=True)
         return rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
     else:
         group_metrics(
@@ -110,19 +96,20 @@ def calculate_de(
             min_abs_lfc=min_abs_lfc,
             min_pct=min_pct,
             pval_thresh=pval_thresh,
-            features=features
+            features=features,
         )
         return ann.uns["group_metrics"]
 
+
 def get_avg_exp(
-    ann:AnnData,
-    celltype_col:str,
-    condition_oi:str|None=None,
-    condition_col:str|None=None,
-    layer:str="counts",
-    features:Iterable[gene_t]|None=None
+    ann: AnnData,
+    celltype_col: str,
+    condition_oi: str | None = None,
+    condition_col: str | None = None,
+    layer: str = "counts",
+    features: Iterable[gene_t] | None = None,
 ) -> pd.DataFrame:
-    '''
+    """
     Calculate the average gene expression per cell type.
     If condition_oi is provided, only consider cells from that condition.
 
@@ -140,17 +127,17 @@ def get_avg_exp(
         the layer of the AnnData object to use
     features : Iterable[gene_t] or None
         the genes to use, if None, use all genes from the AnnData object
-    
+
     Returns
     -------
     pandas.DataFrame
         the average gene expression per cell type
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
     if type(celltype_col) is not str:
@@ -168,31 +155,20 @@ def get_avg_exp(
     if features is not None:
         ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
-    avg_celltype = average_expression(
-        ann,
-        celltype_col,
-        keys=celltypes,
-        layer=layer,
-        norm_f=relative_counts
-    )
+    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)
     avg_celltype.reset_index(inplace=True)
-    return pd.melt(
-        avg_celltype,
-        id_vars=["gene"],
-        value_vars=celltypes,
-        var_name=celltype_col,
-        value_name="avg_exp"
-    )
+    return pd.melt(avg_celltype, id_vars=["gene"], value_vars=celltypes, var_name=celltype_col, value_name="avg_exp")
+
 
 def process_table_to_ic(
-    tab:pd.DataFrame,
-    table_type:str,
-    lr_network:LigandReceptorNetwork,
-    senders_oi:Collection[str]|None=None,
-    receivers_oi:Collection[str]|None=None,
-    celltype_col:str="celltype"
+    tab: pd.DataFrame,
+    table_type: str,
+    lr_network: LigandReceptorNetwork,
+    senders_oi: Collection[str] | None = None,
+    receivers_oi: Collection[str] | None = None,
+    celltype_col: str = "celltype",
 ):
-    '''
+    """
     First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
     Then, combine information for senders and receivers by linking ligands to receptors based on the prior knowledge ligand-receptor network.
 
@@ -211,17 +187,17 @@ def process_table_to_ic(
         the receiver celltypes of interest
     celltype_col : str
         the column which contains the celltype
-    
+
     Returns
     -------
     pandas.DataFrame
         the processed table
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(tab) is not pd.DataFrame:
         raise TypeError(f"tab should have type pandas.DataFrame, was {type(tab)}")
     if type(table_type) is not str:
@@ -233,16 +209,8 @@ def process_table_to_ic(
     if receivers_oi is not None and not isinstance(receivers_oi, Collection):
         raise TypeError(f"receivers_oi should have type Collection[str], was {type(receivers_oi)}")
     if table_type == "expression":
-        sender_table = tab.rename(columns={
-            celltype_col: "sender",
-            "gene": "ligand",
-            "avg_exp": "avg_ligand"
-        })
-        receiver_table = tab.rename(columns={
-            celltype_col: "receiver",
-            "gene": "receptor",
-            "avg_exp": "avg_receptor"
-        })
+        sender_table = tab.rename(columns={celltype_col: "sender", "gene": "ligand", "avg_exp": "avg_ligand"})
+        receiver_table = tab.rename(columns={celltype_col: "receiver", "gene": "receptor", "avg_exp": "avg_receptor"})
         columns_reorder = [
             "sender",
             "receiver",
@@ -250,25 +218,29 @@ def process_table_to_ic(
             "receptor",
             "avg_ligand",
             "avg_receptor",
-            "ligand_receptor_prod"
+            "ligand_receptor_prod",
         ]
-    elif (table_type == "celltype_DE"):
-        sender_table = tab.rename(columns={
-            celltype_col: "sender",
-            "gene": "ligand",
-            "lfc": "lfc_ligand",
-            "pval": "pval_ligand",
-            "pval_adj": "pval_adj_ligand",
-            "pct": "pct_expressed_sender"
-        })
-        receiver_table = tab.rename(columns={
-            celltype_col: "receiver",
-            "gene": "receptor",
-            "lfc": "lfc_receptor",
-            "pval": "pval_receptor",
-            "pval_adj": "pval_adj_receptor",
-            "pct": "pct_expressed_receiver"
-        })
+    elif table_type == "celltype_DE":
+        sender_table = tab.rename(
+            columns={
+                celltype_col: "sender",
+                "gene": "ligand",
+                "lfc": "lfc_ligand",
+                "pval": "pval_ligand",
+                "pval_adj": "pval_adj_ligand",
+                "pct": "pct_expressed_sender",
+            }
+        )
+        receiver_table = tab.rename(
+            columns={
+                celltype_col: "receiver",
+                "gene": "receptor",
+                "lfc": "lfc_receptor",
+                "pval": "pval_receptor",
+                "pval_adj": "pval_adj_receptor",
+                "pct": "pct_expressed_receiver",
+            }
+        )
         columns_reorder = [
             "sender",
             "receiver",
@@ -282,21 +254,20 @@ def process_table_to_ic(
             "pval_receptor",
             "pval_adj_receptor",
             "pct_expressed_sender",
-            "pct_expressed_receiver"
+            "pct_expressed_receiver",
         ]
     elif table_type == "group_DE":
-        sender_table = tab.rename(columns={
-            "gene": "ligand",
-            "lfc": "lfc_ligand",
-            "pval": "pval_ligand",
-            "pval_adj": "pval_adj_ligand"
-        })
-        receiver_table = tab.rename(columns={
-            "gene": "receptor",
-            "lfc": "lfc_receptor",
-            "pval": "pval_receptor",
-            "pval_adj": "pval_adj_receptor"
-        })
+        sender_table = tab.rename(
+            columns={"gene": "ligand", "lfc": "lfc_ligand", "pval": "pval_ligand", "pval_adj": "pval_adj_ligand"}
+        )
+        receiver_table = tab.rename(
+            columns={
+                "gene": "receptor",
+                "lfc": "lfc_receptor",
+                "pval": "pval_receptor",
+                "pval_adj": "pval_adj_receptor",
+            }
+        )
         columns_reorder = [
             "ligand",
             "receptor",
@@ -306,7 +277,7 @@ def process_table_to_ic(
             "pval_ligand",
             "pval_adj_ligand",
             "pval_receptor",
-            "pval_adj_receptor"
+            "pval_adj_receptor",
         ]
     else:
         raise ValueError("table_type argument should be 'expression', 'celltype_DE' or 'group_DE'")
@@ -321,39 +292,28 @@ def process_table_to_ic(
         .merge(receiver_table, on="receptor", how="inner")
     )
     if table_type == "expression":
-        sender_receiver_table["ligand_receptor_prod"] = sender_receiver_table["avg_ligand"] * sender_receiver_table["avg_receptor"]
-        sender_receiver_table.sort_values(
-            by="ligand_receptor_prod",
-            ascending=False,
-            inplace=True
+        sender_receiver_table["ligand_receptor_prod"] = (
+            sender_receiver_table["avg_ligand"] * sender_receiver_table["avg_receptor"]
         )
+        sender_receiver_table.sort_values(by="ligand_receptor_prod", ascending=False, inplace=True)
     else:
         sender_receiver_table["ligand_receptor_lfc_avg"] = (
             sender_receiver_table["lfc_ligand"] + sender_receiver_table["lfc_receptor"]
         ) / 2
-        sender_receiver_table.sort_values(
-            by="ligand_receptor_lfc_avg",
-            ascending=False,
-            inplace=True
-        )
+        sender_receiver_table.sort_values(by="ligand_receptor_lfc_avg", ascending=False, inplace=True)
     return sender_receiver_table[columns_reorder]
 
-def _prioritization(
-    de:pd.DataFrame,
-    lig_rec:str,
-    send_rcvr:str|None=None
-):
+
+def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None):
     output = de[
         [lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
-        if send_rcvr is None else
-        [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
+        if send_rcvr is None
+        else [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
     ]
     output.drop_duplicates(inplace=True)
     temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
-    output[f"pval_adapted_{lig_rec}"] = (
-        temp * output[f"lfc_{lig_rec}"].apply(lambda x : -1 if x < 0 else 1)
-    )
+    output[f"pval_adapted_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"].apply(lambda x: -1 if x < 0 else 1)
     temp = output[f"lfc_{lig_rec}"].rank(method="average", na_option="top")
     output[f"scaled_lfc_{lig_rec}"] = temp / temp.max()
     temp = output[f"pval_{lig_rec}"].rank(method="average", na_option="top", ascending=False)
@@ -365,18 +325,19 @@ def _prioritization(
     output.sort_values(by=f"lfc_pval_{lig_rec}", ascending=False, inplace=True)
     return output
 
+
 def generate_prioritization_table(
-    sender_receiver_info:pd.DataFrame,
-    sender_receiver_de:pd.DataFrame,
-    ligand_activities:pd.DataFrame|dict[gene_t, dict[str, float]]|list[tuple[gene_t, dict[str, float]]],
-    lr_condition_de:pd.DataFrame|None=None,
-    prioritizing_weights:dict[str, float]|None=None
+    sender_receiver_info: pd.DataFrame,
+    sender_receiver_de: pd.DataFrame,
+    ligand_activities: pd.DataFrame | dict[gene_t, dict[str, float]] | list[tuple[gene_t, dict[str, float]]],
+    lr_condition_de: pd.DataFrame | None = None,
+    prioritizing_weights: dict[str, float] | None = None,
 ):
-    '''
+    """
     User can choose the importance attached to each of the following prioritization criteria:
-        differential expression of ligand and receptor,
-        cell-type specificity of expression of ligand and receptor,
-        NicheNet ligand activity
+    differential expression of ligand and receptor,
+    cell-type specificity of expression of ligand and receptor,
+    NicheNet ligand activity
 
     Parameters
     ----------
@@ -391,14 +352,14 @@ def generate_prioritization_table(
     prioritizing_weights : dict or None
         a dictionary indicating the relative weights of each prioritization criterion
         If provided, the dictionary must contain the following names:
-            "de_ligand",
-            "de_receptor",
-            "activity_scaled",
-            "exprs_ligand",
-            "exprs_receptor",
-            "ligand_condition_specificity",
-            "receptor_condition_specificity"
-    
+        "de_ligand",
+        "de_receptor",
+        "activity_scaled",
+        "exprs_ligand",
+        "exprs_receptor",
+        "ligand_condition_specificity",
+        "receptor_condition_specificity"
+
     Returns
     -------
     pandas.DataFrame
@@ -418,43 +379,49 @@ def generate_prioritization_table(
             Moreover, `scaled_*` columns are scaled using the corresponding column's ranking or the scale_quantile_adapted function.
             The columns used for prioritization are `scaled_p_val_adapted_ligand`, `scaled_p_val_adapted_receptor`, `scaled_activity`,
             `scaled_avg_exprs_ligand`, `scaled_avg_exprs_receptor`, `scaled_p_val_adapted_ligand_group`, `scaled_p_val_adapted_receptor_group`
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if prioritizing weigths does not contain the correct keys
-    '''
+    """
     if type(sender_receiver_info) is not pd.DataFrame:
         raise TypeError(f"sender_receiver_info should be of type pandas.DataFrame, was {type(sender_receiver_info)}")
     if type(sender_receiver_de) is not pd.DataFrame:
         raise TypeError(f"sender_receiver_de should be of type pandas.DataFrame, was {type(sender_receiver_de)}")
     if lr_condition_de is not None and type(lr_condition_de) is not pd.DataFrame:
         raise TypeError(f"lr_condition_de should be of type pandas.DataFrame, was {type(lr_condition_de)}")
-    pd.options.mode.chained_assignment = None # false positive warnings removal
+    pd.options.mode.chained_assignment = None  # false positive warnings removal
     if type(ligand_activities) is dict or type(ligand_activities) is list:
         ligand_activities = ligand_activities_df(ligand_activities)
     elif type(ligand_activities) is not pd.DataFrame:
-        raise TypeError(f"ligand_activities should be of type pandas.DataFrame, dict or list, was {type(ligand_activities)}")
+        raise TypeError(
+            f"ligand_activities should be of type pandas.DataFrame, dict or list, was {type(ligand_activities)}"
+        )
     if prioritizing_weights is None:
-        prioritizing_weights = {
-            "de_ligand": 1,
-            "de_receptor": 1,
-            "activity_scaled": 1,
-            "exprs_ligand": 1,
-            "exprs_receptor": 1,
-            "ligand_condition_specificity": 0,
-            "receptor_condition_specificity": 0
-        } if lr_condition_de is None else {
-            "de_ligand": 1,
-            "de_receptor": 1,
-            "activity_scaled": 1,
-            "exprs_ligand": 1,
-            "exprs_receptor": 1,
-            "ligand_condition_specificity": 1,
-            "receptor_condition_specificity": 1
-        }
+        prioritizing_weights = (
+            {
+                "de_ligand": 1,
+                "de_receptor": 1,
+                "activity_scaled": 1,
+                "exprs_ligand": 1,
+                "exprs_receptor": 1,
+                "ligand_condition_specificity": 0,
+                "receptor_condition_specificity": 0,
+            }
+            if lr_condition_de is None
+            else {
+                "de_ligand": 1,
+                "de_receptor": 1,
+                "activity_scaled": 1,
+                "exprs_ligand": 1,
+                "exprs_receptor": 1,
+                "ligand_condition_specificity": 1,
+                "receptor_condition_specificity": 1,
+            }
+        )
     else:
         if type(prioritizing_weights) is not dict:
             raise TypeError(f"prioritizing_weights should have type dict, was {type(prioritizing_weights)}")
@@ -465,22 +432,16 @@ def generate_prioritization_table(
             "exprs_ligand",
             "exprs_receptor",
             "ligand_condition_specificity",
-            "receptor_condition_specificity"
+            "receptor_condition_specificity",
         ):
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
-        ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(method="average", na_option="bottom", ascending=False)
-    sender_ligand_prioritization = _prioritization(
-        sender_receiver_de,
-        "ligand",
-        "sender"
-    )
-    receiver_receptor_prioritization = _prioritization(
-        sender_receiver_de,
-        "receptor",
-        "receiver"
-    )
+        ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(
+            method="average", na_option="bottom", ascending=False
+        )
+    sender_ligand_prioritization = _prioritization(sender_receiver_de, "ligand", "sender")
+    receiver_receptor_prioritization = _prioritization(sender_receiver_de, "receptor", "receiver")
     if "receiver" in ligand_activities.columns:
         ligand_activity_prioritization = ligand_activities[["aupr_corrected", "rank", "receiver"]]
     else:
@@ -490,9 +451,7 @@ def generate_prioritization_table(
     ligand_activity_prioritization.rename(columns={"aupr_corrected": "activity"}, inplace=True)
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
     ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
-        ligand_activity_prioritization["activity"].transpose(),
-        cutoff=0.01,
-        by_row=True
+        ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True
     ).transpose()
     ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
     ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]]
@@ -500,37 +459,31 @@ def generate_prioritization_table(
     ligand_celltype_specificity_prioritization = df_grouped_apply(
         ligand_celltype_specificity_prioritization,
         groupby="ligand",
-        func=lambda group : scale_quantile_adapted(group["avg_ligand"], by_row=True),
-        dest="scaled_avg_exprs_ligand"
+        func=lambda group: scale_quantile_adapted(group["avg_ligand"], by_row=True),
+        dest="scaled_avg_exprs_ligand",
     )
-    ligand_celltype_specificity_prioritization.sort_values(
-        by="scaled_avg_exprs_ligand",
-        ascending=False,
-        inplace=True
-    )
+    ligand_celltype_specificity_prioritization.sort_values(by="scaled_avg_exprs_ligand", ascending=False, inplace=True)
     receptor_celltype_specificity_prioritization = sender_receiver_info[["receiver", "receptor", "avg_receptor"]]
     receptor_celltype_specificity_prioritization.drop_duplicates(inplace=True)
     receptor_celltype_specificity_prioritization = df_grouped_apply(
         receptor_celltype_specificity_prioritization,
         groupby="receptor",
-        func=lambda group : scale_quantile_adapted(group["avg_receptor"], by_row=True),
-        dest="scaled_avg_exprs_receptor"
+        func=lambda group: scale_quantile_adapted(group["avg_receptor"], by_row=True),
+        dest="scaled_avg_exprs_receptor",
     )
     receptor_celltype_specificity_prioritization.sort_values(
-        by="scaled_avg_exprs_receptor",
-        ascending=False,
-        inplace=True
+        by="scaled_avg_exprs_receptor", ascending=False, inplace=True
     )
     if lr_condition_de is not None:
         ligand_condition_prioritization = _prioritization(lr_condition_de, "ligand")
         ligand_condition_prioritization.index = ligand_condition_prioritization["ligand"]
         ligand_condition_prioritization.drop(columns=["ligand"], inplace=True)
-        ligand_condition_prioritization.rename(columns=lambda x : f"{x}_group", inplace=True)
+        ligand_condition_prioritization.rename(columns=lambda x: f"{x}_group", inplace=True)
         ligand_condition_prioritization.reset_index(inplace=True)
         receptor_condition_prioritization = _prioritization(lr_condition_de, "receptor")
         receptor_condition_prioritization.index = receptor_condition_prioritization["receptor"]
         receptor_condition_prioritization.drop(columns=["receptor"], inplace=True)
-        receptor_condition_prioritization.rename(columns=lambda x : f"{x}_group", inplace=True)
+        receptor_condition_prioritization.rename(columns=lambda x: f"{x}_group", inplace=True)
         receptor_condition_prioritization.reset_index(inplace=True)
     group_prioritization = sender_receiver_de.merge(sender_receiver_info, how="inner")
     if prioritizing_weights["de_ligand"] > 0:
@@ -549,14 +502,15 @@ def generate_prioritization_table(
         group_prioritization = group_prioritization.merge(receptor_condition_prioritization, how="inner")
     sum_prioritization_weights = (
         (
-            prioritizing_weights["de_ligand"] +
-            prioritizing_weights["de_receptor"] +
-            prioritizing_weights["exprs_ligand"] +
-            prioritizing_weights["exprs_receptor"]
-        ) / 2 +
-        prioritizing_weights["activity_scaled"] +
-        prioritizing_weights["ligand_condition_specificity"] +
-        prioritizing_weights["receptor_condition_specificity"]
+            prioritizing_weights["de_ligand"]
+            + prioritizing_weights["de_receptor"]
+            + prioritizing_weights["exprs_ligand"]
+            + prioritizing_weights["exprs_receptor"]
+        )
+        / 2
+        + prioritizing_weights["activity_scaled"]
+        + prioritizing_weights["ligand_condition_specificity"]
+        + prioritizing_weights["receptor_condition_specificity"]
     )
     score = 0
     if "scaled_pval_adapted_ligand" in group_prioritization.columns:
@@ -570,15 +524,19 @@ def generate_prioritization_table(
     if "scaled_avg_exprs_receptor" in group_prioritization.columns:
         score += prioritizing_weights["exprs_receptor"] * group_prioritization["scaled_avg_exprs_receptor"] / 2
     if "scaled_pval_adapted_ligand_group" in group_prioritization.columns:
-        score += prioritizing_weights["ligand_condition_specificity"] * group_prioritization["scaled_pval_adapted_ligand_group"]
+        score += (
+            prioritizing_weights["ligand_condition_specificity"]
+            * group_prioritization["scaled_pval_adapted_ligand_group"]
+        )
     if "scaled_pval_adapted_receptor_group" in group_prioritization.columns:
-        score += prioritizing_weights["receptor_condition_specificity"] * group_prioritization["scaled_pval_adapted_receptor_group"]
+        score += (
+            prioritizing_weights["receptor_condition_specificity"]
+            * group_prioritization["scaled_pval_adapted_receptor_group"]
+        )
     score /= sum_prioritization_weights
     group_prioritization["prioritization_score"] = score
     group_prioritization.sort_values(by="prioritization_score", ascending=False, inplace=True)
     group_prioritization["prioritization_rank"] = group_prioritization[["prioritization_score"]].rank(
-        method="average",
-        na_option="bottom",
-        ascending=False
+        method="average", na_option="bottom", ascending=False
     )
     return group_prioritization

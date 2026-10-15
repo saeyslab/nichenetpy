@@ -1,30 +1,24 @@
-from nichenetpy.utils import subset_matrix
-from nichenetpy.wilcoxon import (
-    wilcoxon_rank_sum_test,
-    wilcoxon_rank_sum_test_with_correlation
-)
-from nichenetpy.ann_utils import _subset_layer, subset_ann
-from nichenetpy.typing import nichenet_matrix
-from nichenetpy.exception import NicheNetError
-
-from anndata import AnnData
+import warnings
 from collections.abc import Callable, Iterable
-from scipy.sparse import csc_matrix, csr_matrix
-from scipy.stats import pearsonr
-from sklearn.metrics import precision_recall_curve, roc_curve
 from numbers import Number
 
 import numpy as np
 import pandas as pd
-import warnings
+from anndata import AnnData
+from scipy.sparse import csc_matrix, csr_matrix
+from scipy.stats import pearsonr
+from sklearn.metrics import precision_recall_curve, roc_curve
+
+from nichenetpy.ann_utils import _subset_layer, subset_ann
+from nichenetpy.exception import NicheNetError
+from nichenetpy.typing import nichenet_matrix
+from nichenetpy.utils import subset_matrix
+from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(
-    x:list[float]|tuple[float]|np.ndarray[float],
-    y:list[float]|tuple[float]|np.ndarray[float]
-) -> float:
-    '''
-    Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values. 
+def _auc_reverse(x: list[float] | tuple[float] | np.ndarray, y: list[float] | tuple[float] | np.ndarray) -> float:
+    """
+    Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 
     Parameters
     ----------
@@ -50,21 +44,21 @@ def _auc_reverse(
         (0.5, 0.53846154, 0.58333333, 0.63636364, 0.7, 0.77777778, 0.75, 0.85714286, 0.8, 0.75, 1, 1, 1, 1)
     )
     0.8851473922902493
-    '''
+    """
     if len(x) != len(y):
-        raise ValueError('x and y should have the same length')
+        raise ValueError("x and y should have the same length")
     if len(x) < 2:
-        raise ValueError('x and y should have a length of at least 2')
+        raise ValueError("x and y should have a length of at least 2")
     if type(x) is np.ndarray and type(y) is np.ndarray:
         return ((x[:-1] - x[1:]) * (y[1:] + y[:-1])).sum() / 2
-    return sum((x[i-1] - x[i])*(y[i] + y[i-1]) for i in range(1, len(x))) / 2
+    return sum((x[i - 1] - x[i]) * (y[i] + y[i - 1]) for i in range(1, len(x))) / 2
+
 
 def calculate_aupr(
-    response:list[float]|tuple[float]|np.ndarray[float],
-    prediction:list[float]|tuple[float]|np.ndarray[float]
+    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
 ) -> float:
-    '''
-    Calculates the area under the precision-recall curve using the trapezoid rule. 
+    """
+    Calculates the area under the precision-recall curve using the trapezoid rule.
 
     Parameters
     ----------
@@ -77,7 +71,7 @@ def calculate_aupr(
     -------
     float
         the area under the precision-recall curve
-    
+
     Raises
     ------
     TypeError
@@ -90,23 +84,23 @@ def calculate_aupr(
         (0.5, 0.12, 0.47, 0.36, 0.0, 1.0, 0.78, 0.66, 0.24, 0.42, 0.95, 0.47, 0.39, 0.07)
     )
     0.8851473922902493
-    '''
+    """
     if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        warnings.warn("There are no true samples in response, AUPR is undefined")
+        warnings.warn("There are no true samples in response, AUPR is undefined", stacklevel=2)
         return np.nan
     precision, recall, _ = precision_recall_curve(response, prediction)
     return _auc_reverse(recall, precision)
 
+
 def calculate_auroc(
-    response:list[float]|tuple[float]|np.ndarray[float],
-    prediction:list[float]|tuple[float]|np.ndarray[float]
+    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
 ) -> float:
-    '''
-    Calculates the area under the roc-curve using the trapezoid rule. 
+    """
+    Calculates the area under the roc-curve using the trapezoid rule.
 
     Parameters
     ----------
@@ -119,27 +113,28 @@ def calculate_auroc(
     -------
     float
         the area under the roc-curve
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
-    fp, tp = zip(*sorted(zip(fp, tp), key=lambda x : x[0]))
+    fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
 
+
 def calculate_prediction_evaluation_metrics(
-    prediction:list[float]|tuple[float]|np.ndarray[float],
-    response:list[float]|tuple[float]|np.ndarray[float],
-    allow_nan:bool=False
+    prediction: list[float] | tuple[float] | np.ndarray,
+    response: list[float] | tuple[float] | np.ndarray,
+    allow_nan: bool = False,
 ) -> dict[str, float]:
-    '''
-    Calculates metrics that can be used to rank ligands. 
+    """
+    Calculates metrics that can be used to rank ligands.
     currently supported metrics are:
 
         AUPR
@@ -160,20 +155,22 @@ def calculate_prediction_evaluation_metrics(
     -------
     dict[str, float]
         dictionary with as keys the names of the supported metrics and as values the computed metrics
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if response doesn't contain any true samples
-    '''
+    """
     if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
+        raise ValueError(
+            "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
+        )
     try:
         aupr = calculate_aupr(response, prediction)
     except ValueError as ex:
@@ -197,29 +194,26 @@ def calculate_prediction_evaluation_metrics(
         else:
             raise ex
     warnings.filterwarnings("default")
-    return {
-        "auroc": auroc,
-        "pearson": pcc,
-        "aupr": aupr,
-        "aupr_corrected": aupr - sum(response)/len(response)
-    }
+    return {"auroc": auroc, "pearson": pcc, "aupr": aupr, "aupr_corrected": aupr - sum(response) / len(response)}
+
 
 def _sub_log_fold_change(
-    data:csc_matrix|csr_matrix,
-    denormalize:Callable[[nichenet_matrix], nichenet_matrix]=np.expm1,
-    pseudocount:int=1
+    data: nichenet_matrix,
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] = np.expm1,
+    pseudocount: int = 1,
 ):
     if denormalize is not None:
         data = denormalize(data)
     return np.log2((data.sum(axis=0) + pseudocount) / data.shape[0])
 
+
 def log_fold_change(
-    mat1:nichenet_matrix,
-    mat2:nichenet_matrix,
-    denormalize:Callable[[nichenet_matrix], nichenet_matrix]=np.expm1,
-    pseudocount:float=1
+    mat1: nichenet_matrix,
+    mat2: nichenet_matrix,
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] = np.expm1,
+    pseudocount: float = 1,
 ) -> np.ndarray:
-    '''
+    """
     Calculates the log fold changes the way seurat does it.
 
     Parameters
@@ -243,24 +237,21 @@ def log_fold_change(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if not isinstance(mat1, nichenet_matrix):
+    """
+    if type(mat1) is not nichenet_matrix:
         raise TypeError(f"mat1 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat1)}")
-    if not isinstance(mat2, nichenet_matrix):
+    if type(mat2) is not nichenet_matrix:
         raise TypeError(f"mat2 should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
         raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
     return (
-        _sub_log_fold_change(mat1, denormalize, pseudocount) - 
-        _sub_log_fold_change(mat2, denormalize, pseudocount)
+        _sub_log_fold_change(mat1, denormalize, pseudocount) - _sub_log_fold_change(mat2, denormalize, pseudocount)
     ).transpose()
 
-def _calc_pct(
-    mat=nichenet_matrix,
-    direction:str="both"
-) -> list[float]:
+
+def _calc_pct(mat=nichenet_matrix, direction: str = "both") -> list[float]:
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
         if direction == "positive":
@@ -299,40 +290,31 @@ def _calc_pct(
     else:
         raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat)}")
 
-def gene_expression_pct(
-    mat=nichenet_matrix
-) -> list[float]:
-    '''
-    For each gene, calculate the percentage of cells that have an expression value not equal to 0. 
+
+def gene_expression_pct(mat=nichenet_matrix) -> list[float]:
+    """
+    For each gene, calculate the percentage of cells that have an expression value not equal to 0.
 
     Parameters
     ----------
-    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         (#cells X #genes) matrix containing the expression values
-    direction : 
+    direction :
 
     Returns
     -------
     list
         for each gene the percentage of cells that have an expression value not equal to 0
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     return _calc_pct(mat)
 
-def _single_group_metrics(
-    ann,
-    mat,
-    row2index,
-    lfc_denormalize,
-    lfc_pseudocount,
-    groupby,
-    group_oi,
-    group_ref=None
-):
+
+def _single_group_metrics(ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group_oi, group_ref=None):
     cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
     if group_ref is None:
         # reference cells are all cells that are not cells of interest
@@ -347,24 +329,25 @@ def _single_group_metrics(
     mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
 
+
 def group_metrics(
-    ann:AnnData,
-    groupby:str,
-    group_oi:str|None=None,
-    group_ref:str|None=None,
-    layer:str="data",
-    lfc_pseudocount:float=1,
-    tie_correction:bool=True,
-    features:Iterable[str]|None=None,
-    min_abs_lfc:float=0,
-    min_pct:float=0,
-    pval_thresh:float|None=None, # 0.01 in seurat
-    wilcoxon_limma:bool=False,
-    lfc_denormalize:Callable[[nichenet_matrix], nichenet_matrix]|None=np.expm1
+    ann: AnnData,
+    groupby: str,
+    group_oi: str | None = None,
+    group_ref: str | None = None,
+    layer: str = "data",
+    lfc_pseudocount: float = 1,
+    tie_correction: bool = True,
+    features: Iterable[str] | None = None,
+    min_abs_lfc: float = 0,
+    min_pct: float = 0,
+    pval_thresh: float | None = None,  # 0.01 in seurat
+    wilcoxon_limma: bool = False,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
 ):
-    '''
+    """
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
-    the log fold changes and the p-values / adjusted p-values. 
+    the log fold changes and the p-values / adjusted p-values.
     The result is a pandas dataframe stored in ann.uns["group_metrics"]
 
     Parameters
@@ -395,7 +378,7 @@ def group_metrics(
         use wilcoxon-limma (reproduces results from seuratv4)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
-    
+
     Raises
     ------
     TypeError
@@ -405,11 +388,11 @@ def group_metrics(
         if there are no cells in the reference group
     ValueError
         if the arguments are invalid
-    
+
     Notes
     -----
     The result is the same as seurat's FindMarkers function.
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if type(groupby) is not str:
@@ -440,11 +423,11 @@ def group_metrics(
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index))))
+    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
-    except KeyError:
-        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object")
+    except KeyError as error:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
     lfc = []
     pct = []
     # start by computing lfc and pct (these are also used for filtering before computing the p-values)
@@ -452,27 +435,13 @@ def group_metrics(
         # compare each group with the reference group
         for group in groups:
             x, y = _single_group_metrics(
-                ann,
-                mat,
-                row2index,
-                lfc_denormalize,
-                lfc_pseudocount,
-                groupby,
-                group,
-                group_ref
+                ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group, group_ref
             )
             lfc.append(x)
             pct.append(y)
     else:
         x, y = _single_group_metrics(
-            ann,
-            mat,
-            row2index,
-            lfc_denormalize,
-            lfc_pseudocount,
-            groupby,
-            group_oi,
-            group_ref
+            ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group_oi, group_ref
         )
         lfc.append(x)
         pct.append(y)
@@ -480,16 +449,11 @@ def group_metrics(
         pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),
         var_name=groupby,
         value_name="lfc",
-        ignore_index=False
+        ignore_index=False,
     )
     output.index.name = "gene"
     output.reset_index(inplace=True)
-    pct = pd.melt(
-        pd.DataFrame(pct, index=groups, columns=genes),
-        value_name="pct",
-        var_name="gene",
-        ignore_index=False
-    )
+    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=genes), value_name="pct", var_name="gene", ignore_index=False)
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
@@ -507,15 +471,7 @@ def group_metrics(
             col = mat[:, i].todense()
             for group in groups:
                 pvals[group].append(
-                    min(
-                        2 * min(
-                            wilcoxon_rank_sum_test_with_correlation(
-                                ann.obs[groupby] == group,
-                                col
-                            )
-                        ),
-                        1
-                    )
+                    min(2 * min(wilcoxon_rank_sum_test_with_correlation(ann.obs[groupby] == group, col)), 1)
                 )
         pvals = pd.DataFrame(pvals, index=genes)
         pvals.index.name = "gene"
@@ -526,7 +482,7 @@ def group_metrics(
             as_dataframe=True,
             tie_correction=tie_correction,
             layer=layer,
-            genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
+            genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"])),
         )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     if pval_thresh is not None:
@@ -534,5 +490,5 @@ def group_metrics(
     pvals.reset_index(inplace=True)
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
-    output["pval_adj"] = np.clip(output["pval"]*len(ann.var_names), 0, 1)
+    output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)
     ann_orig.uns["group_metrics"] = output
