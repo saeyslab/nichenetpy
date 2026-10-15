@@ -294,7 +294,7 @@ def _calc_pct(mat=nichenet_matrix, direction: str = "both") -> list[float]:
         raise TypeError(f"mat should be of type np.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(mat)}")
 
 
-def gene_expression_pct(mat=nichenet_matrix) -> list[float]:
+def gene_expression_pct(mat:nichenet_matrix) -> list[float]:
     """
     For each gene, calculate the percentage of cells that have an expression value not equal to 0.
 
