@@ -1,6 +1,5 @@
 from collections.abc import ItemsView, Iterable
 from itertools import repeat
-from typing import cast
 
 import pandas as pd
 

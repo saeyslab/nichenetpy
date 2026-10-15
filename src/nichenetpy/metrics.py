@@ -16,9 +16,7 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(
-    x: list[float] | tuple[float] | np.ndarray, y: list[float] | tuple[float] | np.ndarray
-) -> float:
+def _auc_reverse(x: list[float] | tuple[float] | np.ndarray, y: list[float] | tuple[float] | np.ndarray) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 

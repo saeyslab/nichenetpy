@@ -1,10 +1,9 @@
 from collections.abc import Iterable
 
-import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import (gene_t, nichenet_matrix)
+from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -23,7 +22,7 @@ def subset_ann(
     ann: AnnData,
     val: gene_t | Iterable[gene_t] | None = None,
     genes: Iterable[gene_t] | None = None,
-    layers: Iterable[str|None] | None = None,
+    layers: Iterable[str | None] | None = None,
     val_col: str = "celltype",
     subset_X: bool = True,
 ) -> AnnData | None:
