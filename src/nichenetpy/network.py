@@ -37,7 +37,7 @@ class Network:
     You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from.
     """
 
-    def __init__(self, mapping: list | pd.DataFrame | None = None, filename: str | None = None):
+    def __init__(self, mapping: list[tuple[gene_t, gene_t]] | pd.DataFrame | None = None, filename: str | None = None):
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])
@@ -50,19 +50,19 @@ class Network:
             self._mapping = sorted(read_network(filename), key=lambda x: x[0])
         else:
             raise ValueError("either mapping or filename must be provided as arguments")
-        self._index = {}
+        self._index : dict[gene_t, list[int]] = {}
         self._build_index()
 
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key) -> set:
+    def __getitem__(self, key) -> set[gene_t]:
         return set(self.mapping_iter(key))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._mapping)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[gene_t, gene_t]]:
         return self._mapping.__iter__()
 
     def __contains__(self, item: tuple):
@@ -77,7 +77,7 @@ class Network:
             else:
                 self._index[item[0]] = [i, 1]
 
-    def key_iter(self):
+    def key_iter(self) -> Iterator[gene_t]:
         """
         Iterates over the "from" values in the mapping.
 
@@ -88,7 +88,7 @@ class Network:
         """
         return (self._mapping[start][0] for start, _ in self._index.values())
 
-    def item_iter(self):
+    def item_iter(self) -> Iterator[tuple[gene_t, set[gene_t]]]:
         """
         Iterates over the "from" values in the mapping along with the corresponding "to" values.
 
@@ -99,7 +99,7 @@ class Network:
         """
         return ((key, self[key]) for key in self.key_iter())
 
-    def mapping_iter(self, key) -> Iterator:
+    def mapping_iter(self, key) -> Iterator[gene_t]:
         """
         Iterates over the "to" values that correspond with the specified "from" value.
 
@@ -115,7 +115,7 @@ class Network:
         for item in self._mapping[start : start + count]:
             yield item[1]
 
-    def get_all(self) -> set:
+    def get_all(self) -> set[gene_t]:
         """
         Return all values that are present in the network.
 
@@ -180,7 +180,7 @@ class Network:
             raise TypeError(f"to should be a Collection of gene_t, was {type(to)}")
         return type(self)(mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to])
 
-    def to_dataframe(self):
+    def to_dataframe(self) -> pd.DataFrame:
         """
         Convert the network to a dataframe
 
@@ -269,18 +269,36 @@ class WeightedNetwork(Network):
         index for the mapping
     """
 
-    def __init__(self, mapping: list | pd.DataFrame | None = None, filename: str = None):
-        if filename is not None:
+    def __init__(self, mapping: list[tuple[gene_t, gene_t, float]] | pd.DataFrame | None = None, filename: str | None = None):
+        if mapping is not None:
+            if type(mapping) is pd.DataFrame:
+                mapping = sorted(zip(mapping["from"], mapping["to"], mapping["weight"], strict=True), key=lambda x: x[0])
+            elif type(mapping) is not list:
+                raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
+            self._mapping = mapping
+        elif filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
-            mapping = sorted(read_weighted_network(filename), key=lambda x: x[0])
-        elif type(mapping) is pd.DataFrame:
-            mapping = sorted(zip(mapping["from"], mapping["to"], mapping["weight"], strict=True), key=lambda x: x[0])
-        super().__init__(mapping=mapping)
+            self._mapping = sorted(read_weighted_network(filename), key=lambda x: x[0])
+        else:
+            raise ValueError("either mapping or filename must be provided as arguments")
+        self._index : dict[gene_t, list[int]] = {}
+        self._build_index()
 
     def __getitem__(self, key: gene_t) -> dict[gene_t, float]:
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start : start + count])
+
+    def item_iter(self) -> Iterator[tuple[gene_t, dict[gene_t, float]]]:
+        """
+        Iterates over the "from" values in the mapping along with the corresponding "to" values and link weights.
+
+        Yields
+        ------
+        tuple
+            the "from" values in the mapping and a dictionary which maps corresponding "to" values to the weight of the link
+        """
+        return ((key, self[key]) for key in self.key_iter())
 
     def get_ligands(self) -> set[gene_t]:
         """
@@ -304,7 +322,7 @@ class WeightedNetwork(Network):
         """
         return {receptor for _, receptor, _ in self._mapping}
 
-    def to_dataframe(self):
+    def to_dataframe(self) -> pd.DataFrame:
         """
         Convert the network to a dataframe
 
