@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
+from scipy.sparse import csr_matrix, csc_matrix
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
@@ -27,6 +28,13 @@ def _get_expressed_features(
         raise TypeError(f"celltype should be a string or an Iterable of strings, was {type(celltype)}")
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if not isinstance(ann.obs, pd.DataFrame):
+        raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
+    if not isinstance(ann.X, np.ndarray) and not isinstance(ann.X, csr_matrix) and not isinstance(ann.X, csc_matrix):
+        raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
+    sel_layer = ann.layers[layer]
+    if not isinstance(sel_layer, np.ndarray) and not isinstance(sel_layer, csr_matrix) and not isinstance(sel_layer, csc_matrix):
+        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
@@ -42,7 +50,7 @@ def _get_expressed_features(
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.X if layer is None else ann.layers[layer]
+    mat = ann.X if layer is None else sel_layer
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
@@ -183,9 +191,13 @@ def get_lfc_celltype(
     ------
     TypeError
         if the arguments have the wrong type
+    RuntimeError
+        if the AnnData object couldn't be subsetted succesfully
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if not isinstance(ann.obs, pd.DataFrame):
+        raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
     if type(celltype) is not str:
         raise TypeError(f"celltype should be of type str, was {type(celltype)}")
     if type(condition_col) is not str:
@@ -202,6 +214,8 @@ def get_lfc_celltype(
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
     # select celltype of interest
     ann_sender = subset_ann(ann, celltype, layers=[layer], val_col=celltype_col, genes=features)
+    if ann_sender is None:
+        raise RuntimeError("can't subset the AnnData object by the specified genes and celltype")
     if scanpy_lfc:
         # compute lfc through scanpy
         sc.tl.rank_genes_groups(
@@ -222,6 +236,8 @@ def get_lfc_celltype(
         else:
             # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
+        if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+            raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
         cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
@@ -269,11 +285,15 @@ def average_expression(
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
+    if not isinstance(ann.obs, pd.DataFrame):
+        raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
     if type(groupby) is not str:
         raise TypeError(f"groupby should be of type str, was {type(groupby)}")
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     data = ann.layers[layer]
+    if not isinstance(data, np.ndarray) and not isinstance(data, csr_matrix) and not isinstance(data, csc_matrix):
+        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(data)}")
     if norm_f is not None:
         if not isinstance(norm_f, Callable):
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
