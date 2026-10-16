@@ -3,6 +3,7 @@ from collections.abc import Collection, Iterable
 from itertools import chain, repeat
 from numbers import Number
 from random import uniform
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ class LigandActivityPredictor:
 
     Parameters
     ----------
-    ligand_target_matrix : numpy.ndarray
+    ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
     row_names : list of gene_t
         list of names of the rows/genes
@@ -36,7 +37,7 @@ class LigandActivityPredictor:
 
     Attributes
     ----------
-    ligand_target_matrix : numpy.ndarray
+    ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
     row_names : list of gene_t
         list of names of the rows/genes
@@ -55,11 +56,11 @@ class LigandActivityPredictor:
     def __init__(
         self,
         ligand_target_matrix: nichenet_matrix,
-        row_names: list[gene_t] | tuple[gene_t],
-        col_names: list[gene_t] | tuple[gene_t],
+        row_names: Sequence[gene_t],
+        col_names: Sequence[gene_t],
     ) -> None:
         self.ligand_target_matrix = ligand_target_matrix
-        if type(ligand_target_matrix) is csr_matrix:
+        if isinstance(self.ligand_target_matrix, csr_matrix):
             warnings.warn(
                 "a scipy.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
                 stacklevel=2,
@@ -68,15 +69,15 @@ class LigandActivityPredictor:
                 self.ligand_target_matrix = self.ligand_target_matrix.toarray(order="F")
             else:
                 self.ligand_target_matrix = csc_matrix(self.ligand_target_matrix)
-        elif type(ligand_target_matrix) is csc_matrix:
+        elif isinstance(self.ligand_target_matrix, csc_matrix):
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(
                     f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
                     stacklevel=2,
                 )
-        elif type(ligand_target_matrix) is np.ndarray:
-            if ligand_target_matrix.flags.c_contiguous:
+        elif isinstance(self.ligand_target_matrix, np.ndarray):
+            if self.ligand_target_matrix.flags.c_contiguous:
                 warnings.warn(
                     "a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing",
                     stacklevel=2,
@@ -103,9 +104,11 @@ class LigandActivityPredictor:
         float
             the ratio of non-zero elements in the ligand-target matrix
         """
+        if self.ligand_target_matrix.shape is None:
+            raise ValueError("The shape of the ligand-target matrix is None. ")
         return (
             np.count_nonzero(self.ligand_target_matrix)
-            if type(self.ligand_target_matrix) is np.ndarray
+            if isinstance(self.ligand_target_matrix, np.ndarray)
             else self.ligand_target_matrix.getnnz()
         ) / (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
 
@@ -189,7 +192,11 @@ class LigandActivityPredictor:
             if the arguments have the wrong type
         IndexError
             if the index is invalid
+        ValueError
+            if the shape of the ligand-target matrix is None
         """
+        if self.ligand_target_matrix.shape is None:
+            raise ValueError("The shape of the ligand-target matrix is None. ")
         if type(index) is str:
             is_index = False
         if not is_index:
@@ -205,7 +212,7 @@ class LigandActivityPredictor:
             raise IndexError(
                 f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}"
             )
-        if type(self.ligand_target_matrix) is np.ndarray:
+        if isinstance(self.ligand_target_matrix, np.ndarray):
             return self.ligand_target_matrix[:, index]
         else:  # csc_matrix
             indices_non_zero = self.ligand_target_matrix.indices[
@@ -259,7 +266,7 @@ class LigandActivityPredictor:
     def predict_ligand_activities(
         self,
         geneset: Collection[gene_t],
-        background_expressed_genes: Iterable[gene_t],
+        background_expressed_genes: Collection[gene_t],
         potential_ligands: Iterable[gene_t],
     ):
         """
@@ -271,7 +278,7 @@ class LigandActivityPredictor:
         ----------
         geneset : Collection of gene_t
             the genes of which the expression is potentially affected by ligands from the interacting cell
-        background_expressed_genes : Iterable of gene_t
+        background_expressed_genes : Collection of gene_t
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential_ligands : Iterable of gene_t
             the potentially active ligands for which you want to compute ligand activities
@@ -290,9 +297,9 @@ class LigandActivityPredictor:
         """
         if not isinstance(geneset, Collection):
             raise TypeError(f"geneset should have type Collection, was {type(geneset)}")
-        if not isinstance(background_expressed_genes, Iterable):
+        if not isinstance(background_expressed_genes, Collection):
             raise TypeError(
-                f"background_expressed_genes should have type Iterable, was {type(background_expressed_genes)}"
+                f"background_expressed_genes should have type Collection, was {type(background_expressed_genes)}"
             )
         if not isinstance(potential_ligands, Iterable):
             raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
@@ -320,8 +327,8 @@ class LigandActivityPredictor:
         self,
         cells: Collection[str],
         expression_scaled: np.ndarray,
-        expression_scaled_rows: Iterable[str],
-        expression_scaled_cols: Iterable[gene_t],
+        expression_scaled_rows: Collection[str],
+        expression_scaled_cols: Collection[gene_t],
         potential_ligands: Collection[gene_t],
         quantile_cutoff: float = 0.975,
         calc_aupr: bool = True,
@@ -371,13 +378,13 @@ class LigandActivityPredictor:
             raise TypeError(f"cells should have type Collection[str], was {type(cells)}")
         if type(expression_scaled) is not np.ndarray:
             raise TypeError(f"expression_scaled should have type numpy.ndarray, was {type(expression_scaled)}")
-        if not isinstance(expression_scaled_rows, Iterable):
+        if not isinstance(expression_scaled_rows, Collection):
             raise TypeError(
-                f"expression_scaled_rows should have type Iterable[str], was {type(expression_scaled_rows)}"
+                f"expression_scaled_rows should have type Collection[str], was {type(expression_scaled_rows)}"
             )
-        if not isinstance(expression_scaled_cols, Iterable):
+        if not isinstance(expression_scaled_cols, Collection):
             raise TypeError(
-                f"expression_scaled_cols should have type Iterable[gene_t], was {type(expression_scaled_cols)}"
+                f"expression_scaled_cols should have type Collection[gene_t], was {type(expression_scaled_cols)}"
             )
         if not isinstance(potential_ligands, Collection):
             raise TypeError(f"potential_ligands should have type Collection[gene_t], was {type(potential_ligands)}")
@@ -418,7 +425,7 @@ class LigandActivityPredictor:
                 if calc_auroc:
                     auroc.append(calculate_auroc(resp, pred))
                 if calc_pearson:
-                    pearson.append(pearsonr(resp, pred).statistic)
+                    pearson.append(pearsonr(resp, pred).statistic) # type: ignore (statistic attribute exists)
         output = {
             "cell": chain(*(repeat(cell, len(potential_ligands)) for cell in cells)),
             "ligand": chain(*repeat(potential_ligands, len(cells))),
@@ -464,6 +471,8 @@ class LigandActivityPredictor:
             raise TypeError(f"geneset should have type Iterable, was {type(geneset)}")
         if type(n) is not int:
             raise TypeError(f"n should have type int, was {type(n)}")
+        if self.ligand_target_matrix.shape is None:
+            raise ValueError("The shape of the ligand-target matrix is None. ")
         if n < self.ligand_target_matrix.shape[1]:
             top_n_score = sorted(self.ligand_target_matrix[:, self.ligand2index(ligand)], reverse=True)[n - 1]
         else:
@@ -488,19 +497,24 @@ class LigandActivityPredictor:
 
     def replace_zero_col_by_noisy_scores(self):
         """Replace zero columns with a very low noisy random score."""
-        m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
+        if self.ligand_target_matrix.shape is None:
+            raise ValueError("The shape of the ligand-target matrix is None. ")
+        if isinstance(self.ligand_target_matrix, np.ndarray):
+            m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
+        else:
+            raise NotImplementedError # TODO
         for j in range(self.ligand_target_matrix.shape[1]):
             if sum(self.ligand_target_matrix[:, j]) == 0:
                 for i in range(self.ligand_target_matrix.shape[0]):
                     self.ligand_target_matrix[i, j] = uniform(0, m)
 
-    def gene_presence(self, genes: Iterable[gene_t]) -> float:
+    def gene_presence(self, genes: Collection[gene_t]) -> float:
         """
         Calculate the ratio of genes that are present in the ligand-target matrix
 
         Parameters
         ----------
-        genes : Iterable of gene_t
+        genes : Collection of gene_t
             the genes to check for
 
         Returns
@@ -510,13 +524,13 @@ class LigandActivityPredictor:
         """
         return len(self.get_genes().intersection(genes)) / len(genes)
 
-    def ligand_presence(self, ligands: Iterable[gene_t]) -> float:
+    def ligand_presence(self, ligands: Collection[gene_t]) -> float:
         """
         Calculate the ratio of ligands that are present in the ligand-target matrix
 
         Parameters
         ----------
-        ligands : Iterable of gene_t
+        ligands : Collection of gene_t
             the ligands to check for
 
         Returns
@@ -529,8 +543,8 @@ class LigandActivityPredictor:
 
 def assess_rf_class_probabilities(
     folds: int,
-    geneset: set[gene_t],
-    background_expressed_genes: set[gene_t],
+    geneset: Collection[gene_t],
+    background_expressed_genes: Collection[gene_t],
     ligands_oi: Iterable[gene_t],
     predictor: LigandActivityPredictor,
     ntrees: int = 1000,
@@ -570,11 +584,15 @@ def assess_rf_class_probabilities(
     """
     if type(folds) is not int:
         raise TypeError(f"folds should have type int, was {type(folds)}")
-    if type(geneset) is not set:
-        raise TypeError(f"geneset should have type set[gene_t], was {type(geneset)}")
-    if type(background_expressed_genes) is not set:
+    if not isinstance(geneset, set):
+        geneset = set(geneset)
+    if not isinstance(geneset, Collection):
+        raise TypeError(f"geneset should have type Collection[gene_t], was {type(geneset)}")
+    if not isinstance(background_expressed_genes, set):
+        background_expressed_genes = set(background_expressed_genes)
+    if not isinstance(background_expressed_genes, Collection):
         raise TypeError(
-            f"background_expressed_genes should have type set[gene_t], was {type(background_expressed_genes)}"
+            f"background_expressed_genes should have type Collection[gene_t], was {type(background_expressed_genes)}"
         )
     if not isinstance(ligands_oi, Iterable):
         raise TypeError(f"ligands_oi should have type Iterable[gene_t], was {type(ligands_oi)}")
