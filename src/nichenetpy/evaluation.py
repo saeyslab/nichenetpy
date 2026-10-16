@@ -1,4 +1,4 @@
-from collections.abc import ItemsView, Iterable
+from collections.abc import ItemsView, Iterable, Iterator
 from itertools import repeat
 from typing import cast
 
@@ -56,7 +56,7 @@ class EvaluationData:
         ligand_name: str = "from",
         de_genes_name: str = "response",
     ):
-        self._data = {}
+        self._data : dict[str, dict] = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
@@ -83,7 +83,7 @@ class EvaluationData:
             else:
                 raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key : str) -> dict:
         return self._data[key]
 
     def __setitem__(self, key: str, val: dict):
@@ -165,13 +165,13 @@ class EvaluationData:
         for item in items:
             self.add(item)
 
-    def __contains__(self, key):
+    def __contains__(self, key : str) -> bool:
         return key in self._data
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[dict]:
         return iter(self._data.values())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._data)
 
     def keys(self):
@@ -207,7 +207,7 @@ class EvaluationData:
         """
         return self._data.items()
 
-    def get_ligands(self, combination: bool = True):
+    def get_ligands(self, combination: bool = True) -> set[gene_t]:
         """
         Extract all ligands from the evaluation data.
 

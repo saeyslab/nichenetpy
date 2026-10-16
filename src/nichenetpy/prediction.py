@@ -3,7 +3,7 @@ from collections.abc import Collection, Iterable
 from itertools import chain, repeat
 from numbers import Number
 from random import uniform
-from typing import Sequence, Generic, overload, Literal
+from typing import Sequence, Generic, overload, Literal, Any
 
 import numpy as np
 import pandas as pd
@@ -232,7 +232,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
                 col[i] = v
             return np.array(col)
 
-    def evaluate_target_prediction(self, ligand: GeneSymbol, response: dict[GeneSymbol, int]):
+    def evaluate_target_prediction(self, ligand: GeneSymbol, response: dict[GeneSymbol, int]) -> dict[str, float]:
         """
         Evaluate how well the model (i.e. the inferred ligand-target probability scores) is able to predict the observed response
         to a ligand (e.g. the set of DE genes after treatment of cells by a ligand). It shows several classification evaluation
@@ -274,7 +274,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         geneset: Collection[GeneSymbol],
         background_expressed_genes: Collection[GeneSymbol],
         potential_ligands: Iterable[GeneSymbol],
-    ):
+    ) -> dict[GeneSymbol, dict[str, float]]:
         """
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -340,7 +340,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         calc_aupr: bool = True,
         calc_auroc: bool = True,
         calc_pearson: bool = True,
-    ):
+    ) -> pd.DataFrame:
         """
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -445,7 +445,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             output["pearson"] = pearson
         return pd.DataFrame(output)
 
-    def get_weighted_ligand_target_links(self, ligand: GeneSymbol, geneset: Iterable[GeneSymbol], n: int = 250) -> dict:
+    def get_weighted_ligand_target_links(self, ligand: GeneSymbol, geneset: Iterable[GeneSymbol], n: int = 250) -> dict[str, Any]:
         """
         Infer active ligand target links between possible ligands and genes belonging to a gene set of interest: consider the intersect between the top n targets of a ligand and the gene set.
 
@@ -554,7 +554,7 @@ def assess_rf_class_probabilities(
     ligands_oi: Iterable[GeneSymbol],
     predictor: LigandActivityPredictor,
     ntrees: int = 1000,
-):
+) -> pd.DataFrame:
     """
     Assess probability that a target gene belongs to the geneset based on a multi-ligand random forest model (with cross-validation).
     Target genes and background genes will be split in different groups in a stratified way.

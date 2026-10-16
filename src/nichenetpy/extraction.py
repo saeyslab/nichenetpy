@@ -254,7 +254,7 @@ def average_expression(
     keys: Iterable[str] | None = None,
     layer: str = "counts",
     norm_f: Callable[[nichenet_matrix], nichenet_matrix] | None = None,
-):
+) -> pd.DataFrame:
     """
     Computes averaged expression values for each group. Similar to seurat's AverageExpression.
 

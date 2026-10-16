@@ -168,7 +168,7 @@ class GeneInfo:
         else:
             raise KeyError(f"{key} is not a recognized gene")
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         return item in self._human2mouse._index or item in self._mouse2human.keys()
 
     def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
