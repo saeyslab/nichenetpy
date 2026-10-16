@@ -1,10 +1,12 @@
 import struct
 from math import ceil, log2
+from collections.abc import Sequence
 
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import nichenet_matrix
 
 _INT_SIZE = 8
 _DOUBLE_SIZE = 8
@@ -22,10 +24,10 @@ def _write_chunks(filename, *chunks, data=None):
 
 def write_ligand_target_matrix(
     filename: str,
-    predictor: LigandActivityPredictor | None = None,
-    mat: np.ndarray | None = None,
-    row_names: list[str] | None = None,
-    col_names: list[str] | None = None,
+    predictor: LigandActivityPredictor[str] | None = None,
+    mat: nichenet_matrix | None = None,
+    row_names: Sequence[str] | None = None,
+    col_names: Sequence[str] | None = None,
     column_major: bool = True,
 ):
     """
@@ -39,9 +41,9 @@ def write_ligand_target_matrix(
         the predictor which contains the matrix
     mat : numpy.ndarray or None
         the ligand-target matrix
-    row_names : list of str or None
+    row_names : Sequence of str or None
         the names of the rows
-    col_names : list of str or None
+    col_names : Sequence of str or None
         the names of the columns
     column_major : bool
         whether to use column_major or row_major data format
@@ -56,22 +58,25 @@ def write_ligand_target_matrix(
     if predictor is None:
         if type(mat) is not np.ndarray:
             raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
-        if type(row_names) is not list:
+        if not isinstance(row_names, list):
             raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
-        if type(col_names) is not list:
+        if not isinstance(col_names, list):
             raise TypeError(f"expected a list of strings for col_names, got {type(col_names)}")
     else:
-        if type(predictor) is not LigandActivityPredictor:
+        if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
-    _write_chunks(
-        filename,
-        "\n".join(row_names).encode("ascii"),
-        "\n".join(col_names).encode("ascii"),
-        mat.tobytes(order=("F" if column_major else "C")),
-    )
+    if isinstance(mat, np.ndarray):
+        _write_chunks(
+            filename,
+            "\n".join(row_names).encode("ascii"),
+            "\n".join(col_names).encode("ascii"),
+            mat.tobytes(order=("F" if column_major else "C")),
+        )
+    else:
+        raise NotImplementedError # TODO
 
 
 def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple[np.ndarray, list[str], list[str]]:

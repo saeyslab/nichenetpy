@@ -25,10 +25,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : list of gene_t
-        list of names of the rows/genes
-    col_names : list of gene_t
-        list of names of the columns/ligands
+    row_names : Sequence of gene_t
+        Sequence of names of the rows/genes
+    col_names : Sequence of gene_t
+        Sequence of names of the columns/ligands
 
     Raises
     ------
@@ -39,10 +39,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : list of gene_t
-        list of names of the rows/genes
-    col_names : list of gene_t
-        list of names of the columns/ligands
+    row_names : Sequence of gene_t
+        Sequence of names of the rows/genes
+    col_names : Sequence of gene_t
+        Sequence of names of the columns/ligands
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -90,8 +90,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")
         if type(col_names) is not list and type(col_names) is not tuple:
             raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
-        self.row_names = row_names
-        self.col_names = col_names
+        self.row_names : Sequence[GeneSymbol] = row_names
+        self.col_names : Sequence[GeneSymbol] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
         self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
 
