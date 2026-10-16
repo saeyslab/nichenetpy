@@ -1,9 +1,11 @@
 import re
 from collections.abc import Iterable
+from typing import overload
 
 from anndata import AnnData
 
 from nichenetpy.network import Network
+from nichenetpy.typing import gene_t
 
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 _pat_gene_info = re.compile(
@@ -69,6 +71,11 @@ class GeneAliasInfo:
         for k, v in items:
             if k not in self:
                 self._mapping[k] = v
+    @overload
+    def alias_to_symbol(self, obj: Iterable[str]) -> list[str]: ...
+
+    @overload
+    def alias_to_symbol(self, obj: AnnData) -> None: ...
 
     def alias_to_symbol(self, obj: Iterable[str] | AnnData) -> list[str] | None:
         """
@@ -153,18 +160,18 @@ class GeneInfo:
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")
 
-    def __getitem__(self, key: str) -> tuple[str, str]:
+    def __getitem__(self, key: str) -> set[str] | str:
         if key in self._human2mouse._index:
             return self._human2mouse[key]
-        elif key in self._mouse2human._index:
+        elif key in self._mouse2human:
             return self._mouse2human[key]
         else:
             raise KeyError(f"{key} is not a recognized gene")
 
     def __contains__(self, item):
-        return item in self._human2mouse._index or item in self._mouse2human._index
+        return item in self._human2mouse._index or item in self._mouse2human.keys()
 
-    def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str]:
+    def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
         """
         Converts human gene symbols to their mouse one-to-one orthologs
 
@@ -191,7 +198,7 @@ class GeneInfo:
             else:
                 yield None
 
-    def convert_mouse_to_human_symbols(self, symbols: Iterable[str]) -> Iterable[str]:
+    def convert_mouse_to_human_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
         """
         Converts mouse gene symbols to their human one-to-one orthologs
 
