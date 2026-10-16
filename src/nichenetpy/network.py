@@ -1,13 +1,14 @@
 from collections.abc import Collection, Iterator
 from itertools import chain
+from typing import Generic, overload
 
 import pandas as pd
 
 from nichenetpy.io import read_network, read_weighted_network
-from nichenetpy.typing import gene_t
+from nichenetpy.typing import gene_t, GeneSymbol
 
 
-class Network:
+class Network(Generic[GeneSymbol]):
     """
     A network with links. This is in essence a one to many mapping.
 
@@ -37,7 +38,14 @@ class Network:
     You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from.
     """
 
-    def __init__(self, mapping: list[tuple[gene_t, gene_t]] | pd.DataFrame | None = None, filename: str | None = None):
+    @overload
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame, filename: None=None): ...
+
+    @overload
+    def __init__(self, mapping: None, filename: str): ...
+    
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame | None = None, filename: str | None = None):
+        self._mapping : list[tuple[GeneSymbol, GeneSymbol]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])
@@ -47,22 +55,22 @@ class Network:
         elif filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
-            self._mapping = sorted(read_network(filename), key=lambda x: x[0])
+            self._mapping = sorted(read_network(filename), key=lambda x: x[0]) # type: ignore (if filename is None then self._mapping has type list[tuple[str, str]])
         else:
             raise ValueError("either mapping or filename must be provided as arguments")
-        self._index : dict[gene_t, list[int]] = {}
+        self._index : dict[GeneSymbol, list[int]] = {}
         self._build_index()
 
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key) -> set[gene_t]:
+    def __getitem__(self, key) -> set[GeneSymbol]:
         return set(self.mapping_iter(key))
 
     def __len__(self) -> int:
         return len(self._mapping)
 
-    def __iter__(self) -> Iterator[tuple[gene_t, gene_t]]:
+    def __iter__(self) -> Iterator[tuple[GeneSymbol, GeneSymbol]]:
         return self._mapping.__iter__()
 
     def __contains__(self, item: tuple):
@@ -77,7 +85,7 @@ class Network:
             else:
                 self._index[item[0]] = [i, 1]
 
-    def key_iter(self) -> Iterator[gene_t]:
+    def key_iter(self) -> Iterator[GeneSymbol]:
         """
         Iterates over the "from" values in the mapping.
 
@@ -88,7 +96,7 @@ class Network:
         """
         return (self._mapping[start][0] for start, _ in self._index.values())
 
-    def item_iter(self) -> Iterator[tuple[gene_t, set[gene_t]]]:
+    def item_iter(self) -> Iterator[tuple[GeneSymbol, set[GeneSymbol]]]:
         """
         Iterates over the "from" values in the mapping along with the corresponding "to" values.
 
@@ -99,7 +107,7 @@ class Network:
         """
         return ((key, self[key]) for key in self.key_iter())
 
-    def mapping_iter(self, key) -> Iterator[gene_t]:
+    def mapping_iter(self, key) -> Iterator[GeneSymbol]:
         """
         Iterates over the "to" values that correspond with the specified "from" value.
 
@@ -115,7 +123,7 @@ class Network:
         for item in self._mapping[start : start + count]:
             yield item[1]
 
-    def get_all(self) -> set[gene_t]:
+    def get_all(self) -> set[GeneSymbol]:
         """
         Return all values that are present in the network.
 
@@ -126,7 +134,7 @@ class Network:
         """
         return set(chain(*zip(*self._mapping, strict=True)))
 
-    def subset(self, from_to: Collection[tuple[gene_t, gene_t]]):
+    def subset(self, from_to: Collection[tuple[GeneSymbol, GeneSymbol]]):
         """
         Subset the network by the provided links.
 
@@ -146,10 +154,10 @@ class Network:
             if the arguments have the wrong type
         """
         if not isinstance(from_to, Collection):
-            raise TypeError(f"from_to should be a Collection of tuple[gene_t, gene_t], was {type(from_to)}")
+            raise TypeError(f"from_to should be a Collection of tuple[GeneSymbol, GeneSymbol], was {type(from_to)}")
         return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
 
-    def subset_sep(self, fr: Collection[gene_t] | None = None, to: Collection[gene_t] | None = None):
+    def subset_sep(self, fr: Collection[GeneSymbol] | None = None, to: Collection[GeneSymbol] | None = None):
         """
         Subset the network by the provided "from" and "to" values.
 
@@ -245,7 +253,7 @@ class LigandReceptorNetwork(Network):
         return {receptor for _, receptor in self._mapping}
 
 
-class WeightedNetwork(Network):
+class WeightedNetwork(Network, Generic[GeneSymbol]):
     """
     A ligand-receptor network with weighted links. This is in essence a one to many mapping.
 
@@ -269,7 +277,14 @@ class WeightedNetwork(Network):
         index for the mapping
     """
 
-    def __init__(self, mapping: list[tuple[gene_t, gene_t, float]] | pd.DataFrame | None = None, filename: str | None = None):
+    @overload
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame | None = None, filename: None = None): ...
+
+    @overload
+    def __init__(self, mapping: None, filename: str): ...
+
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame | None = None, filename: str | None = None):
+        self._mapping : list[tuple[GeneSymbol, GeneSymbol, float]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(zip(mapping["from"], mapping["to"], mapping["weight"], strict=True), key=lambda x: x[0])
@@ -279,7 +294,7 @@ class WeightedNetwork(Network):
         elif filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
-            self._mapping = sorted(read_weighted_network(filename), key=lambda x: x[0])
+            self._mapping = sorted(read_weighted_network(filename), key=lambda x: x[0]) # type: ignore (if filename is None then self._mapping has type list[tuple[str, str, float]])
         else:
             raise ValueError("either mapping or filename must be provided as arguments")
         self._index : dict[gene_t, list[int]] = {}
