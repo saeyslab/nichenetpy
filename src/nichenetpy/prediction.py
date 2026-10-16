@@ -3,7 +3,7 @@ from collections.abc import Collection, Iterable
 from itertools import chain, repeat
 from numbers import Number
 from random import uniform
-from typing import Sequence
+from typing import Sequence, Generic, overload, Literal
 
 import numpy as np
 import pandas as pd
@@ -13,11 +13,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_prediction_evaluation_metrics
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
 from nichenetpy.utils import subset_matrix
 
 
-class LigandActivityPredictor:
+class LigandActivityPredictor(Generic[GeneSymbol]):
     """
     LigandActivityPredictor facilitates the computation of ligand activities using a ligand-target matrix.
 
@@ -56,8 +56,8 @@ class LigandActivityPredictor:
     def __init__(
         self,
         ligand_target_matrix: nichenet_matrix,
-        row_names: Sequence[gene_t],
-        col_names: Sequence[gene_t],
+        row_names: Sequence[GeneSymbol],
+        col_names: Sequence[GeneSymbol],
     ) -> None:
         self.ligand_target_matrix = ligand_target_matrix
         if isinstance(self.ligand_target_matrix, csr_matrix):
@@ -112,7 +112,7 @@ class LigandActivityPredictor:
             else self.ligand_target_matrix.getnnz()
         ) / (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
 
-    def ligand2index(self, ligand: gene_t):
+    def ligand2index(self, ligand: GeneSymbol):
         """
         Get the index of the ligand in the ligand-target matrix
 
@@ -130,7 +130,7 @@ class LigandActivityPredictor:
             raise ValueError(f"{ligand} not in ligand_target_matrix")
         return self._ligand2index[ligand]
 
-    def gene2index(self, gene: gene_t):
+    def gene2index(self, gene: GeneSymbol):
         """
         Get the index of the gene in the ligand-target matrix
 
@@ -148,7 +148,7 @@ class LigandActivityPredictor:
             raise ValueError(f"{gene} not in ligand_target_matrix")
         return self._gene2index[gene]
 
-    def get_ligands(self) -> set[gene_t]:
+    def get_ligands(self) -> set[GeneSymbol]:
         """
         Get the ligands from the ligand-target matrix.
 
@@ -159,7 +159,7 @@ class LigandActivityPredictor:
         """
         return set(self._ligand2index.keys())
 
-    def get_genes(self) -> set[gene_t]:
+    def get_genes(self) -> set[GeneSymbol]:
         """
         Get the genes from the ligand-target matrix.
 
@@ -170,7 +170,13 @@ class LigandActivityPredictor:
         """
         return set(self._gene2index.keys())
 
-    def get_col(self, index: int | gene_t, is_index: bool = True) -> np.ndarray:
+    @overload
+    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray: ...
+
+    @overload
+    def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray: ...
+
+    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray:
         """
         Index the columns of the ligand-target matrix, the key may also be a gene symbol
 
@@ -201,7 +207,7 @@ class LigandActivityPredictor:
             is_index = False
         if not is_index:
             try:
-                index = self.ligand2index(index)
+                index = self.ligand2index(index) # type: ignore (if is_index == False then index has type GeneSymbol)
             except KeyError as error:
                 raise IndexError(
                     f"{index} is not a gene symbol with a corresponding column in the ligand-target matrix"
@@ -226,7 +232,7 @@ class LigandActivityPredictor:
                 col[i] = v
             return np.array(col)
 
-    def evaluate_target_prediction(self, ligand: gene_t, response: dict[gene_t, int]):
+    def evaluate_target_prediction(self, ligand: GeneSymbol, response: dict[GeneSymbol, int]):
         """
         Evaluate how well the model (i.e. the inferred ligand-target probability scores) is able to predict the observed response
         to a ligand (e.g. the set of DE genes after treatment of cells by a ligand). It shows several classification evaluation
@@ -251,7 +257,7 @@ class LigandActivityPredictor:
         ValueError
             if the arguments are invalid
         """
-        if type(ligand) is not gene_t:
+        if type(ligand) is not GeneSymbol:
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
@@ -265,9 +271,9 @@ class LigandActivityPredictor:
 
     def predict_ligand_activities(
         self,
-        geneset: Collection[gene_t],
-        background_expressed_genes: Collection[gene_t],
-        potential_ligands: Iterable[gene_t],
+        geneset: Collection[GeneSymbol],
+        background_expressed_genes: Collection[GeneSymbol],
+        potential_ligands: Iterable[GeneSymbol],
     ):
         """
         Predict activities of ligands in regulating expression of a gene set of interest.
@@ -328,8 +334,8 @@ class LigandActivityPredictor:
         cells: Collection[str],
         expression_scaled: np.ndarray,
         expression_scaled_rows: Collection[str],
-        expression_scaled_cols: Collection[gene_t],
-        potential_ligands: Collection[gene_t],
+        expression_scaled_cols: Collection[GeneSymbol],
+        potential_ligands: Collection[GeneSymbol],
         quantile_cutoff: float = 0.975,
         calc_aupr: bool = True,
         calc_auroc: bool = True,
@@ -439,7 +445,7 @@ class LigandActivityPredictor:
             output["pearson"] = pearson
         return pd.DataFrame(output)
 
-    def get_weighted_ligand_target_links(self, ligand: gene_t, geneset: Iterable[gene_t], n: int = 250) -> dict:
+    def get_weighted_ligand_target_links(self, ligand: GeneSymbol, geneset: Iterable[GeneSymbol], n: int = 250) -> dict:
         """
         Infer active ligand target links between possible ligands and genes belonging to a gene set of interest: consider the intersect between the top n targets of a ligand and the gene set.
 
@@ -508,7 +514,7 @@ class LigandActivityPredictor:
                 for i in range(self.ligand_target_matrix.shape[0]):
                     self.ligand_target_matrix[i, j] = uniform(0, m)
 
-    def gene_presence(self, genes: Collection[gene_t]) -> float:
+    def gene_presence(self, genes: Collection[GeneSymbol]) -> float:
         """
         Calculate the ratio of genes that are present in the ligand-target matrix
 
@@ -524,7 +530,7 @@ class LigandActivityPredictor:
         """
         return len(self.get_genes().intersection(genes)) / len(genes)
 
-    def ligand_presence(self, ligands: Collection[gene_t]) -> float:
+    def ligand_presence(self, ligands: Collection[GeneSymbol]) -> float:
         """
         Calculate the ratio of ligands that are present in the ligand-target matrix
 
@@ -543,9 +549,9 @@ class LigandActivityPredictor:
 
 def assess_rf_class_probabilities(
     folds: int,
-    geneset: Collection[gene_t],
-    background_expressed_genes: Collection[gene_t],
-    ligands_oi: Iterable[gene_t],
+    geneset: Collection[GeneSymbol],
+    background_expressed_genes: Collection[GeneSymbol],
+    ligands_oi: Iterable[GeneSymbol],
     predictor: LigandActivityPredictor,
     ntrees: int = 1000,
 ):
