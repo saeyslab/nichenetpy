@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from itertools import chain
 from numbers import Number
-from typing import Sequence, overload, Literal
+from typing import Any, overload, Literal
 
 import numpy as np
 import pandas as pd
@@ -589,7 +589,7 @@ def construct_model_from_source_weights(
     ligands: Iterable[GeneSymbol] | None = None,
     return_all_matrices: bool = True,
     return_weighted_networks: bool = True,
-):
+) -> dict[str, Any]:
     """
     Construct the ligand-target matrix starting from the source weights.
 
@@ -636,7 +636,7 @@ def construct_model_from_source_weights(
     if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
     ):
-        return ({"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None},)
+        return {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None}
     if ligands is None:
         ligands = set(lr_network["from"])
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
