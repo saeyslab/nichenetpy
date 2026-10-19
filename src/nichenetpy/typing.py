@@ -10,3 +10,6 @@ type gene_t = str | int
 
 GeneSymbol = TypeVar('GeneSymbol', str, int)
 """Gene symbol types that are supported in NicheNetPy."""
+
+NNMatrix = TypeVar('NNMatrix', str, int)
+"""Matrix types that are supported in NicheNetPy."""

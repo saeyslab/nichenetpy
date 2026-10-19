@@ -8,7 +8,7 @@ from scipy.stats import median_abs_deviation
 from nichenetpy.typing import nichenet_matrix
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.ndarray:
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -119,6 +119,8 @@ def scale_quantile(
                 return _scale_quantile_seq(data, cutoff=cutoff)
             else:
                 raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
+        else:
+            raise ValueError("data was empty")
     elif type(data) is np.ndarray:
         if len(data.shape) == 2:
             if by_row:
