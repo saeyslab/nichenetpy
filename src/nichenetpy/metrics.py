@@ -58,7 +58,7 @@ def _auc_reverse(
 
 
 def calculate_aupr(
-    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
+    response: Sequence[float] | np.ndarray, prediction: Sequence[float] | np.ndarray
 ) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
@@ -100,16 +100,16 @@ def calculate_aupr(
 
 
 def calculate_auroc(
-    response: list[float] | tuple[float] | np.ndarray, prediction: list[float] | tuple[float] | np.ndarray
+    response: Sequence[float] | np.ndarray, prediction: Sequence[float]  | np.ndarray
 ) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
 
     Parameters
     ----------
-    response : list or tuple  or numpy.ndarray of float
+    response : Sequence or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
-    prediction : list or tuple  or numpy.ndarray of float
+    prediction : Sequence or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
 
     Returns
@@ -147,9 +147,9 @@ def calculate_prediction_evaluation_metrics(
 
     Parameters
     ----------
-    prediction : list or tuple or numpy.ndarray of float
+    prediction : Sequence or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
-    response : list or tuple or numpy.ndarray of float
+    response : Sequence or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
     allow_nan : bool
         if True, return nan values in case a specific metric is undefined, if False the errors are not caught
@@ -190,7 +190,7 @@ def calculate_prediction_evaluation_metrics(
             raise ex
     warnings.filterwarnings("ignore")
     try:
-        pcc = pearsonr(response, prediction).statistic
+        pcc = pearsonr(response, prediction).statistic # type: ignore (the statistic attribute exists)
     except ValueError as ex:
         if allow_nan:
             pcc = np.nan
@@ -202,18 +202,20 @@ def calculate_prediction_evaluation_metrics(
 
 def _sub_log_fold_change(
     data: nichenet_matrix,
-    denormalize: Callable[[nichenet_matrix], nichenet_matrix] = np.expm1,
-    pseudocount: int = 1,
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (np.expm1 is valid)
+    pseudocount: float = 1,
 ):
     if denormalize is not None:
         data = denormalize(data)
+    if data.shape is None:
+        raise ValueError("data.shape is None")
     return np.log2((data.sum(axis=0) + pseudocount) / data.shape[0])
 
 
 def log_fold_change(
     mat1: nichenet_matrix,
     mat2: nichenet_matrix,
-    denormalize: Callable[[nichenet_matrix], nichenet_matrix] = np.expm1,
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (np.expm1 is valid)
     pseudocount: float = 1,
 ) -> np.ndarray:
     """
@@ -254,7 +256,7 @@ def log_fold_change(
     ).transpose()
 
 
-def _calc_pct(mat=nichenet_matrix, direction: str = "both") -> list[float]:
+def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
     if type(mat) is csc_matrix or type(mat) is csr_matrix:
         nrows, ncols = mat.get_shape()
         if direction == "positive":
@@ -317,7 +319,16 @@ def gene_expression_pct(mat:nichenet_matrix) -> list[float]:
     return _calc_pct(mat)
 
 
-def _single_group_metrics(ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group_oi, group_ref=None):
+def _single_group_metrics(
+    ann: AnnData,
+    mat: nichenet_matrix,
+    row2index: dict[str, int],
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None,
+    lfc_pseudocount: float,
+    groupby: str,
+    group_oi: str,
+    group_ref: str | None = None
+):
     cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
     if group_ref is None:
         # reference cells are all cells that are not cells of interest
@@ -346,7 +357,7 @@ def group_metrics(
     min_pct: float = 0,
     pval_thresh: float | None = None,  # 0.01 in seurat
     wilcoxon_limma: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (np.expm1 is valid)
 ):
     """
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -391,6 +402,8 @@ def group_metrics(
         if there are no cells in the reference group
     ValueError
         if the arguments are invalid
+    RunTimeError
+        if the Anndata object could not be subsetted correctly
 
     Notes
     -----
@@ -426,6 +439,8 @@ def group_metrics(
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
+    if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
@@ -449,34 +464,42 @@ def group_metrics(
         lfc.append(x)
         pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),
+        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])), # type: ignore (error at runtime)
         var_name=groupby,
         value_name="lfc",
         ignore_index=False,
     )
     output.index.name = "gene"
     output.reset_index(inplace=True)
-    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=genes), value_name="pct", var_name="gene", ignore_index=False)
+    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=genes), value_name="pct", var_name="gene", ignore_index=False) # type: ignore (error at runtime)
     pct.index.name = groupby
     pct.reset_index(inplace=True)
     output = output.merge(pct, on=["gene", groupby], how="inner")
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
         # select only the groups the group of interest and the reference group
-        ann = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
+        ann_sub = subset_ann(ann, val=(group_oi, group_ref), val_col=groupby)
+        if ann_sub is None:
+            raise RuntimeError("Failed to correctly subset the AnnData object. ")
+        ann = ann_sub
     # compute the p-values
     if wilcoxon_limma:
         mat = ann.layers[layer]
         groups = set(ann.obs[groupby])
         pvals = {group: [] for group in groups}
+        if mat.shape is None:
+            raise ValueError("The selected layer's shape is None. ")
         # for each gene
         for i in range(mat.shape[1]):
-            col = mat[:, i].todense()
+            if isinstance(mat, csr_matrix) or isinstance(mat, csc_matrix):
+                col = mat[:, i].todense()
+            else:
+                col = mat[:, i]
             for group in groups:
                 pvals[group].append(
                     min(2 * min(wilcoxon_rank_sum_test_with_correlation(ann.obs[groupby] == group, col)), 1)
                 )
-        pvals = pd.DataFrame(pvals, index=genes)
+        pvals = pd.DataFrame(pvals, index=genes) # type: ignore (this should be correct)
         pvals.index.name = "gene"
     else:
         pvals = wilcoxon_rank_sum_test(

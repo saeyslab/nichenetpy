@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from math import erfc, sqrt
 from numbers import Number
+from typing import overload, Literal
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ from anndata import AnnData
 from scipy.sparse import csc_matrix
 from scipy.stats import t
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
 from nichenetpy.utils import subset_matrix
 
 
@@ -83,6 +84,25 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Iterable[str], tie_correction
         output.append(ranks)
     return (output, group_mat, tie_stat)
 
+@overload
+def wilcoxon_rank_sum_test(
+    ann: AnnData,
+    groupby: str,
+    as_dataframe: Literal[True],
+    tie_correction: bool = True,
+    layer: str | None = "data",
+    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+) -> pd.DataFrame: ...
+
+@overload
+def wilcoxon_rank_sum_test(
+    ann: AnnData,
+    groupby: str,
+    as_dataframe: Literal[False],
+    tie_correction: bool = True,
+    layer: str | None = "data",
+    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+) -> dict[str, GeneSymbol]: ...
 
 def wilcoxon_rank_sum_test(
     ann: AnnData,
@@ -90,8 +110,8 @@ def wilcoxon_rank_sum_test(
     as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: list[gene_t] | tuple[gene_t] | None = None,
-):
+    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+) -> pd.DataFrame | dict[str, GeneSymbol]:
     """
     Perform the wilcoxon rank sum test and return the p-values
 
@@ -145,7 +165,7 @@ def wilcoxon_rank_sum_test(
         raise ValueError(f"There is no column '{groupby}' in the AnnData object")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
-    pvals = {}
+    pvals : dict[GeneSymbol, float] = {}
     if layer is None:
         mat = ann.X
     else:
