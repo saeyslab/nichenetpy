@@ -2,7 +2,7 @@ import os
 import pickle
 from collections.abc import Callable, Iterable, Sequence
 from re import Pattern, compile, finditer, search, split
-from typing import Any, TypeVar, overload
+from typing import Any, overload
 
 import numpy as np
 import pandas as pd
@@ -80,14 +80,14 @@ def read_matrix_from_csv(
     if isinstance(extract_row_name, Pattern):
         row_name_pattern = extract_row_name
         extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())  # type: ignore # if search returns None then runtime error
-    if not isinstance(extract_row_name, Callable):
+    if not isinstance(extract_row_name, Callable):  # type: ignore
         raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
     if extract_col_name is None:
         extract_col_name = _default_col_name_pattern
     if isinstance(extract_col_name, Pattern):
         col_name_pattern = extract_col_name
         extract_col_name = lambda x: [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
-    if not isinstance(extract_col_name, Callable):
+    if not isinstance(extract_col_name, Callable):  # type: ignore
         raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
         lines = file.readlines()
@@ -291,11 +291,7 @@ def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
 
 
-T1 = TypeVar("T1")
-T2 = TypeVar("T2")
-
-
-def combine_by_key(*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2]]:
+def combine_by_key[T1, T2](*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2]]:
     """
     Combine tuples of lists matched by the keys in the first list of each passed tuple.
 
