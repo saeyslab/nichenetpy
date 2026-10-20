@@ -200,7 +200,7 @@ class Network(Generic[GeneSymbol]):
         return pd.concat([pd.DataFrame({"from": fr, "to": list(tos)}) for fr, tos in self.item_iter()])
 
 
-class LigandReceptorNetwork(Network):
+class LigandReceptorNetwork(Network, Generic[GeneSymbol]):
     """
     A ligand-receptor network without weights. This is in essence a one to many mapping.
 
@@ -230,7 +230,7 @@ class LigandReceptorNetwork(Network):
     You must pass a list SORTED by "from" as mapping or the name of a file to read from.
     """
 
-    def get_ligands(self) -> set[gene_t]:
+    def get_ligands(self) -> set[GeneSymbol]:
         """
         Get all the ligands present in the network.
 
@@ -241,7 +241,7 @@ class LigandReceptorNetwork(Network):
         """
         return set(self.key_iter())
 
-    def get_receptors(self) -> set[gene_t]:
+    def get_receptors(self) -> set[GeneSymbol]:
         """
         Get all the receptors present in the network.
 
@@ -297,14 +297,17 @@ class WeightedNetwork(Network, Generic[GeneSymbol]):
             self._mapping = sorted(read_weighted_network(filename), key=lambda x: x[0]) # type: ignore (if filename is None then self._mapping has type list[tuple[str, str, float]])
         else:
             raise ValueError("either mapping or filename must be provided as arguments")
-        self._index : dict[gene_t, list[int]] = {}
+        self._index : dict[GeneSymbol, list[int]] = {}
         self._build_index()
 
-    def __getitem__(self, key: gene_t) -> dict[gene_t, float]:
+    def __getitem__(self, key: GeneSymbol) -> dict[GeneSymbol, float]:
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start : start + count])
 
-    def item_iter(self) -> Iterator[tuple[gene_t, dict[gene_t, float]]]:
+    def __iter__(self) -> Iterator[tuple[GeneSymbol, GeneSymbol, float]]:
+        return self._mapping.__iter__()
+
+    def item_iter(self) -> Iterator[tuple[GeneSymbol, dict[GeneSymbol, float]]]:
         """
         Iterates over the "from" values in the mapping along with the corresponding "to" values and link weights.
 
@@ -315,7 +318,7 @@ class WeightedNetwork(Network, Generic[GeneSymbol]):
         """
         return ((key, self[key]) for key in self.key_iter())
 
-    def get_ligands(self) -> set[gene_t]:
+    def get_ligands(self) -> set[GeneSymbol]:
         """
         Get all the ligands present in the network.
 
@@ -326,7 +329,7 @@ class WeightedNetwork(Network, Generic[GeneSymbol]):
         """
         return set(self.key_iter())
 
-    def get_receptors(self) -> set[gene_t]:
+    def get_receptors(self) -> set[GeneSymbol]:
         """
         Get all the receptors present in the network.
 
