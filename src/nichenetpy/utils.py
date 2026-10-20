@@ -2,7 +2,7 @@ import os
 import pickle
 from collections.abc import Callable, Iterable
 from re import Pattern, compile, finditer, search, split
-from typing import Any, Sequence, overload
+from typing import Any, Sequence, overload, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -287,8 +287,11 @@ def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
     """
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
 
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
 
-def combine_by_key(*args: tuple[list[str], list]) -> dict[str, list]:
+
+def combine_by_key(*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2]]:
     """
     Combine tuples of lists matched by the keys in the first list of each passed tuple.
 

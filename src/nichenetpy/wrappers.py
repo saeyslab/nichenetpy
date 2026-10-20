@@ -1,6 +1,7 @@
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,7 +21,7 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
 from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
 from nichenetpy.visualization import (
     heatmap_1d,
@@ -40,10 +41,10 @@ def get_geneset_oi(
     min_abs_lfc: float = 0.25,
     min_pct: float = 0.05,
     use_scanpy: bool = False,
-    scanpy_corr_method: str = "benjamini-hochberg",
+    scanpy_corr_method: Literal["bonferroni"] | Literal["benjamini-hochberg"] = "benjamini-hochberg",
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -121,7 +122,7 @@ def get_geneset_oi(
 
 def combine_weighted_ligand_target_links(
     active_ligand_target_links: Iterable[dict],
-) -> list[tuple[gene_t, gene_t, float]]:
+) -> list[tuple[GeneSymbol, GeneSymbol, float]]:
     """
     Combines weighted ligand-target links of different ligands.
 
@@ -162,7 +163,7 @@ def run_nichenet(
     get_prioritization_table: bool = False,
     case_control: bool = True,
     use_scanpy: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
 ):
     """
     Runs a standard nichenet analysis.
@@ -361,6 +362,8 @@ def run_nichenet(
     if get_prioritization_table:
         if sender_celltypes is None:
             return ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
+        if not isinstance(sender_celltypes, Sequence):
+            sender_celltypes = list(sender_celltypes)
         lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
         info_tables = generate_info_tables(
             ann,
@@ -397,7 +400,7 @@ def run_nichenet_cluster_de(
     expression_pct: float = 0.1,
     ligands_top_n: int | None = 30,
     targets_top_n: int = 200,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
     geneset: str = "DE",
 ):
     """
@@ -625,7 +628,7 @@ def create_ligand_activity_heatmap(
 
 def create_regulatory_potential_heatmap(
     predictor: LigandActivityPredictor,
-    active_ligand_target_links: list[tuple[gene_t, gene_t, float]],
+    active_ligand_target_links: Sequence[tuple[GeneSymbol, GeneSymbol, float]],
     xtitle="predicted target genes",
     ytitle="prioritized ligands",
     cbar_label="regulatory potential",
@@ -664,8 +667,8 @@ def create_regulatory_potential_heatmap(
     )
     return heatmap_2d(
         ligand_target_vis.transpose(),
-        xlabels=targets,
-        ylabels=ligands,
+        xlabels=[str(target) for target in targets],
+        ylabels=[str(ligand) for ligand in ligands],
         xtitle=xtitle,
         ytitle=ytitle,
         cbar_label=cbar_label,
@@ -722,8 +725,8 @@ def create_prior_interaction_potential_heatmap(
 
 def create_lfc_heatmap(
     sender_celltypes: list[str],
-    ligand_activities: dict[gene_t, dict[str, float]],
-    lfcs: list[tuple[list[gene_t], list[float]]],
+    ligand_activities: dict[GeneSymbol, dict[str, float]],
+    lfcs: list[tuple[list[GeneSymbol], list[float]]],
     xtitle="cell types",
     ytitle="prioritized ligands",
     cbar_label="LFC",
@@ -759,13 +762,13 @@ def create_lfc_heatmap(
     Axes
         the axes
     """
-    lfcs = combine_by_key(*lfcs)
+    lfcs_dct = combine_by_key(*lfcs)
     # sort by ligand activity
     ligands, vals = zip(
         *(
             (ligand, metrics_vals[1])
             for ligand, metrics_vals in sorted(
-                combine_dicts(ligand_activities, lfcs).items(), key=lambda x: x[1][0]["aupr_corrected"], reverse=True
+                combine_dicts(ligand_activities, lfcs_dct).items(), key=lambda x: x[1][0]["aupr_corrected"], reverse=True
             )
         ),
         strict=True,
@@ -790,7 +793,7 @@ def create_lfc_heatmap(
 
 def _create_circos_plot(
     circos_links: Iterable[tuple[tuple[str, str], tuple[str, str]]],
-    colors: dict[gene_t, str],
+    colors: dict[str, str],
     inter_space: float = 5,
     intra_space: float = 1,
     opacity: Iterable[float] | None = None,
@@ -800,16 +803,18 @@ def _create_circos_plot(
     link_count_in = {}
     link_count_out = {}
     links = []
-    if type(circos_links) is not list or type(circos_links) is tuple:
+    if not isinstance(circos_links, Sequence):
         circos_links = tuple(circos_links)
     max_weight = 1 if opacity is None else max(opacity)
     # define unique identifiers for each rectangle and create a list of links between rectangles
     # the opacity and start/end positions of the links are also specified
     for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
-        sender, receiver = link if opacity is None else link[0]
-        weight = 1 if opacity is None else link[1]
-        sender_group, sender = sender
-        receiver_group, receiver = receiver
+        sender_tup: tuple[str, str]
+        receiver_tup: tuple[str, str]
+        sender_tup, receiver_tup = link if opacity is None else link[0] # type: ignore (correct due to conditional)
+        weight: float = 1 if opacity is None else link[1] # type: ignore (correct due to conditional)
+        sender_group, sender = sender_tup
+        receiver_group, receiver = receiver_tup
         key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"
         if key_out in link_count_out:
             link_count_out[key_out] += 1
@@ -906,9 +911,9 @@ def _create_circos_plot(
 def create_ligand_receptor_links_prioritization_circos_plot(
     senders: Iterable[str],
     receivers: Iterable[str],
-    ligands: Iterable[gene_t],
-    receptors: Iterable[gene_t],
-    colors: dict[gene_t, str],
+    ligands: Iterable[str],
+    receptors: Iterable[str],
+    colors: dict[str, str],
     inter_space: float = 5,
     intra_space: float = 1,
     opacity: Iterable[float] | None = None,
@@ -923,9 +928,9 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the sender celltypes
     receivers : Iterable of str
         the receiver celltypes
-    ligands : Iterable of gene_t
+    ligands : Iterable of str
         the ligands
-    receptors : Iterable of gene_t
+    receptors : Iterable of str
         the receptors
     weights : Iterable of float
         the weights of the links
@@ -978,7 +983,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
 
 def create_ligand_links_circos_plot(
     circos_links: pd.DataFrame,
-    colors: dict[gene_t, str],
+    colors: dict[str, str],
     dest_name: str,
     inter_space: float = 5,
     intra_space: float = 1,
@@ -1044,8 +1049,8 @@ def create_ligand_links_circos_plot(
 def generate_info_tables(
     ann: AnnData,
     celltype_col: str,
-    senders_oi: list[str],
-    receivers_oi: list[str],
+    senders_oi: Sequence[str],
+    receivers_oi: Sequence[str],
     lr_network_filtered: LigandReceptorNetwork,
     condition_col: str,
     condition_oi: str,
