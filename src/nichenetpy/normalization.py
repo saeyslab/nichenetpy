@@ -142,7 +142,7 @@ def scale_quantile(
 
 
 def scale_quantile_adapted(
-    data: list | tuple | np.ndarray | pd.Series, cutoff=0, by_row: bool = False, pseudo_count=0.001
+    data: list | tuple | np.ndarray | pd.Series, cutoff: float = 0, by_row: bool = False, pseudo_count: float = 0.001
 ) -> np.ndarray:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.

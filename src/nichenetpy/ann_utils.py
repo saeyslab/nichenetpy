@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from typing import overload
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,37 @@ def _subset_layer(
         features = sorted(features)
     ids = [gene2index[gene] for gene in features]
     return (subset_matrix(sel_layer, cols=ids), features)
+
+@overload
+def subset_ann(
+    ann: AnnData,
+    val: gene_t | Iterable[gene_t],
+    genes: Iterable[gene_t] | None = None,
+    layers: Iterable[str|None] | None = None,
+    val_col: str = "celltype",
+    subset_X: bool = True,
+) -> AnnData: ...
+
+@overload
+def subset_ann(
+    ann: AnnData,
+    val: gene_t | Iterable[gene_t] | None=None,
+    *,
+    genes: Iterable[gene_t],
+    layers: Iterable[str|None] | None = None,
+    val_col: str = "celltype",
+    subset_X: bool = True,
+) -> AnnData: ...
+
+@overload
+def subset_ann( # if val and genes are not provided, it should be this overload
+    ann: AnnData,
+    val: None=None,
+    genes: None=None,
+    layers: Iterable[str|None] | None = None,
+    val_col: str = "celltype",
+    subset_X: bool = True,
+) -> None: ...
 
 
 def subset_ann(
