@@ -1,16 +1,16 @@
 from collections.abc import ItemsView, Iterable, Iterator
 from itertools import repeat
-from typing import cast
+from typing import Generic, Any
 
 import pandas as pd
 
 from nichenetpy.metrics import calculate_prediction_evaluation_metrics
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t
+from nichenetpy.typing import gene_t, GeneSymbol
 from nichenetpy.utils import is_ligand_active
 
 
-class EvaluationData:
+class EvaluationData(Generic[GeneSymbol]):
     """
     Data which can be used for model evaluation. Each item needs to contain
 
@@ -207,7 +207,7 @@ class EvaluationData:
         """
         return self._data.items()
 
-    def get_ligands(self, combination: bool = True) -> set[gene_t]:
+    def get_ligands(self, combination: bool = True) -> set[GeneSymbol]:
         """
         Extract all ligands from the evaluation data.
 

@@ -1,5 +1,5 @@
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from traceback import format_exc
 
 import numpy as np
@@ -8,16 +8,16 @@ import pandas as pd
 from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_ligand_prediction
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t
+from nichenetpy.typing import gene_t, GeneSymbol
 
 
-def _average_performances(ligand_oi, performances):
+def _average_performances(ligand_oi: gene_t | Sequence[gene_t], performances: pd.DataFrame) -> tuple[float, float]:
     # true ligand must match with ligand(s) of interest
     performances_oi = performances[
         [
             any(
                 ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
-                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi)
+                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi) # type: ignore (is correct due to conditional)
             )
             for true_ligand in performances["ligand"]
         ]
@@ -25,7 +25,7 @@ def _average_performances(ligand_oi, performances):
     return (performances_oi["auroc"].median(), performances_oi["aupr_corrected"].median())
 
 
-def _evaluate_single_importances_ligand_prediction(ligand_importances, group):
+def _evaluate_single_importances_ligand_prediction(ligand_importances: pd.DataFrame, group: str) -> pd.DataFrame | None:
     try:
         return evaluate_single_importances_ligand_prediction(ligand_importances, group, allow_nan=True)
     except Exception as ex:
@@ -33,7 +33,7 @@ def _evaluate_single_importances_ligand_prediction(ligand_importances, group):
         return None
 
 
-def evaluate_model(predictor: LigandActivityPredictor, evaluation_data: EvaluationData):
+def evaluate_model(predictor: LigandActivityPredictor, evaluation_data: EvaluationData) -> dict[str, pd.DataFrame | None]:
     """
     Evaluate the ligand-target matrix.
 
@@ -121,7 +121,7 @@ def evaluate_model(predictor: LigandActivityPredictor, evaluation_data: Evaluati
 
 
 def compute_evaluation_scores(
-    eval_res: dict[str, pd.DataFrame], ligands: Iterable[gene_t]
+    eval_res: dict[str, pd.DataFrame | None], ligands: Iterable[gene_t]
 ) -> tuple[float, float, float, float]:
     """
     Construct and evaluate the ligand-target matrix.
@@ -145,8 +145,11 @@ def compute_evaluation_scores(
     TypeError
         if the arguments have the wrong type
     """
+    performances_target_prediction = eval_res["performances_target_prediction"]
+    if performances_target_prediction is None:
+        raise ValueError("performances_target_prediction is None")
     performances_target_prediction_averaged_auroc, performances_target_prediction_averaged_aupr = zip(
-        *(_average_performances(ligand, eval_res["performances_target_prediction"]) for ligand in ligands), strict=True
+        *(_average_performances(ligand, performances_target_prediction) for ligand in ligands), strict=True
     )
     performances_target_prediction_averaged_auroc = [
         e for e in performances_target_prediction_averaged_auroc if not np.isnan(e)
@@ -211,7 +214,7 @@ def compute_evaluation_scores(
     )
 
 
-def _empty_solution():
+def _empty_solution() -> tuple[dict[str, None], float, float, float, float]:
     return (
         {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None},
         0,
@@ -222,7 +225,7 @@ def _empty_solution():
 
 
 def construct_and_evaluate(
-    source_weights: dict[str, float] | dict[int, float] | pd.DataFrame,
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
     ltf_cutoff: float,
@@ -230,7 +233,7 @@ def construct_and_evaluate(
     lr_network: pd.DataFrame,
     gr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
-    evaluation_data: EvaluationData,
+    evaluation_data: EvaluationData[GeneSymbol],
     return_all_matrices: bool = True,
     return_weighted_networks: bool = True,
 ):
@@ -346,7 +349,7 @@ def weighted_stress_function(w: float, d1: float = 0.002, d2: float = 0.008) -> 
     )
 
 
-def choose_pareto_optimal_solution(objective_values: Iterable[Iterable[float]], weights: Iterable[float]) -> int:
+def choose_pareto_optimal_solution(objective_values: Iterable[Sequence[float]], weights: Iterable[float]) -> int:
     """
     Choose one solution from a set of pareto optimal solutions using the weighted stress function method
 
@@ -377,9 +380,9 @@ def choose_pareto_optimal_solution(objective_values: Iterable[Iterable[float]], 
         tw = sum(weights)
         weights = [weight / tw for weight in weights]
     fs = [weighted_stress_function(weight) for weight in weights]
-    return np.argmin(
+    return int(np.argmin(
         [sum(np.abs(fs[i](xs[i]) - fs[j](xs[j])) for j in range(len(xs)) for i in range(j)) for xs in objective_values]
-    )
+    ))
 
 
 def choose_pareto_optimal_solution_normalized(

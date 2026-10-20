@@ -26,7 +26,7 @@ def construct_weighted_networks(
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
-    source_weights: dict[str, float] | pd.DataFrame,
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     n_output_networks: int = 2,
 ) -> dict[str, pd.DataFrame]:
     """
@@ -578,7 +578,7 @@ def construct_ligand_target_matrix(
 
 
 def construct_model_from_source_weights(
-    source_weights: dict[str, float] | pd.DataFrame,
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
     ltf_cutoff: float,
