@@ -90,7 +90,7 @@ def read_matrix_from_csv(
     if not isinstance(extract_col_name, Callable):  # type: ignore
         raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
-        lines = file.readlines()
+        lines: Sequence[str] = file.readlines()
     col_names = extract_col_name(lines[0].rstrip())
     row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]), strict=True)
     rows = [[float(e.strip("\"'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
@@ -124,8 +124,8 @@ def read_csv_rows(filename: str, sep: str | Pattern = ",") -> tuple[list[str], l
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]
-    return (lines[0], lines[1:])
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
+    return (lines[0], lines[1:])  # type: ignore
 
 
 def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence[str]]:
@@ -153,7 +153,7 @@ def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
     return dict(zip(lines[0], zip(*lines[1:], strict=True), strict=True))
 
 
@@ -257,14 +257,14 @@ def subset_matrix(
             ]
     elif isinstance(mat, csc_matrix):
         if cols is None:  # rows is not None
-            output = csr_matrix(mat)
+            output = csr_matrix(mat)  # type: ignore
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
             output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
-            output = csc_matrix(mat)
+            output = csc_matrix(mat)  # type: ignore
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
@@ -319,7 +319,7 @@ def combine_by_key[T1, T2](*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2
         "d": [5, 2, 3]
     }
     """
-    output = {}
+    output: dict[T1, list[T2]] = {}
     for arg in args:
         for key, val in zip(arg[0], arg[1], strict=True):
             if key in output:
@@ -469,7 +469,7 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
         raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
     if type(groupby) is not str:
         raise TypeError(f"groupby should have type str, was {type(groupby)}")
-    if not isinstance(func, Callable):
+    if not isinstance(func, Callable):  # type: ignore
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
@@ -604,7 +604,7 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     return output
 
 
-def get_ties(it: Iterable, key: Callable):
+def get_ties[T1, T2](it: Iterable[T1], key: Callable[[T1], T2]) -> dict[T2, list[int]]:
     """
     Group the indices of the tied elements of an Iterable.
 
@@ -627,15 +627,15 @@ def get_ties(it: Iterable, key: Callable):
     """
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {type(it)}")
-    if not isinstance(key, Callable):
+    if not isinstance(key, Callable):  # type: ignore
         raise TypeError(f"key should have type Callable, was {type(key)}")
-    output = {}
+    output: dict[T2, list[int]] = {}
     for i, v in enumerate(it):
-        v = key(v)
+        v = key(v)  # type: ignore
         if v in output:
             output[v].append(i)
         else:
-            output[v] = [i]
+            output[v] = [i]  # type: ignore
     return output
 
 
