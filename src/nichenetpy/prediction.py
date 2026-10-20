@@ -1,9 +1,9 @@
 import warnings
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Sequence
 from itertools import chain, repeat
 from numbers import Number
 from random import uniform
-from typing import Sequence, Generic, overload, Literal, Any
+from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -13,11 +13,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_prediction_evaluation_metrics
-from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
-class LigandActivityPredictor(Generic[GeneSymbol]):
+class LigandActivityPredictor[GeneSymbol]:
     """
     LigandActivityPredictor facilitates the computation of ligand activities using a ligand-target matrix.
 
@@ -90,8 +90,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")
         if type(col_names) is not list and type(col_names) is not tuple:
             raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
-        self.row_names : Sequence[GeneSymbol] = row_names
-        self.col_names : Sequence[GeneSymbol] = col_names
+        self.row_names: Sequence[GeneSymbol] = row_names
+        self.col_names: Sequence[GeneSymbol] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
         self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
 
@@ -207,7 +207,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             is_index = False
         if not is_index:
             try:
-                index = self.ligand2index(index) # type: ignore (if is_index == False then index has type GeneSymbol)
+                index = self.ligand2index(index)  # type: ignore # if is_index == False then index has type GeneSymbol
             except KeyError as error:
                 raise IndexError(
                     f"{index} is not a gene symbol with a corresponding column in the ligand-target matrix"
@@ -265,8 +265,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
-        pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])])
-        resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])])
+        pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
+        resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
         return calculate_prediction_evaluation_metrics(pred, resp)
 
     def predict_ligand_activities(
@@ -420,10 +420,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
                 prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
                 common_keys = prediction.keys() & response.keys()
                 pred = np.array(
-                    [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]
+                    [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]  # type: ignore # sorted false positive type complaint
                 )
                 resp = np.array(
-                    [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])]
+                    [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])]  # type: ignore # sorted false positive type complaint
                 )
                 if calc_aupr:
                     aupr.append(calculate_aupr(resp, pred))
@@ -431,7 +431,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
                 if calc_auroc:
                     auroc.append(calculate_auroc(resp, pred))
                 if calc_pearson:
-                    pearson.append(pearsonr(resp, pred).statistic) # type: ignore (statistic attribute exists)
+                    pearson.append(pearsonr(resp, pred).statistic)  # type: ignore # statistic attribute exists
         output = {
             "cell": chain(*(repeat(cell, len(potential_ligands)) for cell in cells)),
             "ligand": chain(*repeat(potential_ligands, len(cells))),
@@ -445,7 +445,9 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             output["pearson"] = pearson
         return pd.DataFrame(output)
 
-    def get_weighted_ligand_target_links(self, ligand: GeneSymbol, geneset: Iterable[GeneSymbol], n: int = 250) -> dict[str, Any]:
+    def get_weighted_ligand_target_links(
+        self, ligand: GeneSymbol, geneset: Iterable[GeneSymbol], n: int = 250
+    ) -> dict[str, Any]:
         """
         Infer active ligand target links between possible ligands and genes belonging to a gene set of interest: consider the intersect between the top n targets of a ligand and the gene set.
 
@@ -488,7 +490,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
                 e[0]
                 for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)], strict=True)
                 if e[1] >= top_n_score
-            }.intersection(geneset)
+            }.intersection(geneset)  # type: ignore # sorted false positive type complaint
         )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
@@ -508,7 +510,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         if isinstance(self.ligand_target_matrix, np.ndarray):
             m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
         else:
-            raise NotImplementedError # TODO
+            raise NotImplementedError  # TODO
         for j in range(self.ligand_target_matrix.shape[1]):
             if sum(self.ligand_target_matrix[:, j]) == 0:
                 for i in range(self.ligand_target_matrix.shape[0]):

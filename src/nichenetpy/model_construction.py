@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 from itertools import chain
 from numbers import Number
-from typing import Any, overload, Literal
+from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,7 @@ from scipy.sparse import csc_matrix, csr_matrix
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
-from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -236,7 +236,7 @@ def construct_ligand_tf_matrix(
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
-    all_genes : list[GeneSymbol] = sorted(gene2id_keys)
+    all_genes: list[GeneSymbol] = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     ligands = [
         ligand
@@ -250,7 +250,7 @@ def construct_ligand_tf_matrix(
             shape=(len(gene2id), len(gene2id)),
         )
         # preference vector
-        pv = np.zeros(shape=lr_sig_mat.shape[0]) # type: ignore (shape can't be None)
+        pv = np.zeros(shape=lr_sig_mat.shape[0])  # type: ignore # shape can't be None
         pr = PageRank(damping_factor=damping_factor)
         complete_matrix = []
         for _ligands in ligands:
@@ -314,19 +314,25 @@ def construct_ligand_tf_matrix(
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix, order=("F" if column_major else "C"))
-    row_names : list[GeneSymbol] = ["-".join(_ligands) if type(_ligands[0]) is str else _ligands[0] for _ligands in ligands] # type: ignore (checked if is list[str])
+    row_names: list[GeneSymbol] = [
+        "-".join(_ligands) if type(_ligands[0]) is str else _ligands[0]  # type: ignore # checked if is list[str]
+        for _ligands in ligands
+    ]
     col_names = all_genes
     return (ltf_matrix, row_names, col_names)
+
 
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[False] = False
 ) -> tuple[csr_matrix, list[gene_t], list[gene_t]]: ...
 
+
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[True] = True
 ) -> tuple[csc_matrix, list[gene_t], list[gene_t]]: ...
+
 
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
@@ -394,6 +400,7 @@ def _set_min(mat):
         if mat[i] == np.inf:
             mat[i] = m
 
+
 @overload
 def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
@@ -408,6 +415,7 @@ def construct_ligand_target_matrix(
     return_all_matrices: Literal[False] = False,
 ) -> tuple[np.ndarray, list[gene_t], list[GeneSymbol]]: ...
 
+
 @overload
 def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
@@ -420,7 +428,12 @@ def construct_ligand_target_matrix(
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
-) -> tuple[tuple[np.ndarray, list[gene_t], list[GeneSymbol]], tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]], tuple[nichenet_matrix, list[gene_t], list[gene_t]]]: ...
+) -> tuple[
+    tuple[np.ndarray, list[gene_t], list[GeneSymbol]],
+    tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+    tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+]: ...
+
 
 @overload
 def construct_ligand_target_matrix(
@@ -436,6 +449,7 @@ def construct_ligand_target_matrix(
     return_all_matrices: Literal[False] = False,
 ) -> tuple[np.ndarray, list[GeneSymbol], list[gene_t]]: ...
 
+
 @overload
 def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
@@ -448,7 +462,12 @@ def construct_ligand_target_matrix(
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
-) -> tuple[tuple[np.ndarray, list[GeneSymbol], list[gene_t]], tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]], tuple[nichenet_matrix, list[gene_t], list[gene_t]]]: ...
+) -> tuple[
+    tuple[np.ndarray, list[GeneSymbol], list[gene_t]],
+    tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+    tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+]: ...
+
 
 def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
@@ -461,7 +480,14 @@ def construct_ligand_target_matrix(
     ligands_as_cols: bool = True,
     remove_direct_links: str = "no",
     return_all_matrices: bool = False,
-) -> tuple[np.ndarray, list[gene_t], list[gene_t]] | tuple[tuple[np.ndarray, list[gene_t], list[gene_t]], tuple[nichenet_matrix, list[gene_t], list[gene_t]], tuple[nichenet_matrix, list[gene_t], list[gene_t]]]:
+) -> (
+    tuple[np.ndarray, list[gene_t], list[gene_t]]
+    | tuple[
+        tuple[np.ndarray, list[gene_t], list[gene_t]],
+        tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+        tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+    ]
+):
     """
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
@@ -553,12 +579,14 @@ def construct_ligand_target_matrix(
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
-    ligands_it : list[Iterable[GeneSymbol]] = [(_ligands,) if type(_ligands) is GeneSymbol else _ligands for _ligands in ligands] # type: ignore (type is checked)
+    ligands_it: list[Iterable[GeneSymbol]] = [
+        (_ligands,) if type(_ligands) is GeneSymbol else _ligands for _ligands in ligands
+    ]  # type: ignore # type is checked
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
         weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
     )
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target : np.ndarray = ltf_matrix * grn_matrix
+    ligand2target: np.ndarray = ltf_matrix * grn_matrix
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
         ligand2target_secondary = ligand2target * grn_matrix
@@ -571,10 +599,12 @@ def construct_ligand_target_matrix(
                 (ligand2target.transpose(), grn_cols, ltf_rows),
                 (ltf_matrix.transpose(), ltf_cols, ltf_rows),
                 (grn_matrix.transpose(), grn_cols, grn_rows),
-            ) # type: ignore (transposition has correct type)
+            )  # type: ignore # transposition has correct type
         return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (grn_matrix, grn_rows, grn_cols))
     else:
-        return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols) # type: ignore (transposition has correct type)
+        return (
+            (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
+        )  # type: ignore # transposition has correct type
 
 
 def construct_model_from_source_weights(
@@ -640,7 +670,7 @@ def construct_model_from_source_weights(
     if ligands is None:
         ligands = set(lr_network["from"])
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
-    ligand2target : np.ndarray
+    ligand2target: np.ndarray
     if weighted_networks["lr_sig"].shape[0] > 0:
         weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
         weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
@@ -653,15 +683,15 @@ def construct_model_from_source_weights(
             return_all_matrices=return_all_matrices,
         )
         if return_all_matrices:
-            ligand2target, grn_matrix, ltf_matrix = res # type: ignore (correct in this conditional path)
+            ligand2target, grn_matrix, ltf_matrix = res  # type: ignore # correct in this conditional path
         else:
-            ligand2target = res # type: ignore (correct in this conditional path)
+            ligand2target = res  # type: ignore # correct in this conditional path
             grn_matrix = None
             ltf_matrix = None
     else:  # lr_sig is empty -> lt_matrix is grn_matrix
         grn_matrix = construct_tf_target_matrix(weighted_networks, standalone_output=True)
         grn_matrix = (grn_matrix[0].toarray(order="F"), grn_matrix[1], grn_matrix[2])
-        ligand2target = grn_matrix # type: ignore (toarray should return np.ndarray)
+        ligand2target = grn_matrix  # type: ignore # toarray should return np.ndarray
         ltf_matrix = None
     output = {
         "weighted networks": weighted_networks,

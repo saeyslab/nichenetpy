@@ -8,7 +8,7 @@ import pandas as pd
 from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_ligand_prediction
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t, GeneSymbol
+from nichenetpy.typing import GeneSymbol, gene_t
 
 
 def _average_performances(ligand_oi: gene_t | Sequence[gene_t], performances: pd.DataFrame) -> tuple[float, float]:
@@ -17,7 +17,7 @@ def _average_performances(ligand_oi: gene_t | Sequence[gene_t], performances: pd
         [
             any(
                 ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
-                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi) # type: ignore (is correct due to conditional)
+                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi)  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]
         ]
@@ -33,7 +33,9 @@ def _evaluate_single_importances_ligand_prediction(ligand_importances: pd.DataFr
         return None
 
 
-def evaluate_model(predictor: LigandActivityPredictor, evaluation_data: EvaluationData) -> dict[str, pd.DataFrame | None]:
+def evaluate_model(
+    predictor: LigandActivityPredictor, evaluation_data: EvaluationData
+) -> dict[str, pd.DataFrame | None]:
     """
     Evaluate the ligand-target matrix.
 
@@ -380,9 +382,14 @@ def choose_pareto_optimal_solution(objective_values: Iterable[Sequence[float]], 
         tw = sum(weights)
         weights = [weight / tw for weight in weights]
     fs = [weighted_stress_function(weight) for weight in weights]
-    return int(np.argmin(
-        [sum(np.abs(fs[i](xs[i]) - fs[j](xs[j])) for j in range(len(xs)) for i in range(j)) for xs in objective_values]
-    ))
+    return int(
+        np.argmin(
+            [
+                sum(np.abs(fs[i](xs[i]) - fs[j](xs[j])) for j in range(len(xs)) for i in range(j))
+                for xs in objective_values
+            ]
+        )
+    )
 
 
 def choose_pareto_optimal_solution_normalized(

@@ -21,7 +21,7 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
-from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
+from nichenetpy.typing import GeneSymbol, nichenet_matrix
 from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
 from nichenetpy.visualization import (
     heatmap_1d,
@@ -44,7 +44,7 @@ def get_geneset_oi(
     scanpy_corr_method: Literal["bonferroni"] | Literal["benjamini-hochberg"] = "benjamini-hochberg",
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -163,7 +163,7 @@ def run_nichenet(
     get_prioritization_table: bool = False,
     case_control: bool = True,
     use_scanpy: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
 ):
     """
     Runs a standard nichenet analysis.
@@ -400,7 +400,7 @@ def run_nichenet_cluster_de(
     expression_pct: float = 0.1,
     ligands_top_n: int | None = 30,
     targets_top_n: int = 200,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1, # type: ignore (this works fine)
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
     geneset: str = "DE",
 ):
     """
@@ -768,7 +768,9 @@ def create_lfc_heatmap(
         *(
             (ligand, metrics_vals[1])
             for ligand, metrics_vals in sorted(
-                combine_dicts(ligand_activities, lfcs_dct).items(), key=lambda x: x[1][0]["aupr_corrected"], reverse=True
+                combine_dicts(ligand_activities, lfcs_dct).items(),
+                key=lambda x: x[1][0]["aupr_corrected"],
+                reverse=True,
             )
         ),
         strict=True,
@@ -811,8 +813,8 @@ def _create_circos_plot(
     for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
         sender_tup: tuple[str, str]
         receiver_tup: tuple[str, str]
-        sender_tup, receiver_tup = link if opacity is None else link[0] # type: ignore (correct due to conditional)
-        weight: float = 1 if opacity is None else link[1] # type: ignore (correct due to conditional)
+        sender_tup, receiver_tup = link if opacity is None else link[0]  # type: ignore # correct due to conditional
+        weight: float = 1 if opacity is None else link[1]  # type: ignore # correct due to conditional
         sender_group, sender = sender_tup
         receiver_group, receiver = receiver_tup
         key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"

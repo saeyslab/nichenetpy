@@ -1,8 +1,8 @@
 import os
 import pickle
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from re import Pattern, compile, finditer, search, split
-from typing import Any, Sequence, overload, TypeVar
+from typing import Any, TypeVar, overload
 
 import numpy as np
 import pandas as pd
@@ -79,7 +79,7 @@ def read_matrix_from_csv(
         extract_row_name = _default_row_name_pattern
     if isinstance(extract_row_name, Pattern):
         row_name_pattern = extract_row_name
-        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end()) # type: ignore (if search returns None then runtime error)
+        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())  # type: ignore # if search returns None then runtime error
     if not isinstance(extract_row_name, Callable):
         raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
     if extract_col_name is None:
@@ -186,6 +186,7 @@ def read_network_file(filename: str):
     else:
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
+
 @overload
 def subset_matrix(
     mat: np.ndarray,
@@ -193,12 +194,14 @@ def subset_matrix(
     cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
 ) -> np.ndarray: ...
 
+
 @overload
 def subset_matrix(
     mat: csr_matrix | csc_matrix,
     rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
     cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
 ) -> csr_matrix | csc_matrix: ...
+
 
 def subset_matrix(
     mat: nichenet_matrix,
@@ -258,17 +261,17 @@ def subset_matrix(
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
-            output = vstack([output[row, :] for row in rows], format="csc") # type: ignore (should be fine given the input to vstack)
+            output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
             output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
-            output = hstack([output[:, col] for col in cols], format="csr") # type: ignore (should be fine given the input to hstack)
+            output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
         raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    return output # type: ignore (should be fine given the input to hstack and vstack)
+    return output  # type: ignore # should be fine given the input to hstack and vstack
 
 
 def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
@@ -286,6 +289,7 @@ def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
         the subsetted matrix
     """
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
+
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")

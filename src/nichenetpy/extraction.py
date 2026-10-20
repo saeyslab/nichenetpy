@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
-from scipy.sparse import csr_matrix, csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
@@ -33,7 +33,11 @@ def _get_expressed_features(
     if not isinstance(ann.X, np.ndarray) and not isinstance(ann.X, csr_matrix) and not isinstance(ann.X, csc_matrix):
         raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     sel_layer = ann.layers[layer]
-    if not isinstance(sel_layer, np.ndarray) and not isinstance(sel_layer, csr_matrix) and not isinstance(sel_layer, csc_matrix):
+    if (
+        not isinstance(sel_layer, np.ndarray)
+        and not isinstance(sel_layer, csr_matrix)
+        and not isinstance(sel_layer, csc_matrix)
+    ):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")

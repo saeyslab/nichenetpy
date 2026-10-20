@@ -1,6 +1,6 @@
 import struct
-from math import ceil, log2
 from collections.abc import Sequence
+from math import ceil, log2
 
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
@@ -76,7 +76,7 @@ def write_ligand_target_matrix(
             mat.tobytes(order=("F" if column_major else "C")),
         )
     else:
-        raise NotImplementedError # TODO
+        raise NotImplementedError  # TODO
 
 
 def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple[np.ndarray, list[str], list[str]]:

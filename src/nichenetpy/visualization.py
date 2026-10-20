@@ -1,10 +1,10 @@
 import os
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Sequence
 from contextlib import redirect_stdout
 from itertools import chain, repeat
 from math import isnan, sqrt
 from numbers import Number
-from typing import Any, Sequence
+from typing import Any
 
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtrans
@@ -17,7 +17,7 @@ from anndata import AnnData
 from matplotlib import colormaps as cm
 from matplotlib.axes import Axes
 from matplotlib.collections import PatchCollection
-from matplotlib.colors import colorConverter, Colormap
+from matplotlib.colors import Colormap, colorConverter
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Ellipse, Patch, Rectangle, RegularPolygon, Wedge
@@ -35,8 +35,8 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 from nichenetpy.typing import GeneSymbol
+from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
 def reorder_labels(
@@ -95,7 +95,7 @@ def reorder_labels(
 def prepare_ligand_target_visualization(
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
-    cutoff: float = 0.25
+    cutoff: float = 0.25,
 ) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of regulatory potential.
@@ -389,7 +389,7 @@ def _construct_ligand_signaling_df(
     target2id = dict(zip(all_targets, range(len(all_targets)), strict=True))
     dfs = []
     for ligand in ligands_oi:
-        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands) # type: ignore (behaves as expected)
+        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)  # type: ignore # behaves as expected
         ltf_vis.index.name = "TF"
         ltf_vis.reset_index(inplace=True)
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
@@ -608,11 +608,11 @@ def visualize_ligand_signaling_graph(
         arrowstyle="->",
         arrowsize=arrow_size,
         arrows=True,
-        label=graph.nodes, # type: ignore (behaves as expected)
+        label=graph.nodes,  # type: ignore # behaves as expected
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()],
-    ) # type: ignore (behaves as expected)
+    )  # type: ignore # behaves as expected
     plt.legend(
         handles=[
             Patch(color=sig_color, label="ligand-signaling"),
@@ -1556,7 +1556,7 @@ def _radar_factory(num_vars, frame="circle"):
 
         def _gen_axes_spines(self):
             if frame == "circle":
-                return super()._gen_axes_spines() # type: ignore
+                return super()._gen_axes_spines()  # type: ignore
             elif frame == "polygon":
                 # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
                 spine = Spine(axes=self, spine_type="circle", path=Path.unit_regular_polygon(num_vars))
@@ -1597,6 +1597,7 @@ def create_radar_plot(
         the largest possible value
     label_size : float
         the size of the label
+
     Raises
     ------
     TypeError
@@ -1629,11 +1630,11 @@ def create_radar_plot(
         cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame="polygon")
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
-    ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)]) # type: ignore (attribute exists)
+    ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])  # type: ignore # attribute exists
     for i, d in enumerate(data):
-        color = cmap(i / len(data)) # type: ignore (cmap can't be a string anymore at this point)
+        color = cmap(i / len(data))  # type: ignore # cmap can't be a string anymore at this point
         ax.plot(theta, d, color=color)
         ax.fill(theta, d, facecolor=color, alpha=0.25, label="_nolegend_")
-    ax.set_varlabels(value_labels) # type: ignore (attribute exists)
+    ax.set_varlabels(value_labels)  # type: ignore # attribute exists
     ax.tick_params(labelsize=label_size)
     return (fig, ax)

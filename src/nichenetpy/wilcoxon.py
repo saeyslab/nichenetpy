@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
-from typing import overload, Literal
+from typing import Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,7 @@ from anndata import AnnData
 from scipy.sparse import csc_matrix, csr_matrix
 from scipy.stats import t
 
-from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
+from nichenetpy.typing import GeneSymbol, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -26,7 +26,7 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
         raise ValueError("mat has shape None")
     output = []
     group_mat = []
-    nrows, ncols = mat.shape # type: ignore ???
+    nrows, ncols = mat.shape  # type: ignore
     tie_stat = np.zeros(shape=(ncols,))
     # for each gene
     for ci in range(ncols):
@@ -86,6 +86,7 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
         output.append(ranks)
     return (output, group_mat, tie_stat)
 
+
 @overload
 def wilcoxon_rank_sum_test(
     ann: AnnData,
@@ -96,6 +97,7 @@ def wilcoxon_rank_sum_test(
     genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
 ) -> pd.DataFrame: ...
 
+
 @overload
 def wilcoxon_rank_sum_test(
     ann: AnnData,
@@ -105,6 +107,7 @@ def wilcoxon_rank_sum_test(
     layer: str | None = "data",
     genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
 ) -> dict[str, GeneSymbol]: ...
+
 
 def wilcoxon_rank_sum_test(
     ann: AnnData,
@@ -169,7 +172,11 @@ def wilcoxon_rank_sum_test(
     n_total = len(ann.obs)
     pvals = {}
     if layer is None:
-        if not isinstance(ann.X, np.ndarray) and not isinstance(ann.X, csr_matrix) and not isinstance(ann.X, csc_matrix):
+        if (
+            not isinstance(ann.X, np.ndarray)
+            and not isinstance(ann.X, csr_matrix)
+            and not isinstance(ann.X, csc_matrix)
+        ):
             raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
         mat = ann.X
     else:
@@ -177,7 +184,7 @@ def wilcoxon_rank_sum_test(
         if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
             raise ValueError(f"the selected layer should be of type nichenet_matrix, was {type(ann.X)}")
     if genes is None:
-        genes = ann.var_names # type: ignore (this works fine)
+        genes = ann.var_names  # type: ignore # this works fine
     else:
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
@@ -214,7 +221,7 @@ def wilcoxon_rank_sum_test(
             else:
                 pvals[group] = [pval]
     if as_dataframe:
-        pvals = pd.DataFrame(pvals, index=genes) # type: ignore (this behaves as expected)
+        pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this behaves as expected
         pvals.index.name = "gene"
     return pvals
 

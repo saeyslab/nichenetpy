@@ -5,7 +5,6 @@ from typing import overload
 from anndata import AnnData
 
 from nichenetpy.network import Network
-from nichenetpy.typing import gene_t
 
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 _pat_gene_info = re.compile(
@@ -71,6 +70,7 @@ class GeneAliasInfo:
         for k, v in items:
             if k not in self:
                 self._mapping[k] = v
+
     @overload
     def alias_to_symbol(self, obj: Iterable[str]) -> list[str]: ...
 

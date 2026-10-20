@@ -29,8 +29,8 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
         raise TypeError(f"graph should have type scipy.csr_matrix, was {type(csr_matrix)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
-    l = graph.shape[0] # type: ignore (shape is not None)
-    spl : list[tuple[float, int | None]] = [(np.inf, None) for _ in range(l)]  # initiate shortest path length
+    l = graph.shape[0]  # type: ignore # shape is not None
+    spl: list[tuple[float, int | None]] = [(np.inf, None) for _ in range(l)]  # initiate shortest path length
     done = set()
     pq = [(0, src)]  # priority queue
     spl[src] = (0, None)
