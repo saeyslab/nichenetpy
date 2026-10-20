@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
 from typing import overload, Literal
@@ -6,14 +6,14 @@ from typing import overload, Literal
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csr_matrix
 from scipy.stats import t
 
 from nichenetpy.typing import gene_t, nichenet_matrix, GeneSymbol
 from nichenetpy.utils import subset_matrix
 
 
-def _rank_cells(mat: nichenet_matrix, cell_groups: Iterable[str], tie_correction: bool = True):
+def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str], tie_correction: bool = True):
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = cell_groups.tolist()
@@ -22,9 +22,11 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Iterable[str], tie_correction
             mat = csc_matrix(mat)
         except TypeError as error:
             raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}") from error
+    if type(mat.shape) is None:
+        raise ValueError("mat has shape None")
     output = []
     group_mat = []
-    nrows, ncols = mat.shape
+    nrows, ncols = mat.shape # type: ignore ???
     tie_stat = np.zeros(shape=(ncols,))
     # for each gene
     for ci in range(ncols):
@@ -110,7 +112,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | None = None,
 ) -> pd.DataFrame | dict[str, GeneSymbol]:
     """
     Perform the wilcoxon rank sum test and return the p-values
@@ -165,13 +167,17 @@ def wilcoxon_rank_sum_test(
         raise ValueError(f"There is no column '{groupby}' in the AnnData object")
     group_sizes = dict(ann.obs[groupby].value_counts())
     n_total = len(ann.obs)
-    pvals : dict[GeneSymbol, float] = {}
+    pvals = {}
     if layer is None:
+        if not isinstance(ann.X, np.ndarray) and not isinstance(ann.X, csr_matrix) and not isinstance(ann.X, csc_matrix):
+            raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
         mat = ann.X
     else:
         mat = ann.layers[layer]
+        if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+            raise ValueError(f"the selected layer should be of type nichenet_matrix, was {type(ann.X)}")
     if genes is None:
-        genes = ann.var_names
+        genes = ann.var_names # type: ignore (this works fine)
     else:
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
@@ -208,13 +214,13 @@ def wilcoxon_rank_sum_test(
             else:
                 pvals[group] = [pval]
     if as_dataframe:
-        pvals = pd.DataFrame(pvals, index=genes)
+        pvals = pd.DataFrame(pvals, index=genes) # type: ignore (this behaves as expected)
         pvals.index.name = "gene"
     return pvals
 
 
 def wilcoxon_rank_sum_test_with_correlation(
-    index: Iterable[int] | Iterable[bool], statistics: Iterable[float], correlation: float = 0, df: float = np.inf
+    index: Iterable[int] | Iterable[bool], statistics: Sequence[float], correlation: float = 0, df: float = np.inf
 ):
     """
     Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
