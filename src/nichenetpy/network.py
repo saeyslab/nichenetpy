@@ -49,7 +49,7 @@ class Network[GeneSymbol]:
         self._mapping: list[tuple[GeneSymbol, GeneSymbol]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
-                mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])
+                mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])  # type: ignore
             elif type(mapping) is not list:
                 raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
             self._mapping = mapping
@@ -295,7 +295,8 @@ class WeightedNetwork[GeneSymbol](Network):
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
                 mapping = sorted(
-                    zip(mapping["from"], mapping["to"], mapping["weight"], strict=True), key=lambda x: x[0]
+                    zip(mapping["from"], mapping["to"], mapping["weight"], strict=True),
+                    key=lambda x: x[0],  # type: ignore
                 )
             elif type(mapping) is not list:
                 raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
@@ -309,14 +310,14 @@ class WeightedNetwork[GeneSymbol](Network):
         self._index: dict[GeneSymbol, list[int]] = {}
         self._build_index()
 
-    def __getitem__(self, key: GeneSymbol) -> dict[GeneSymbol, float]:
+    def __getitem__(self, key: GeneSymbol) -> dict[GeneSymbol, float]:  # type: ignore # check class at runtime
         start, count = self._index[key]
         return dict(item[1:3] for item in self._mapping[start : start + count])
 
-    def __iter__(self) -> Iterator[tuple[GeneSymbol, GeneSymbol, float]]:
+    def __iter__(self) -> Iterator[tuple[GeneSymbol, GeneSymbol, float]]:  # type: ignore # check class at runtime
         return self._mapping.__iter__()
 
-    def item_iter(self) -> Iterator[tuple[GeneSymbol, dict[GeneSymbol, float]]]:
+    def item_iter(self) -> Iterator[tuple[GeneSymbol, dict[GeneSymbol, float]]]:  # type: ignore # check class at runtime
         """
         Iterates over the "from" values in the mapping along with the corresponding "to" values and link weights.
 

@@ -112,10 +112,10 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
-    row_names = row_names.decode("ascii").split()
-    col_names = col_names.decode("ascii").split()
+    row_names = row_names.decode("ascii").split()  # type: ignore
+    col_names = col_names.decode("ascii").split()  # type: ignore
     mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
-    return (mat, row_names, col_names)
+    return (mat, row_names, col_names)  # type: ignore
 
 
 def write_sparse_matrix(filename: str, mat: csc_matrix | csr_matrix, row_names: str, col_names: str):
@@ -340,7 +340,7 @@ def read_network(filename: str) -> list[tuple[str, str]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = names.decode("ascii").split()  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0
@@ -352,7 +352,7 @@ def read_network(filename: str) -> list[tuple[str, str]]:
         for _ in range(k):
             output.append((fr, id2name[int.from_bytes(mapping[i : i + id_size])]))
             i += id_size
-    return output
+    return output  # type: ignore
 
 
 def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
@@ -380,7 +380,7 @@ def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = names.decode("ascii").split()  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0
@@ -398,4 +398,4 @@ def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
                 )
             )
             i += id_size + _DOUBLE_SIZE
-    return output
+    return output  # type: ignore

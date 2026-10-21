@@ -16,7 +16,7 @@ def _average_performances(ligand_oi: gene_t | Sequence[gene_t], performances: pd
     performances_oi = performances[
         [
             any(
-                ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
+                ligand in true_ligand if isinstance(true_ligand, Sequence) else ligand == true_ligand
                 for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi)  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]
@@ -107,7 +107,7 @@ def evaluate_model(
     performances_ligand_prediction_single = [
         e
         for e in (
-            _evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)
+            _evaluate_single_importances_ligand_prediction(ligand_importances, group=setting_id)  # type: ignore
             for setting_id in set(ligand_importances["setting"])
         )
         if e is not None
@@ -117,13 +117,13 @@ def evaluate_model(
     else:
         performances_ligand_prediction_single = None
     return {
-        "performances_target_prediction": performances_target_prediction,
-        "performances_ligand_prediction": performances_ligand_prediction_single,
+        "performances_target_prediction": performances_target_prediction,  # type: ignore
+        "performances_ligand_prediction": performances_ligand_prediction_single,  # type: ignore
     }
 
 
 def compute_evaluation_scores(
-    eval_res: dict[str, pd.DataFrame | None], ligands: Iterable[gene_t]
+    eval_res: dict[str, pd.DataFrame | None], ligands: Iterable[gene_t | Sequence[gene_t]]
 ) -> tuple[float, float, float, float]:
     """
     Construct and evaluate the ligand-target matrix.

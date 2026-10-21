@@ -1,5 +1,6 @@
-from collections.abc import ItemsView, Iterable, Iterator
+from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import repeat
+from typing import Literal, overload
 
 import pandas as pd
 
@@ -206,7 +207,13 @@ class EvaluationData[GeneSymbol]:
         """
         return self._data.items()
 
-    def get_ligands(self, combination: bool = True) -> set[GeneSymbol]:
+    @overload
+    def get_ligands(self, combination: Literal[True] = True) -> set[GeneSymbol | Sequence[GeneSymbol]]: ...
+
+    @overload
+    def get_ligands(self, combination: Literal[False] = False) -> set[GeneSymbol]: ...
+
+    def get_ligands(self, combination: bool = True) -> set[GeneSymbol] | set[GeneSymbol | Sequence[GeneSymbol]]:
         """
         Extract all ligands from the evaluation data.
 
@@ -236,7 +243,7 @@ class EvaluationData[GeneSymbol]:
                     output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        return output
+        return output  # type: ignore
 
     def to_dataframe(self) -> pd.DataFrame:
         """

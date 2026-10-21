@@ -36,7 +36,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.nd
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
     mp_mat = lil_matrix((len(mp), len(mp)))
     mp_mat.setdiag(mp)
-    return mp_mat * data
+    return np.array(mp_mat * data)
 
 
 def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
@@ -56,7 +56,7 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
     numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the normalized data
     """
-    return np.log1p(relative_counts(data, scale_factor))
+    return np.log1p(relative_counts(data, scale_factor))  # type: ignore # behaves as expected
 
 
 def _scale_quantile_seq(data: list | tuple | np.ndarray, cutoff: float = 0.05) -> np.ndarray:

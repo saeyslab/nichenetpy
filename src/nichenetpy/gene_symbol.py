@@ -124,6 +124,7 @@ class GeneAliasInfo:
             return self.alias_to_symbol(list(obj))
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
+        return None
 
 
 class GeneInfo:
@@ -149,8 +150,8 @@ class GeneInfo:
                 *([word.strip("\"'") for word in _pat_gene_info.findall(line.rstrip())[0]] for line in lines[1:]),
                 strict=True,
             )
-            self.__init__(list(zip(symbol, symbol_mouse, strict=True)))
-        elif isinstance(arg, Iterable):
+            self.__init__(list(zip(symbol, symbol_mouse, strict=True)))  # type: ignore
+        elif not isinstance(arg, str):
             # one to many
             self._human2mouse = Network(
                 sorted(((sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"), key=lambda x: x[0])

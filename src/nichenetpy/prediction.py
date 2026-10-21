@@ -219,13 +219,17 @@ class LigandActivityPredictor[GeneSymbol]:
                 f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}"
             )
         if isinstance(self.ligand_target_matrix, np.ndarray):
-            return self.ligand_target_matrix[:, index]
+            return self.ligand_target_matrix[:, index]  # type: ignore
         else:  # csc_matrix
             indices_non_zero = self.ligand_target_matrix.indices[
-                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[index + 1]
+                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[  # type: ignore
+                    index + 1  # type: ignore
+                ]
             ]
             values_non_zero = self.ligand_target_matrix.data[
-                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[index + 1]
+                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[  # type: ignore
+                    index + 1  # type: ignore
+                ]
             ]
             col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
             for i, v in zip(indices_non_zero, values_non_zero, strict=True):
@@ -257,7 +261,7 @@ class LigandActivityPredictor[GeneSymbol]:
         ValueError
             if the arguments are invalid
         """
-        if type(ligand) is not GeneSymbol:
+        if type(ligand) is not gene_t:
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
@@ -418,7 +422,7 @@ class LigandActivityPredictor[GeneSymbol]:
             response = dict(zip(expression_scaled_cols, (1 if e >= qt else 0 for e in response), strict=True))
             for ligand in potential_ligands:
                 prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
-                common_keys = prediction.keys() & response.keys()
+                common_keys = prediction.keys() & response.keys()  # type: ignore
                 pred = np.array(
                     [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]  # type: ignore # sorted false positive type complaint
                 )

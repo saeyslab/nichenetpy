@@ -299,7 +299,7 @@ def average_expression(
     if not isinstance(data, np.ndarray) and not isinstance(data, csr_matrix) and not isinstance(data, csc_matrix):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(data)}")
     if norm_f is not None:
-        if not isinstance(norm_f, Callable):
+        if not isinstance(norm_f, Callable):  # type: ignore
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
         data = norm_f(data)
     if keys is None:

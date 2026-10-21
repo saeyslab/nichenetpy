@@ -159,7 +159,7 @@ def prepare_ligand_target_visualization(
     ligand_target_vis = subset_matrix(
         ligand_target_vis, [target2index[target] for target in targets], [ligand2index[ligand] for ligand in ligands]
     )
-    return reorder_labels(ligand_target_vis, targets, ligands)
+    return reorder_labels(ligand_target_vis, targets, ligands)  # type: ignore
 
 
 def prepare_ligand_receptor_visualization(
@@ -689,7 +689,7 @@ def assign_ligands_to_celltype(
     assig = np.mean(avg_expression_ligands, axis=0)
     assig += np.std(avg_expression_ligands, mean=assig, axis=0)
     sender_ligand_assignment = {
-        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}
+        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}  # type: ignore
         for i, celltype in enumerate(celltypes)
     }
     count = {}
@@ -1121,7 +1121,7 @@ def create_mushroom_plot(
     xs = np.array(range(1, xmax + 1))
     ys = np.array(range(1, ymax + 1))
     ax.set_xticks(ticks=xs[:-1], labels=senders)
-    ax.set_yticks(ticks=ys[:-1], labels=interactions)
+    ax.set_yticks(ticks=ys[:-1], labels=interactions)  # type: ignore
     leftout_color = "0.9"
     ax.hlines(ys - 0.5, xmin=xmin, xmax=xmax, colors=leftout_color)
     ax.vlines(xs - 0.5, ymin=ymin, ymax=ymax, colors=leftout_color)
@@ -1334,7 +1334,7 @@ def marker_plot(
     if isinstance(val2color, dict):
         val2color_dict = val2color
         val2color = lambda x: marker_cm(val2color_dict[x])
-    elif not isinstance(val2color, Callable):
+    elif not isinstance(val2color, Callable):  # type: ignore
         raise TypeError(f"val2color should have type dict or Callable, was {type(val2color)}")
     text_size = max_marker_size * 275
     xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
@@ -1443,7 +1443,7 @@ def marker_plot(
             for _ in range(n_color_legend_cols):
                 if i >= len(_c):
                     break
-                cp = _c[i]
+                cp = _c[i]  # type: ignore
                 color = val2color(cp)
                 ax.add_patch(Ellipse((x_pos, y_pos), max_marker_width, max_marker_height, fc=color, clip_on=False))
                 ax.add_artist(

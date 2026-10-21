@@ -257,14 +257,14 @@ def subset_matrix(
             ]
     elif isinstance(mat, csc_matrix):
         if cols is None:  # rows is not None
-            output = csr_matrix(mat)  # type: ignore
+            output = csr_matrix(mat)
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
             output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
-            output = csc_matrix(mat)  # type: ignore
+            output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
@@ -631,7 +631,7 @@ def get_ties[T1, T2](it: Iterable[T1], key: Callable[[T1], T2]) -> dict[T2, list
         raise TypeError(f"key should have type Callable, was {type(key)}")
     output: dict[T2, list[int]] = {}
     for i, v in enumerate(it):
-        v = key(v)  # type: ignore
+        v = key(v)
         if v in output:
             output[v].append(i)
         else:

@@ -424,7 +424,7 @@ def group_metrics(
         raise TypeError(f"min_pct should be of type float, was {type(min_pct)}")
     if pval_thresh is not None and not isinstance(pval_thresh, Number):
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
-    if lfc_denormalize is not None and not isinstance(lfc_denormalize, Callable):
+    if lfc_denormalize is not None and not isinstance(lfc_denormalize, Callable):  # type: ignore
         raise TypeError(f"lfc_denormalize should be a Callable or None, had type {type(lfc_denormalize)}")
     if features is None:
         mat = ann.layers[layer]
@@ -465,9 +465,9 @@ def group_metrics(
     output.index.name = "gene"
     output.reset_index(inplace=True)
     pct = pd.melt(pd.DataFrame(pct, index=groups, columns=genes), value_name="pct", var_name="gene", ignore_index=False)  # type: ignore # error at runtime
-    pct.index.name = groupby
-    pct.reset_index(inplace=True)
-    output = output.merge(pct, on=["gene", groupby], how="inner")
+    pct.index.name = groupby  # type: ignore
+    pct.reset_index(inplace=True)  # type: ignore
+    output = output.merge(pct, on=["gene", groupby], how="inner")  # type: ignore
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
         # select only the groups the group of interest and the reference group
@@ -502,9 +502,9 @@ def group_metrics(
                     )
                 )
         pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this should be correct
-        pvals.index.name = "gene"
+        pvals.index.name = "gene"  # type: ignore
     else:
-        pvals = wilcoxon_rank_sum_test(
+        pvals = wilcoxon_rank_sum_test(  # type: ignore
             ann,
             groupby=groupby,
             as_dataframe=True,
@@ -512,11 +512,11 @@ def group_metrics(
             layer=layer,
             genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"])),
         )
-    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
+    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)  # type: ignore
     if pval_thresh is not None:
-        pvals = pvals[pvals["pval"] < pval_thresh]
-    pvals.reset_index(inplace=True)
-    output = output.merge(pvals, on=["gene", groupby], how="inner")
+        pvals = pvals[pvals["pval"] < pval_thresh]  # type: ignore
+    pvals.reset_index(inplace=True)  # type: ignore
+    output = output.merge(pvals, on=["gene", groupby], how="inner")  # type: ignore
     # divide by amount of genes in AnnData object (not just features)
-    output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)
+    output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)  # type: ignore # operation behaves as expected
     ann_orig.uns["group_metrics"] = output

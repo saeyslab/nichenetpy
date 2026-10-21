@@ -26,7 +26,7 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
         raise ValueError("mat has shape None")
     output = []
     group_mat = []
-    nrows, ncols = mat.shape  # type: ignore
+    nrows, ncols = mat.shape
     tie_stat = np.zeros(shape=(ncols,))
     # for each gene
     for ci in range(ncols):
@@ -222,8 +222,8 @@ def wilcoxon_rank_sum_test(
                 pvals[group] = [pval]
     if as_dataframe:
         pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this behaves as expected
-        pvals.index.name = "gene"
-    return pvals
+        pvals.index.name = "gene"  # type: ignore
+    return pvals  # type: ignore
 
 
 def wilcoxon_rank_sum_test_with_correlation(

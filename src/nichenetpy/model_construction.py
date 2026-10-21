@@ -469,7 +469,7 @@ def construct_ligand_target_matrix(
 ]: ...
 
 
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix(  # type: ignore
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -580,8 +580,9 @@ def construct_ligand_target_matrix(
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     ligands_it: list[Iterable[GeneSymbol]] = [
-        (_ligands,) if type(_ligands) is GeneSymbol else _ligands for _ligands in ligands
-    ]  # type: ignore # type is checked
+        (_ligands,) if type(_ligands) is GeneSymbol else _ligands  # type: ignore # type is checked
+        for _ligands in ligands
+    ]
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
         weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
     )
@@ -600,11 +601,11 @@ def construct_ligand_target_matrix(
                 (ltf_matrix.transpose(), ltf_cols, ltf_rows),
                 (grn_matrix.transpose(), grn_cols, grn_rows),
             )  # type: ignore # transposition has correct type
-        return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (grn_matrix, grn_rows, grn_cols))
+        return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (grn_matrix, grn_rows, grn_cols))  # type: ignore
     else:
         return (
-            (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
-        )  # type: ignore # transposition has correct type
+            (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)  # type: ignore # transposition has correct type
+        )
 
 
 def construct_model_from_source_weights(
@@ -616,7 +617,7 @@ def construct_model_from_source_weights(
     lr_network: pd.DataFrame,
     gr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
-    ligands: Iterable[GeneSymbol] | None = None,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]] | None = None,
     return_all_matrices: bool = True,
     return_weighted_networks: bool = True,
 ) -> dict[str, Any]:
@@ -646,7 +647,7 @@ def construct_model_from_source_weights(
         dataframe which contains gene regulatory interactions
     sig_network : pandas.DataFrame
         dataframe which contains signaling interactions
-    ligands : Iterable of gene_t or None
+    ligands : Iterable[gene_t | Iterable[gene_t]] or None
         the ligands to include in the model, if None all ligands in the ligand-receptor network will be included
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
@@ -674,7 +675,7 @@ def construct_model_from_source_weights(
     if weighted_networks["lr_sig"].shape[0] > 0:
         weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
         weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        res = construct_ligand_target_matrix(
+        res = construct_ligand_target_matrix(  # type: ignore
             weighted_networks,
             lr_network,
             ligands,

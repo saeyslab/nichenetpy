@@ -361,7 +361,7 @@ def run_nichenet(
             ]
     if get_prioritization_table:
         if sender_celltypes is None:
-            return ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
+            raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
         if not isinstance(sender_celltypes, Sequence):
             sender_celltypes = list(sender_celltypes)
         lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
