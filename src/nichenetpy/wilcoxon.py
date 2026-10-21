@@ -1,3 +1,5 @@
+from __future__ import annotations # Series[T] typehint can throw an Error at runtime
+
 from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
