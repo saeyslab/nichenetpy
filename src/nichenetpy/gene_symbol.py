@@ -76,7 +76,7 @@ class GeneAliasInfo:
 
     @overload
     def alias_to_symbol(self, obj: AnnData) -> None: ...
-      
+
     def alias_to_symbol(self, obj: Iterable[str] | AnnData) -> list[str] | None:
         """
         Converts gene aliases to gene symbols.
@@ -125,7 +125,6 @@ class GeneAliasInfo:
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
         return None
-
 
 
 class GeneInfo:
