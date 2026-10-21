@@ -175,7 +175,7 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     for dct in evaluation_data.values():
         ligand = dct[evaluation_data._ligand_name]
         dct[evaluation_data._ligand_name] = (
-            sym2id[ligand] if isinstance(ligand, gene_t) else tuple(sym2id[e] for e in ligand)
+            sym2id[ligand] if isinstance(ligand, gene_t.__value__) else tuple(sym2id[e] for e in ligand)
         )
         dct[evaluation_data._de_genes_name] = {sym2id[k]: v for k, v in dct[evaluation_data._de_genes_name].items()}
     scores = optuna_objective(

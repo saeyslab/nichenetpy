@@ -132,7 +132,7 @@ class EvaluationData[GeneSymbol]:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if type(item[self._ligand_name]) is not gene_t and type(item[self._ligand_name]) is not list:
+        if not isinstance(item[self._ligand_name], gene_t.__value__) and type(item[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a gene symbol or list")
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
@@ -236,7 +236,7 @@ class EvaluationData[GeneSymbol]:
             raise TypeError(f"combination should have type bool, was {type(combination)}")
         output = set()
         for setting in self.values():
-            if type(setting["from"]) is gene_t:
+            if isinstance(setting["from"], gene_t.__value__):
                 output.add(setting["from"])
             else:
                 if combination:

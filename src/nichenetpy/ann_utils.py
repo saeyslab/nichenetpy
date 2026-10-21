@@ -116,7 +116,7 @@ def subset_ann(
     if val is None:
         row_ids = None
     else:
-        if type(val) is gene_t:
+        if isinstance(val, gene_t.__value__):
             val = {val}  # type: ignore # val has type set[gene_t] which satisfies Iterable[gene_t]
         elif not isinstance(val, Iterable):
             raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")

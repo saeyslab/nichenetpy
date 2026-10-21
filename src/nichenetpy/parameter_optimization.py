@@ -17,7 +17,7 @@ def _average_performances(ligand_oi: gene_t | Sequence[gene_t], performances: pd
         [
             any(
                 ligand in true_ligand if isinstance(true_ligand, Sequence) else ligand == true_ligand
-                for ligand in ((ligand_oi,) if type(ligand_oi) is gene_t else ligand_oi)  # type: ignore # is correct due to conditional
+                for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t.__value__) else ligand_oi)  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]
         ]
@@ -80,7 +80,7 @@ def evaluate_model(
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
             setting["from"]
-            if type(setting["from"]) is gene_t  # potential BUG when using integers
+            if isinstance(setting["from"], gene_t.__value__)  # potential BUG when using integers
             else "-".join(setting["from"]),
             setting["response"],
         ).items():

@@ -580,7 +580,7 @@ def construct_ligand_target_matrix(  # type: ignore
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     ligands_it: list[Iterable[GeneSymbol]] = [
-        (_ligands,) if type(_ligands) is GeneSymbol else _ligands  # type: ignore # type is checked
+        (_ligands,) if isinstance(_ligands, gene_t.__value__) else _ligands  # type: ignore # type is checked
         for _ligands in ligands
     ]
     ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(

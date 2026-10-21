@@ -261,7 +261,7 @@ class LigandActivityPredictor[GeneSymbol]:
         ValueError
             if the arguments are invalid
         """
-        if type(ligand) is not gene_t:
+        if not isinstance(ligand, gene_t.__value__):
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
