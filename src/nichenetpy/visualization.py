@@ -122,7 +122,7 @@ def prepare_ligand_target_visualization(
     ------
     TypeError
         if the arguments have the wrong type
-    RunTimeError
+    RuntimeError
         if a subsetted matrix has None as shape
     """
     if not isinstance(predictor, LigandActivityPredictor):

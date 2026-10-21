@@ -395,7 +395,7 @@ def group_metrics(
         if there are no cells in the reference group
     ValueError
         if the arguments are invalid
-    RunTimeError
+    RuntimeError
         if the Anndata object could not be subsetted correctly
 
     Notes
