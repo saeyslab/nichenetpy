@@ -8,7 +8,7 @@ from scipy.stats import median_abs_deviation
 from nichenetpy.typing import nichenet_matrix
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.ndarray:
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -36,7 +36,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> niche
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
     mp_mat = lil_matrix((len(mp), len(mp)))
     mp_mat.setdiag(mp)
-    return mp_mat * data
+    return np.array(mp_mat * data)
 
 
 def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
@@ -56,7 +56,7 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
     numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
         the normalized data
     """
-    return np.log1p(relative_counts(data, scale_factor))
+    return np.log1p(relative_counts(data, scale_factor))  # type: ignore # behaves as expected
 
 
 def _scale_quantile_seq(data: list | tuple | np.ndarray, cutoff: float = 0.05) -> np.ndarray:
@@ -119,6 +119,8 @@ def scale_quantile(
                 return _scale_quantile_seq(data, cutoff=cutoff)
             else:
                 raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
+        else:
+            raise ValueError("data was empty")
     elif type(data) is np.ndarray:
         if len(data.shape) == 2:
             if by_row:
@@ -140,7 +142,7 @@ def scale_quantile(
 
 
 def scale_quantile_adapted(
-    data: list | tuple | np.ndarray | pd.Series, cutoff=0, by_row: bool = False, pseudo_count=0.001
+    data: list | tuple | np.ndarray | pd.Series, cutoff: float = 0, by_row: bool = False, pseudo_count: float = 0.001
 ) -> np.ndarray:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.

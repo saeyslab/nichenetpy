@@ -1,5 +1,6 @@
-from collections.abc import ItemsView, Iterable
+from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import repeat
+from typing import Literal, overload
 
 import pandas as pd
 
@@ -9,7 +10,7 @@ from nichenetpy.typing import gene_t
 from nichenetpy.utils import is_ligand_active
 
 
-class EvaluationData:
+class EvaluationData[GeneSymbol]:
     """
     Data which can be used for model evaluation. Each item needs to contain
 
@@ -55,7 +56,7 @@ class EvaluationData:
         ligand_name: str = "from",
         de_genes_name: str = "response",
     ):
-        self._data = {}
+        self._data: dict[str, dict] = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
@@ -78,11 +79,11 @@ class EvaluationData:
                     self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
-                    self.add(item)
+                    self.add(item)  # type: ignore # obj has type Iterable[dict[str, dict]] due to above conditions
             else:
                 raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> dict:
         return self._data[key]
 
     def __setitem__(self, key: str, val: dict):
@@ -164,13 +165,13 @@ class EvaluationData:
         for item in items:
             self.add(item)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         return key in self._data
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[dict]:
         return iter(self._data.values())
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._data)
 
     def keys(self):
@@ -206,7 +207,13 @@ class EvaluationData:
         """
         return self._data.items()
 
-    def get_ligands(self, combination: bool = True):
+    @overload
+    def get_ligands(self, combination: Literal[True] = True) -> set[GeneSymbol | Sequence[GeneSymbol]]: ...
+
+    @overload
+    def get_ligands(self, combination: Literal[False] = False) -> set[GeneSymbol]: ...
+
+    def get_ligands(self, combination: bool = True) -> set[GeneSymbol] | set[GeneSymbol | Sequence[GeneSymbol]]:
         """
         Extract all ligands from the evaluation data.
 
@@ -236,7 +243,7 @@ class EvaluationData:
                     output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        return output
+        return output  # type: ignore
 
     def to_dataframe(self) -> pd.DataFrame:
         """

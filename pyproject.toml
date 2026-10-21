@@ -42,7 +42,7 @@ dependencies = [
   "scanpy>=1.10.4",
   "scikit-learn>=1.5.2",
   "scikit-network>=0.33.1",
-  "scipy>=1.14.1"
+  "scipy>=1.14.1",
 ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://nichenetpy.readthedocs.io/"
@@ -76,6 +76,7 @@ doc = [
 typecheck = [
   "mypy",
   "pandas-stubs",
+  "scipy-stubs",
 ]
 
 [tool.hatch]
@@ -160,6 +161,7 @@ lint.pydocstyle.convention = "numpy"
 
 [tool.mypy]
 files = [ "src", "tests" ]
+disable_error_code = [ "assignment", "has-type", "import-untyped", "var-annotated" ]
 
 [tool.coverage]
 run.source = [ "nichenetpy" ]

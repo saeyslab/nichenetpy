@@ -1,8 +1,8 @@
 import os
 import pickle
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from re import Pattern, compile, finditer, search, split
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 import pandas as pd
@@ -44,9 +44,9 @@ def read_list_from_csv(filename: str) -> list[str]:
 
 def read_matrix_from_csv(
     filename: str,
-    extract_row_name: Callable[[str], tuple[str, str]] | Pattern | None = None,
-    extract_col_name: Callable[[str], list[str]] | Pattern | None = None,
-) -> tuple[np.ndarray, str, str]:
+    extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
+    extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
+) -> tuple[np.ndarray, list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 
@@ -77,20 +77,20 @@ def read_matrix_from_csv(
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if extract_row_name is None:
         extract_row_name = _default_row_name_pattern
-    if type(extract_row_name) is Pattern:
+    if isinstance(extract_row_name, Pattern):
         row_name_pattern = extract_row_name
-        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())
-    if not isinstance(extract_row_name, Callable):
+        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())  # type: ignore # if search returns None then runtime error
+    if not isinstance(extract_row_name, Callable):  # type: ignore
         raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
     if extract_col_name is None:
         extract_col_name = _default_col_name_pattern
-    if type(extract_col_name) is Pattern:
+    if isinstance(extract_col_name, Pattern):
         col_name_pattern = extract_col_name
         extract_col_name = lambda x: [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
-    if not isinstance(extract_col_name, Callable):
+    if not isinstance(extract_col_name, Callable):  # type: ignore
         raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
-        lines = file.readlines()
+        lines: Sequence[str] = file.readlines()
     col_names = extract_col_name(lines[0].rstrip())
     row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]), strict=True)
     rows = [[float(e.strip("\"'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
@@ -124,11 +124,11 @@ def read_csv_rows(filename: str, sep: str | Pattern = ",") -> tuple[list[str], l
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]
-    return (lines[0], lines[1:])
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
+    return (lines[0], lines[1:])  # type: ignore
 
 
-def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, list[str]]:
+def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence[str]]:
     """
     Reads the columns from a csv file.
 
@@ -153,7 +153,7 @@ def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, list[str
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
     return dict(zip(lines[0], zip(*lines[1:], strict=True), strict=True))
 
 
@@ -185,6 +185,22 @@ def read_network_file(filename: str):
         return output
     else:
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
+
+
+@overload
+def subset_matrix(
+    mat: np.ndarray,
+    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+) -> np.ndarray: ...
+
+
+@overload
+def subset_matrix(
+    mat: csr_matrix | csc_matrix,
+    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+) -> csr_matrix | csc_matrix: ...
 
 
 def subset_matrix(
@@ -245,17 +261,17 @@ def subset_matrix(
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
-            output = vstack([output[row, :] for row in rows], format="csc")
+            output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
             output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
-            output = hstack([output[:, col] for col in cols], format="csr")
+            output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
         raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    return output
+    return output  # type: ignore # should be fine given the input to hstack and vstack
 
 
 def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
@@ -275,7 +291,7 @@ def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
 
 
-def combine_by_key(*args: tuple[list[str], list]) -> dict[str, list]:
+def combine_by_key[T1, T2](*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2]]:
     """
     Combine tuples of lists matched by the keys in the first list of each passed tuple.
 
@@ -303,7 +319,7 @@ def combine_by_key(*args: tuple[list[str], list]) -> dict[str, list]:
         "d": [5, 2, 3]
     }
     """
-    output = {}
+    output: dict[T1, list[T2]] = {}
     for arg in args:
         for key, val in zip(arg[0], arg[1], strict=True):
             if key in output:
@@ -453,7 +469,7 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
         raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
     if type(groupby) is not str:
         raise TypeError(f"groupby should have type str, was {type(groupby)}")
-    if not isinstance(func, Callable):
+    if not isinstance(func, Callable):  # type: ignore
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
@@ -588,7 +604,7 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     return output
 
 
-def get_ties(it: Iterable, key: Callable):
+def get_ties[T1, T2](it: Iterable[T1], key: Callable[[T1], T2]) -> dict[T2, list[int]]:
     """
     Group the indices of the tied elements of an Iterable.
 
@@ -611,15 +627,15 @@ def get_ties(it: Iterable, key: Callable):
     """
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {type(it)}")
-    if not isinstance(key, Callable):
+    if not isinstance(key, Callable):  # type: ignore
         raise TypeError(f"key should have type Callable, was {type(key)}")
-    output = {}
+    output: dict[T2, list[int]] = {}
     for i, v in enumerate(it):
         v = key(v)
         if v in output:
             output[v].append(i)
         else:
-            output[v] = [i]
+            output[v] = [i]  # type: ignore
     return output
 
 

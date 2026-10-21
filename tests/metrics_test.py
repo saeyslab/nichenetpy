@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test the evaluation metrics.
 """

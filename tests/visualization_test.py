@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test some of the processing functions from nichenetpy.visualization
 """

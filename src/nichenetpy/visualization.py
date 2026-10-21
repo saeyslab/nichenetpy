@@ -1,5 +1,5 @@
 import os
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Sequence
 from contextlib import redirect_stdout
 from itertools import chain, repeat
 from math import isnan, sqrt
@@ -17,7 +17,7 @@ from anndata import AnnData
 from matplotlib import colormaps as cm
 from matplotlib.axes import Axes
 from matplotlib.collections import PatchCollection
-from matplotlib.colors import colorConverter
+from matplotlib.colors import Colormap, colorConverter
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Ellipse, Patch, Rectangle, RegularPolygon, Wedge
@@ -35,12 +35,13 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import GeneSymbol
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
 def reorder_labels(
-    mat: np.ndarray, row_labels: list[str], col_labels: list[str]
-) -> tuple[np.ndarray, list[str], list[str]]:
+    mat: np.ndarray, row_labels: list[GeneSymbol], col_labels: list[GeneSymbol]
+) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering.
 
@@ -92,8 +93,10 @@ def reorder_labels(
 
 
 def prepare_ligand_target_visualization(
-    predictor: LigandActivityPredictor, ligand_target_links: Iterable[tuple[str, str, float]], cutoff: float = 0.25
-) -> tuple[np.ndarray, list[str], list[str]]:
+    predictor: LigandActivityPredictor[GeneSymbol],
+    ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
+    cutoff: float = 0.25,
+) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of regulatory potential.
 
@@ -119,6 +122,8 @@ def prepare_ligand_target_visualization(
     ------
     TypeError
         if the arguments have the wrong type
+    RunTimeError
+        if a subsetted matrix has None as shape
     """
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
@@ -135,6 +140,8 @@ def prepare_ligand_target_visualization(
         [predictor.gene2index(target) for target in targets],
         [predictor.ligand2index(ligand) for ligand in ligands],
     )
+    if ligand_target_vis.shape is None:
+        raise RuntimeError("subsetted matrix has None as shape")
     ligand2index = dict(zip(ligands, range(len(ligands)), strict=True))
     target2index = dict(zip(targets, range(len(targets)), strict=True))
     # define a cutoff on the ligand-target links
@@ -152,12 +159,12 @@ def prepare_ligand_target_visualization(
     ligand_target_vis = subset_matrix(
         ligand_target_vis, [target2index[target] for target in targets], [ligand2index[ligand] for ligand in ligands]
     )
-    return reorder_labels(ligand_target_vis, targets, ligands)
+    return reorder_labels(ligand_target_vis, targets, ligands)  # type: ignore
 
 
 def prepare_ligand_receptor_visualization(
-    ligand_receptor_links: WeightedNetwork,
-) -> tuple[np.ndarray, list[str], list[str]]:
+    ligand_receptor_links: WeightedNetwork[GeneSymbol],
+) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of prior interaction potential.
 
@@ -198,7 +205,7 @@ def heatmap_1d(
     title: str | None = None,
     cbar_label: str | None = None,
     cmap: str = "Greys",
-    figsize: tuple[float] = (8, 8),
+    figsize: tuple[float, float] = (8, 8),
 ) -> tuple[Figure, Axes]:
     """
     Create a 1d heatmap using matplotlib.
@@ -265,7 +272,7 @@ def heatmap_2d(
     cbar_position: str = "top",
     cbar_orientation: str = "horizontal",
     cmap: str = "Greys",
-    figsize: tuple[float] = (5, 5),
+    figsize: tuple[float, float] = (5, 5),
 ) -> tuple[Figure, Axes]:
     """
     Create a 2d heatmap using matplotlib.
@@ -322,8 +329,10 @@ def heatmap_2d(
         ncols = len(mat[0])
     if ncols == 1:
         fig, ax = heatmap_1d(chain(*mat), ylabels, None, cbar_label, cmap, figsize)
-        ax.set_xlabel(xtitle)
-        ax.set_ylabel(ytitle)
+        if xtitle is not None:
+            ax.set_xlabel(xtitle)
+        if ytitle is not None:
+            ax.set_ylabel(ytitle)
         ax.set_xticks((0.5,), labels=xlabels)
         ax.get_xaxis().set_visible(True)
         return (fig, ax)
@@ -368,10 +377,10 @@ def heatmap_2d(
 
 
 def _construct_ligand_signaling_df(
-    ligands_oi: Collection[str],
-    targets_oi: Collection[str],
-    all_ligands: Collection[str],
-    all_targets: Collection[str],
+    ligands_oi: Collection[GeneSymbol],
+    targets_oi: Collection[GeneSymbol],
+    all_ligands: Collection[GeneSymbol],
+    all_targets: Collection[GeneSymbol],
     gr: pd.DataFrame,
     ltf_matrix: csr_matrix,
     k: int,
@@ -380,7 +389,7 @@ def _construct_ligand_signaling_df(
     target2id = dict(zip(all_targets, range(len(all_targets)), strict=True))
     dfs = []
     for ligand in ligands_oi:
-        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)
+        ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)  # type: ignore # behaves as expected
         ltf_vis.index.name = "TF"
         ltf_vis.reset_index(inplace=True)
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
@@ -423,7 +432,7 @@ def get_ligand_signaling_path(
     gr: pd.DataFrame,
     top_n_regulators: int = 4,
     minmax_scaling: bool = False,
-) -> tuple[pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Extract possible signaling paths between a ligand and target gene of interest. The most highly weighted path(s) will be extracted.
 
@@ -599,11 +608,11 @@ def visualize_ligand_signaling_graph(
         arrowstyle="->",
         arrowsize=arrow_size,
         arrows=True,
-        label=graph.nodes,
+        label=graph.nodes,  # type: ignore # behaves as expected
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()],
-    )
+    )  # type: ignore # behaves as expected
     plt.legend(
         handles=[
             Patch(color=sig_color, label="ligand-signaling"),
@@ -680,7 +689,7 @@ def assign_ligands_to_celltype(
     assig = np.mean(avg_expression_ligands, axis=0)
     assig += np.std(avg_expression_ligands, mean=assig, axis=0)
     sender_ligand_assignment = {
-        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}
+        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}  # type: ignore
         for i, celltype in enumerate(celltypes)
     }
     count = {}
@@ -1112,7 +1121,7 @@ def create_mushroom_plot(
     xs = np.array(range(1, xmax + 1))
     ys = np.array(range(1, ymax + 1))
     ax.set_xticks(ticks=xs[:-1], labels=senders)
-    ax.set_yticks(ticks=ys[:-1], labels=interactions)
+    ax.set_yticks(ticks=ys[:-1], labels=interactions)  # type: ignore
     leftout_color = "0.9"
     ax.hlines(ys - 0.5, xmin=xmin, xmax=xmax, colors=leftout_color)
     ax.vlines(xs - 0.5, ymin=ymin, ymax=ymax, colors=leftout_color)
@@ -1229,16 +1238,16 @@ def create_mushroom_plot(
 
 
 def marker_plot(
-    x: list | tuple | np.ndarray,
-    y: list | tuple | np.ndarray,
-    a: list | tuple | np.ndarray,
-    labels: Iterable[str],
+    x: Sequence[str] | np.ndarray,
+    y: Sequence[str] | np.ndarray,
+    a: Sequence[str] | np.ndarray,
+    labels: Sequence[str],
     xlabel,
     ylabel,
     alabel,
-    c: list | tuple | np.ndarray | None = None,
+    c: Sequence[str] | np.ndarray | None = None,
     clabel: str | None = None,
-    val2color: dict[Any, float] | Callable[[Any], ColorType] = None,
+    val2color: dict[Any, float] | Callable[[Any], ColorType] | None = None,
     figsize: tuple[int, int] = (5, 5),
     max_marker_size: float = 3e-2,
     num_ticks_x: int = 10,
@@ -1322,10 +1331,10 @@ def marker_plot(
     _c = set(c)
     if val2color is None:
         val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c))), strict=True))
-    if type(val2color) is dict:
+    if isinstance(val2color, dict):
         val2color_dict = val2color
         val2color = lambda x: marker_cm(val2color_dict[x])
-    elif not isinstance(val2color, Callable):
+    elif not isinstance(val2color, Callable):  # type: ignore
         raise TypeError(f"val2color should have type dict or Callable, was {type(val2color)}")
     text_size = max_marker_size * 275
     xmin = np.floor(np.min(x) * num_ticks_x - 1) / num_ticks_x
@@ -1434,7 +1443,7 @@ def marker_plot(
             for _ in range(n_color_legend_cols):
                 if i >= len(_c):
                     break
-                cp = _c[i]
+                cp = _c[i]  # type: ignore
                 color = val2color(cp)
                 ax.add_patch(Ellipse((x_pos, y_pos), max_marker_width, max_marker_height, fc=color, clip_on=False))
                 ax.add_artist(
@@ -1467,7 +1476,7 @@ def marker_plot(
     # the devs of adjustText left some annoying print statements in their code
     with open(os.devnull, "w") as devnull:
         with redirect_stdout(devnull):
-            texts, arrows = adjust_text(
+            _ = adjust_text(
                 texts,
                 ax=ax,
                 force_static=(1, 2),
@@ -1547,7 +1556,7 @@ def _radar_factory(num_vars, frame="circle"):
 
         def _gen_axes_spines(self):
             if frame == "circle":
-                return super()._gen_axes_spines()
+                return super()._gen_axes_spines()  # type: ignore
             elif frame == "polygon":
                 # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
                 spine = Spine(axes=self, spine_type="circle", path=Path.unit_regular_polygon(num_vars))
@@ -1566,8 +1575,8 @@ def _radar_factory(num_vars, frame="circle"):
 def create_radar_plot(
     data: Iterable[float],
     value_labels: Iterable[str],
-    cmap: str = "gist_rainbow",
-    figsize: tuple[int] = (9, 9),
+    cmap: str | Colormap = "gist_rainbow",
+    figsize: tuple[int, int] = (9, 9),
     max_val: float | None = None,
     label_size: float = 10,
 ):
@@ -1584,6 +1593,10 @@ def create_radar_plot(
         the name of the color map
     figsize : tuple of int
         the size of the figure
+    max_val : float
+        the largest possible value
+    label_size : float
+        the size of the label
 
     Raises
     ------
@@ -1608,19 +1621,20 @@ def create_radar_plot(
     if not isinstance(data, Collection):
         data = tuple(data)
     if not isinstance(value_labels, Collection):
-        data = tuple(value_labels)
+        value_labels = tuple(value_labels)
     if max_val is None:
-        max_val = max(chain(e[1] for e in data))
+        max_val = max(data)
     elif not isinstance(max_val, Number):
         raise TypeError(f"max_val should have type float, was {type(max_val)}")
-    cmap = cm[cmap]
+    if type(cmap) is str:
+        cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame="polygon")
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
-    ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])
+    ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])  # type: ignore # attribute exists
     for i, d in enumerate(data):
-        color = cmap(i / len(data))
+        color = cmap(i / len(data))  # type: ignore # cmap can't be a string anymore at this point
         ax.plot(theta, d, color=color)
         ax.fill(theta, d, facecolor=color, alpha=0.25, label="_nolegend_")
-    ax.set_varlabels(value_labels)
+    ax.set_varlabels(value_labels)  # type: ignore # attribute exists
     ax.tick_params(labelsize=label_size)
     return (fig, ax)
