@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 A small test for get_expressed_genes
 """

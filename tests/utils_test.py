@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test some functions from nichenetpy.utils
 """

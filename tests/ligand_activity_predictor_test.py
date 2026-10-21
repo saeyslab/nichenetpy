@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test the LigandActivityPredictor class.
 """
@@ -142,7 +144,7 @@ def test_predict_ligand_activities_0():
     template_predict_ligand_activities(0)
 
 
-def test_prediction_TGFB1():
+def test_prediction_TGFB1() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -165,7 +167,7 @@ def test_prediction_TGFB1():
     )
 
 
-def test_prediction_H1HESC():
+def test_prediction_H1HESC() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -188,7 +190,7 @@ def test_prediction_H1HESC():
     )
 
 
-def test_prediction_HSC():
+def test_prediction_HSC() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -211,7 +213,7 @@ def test_prediction_HSC():
     )
 
 
-def test_prediction_PC_PANC1():
+def test_prediction_PC_PANC1() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -234,7 +236,7 @@ def test_prediction_PC_PANC1():
     )
 
 
-def test_prediction_PROST_FIB():
+def test_prediction_PROST_FIB() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]

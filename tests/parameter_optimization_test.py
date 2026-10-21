@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test some parts of the optimization process.
 """

@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test subset_ann.
 """

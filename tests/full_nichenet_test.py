@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test if the NicheNetPy vignettes produce the same results as their R counterparts
 """
@@ -533,7 +535,7 @@ DE_top_10_ligand_receptor_links = [
 ]
 
 
-def test_steps():
+def test_steps() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     predictor: LigandActivityPredictor = model["predictor"]
@@ -648,7 +650,7 @@ def test_steps():
     assert equals(df["Il2"]["DC"], 1.3173053)
 
 
-def test_wrapper():
+def test_wrapper() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     predictor: LigandActivityPredictor = model["predictor"]
@@ -721,7 +723,7 @@ def test_wrapper():
     assert equals(df["Il2"]["DC"], 1.3173053)
 
 
-def test_ligand_activity_geneset():
+def test_ligand_activity_geneset() -> None:
     get_network_files()
     human_alias_info = GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_human.csv"))
     model = get_model_pickle("human")
@@ -851,7 +853,7 @@ def test_ligand_activity_geneset():
     assert equals(agg_exp_target["P4HA2"]["HN22"], 0.49290029)
 
 
-def test_steps_prioritization():
+def test_steps_prioritization() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
     predictor: LigandActivityPredictor = model["predictor"]
@@ -1058,7 +1060,7 @@ def test_steps_prioritization():
     prior_table_combined[prior_table_combined["receiver"] == receiver_oi]
 
 
-def test_ligand_target_signaling_path():
+def test_ligand_target_signaling_path() -> None:
     if not os.path.exists(root_path):
         os.makedirs(root_path)
     for filename in ["ltf_matrix_human.pkl", "nichenet_human.pkl"]:
@@ -1130,7 +1132,7 @@ def test_ligand_target_signaling_path():
     )"""
 
 
-def test_ligand_activity_single_cell():
+def test_ligand_activity_single_cell() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -1276,7 +1278,7 @@ def test_ligand_activity_single_cell():
     )
 
 
-def test_model_construction():
+def test_model_construction() -> None:
     get_network_files()
     gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
@@ -1386,7 +1388,7 @@ def test_model_construction():
     assert equals_iter(df.head(10).to_numpy().reshape(-1), MC_top_10_ligand_target_matrix_direct_2)
 
 
-def test_target_prediction_evaluation_geneset():
+def test_target_prediction_evaluation_geneset() -> None:
     # not deterministic, so allow for some variance
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
@@ -1466,7 +1468,7 @@ def test_target_prediction_evaluation_geneset():
     """  # unable to test this, too much variance
 
 
-def test_model_evaluation():
+def test_model_evaluation() -> None:
     model = get_model_pickle("human")
     predictor: LigandActivityPredictor = model["predictor"]
     get_evaluation_files()
