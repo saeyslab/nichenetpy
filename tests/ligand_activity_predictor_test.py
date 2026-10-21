@@ -3,6 +3,7 @@ Here we test the LigandActivityPredictor class.
 """
 
 import os
+from collections.abc import Sequence
 
 import pandas as pd
 import requests
@@ -96,7 +97,7 @@ for filename in (
             file.write(res.content)
 
 
-def process_expected_output(cols: dict[str, list[str]]) -> dict[str, dict[str, float]]:
+def process_expected_output(cols: dict[str, Sequence[str]]) -> dict[str, tuple[float, float, float, float, float]]:
     return dict(
         zip(
             cols["test_ligand"],
