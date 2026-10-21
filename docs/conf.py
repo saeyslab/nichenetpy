@@ -150,9 +150,13 @@ nitpick_ignore = [
     ("py:class", "string"),
     # autodoc type alias bug
     ("py:class", "gene_t"),
+    ("py:type", "gene_t"),
+    ("py:type", "nichenetpy.typing.gene_t"),
     ("py:class", "nichenet_matrix"),
     ("py:obj", "nichenetpy.typing.nichenet_matrix"),
     ("py:obj", "nichenetpy.typing.gene_t"),
+    ("py:obj", "nichenetpy.typing.GeneSymbol"),
+    ("py:exc", "AnnError"),
 ]
 
 autodoc_type_aliases = {"gene_t": "nichenetpy.typing.gene_t", "nichenet_matrix": "nichenetpy.typing.nichenet_matrix"}
