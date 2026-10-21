@@ -53,7 +53,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
-- Fixed bug when reading GeneAliasInfo or GeneInfo from csv files where commas inside gene symbols were used for splitting.
+- Fixed bug when reading GeneAliasInfo or GeneInfo from csv files where commas inside gene symbols where used for splitting. 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
