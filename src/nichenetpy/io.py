@@ -22,6 +22,7 @@ def _write_chunks(filename, *chunks, data=None):
     with open(filename, "wb") as file:
         file.write(data)
 
+
 @overload
 def write_ligand_target_matrix(
     filename: str,
@@ -32,6 +33,7 @@ def write_ligand_target_matrix(
     column_major: bool = True,
 ): ...
 
+
 @overload
 def write_ligand_target_matrix(
     filename: str,
@@ -41,6 +43,7 @@ def write_ligand_target_matrix(
     col_names: None,
     column_major: bool = True,
 ): ...
+
 
 def write_ligand_target_matrix(
     filename: str,
@@ -89,7 +92,7 @@ def write_ligand_target_matrix(
         row_names = predictor.row_names
         col_names = predictor.col_names
     if not isinstance(mat, np.ndarray):
-        mat = mat.toarray(order = "F" if column_major else "C") # type: ignore # mat can't be None at this point
+        mat = mat.toarray(order="F" if column_major else "C")  # type: ignore # mat can't be None at this point
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),

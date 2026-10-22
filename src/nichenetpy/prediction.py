@@ -521,15 +521,24 @@ class LigandActivityPredictor[GeneSymbol]:
             m = min(self.ligand_target_matrix.data)
             if isinstance(self.ligand_target_matrix, csr_matrix):
                 # this operation would be slow on csr_matrix (there is no reason for the ligand-target matrix to ever be in row-major format)
-                warnings.warn("Converted ligand-target matrix to column-major sparse matrix. (NicheNet analysis is faster in column-major format)", stacklevel=2)
+                warnings.warn(
+                    "Converted ligand-target matrix to column-major sparse matrix. (NicheNet analysis is faster in column-major format)",
+                    stacklevel=2,
+                )
                 self.ligand_target_matrix = self.ligand_target_matrix.tocsc()
             for j in range(self.ligand_target_matrix.shape[1]):
-                if sum(self.ligand_target_matrix.data[self.ligand_target_matrix.indptr[j]:self.ligand_target_matrix.indptr[j+1]]) == 0:
+                if (
+                    sum(
+                        self.ligand_target_matrix.data[
+                            self.ligand_target_matrix.indptr[j] : self.ligand_target_matrix.indptr[j + 1]
+                        ]
+                    )
+                    == 0
+                ):
                     i = self.ligand_target_matrix.indptr[j]
-                    while i < self.ligand_target_matrix.indptr[j+1]:
+                    while i < self.ligand_target_matrix.indptr[j + 1]:
                         self.ligand_target_matrix.data[i] = uniform(0, m)
                         i += 1
-
 
     def gene_presence(self, genes: Collection[GeneSymbol]) -> float:
         """

@@ -447,7 +447,7 @@ def group_metrics(
         for group in groups:
             x, y = _single_group_metrics(
                 ann,
-                mat, # type: ignore # mat is type checked
+                mat,  # type: ignore # mat is type checked
                 row2index,
                 lfc_denormalize,
                 lfc_pseudocount,
@@ -460,7 +460,7 @@ def group_metrics(
     else:
         x, y = _single_group_metrics(
             ann,
-            mat, # type: ignore # mat is type checked
+            mat,  # type: ignore # mat is type checked
             row2index,
             lfc_denormalize,
             lfc_pseudocount,

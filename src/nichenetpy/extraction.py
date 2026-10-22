@@ -244,8 +244,8 @@ def get_lfc_celltype(
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
         cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
         lfc = log_fold_change(
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]), # type: ignore # mat is type checked
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]), # type: ignore # mat is type checked
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
         )
         return (genes if type(genes) is list else list(genes), lfc.reshape(-1).tolist()[0])
 
