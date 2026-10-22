@@ -29,13 +29,14 @@ from matplotlib.spines import Spine
 from matplotlib.text import Text
 from matplotlib.transforms import Affine2D
 from matplotlib.typing import ColorType
+from matplotlib.image import AxesImage
 from scipy.sparse import csr_matrix
 
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol
+from nichenetpy.typing import GeneSymbol, nichenet_matrix
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -86,7 +87,7 @@ def reorder_labels(
         dist = sc.spatial.distance_matrix(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_rows = sc.cluster.hierarchy.leaves_list(clust)
-        mat = subset_matrix(mat, order_rows, order_cols)
+        mat = subset_matrix(mat, order_rows, order_cols) # type: ignore # behaves as expected
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
     return (mat, row_labels, col_labels)
@@ -407,15 +408,30 @@ def _construct_ligand_signaling_df(
     return pd.concat(dfs)
 
 
-def _get_shortest_path_signaling(ligand_oi, signaling_df, lr_sig_mat, gene2id):
+def _get_shortest_path_signaling(
+    ligand_oi: GeneSymbol,
+    signaling_df: pd.DataFrame,
+    lr_sig_mat: csr_matrix,
+    gene2id: dict[GeneSymbol, int]
+):
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
     ligand_id = gene2id[ligand_oi]
     spl = dijkstra_spl(lr_sig_mat, ligand_id)
-    return set.union(*(set(linked_iter(tf, lambda x: spl[x][1], lambda _, x: x is None)) for tf in tfs))
+    return set.union(
+        *(
+            set(
+                linked_iter(
+                    tf,
+                    lambda x: spl[x][1], # type: ignore # don't infer type of lambda
+                    lambda _, x: x is None
+                )
+            ) for tf in tfs
+        )
+    )
 
 
-def _minmax_scaling(df):
+def _minmax_scaling(df: pd.DataFrame):
     weight = np.array(df["weight"])
     mn = weight.min()
     mx = weight.max()
@@ -943,7 +959,7 @@ def gradient_image(
     direction: float = 0.3,
     cmap_range: tuple[float, float] = (0, 1),
     **kwargs,
-):
+) -> AxesImage:
     """
     Draw a gradient image based on a colormap.
 
@@ -1043,7 +1059,7 @@ def create_mushroom_plot(
     size_prefix: str = "scaled_avg_exprs",
     color_prefix: str = "scaled_pval_adapted",
     max_rows: int = 20,
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a plot in which each glyph consists of two semicircles corresponding to ligand- and receptor- information.
 
@@ -1253,7 +1269,7 @@ def marker_plot(
     num_ticks_x: int = 10,
     num_ticks_y: int = 10,
     min_arrow_len: float = 15,
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a plot consisting of variable-size markers.
 
@@ -1579,7 +1595,7 @@ def create_radar_plot(
     figsize: tuple[int, int] = (9, 9),
     max_val: float | None = None,
     label_size: float = 10,
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a plot consisting of variable-size markers.
 

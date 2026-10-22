@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 from numbers import Number
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, spmatrix
 from scipy.stats import median_abs_deviation
 
 from nichenetpy.typing import nichenet_matrix
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.ndarray:
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> spmatrix | np.ndarray:
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -38,7 +42,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.nd
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
     mp_mat = lil_matrix((len(mp), len(mp)))
     mp_mat.setdiag(mp)
-    return np.array(mp_mat * data)
+    return mp_mat * data
 
 
 def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
@@ -58,10 +62,14 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
     numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the normalized data
     """
-    return np.log1p(relative_counts(data, scale_factor))  # type: ignore # behaves as expected
+    data_rc = relative_counts(data, scale_factor)
+    if isinstance(data_rc, np.ndarray):
+        return np.log1p(data_rc)
+    else:
+        return data_rc.log1p() # type: ignore # log1p exists for all spmatrix
 
 
-def _scale_quantile_seq(data: list | tuple | np.ndarray, cutoff: float = 0.05) -> np.ndarray:
+def _scale_quantile_seq(data:Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], cutoff: float = 0.05) -> np.ndarray[Any, np.dtype[np.float64]]:
     qs = (np.quantile(data, cutoff), np.quantile(data, 1 - cutoff))
     sub = qs[0]
     div = 1 if qs[0] == qs[1] else qs[1] - qs[0]
@@ -73,7 +81,9 @@ def _scale_quantile_seq(data: list | tuple | np.ndarray, cutoff: float = 0.05) -
 
 
 def scale_quantile(
-    data: list | tuple | np.ndarray | pd.Series, cutoff: float = 0.05, by_row: bool = False
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    cutoff: float = 0.05,
+    by_row: bool = False
 ) -> np.ndarray:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
@@ -103,8 +113,8 @@ def scale_quantile(
         raise TypeError(f"cutoff should have type float, was {type(cutoff)}")
     if type(by_row) is not bool:
         raise TypeError(f"by_row should have type bool, was {type(by_row)}")
-    if type(data) is pd.Series:
-        data = data.to_numpy()
+    if isinstance(data, pd.Series):
+        data = data.to_numpy() # type: ignore
     if type(data) is list or type(data) is tuple:
         if len(data) > 0:
             if type(data[0]) is list or type(data[0]) is tuple:
@@ -144,7 +154,10 @@ def scale_quantile(
 
 
 def scale_quantile_adapted(
-    data: list | tuple | np.ndarray | pd.Series, cutoff: float = 0, by_row: bool = False, pseudo_count: float = 0.001
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    cutoff: float = 0,
+    by_row: bool = False,
+    pseudo_count: float = 0.001
 ) -> np.ndarray:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
@@ -177,7 +190,7 @@ def scale_quantile_adapted(
     return scale_quantile(data, cutoff=cutoff, by_row=by_row) + pseudo_count
 
 
-def scaling_zscore(data: list[float] | np.ndarray | pd.Series) -> list[float] | np.ndarray | pd.Series:
+def scaling_zscore(data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values in a vector by the z-score method.
 
@@ -213,8 +226,8 @@ def scaling_zscore(data: list[float] | np.ndarray | pd.Series) -> list[float] | 
 
 
 def scaling_modified_zscore(
-    data: list[float] | np.ndarray | pd.Series, scale_factor: float = 0.6744907594765952
-) -> list[float] | np.ndarray | pd.Series:
+    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float], scale_factor: float = 0.6744907594765952
+) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)
 

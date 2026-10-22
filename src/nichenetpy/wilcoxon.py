@@ -96,7 +96,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe: Literal[True],
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | None = None,
 ) -> pd.DataFrame: ...
 
 
@@ -107,7 +107,7 @@ def wilcoxon_rank_sum_test(
     as_dataframe: Literal[False],
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: list[GeneSymbol] | tuple[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | None = None,
 ) -> dict[str, GeneSymbol]: ...
 
 
@@ -226,7 +226,7 @@ def wilcoxon_rank_sum_test(
 
 def wilcoxon_rank_sum_test_with_correlation(
     index: Iterable[int] | Iterable[bool], statistics: Sequence[float], correlation: float = 0, df: float = np.inf
-):
+) -> tuple[float, float]:
     """
     Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
 

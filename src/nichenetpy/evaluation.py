@@ -1,6 +1,6 @@
 from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import repeat
-from typing import Literal, overload
+from typing import Literal, overload, Any
 
 import pandas as pd
 
@@ -51,12 +51,12 @@ class EvaluationData[GeneSymbol]:
 
     def __init__(
         self,
-        obj: dict[str, dict] | Iterable[dict[str, dict]] | ItemsView | pd.DataFrame | None = None,
+        obj: dict[str, dict[str, Any]] | Iterable[dict[str, dict[str, Any]]] | ItemsView | pd.DataFrame | None = None,
         key_name: str = "name",
         ligand_name: str = "from",
         de_genes_name: str = "response",
     ):
-        self._data: dict[str, dict] = {}
+        self._data: dict[str, dict[str, Any]] = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
@@ -83,10 +83,10 @@ class EvaluationData[GeneSymbol]:
             else:
                 raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
-    def __getitem__(self, key: str) -> dict:
+    def __getitem__(self, key: str) -> dict[str, Any]:
         return self._data[key]
 
-    def __setitem__(self, key: str, val: dict):
+    def __setitem__(self, key: str, val: dict[str, Any]):
         if type(key) is not str:
             raise TypeError(f"key should have type str, was {type(key)}")
         if type(val) is not dict:
@@ -102,7 +102,7 @@ class EvaluationData[GeneSymbol]:
         val[self._key_name] = key
         self._data[key] = val
 
-    def add(self, item: dict):
+    def add(self, item: dict[str, Any]):
         """
         Add a dictionary which maps the following keys
 
@@ -140,7 +140,7 @@ class EvaluationData[GeneSymbol]:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         self._data[item[self._key_name]] = item
 
-    def add_all(self, items: Iterable[dict]):
+    def add_all(self, items: Iterable[dict[str, Any]]):
         """
         Adds dictionaries which map the following keys
 
@@ -168,7 +168,7 @@ class EvaluationData[GeneSymbol]:
     def __contains__(self, key: str) -> bool:
         return key in self._data
 
-    def __iter__(self) -> Iterator[dict]:
+    def __iter__(self) -> Iterator[dict[str, Any]]:
         return iter(self._data.values())
 
     def __len__(self) -> int:
@@ -305,7 +305,7 @@ _metrics = ("aupr", "aupr_corrected", "auroc", "pearson")
 
 
 def get_single_ligand_importances(
-    predictor: LigandActivityPredictor, evaluation_data: Iterable[dict], all_ligands: Iterable[gene_t]
+    predictor: LigandActivityPredictor, evaluation_data: Iterable[dict[str, Any]], all_ligands: Iterable[gene_t]
 ) -> pd.DataFrame:
     """
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict

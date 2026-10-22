@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from traceback import format_exc
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -238,7 +239,7 @@ def construct_and_evaluate(
     evaluation_data: EvaluationData[GeneSymbol],
     return_all_matrices: bool = True,
     return_weighted_networks: bool = True,
-):
+) -> tuple[dict[str, None], float, float, float, float] | tuple[dict[str, Any], float, float, float, float]:
     """
     Construct and evaluate the ligand-target matrix.
     Returns the matrices and the prediction scores

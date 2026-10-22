@@ -155,7 +155,7 @@ def get_avg_exp(
     if features is not None:
         ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
-    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)
+    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts) # type: ignore
     avg_celltype.reset_index(inplace=True)
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"
@@ -169,7 +169,7 @@ def process_table_to_ic(
     senders_oi: Collection[str] | None = None,
     receivers_oi: Collection[str] | None = None,
     celltype_col: str = "celltype",
-):
+) -> pd.DataFrame:
     """
     First, only keep information of ligands for senders_oi, and information of receptors for receivers_oi.
     Then, combine information for senders and receivers by linking ligands to receptors based on the prior knowledge ligand-receptor network.
@@ -306,7 +306,7 @@ def process_table_to_ic(
     return sender_receiver_table[columns_reorder]
 
 
-def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None):
+def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None) -> pd.DataFrame:
     output = de[
         [lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
         if send_rcvr is None
@@ -334,7 +334,7 @@ def generate_prioritization_table(
     ligand_activities: pd.DataFrame | dict[gene_t, dict[str, float]] | list[tuple[gene_t, dict[str, float]]],
     lr_condition_de: pd.DataFrame | None = None,
     prioritizing_weights: dict[str, float] | None = None,
-):
+) -> pd.DataFrame:
     """
     User can choose the importance attached to each of the following prioritization criteria:
     differential expression of ligand and receptor,

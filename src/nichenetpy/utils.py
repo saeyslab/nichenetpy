@@ -190,23 +190,23 @@ def read_network_file(filename: str):
 @overload
 def subset_matrix(
     mat: np.ndarray,
-    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
-    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> np.ndarray: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_matrix | csc_matrix,
-    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
-    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> csr_matrix | csc_matrix: ...
 
 
 def subset_matrix(
     mat: nichenet_matrix,
-    rows: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
-    cols: list[int | bool] | tuple[int | bool] | np.ndarray | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> nichenet_matrix:
     """
     Subsets a matrix.
@@ -245,12 +245,12 @@ def subset_matrix(
         rows = [i for i, e in enumerate(rows) if e]
     if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
         cols = [i for i, e in enumerate(cols) if e]
-    if type(mat) is np.ndarray:
+    if isinstance(mat, np.ndarray):
         if rows is None:
             if cols is None:
                 output = mat
             else:
-                output = mat[:, cols]
+                output = mat[:, cols] # type: ignore # cols are bools
         else:
             output = mat[
                 [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
@@ -276,7 +276,7 @@ def subset_matrix(
     return output  # type: ignore # should be fine given the input to hstack and vstack
 
 
-def remove_zero_rows_cols(mat: np.ndarray) -> np.ndarray:
+def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.float64]]) -> np.ndarray[Any, np.dtype[np.float64]]:
     """
     Remove all 0-rows and 0-columns from a matrix.
 
@@ -661,7 +661,7 @@ def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     ]
 
 
-def linked_iter(start: Any, nxt: Callable[[Any], Any], stp: Callable[[Any, Any], bool]):
+def linked_iter[T](start: T, nxt: Callable[[T], T], stp: Callable[[T, T], bool]):
     """
     Yields all values reached by calling nxt on the current value until stp returns True
 

@@ -1,7 +1,7 @@
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
-from typing import Literal
+from typing import Literal, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -164,7 +164,7 @@ def run_nichenet(
     case_control: bool = True,
     use_scanpy: bool = False,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
-):
+) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
 
@@ -402,7 +402,7 @@ def run_nichenet_cluster_de(
     targets_top_n: int = 200,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
     geneset: str = "DE",
-):
+) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
 
@@ -552,7 +552,7 @@ def create_ligand_activity_hist(
     xtitle: str = "ligand activity",
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a ligand activity histogram.
 
@@ -589,7 +589,7 @@ def create_ligand_activity_heatmap(
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
     figsize: tuple[float, float] = (6, 6),
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a ligand activity heatmap.
 
@@ -634,7 +634,7 @@ def create_regulatory_potential_heatmap(
     cbar_label="regulatory potential",
     cmap="Blues",
     figsize: tuple[float, float] = (6, 6),
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a regulatory potential heatmap.
 
@@ -684,7 +684,7 @@ def create_prior_interaction_potential_heatmap(
     cbar_label="prior interaction potential",
     cmap="Oranges",
     figsize: tuple[float, float] = (6, 6),
-):
+) -> tuple[Figure, Axes]:
     """
     Creates a prior interaction potential heatmap.
 
@@ -732,7 +732,7 @@ def create_lfc_heatmap(
     cbar_label="LFC",
     cmap="seismic",
     figsize: tuple[float, float] = (6, 6),
-):
+) -> tuple[Figure, Axes]:
     """
     Creates an LFC heatmap.
 
@@ -801,7 +801,7 @@ def _create_circos_plot(
     opacity: Iterable[float] | None = None,
     separate_sender_receiver: bool = True,
     sender_receiver_space: float = 0,
-) -> tuple[Axes, Figure]:
+) -> tuple[Figure, Axes]:
     link_count_in = {}
     link_count_out = {}
     links = []
@@ -907,7 +907,7 @@ def _create_circos_plot(
         loc="right",
         ncols=1,
     )
-    return (circos.ax, fig)
+    return (fig, circos.ax)
 
 
 def create_ligand_receptor_links_prioritization_circos_plot(
@@ -920,7 +920,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     intra_space: float = 1,
     opacity: Iterable[float] | None = None,
     sender_receiver_space: float = 0,
-) -> tuple[Axes, Figure]:
+) -> tuple[Figure, Axes]:
     """
     Creates a circos plot showing the links between ligands and receptors.
 
@@ -991,7 +991,7 @@ def create_ligand_links_circos_plot(
     intra_space: float = 1,
     opacity: Iterable[float] | None = None,
     sender_receiver_space: float = 0,
-) -> tuple[Axes, Figure]:
+) -> tuple[Figure, Axes]:
     """
     Creates a circos plot showing the links between ligands and targets.
 
@@ -1132,7 +1132,7 @@ def infer_supporting_datasources(
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
-):
+) -> pd.DataFrame:
     """
     Get the data sources that support the specific interactions in the extracted ligand-target signaling subnetwork.
 
@@ -1235,7 +1235,7 @@ def calculate_fraction_top_predicted(
 
 def calculate_fraction_top_predicted_fisher(
     affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95
-) -> object:
+):
     """
     Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
     of the top-predicted targets.

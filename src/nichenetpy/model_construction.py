@@ -13,7 +13,7 @@ from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
-def _sum_weights(df, source_weights):
+def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
     return (
         df.merge(source_weights, on="source", how="inner")[["from", "to", "weight"]]
         .groupby(["from", "to"])

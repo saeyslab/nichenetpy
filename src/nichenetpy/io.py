@@ -13,7 +13,7 @@ _INT_SIZE = 8
 _DOUBLE_SIZE = 8
 
 
-def _write_chunks(filename, *chunks, data=None):
+def _write_chunks(filename: str, *chunks: bytes | bytearray, data: bytearray | None = None):
     if data is None:
         data = bytearray()
     for chunk in chunks:
@@ -62,7 +62,7 @@ def write_ligand_target_matrix(
         the name of the file to write to
     predictor : LigandActvivityPredictor or None
         the predictor which contains the matrix
-    mat : numpy.ndarray or None
+    mat : nichenet_matrix or None
         the ligand-target matrix
     row_names : Sequence of str or None
         the names of the rows

@@ -336,7 +336,7 @@ class LigandActivityPredictor[GeneSymbol]:
     def predict_single_cell_ligand_activities(
         self,
         cells: Collection[str],
-        expression_scaled: np.ndarray,
+        expression_scaled: np.ndarray[Any, np.dtype[np.float64]],
         expression_scaled_rows: Collection[str],
         expression_scaled_cols: Collection[GeneSymbol],
         potential_ligands: Collection[GeneSymbol],
