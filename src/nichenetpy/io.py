@@ -1,6 +1,7 @@
 import struct
 from collections.abc import Sequence
 from math import ceil, log2
+from typing import overload
 
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
@@ -21,6 +22,25 @@ def _write_chunks(filename, *chunks, data=None):
     with open(filename, "wb") as file:
         file.write(data)
 
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: None,
+    mat: nichenet_matrix,
+    row_names: Sequence[str],
+    col_names: Sequence[str],
+    column_major: bool = True,
+): ...
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: LigandActivityPredictor[str],
+    mat: None,
+    row_names: None,
+    col_names: None,
+    column_major: bool = True,
+): ...
 
 def write_ligand_target_matrix(
     filename: str,
@@ -56,8 +76,8 @@ def write_ligand_target_matrix(
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
-        if type(mat) is not np.ndarray:
-            raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
+        if not isinstance(mat, nichenet_matrix.__value__):
+            raise TypeError(f"expected a nichenet_matrix for mat, got {type(mat)}")
         if not isinstance(row_names, list):
             raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
         if not isinstance(col_names, list):
@@ -68,15 +88,14 @@ def write_ligand_target_matrix(
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
-    if isinstance(mat, np.ndarray):
-        _write_chunks(
-            filename,
-            "\n".join(row_names).encode("ascii"),
-            "\n".join(col_names).encode("ascii"),
-            mat.tobytes(order=("F" if column_major else "C")),
-        )
-    else:
-        raise NotImplementedError  # TODO
+    if not isinstance(mat, np.ndarray):
+        mat = mat.toarray(order = "F" if column_major else "C") # type: ignore # mat can't be None at this point
+    _write_chunks(
+        filename,
+        "\n".join(row_names).encode("ascii"),
+        "\n".join(col_names).encode("ascii"),
+        mat.tobytes(order=("F" if column_major else "C")),
+    )
 
 
 def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple[np.ndarray, list[str], list[str]]:
