@@ -16,7 +16,7 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(x: list[float] | tuple[float] | np.ndarray, y: list[float] | tuple[float] | np.ndarray) -> float:
+def _auc_reverse(x: Sequence[float] | np.ndarray, y: Sequence[float] | np.ndarray) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 
@@ -447,26 +447,26 @@ def group_metrics(
         for group in groups:
             x, y = _single_group_metrics(
                 ann,
-                mat,
+                mat, # type: ignore # mat is type checked
                 row2index,
                 lfc_denormalize,
                 lfc_pseudocount,
                 groupby,
                 group,
-                group_ref,  # type: ignore # mat is type checked
+                group_ref,
             )
             lfc.append(x)
             pct.append(y)
     else:
         x, y = _single_group_metrics(
             ann,
-            mat,
+            mat, # type: ignore # mat is type checked
             row2index,
             lfc_denormalize,
             lfc_pseudocount,
             groupby,
             group_oi,
-            group_ref,  # type: ignore # mat is type checked
+            group_ref,
         )
         lfc.append(x)
         pct.append(y)

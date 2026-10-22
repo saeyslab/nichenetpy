@@ -238,14 +238,14 @@ def get_lfc_celltype(
         else:
             # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
-        if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+        if not isinstance(mat, nichenet_matrix.__value__):
             raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
         cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
         lfc = log_fold_change(
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]), # type: ignore # mat is type checked
+            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]), # type: ignore # mat is type checked
         )
         return (genes if type(genes) is list else list(genes), lfc.reshape(-1).tolist()[0])
 
