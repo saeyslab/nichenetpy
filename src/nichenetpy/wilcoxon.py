@@ -8,7 +8,7 @@ from typing import Literal, overload
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csc_matrix
 from scipy.stats import t
 
 from nichenetpy.typing import GeneSymbol, nichenet_matrix
@@ -174,16 +174,12 @@ def wilcoxon_rank_sum_test(
     n_total = len(ann.obs)
     pvals = {}
     if layer is None:
-        if (
-            not isinstance(ann.X, np.ndarray)
-            and not isinstance(ann.X, csr_matrix)
-            and not isinstance(ann.X, csc_matrix)
-        ):
+        if not isinstance(ann.X, nichenet_matrix.__value__):
             raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
         mat = ann.X
     else:
         mat = ann.layers[layer]
-        if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+        if not isinstance(mat, nichenet_matrix.__value__):
             raise ValueError(f"the selected layer should be of type nichenet_matrix, was {type(ann.X)}")
     if genes is None:
         genes = ann.var_names  # type: ignore # this works fine
@@ -191,8 +187,8 @@ def wilcoxon_rank_sum_test(
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
-        mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])
-    ranks, sorted_groups, tie_stats = _rank_cells(mat, ann.obs[groupby], tie_correction=tie_correction)
+        mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])  # type: ignore # mat is type checked
+    ranks, sorted_groups, tie_stats = _rank_cells(mat, ann.obs[groupby], tie_correction=tie_correction)  # type: ignore # mat is type checked
     rank_sums = {}
     # for each gene
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats, strict=True):

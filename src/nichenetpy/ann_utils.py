@@ -1,10 +1,8 @@
 from collections.abc import Iterable
 from typing import overload
 
-import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
@@ -14,18 +12,14 @@ def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[gene_t], gene2index: dict[gene_t, int] | None = None
 ) -> tuple[nichenet_matrix, Iterable[gene_t]]:
     sel_layer = ann.layers[layer]
-    if (
-        not isinstance(sel_layer, np.ndarray)
-        and not isinstance(sel_layer, csr_matrix)
-        and not isinstance(sel_layer, csc_matrix)
-    ):
+    if not isinstance(sel_layer, nichenet_matrix.__value__):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
     if type(features) is set:
         features = sorted(features)
     ids = [gene2index[gene] for gene in features]
-    return (subset_matrix(sel_layer, cols=ids), features)
+    return (subset_matrix(sel_layer, cols=ids), features)  # type: ignore # sel_layer is type checked
 
 
 @overload

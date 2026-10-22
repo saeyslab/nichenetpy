@@ -432,7 +432,7 @@ def group_metrics(
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
-    if not isinstance(mat, np.ndarray) and not isinstance(mat, csr_matrix) and not isinstance(mat, csc_matrix):
+    if not isinstance(mat, nichenet_matrix.__value__):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
@@ -446,13 +446,27 @@ def group_metrics(
         # compare each group with the reference group
         for group in groups:
             x, y = _single_group_metrics(
-                ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group, group_ref
+                ann,
+                mat,
+                row2index,
+                lfc_denormalize,
+                lfc_pseudocount,
+                groupby,
+                group,
+                group_ref,  # type: ignore # mat is type checked
             )
             lfc.append(x)
             pct.append(y)
     else:
         x, y = _single_group_metrics(
-            ann, mat, row2index, lfc_denormalize, lfc_pseudocount, groupby, group_oi, group_ref
+            ann,
+            mat,
+            row2index,
+            lfc_denormalize,
+            lfc_pseudocount,
+            groupby,
+            group_oi,
+            group_ref,  # type: ignore # mat is type checked
         )
         lfc.append(x)
         pct.append(y)

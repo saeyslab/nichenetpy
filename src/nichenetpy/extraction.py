@@ -30,15 +30,13 @@ def _get_expressed_features(
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if not isinstance(ann.obs, pd.DataFrame):
         raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
-    if not isinstance(ann.X, np.ndarray) and not isinstance(ann.X, csr_matrix) and not isinstance(ann.X, csc_matrix):
-        raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
-    sel_layer = ann.layers[layer]
-    if (
-        not isinstance(sel_layer, np.ndarray)
-        and not isinstance(sel_layer, csr_matrix)
-        and not isinstance(sel_layer, csc_matrix)
-    ):
-        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
+    if layer is None:
+        if not isinstance(ann.X, nichenet_matrix.__value__):
+            raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
+    else:
+        sel_layer = ann.layers[layer]
+        if not isinstance(sel_layer, nichenet_matrix.__value__):
+            raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
@@ -57,7 +55,7 @@ def _get_expressed_features(
     mat = ann.X if layer is None else sel_layer
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
-    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])
+    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])  # type: ignore # sel_layer and ann.X are type checked
     exps = exp_func(exprs_m)
     return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
 
