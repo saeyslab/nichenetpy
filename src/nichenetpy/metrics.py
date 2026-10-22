@@ -237,9 +237,13 @@ def log_fold_change(
         if the arguments have the wrong type
     """
     if not isinstance(mat1, nichenet_matrix.__value__):
-        raise TypeError(f"mat1 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat1)}")
+        raise TypeError(
+            f"mat1 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat1)}"
+        )
     if not isinstance(mat2, nichenet_matrix.__value__):
-        raise TypeError(f"mat2 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat2)}")
+        raise TypeError(
+            f"mat2 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat2)}"
+        )
     if denormalize is not None and not isinstance(denormalize, Callable):
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
@@ -286,7 +290,9 @@ def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
                         mat[i, j] = 1
         return mat.sum(axis=0) / nrows
     else:
-        raise TypeError(f"mat should be of type np.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat)}")
+        raise TypeError(
+            f"mat should be of type np.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat)}"
+        )
 
 
 def gene_expression_pct(mat: nichenet_matrix) -> list[float]:

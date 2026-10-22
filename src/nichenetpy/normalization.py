@@ -30,7 +30,9 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.nd
         if the arguments have the wrong type
     """
     if not isinstance(data, nichenet_matrix.__value__):
-        raise TypeError(f"data should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(data)}")
+        raise TypeError(
+            f"data should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(data)}"
+        )
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
