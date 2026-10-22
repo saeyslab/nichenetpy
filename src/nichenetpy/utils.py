@@ -270,7 +270,9 @@ def subset_matrix(
         if cols is not None:
             output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
-        raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, not {type(mat)}")
+        raise TypeError(
+            f"mat needs to be of type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, not {type(mat)}"
+        )
     return output  # type: ignore # should be fine given the input to hstack and vstack
 
 
