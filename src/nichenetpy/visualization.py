@@ -19,6 +19,7 @@ from matplotlib.axes import Axes
 from matplotlib.collections import PatchCollection
 from matplotlib.colors import Colormap, colorConverter
 from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.patches import Circle, Ellipse, Patch, Rectangle, RegularPolygon, Wedge
 from matplotlib.path import Path
@@ -29,14 +30,13 @@ from matplotlib.spines import Spine
 from matplotlib.text import Text
 from matplotlib.transforms import Affine2D
 from matplotlib.typing import ColorType
-from matplotlib.image import AxesImage
 from scipy.sparse import csr_matrix
 
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import GeneSymbol
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -87,7 +87,7 @@ def reorder_labels(
         dist = sc.spatial.distance_matrix(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_rows = sc.cluster.hierarchy.leaves_list(clust)
-        mat = subset_matrix(mat, order_rows, order_cols) # type: ignore # behaves as expected
+        mat = subset_matrix(mat, order_rows, order_cols)  # type: ignore # behaves as expected
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
     return (mat, row_labels, col_labels)
@@ -409,10 +409,7 @@ def _construct_ligand_signaling_df(
 
 
 def _get_shortest_path_signaling(
-    ligand_oi: GeneSymbol,
-    signaling_df: pd.DataFrame,
-    lr_sig_mat: csr_matrix,
-    gene2id: dict[GeneSymbol, int]
+    ligand_oi: GeneSymbol, signaling_df: pd.DataFrame, lr_sig_mat: csr_matrix, gene2id: dict[GeneSymbol, int]
 ):
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
@@ -423,10 +420,11 @@ def _get_shortest_path_signaling(
             set(
                 linked_iter(
                     tf,
-                    lambda x: spl[x][1], # type: ignore # don't infer type of lambda
-                    lambda _, x: x is None
+                    lambda x: spl[x][1],  # type: ignore # don't infer type of lambda
+                    lambda _, x: x is None,
                 )
-            ) for tf in tfs
+            )
+            for tf in tfs
         )
     )
 

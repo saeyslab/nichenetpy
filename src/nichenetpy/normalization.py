@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from numbers import Number
 from collections.abc import Sequence
+from numbers import Number
 from typing import Any
 
 import numpy as np
@@ -66,10 +66,12 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
     if isinstance(data_rc, np.ndarray):
         return np.log1p(data_rc)
     else:
-        return data_rc.log1p() # type: ignore # log1p exists for all spmatrix
+        return data_rc.log1p()  # type: ignore # log1p exists for all spmatrix
 
 
-def _scale_quantile_seq(data:Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], cutoff: float = 0.05) -> np.ndarray[Any, np.dtype[np.float64]]:
+def _scale_quantile_seq(
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], cutoff: float = 0.05
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     qs = (np.quantile(data, cutoff), np.quantile(data, 1 - cutoff))
     sub = qs[0]
     div = 1 if qs[0] == qs[1] else qs[1] - qs[0]
@@ -83,7 +85,7 @@ def _scale_quantile_seq(data:Sequence[float] | np.ndarray[Any, np.dtype[np.float
 def scale_quantile(
     data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
     cutoff: float = 0.05,
-    by_row: bool = False
+    by_row: bool = False,
 ) -> np.ndarray:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
@@ -114,7 +116,7 @@ def scale_quantile(
     if type(by_row) is not bool:
         raise TypeError(f"by_row should have type bool, was {type(by_row)}")
     if isinstance(data, pd.Series):
-        data = data.to_numpy() # type: ignore
+        data = data.to_numpy()  # type: ignore
     if type(data) is list or type(data) is tuple:
         if len(data) > 0:
             if type(data[0]) is list or type(data[0]) is tuple:
@@ -157,7 +159,7 @@ def scale_quantile_adapted(
     data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
     cutoff: float = 0,
     by_row: bool = False,
-    pseudo_count: float = 0.001
+    pseudo_count: float = 0.001,
 ) -> np.ndarray:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
@@ -190,7 +192,9 @@ def scale_quantile_adapted(
     return scale_quantile(data, cutoff=cutoff, by_row=by_row) + pseudo_count
 
 
-def scaling_zscore(data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
+def scaling_zscore(
+    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values in a vector by the z-score method.
 
@@ -226,7 +230,8 @@ def scaling_zscore(data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | p
 
 
 def scaling_modified_zscore(
-    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float], scale_factor: float = 0.6744907594765952
+    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    scale_factor: float = 0.6744907594765952,
 ) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)

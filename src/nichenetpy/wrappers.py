@@ -1,7 +1,7 @@
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
-from typing import Literal, Any
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1233,9 +1233,7 @@ def calculate_fraction_top_predicted(
     return all
 
 
-def calculate_fraction_top_predicted_fisher(
-    affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95
-):
+def calculate_fraction_top_predicted_fisher(affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95):
     """
     Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
     of the top-predicted targets.

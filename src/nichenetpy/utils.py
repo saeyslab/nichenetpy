@@ -250,7 +250,7 @@ def subset_matrix(
             if cols is None:
                 output = mat
             else:
-                output = mat[:, cols] # type: ignore # cols are bools
+                output = mat[:, cols]  # type: ignore # cols are bools
         else:
             output = mat[
                 [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
