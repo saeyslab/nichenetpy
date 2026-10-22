@@ -1284,7 +1284,7 @@ def test_model_construction() -> None:
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
     sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
     source_weights = dict(
-        zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1), strict=True)
+        zip(set(chain(gr_network["source"], lr_network["source"], sig_network["source"])), repeat(1), strict=False)
     )
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
     weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=0.115)

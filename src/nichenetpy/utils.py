@@ -213,7 +213,7 @@ def subset_matrix(
 
     Parameters
     ----------
-    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the matrix to subset
     rows : None or list or tuple of int or bool
         list of row indices to keep or list of booleans indicating which rows to keep
@@ -222,7 +222,7 @@ def subset_matrix(
 
     Returns
     -------
-    numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix
+    numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the subsetted matrix
 
     Raises
@@ -270,7 +270,7 @@ def subset_matrix(
         if cols is not None:
             output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
-        raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
+        raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, not {type(mat)}")
     return output  # type: ignore # should be fine given the input to hstack and vstack
 
 

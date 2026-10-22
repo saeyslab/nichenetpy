@@ -14,14 +14,14 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.nd
 
     Parameters
     ----------
-    data : numpy.ndarray or scipy.csc_matrix or scipy.csr.matrix
+    data : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr.matrix
         the data to normalize
     scale_factor : float
         the multiplier
 
     Returns
     -------
-    numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the normalized data
 
     Raises
@@ -29,8 +29,8 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> np.nd
     TypeError
         if the arguments have the wrong type
     """
-    if type(data) is not nichenet_matrix:
-        raise TypeError(f"data should have type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, was {type(data)}")
+    if not isinstance(data, nichenet_matrix.__value__):
+        raise TypeError(f"data should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
@@ -46,14 +46,14 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
 
     Parameters
     ----------
-    data : numpy.ndarray or scipy.csc_matrix or scipy.csr.matrix
+    data : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr.matrix
         the data to normalize
     scale_factor : float
         the multiplier
 
     Returns
     -------
-    numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the normalized data
     """
     return np.log1p(relative_counts(data, scale_factor))  # type: ignore # behaves as expected

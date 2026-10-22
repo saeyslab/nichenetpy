@@ -62,7 +62,7 @@ class LigandActivityPredictor[GeneSymbol]:
         self.ligand_target_matrix = ligand_target_matrix
         if isinstance(self.ligand_target_matrix, csr_matrix):
             warnings.warn(
-                "a scipy.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
+                "a scipy.sparse.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
                 stacklevel=2,
             )
             if self.matrix_density() > 0.5:
@@ -73,7 +73,7 @@ class LigandActivityPredictor[GeneSymbol]:
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(
-                    f"a scipy.csc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
+                    f"a scipy.sparsecsc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
                     stacklevel=2,
                 )
         elif isinstance(self.ligand_target_matrix, np.ndarray):
@@ -84,7 +84,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 )
         else:
             raise TypeError(
-                f"ligand_target_matrix should have type numpy.ndarray, scipy.csr_matrix or scipy.csc_matrix, was {type(ligand_target_matrix)}"
+                f"ligand_target_matrix should have type numpy.ndarray, scipy.sparse.csr_matrix or scipy.sparse.csc_matrix, was {type(ligand_target_matrix)}"
             )
         if type(row_names) is not list and type(row_names) is not tuple:
             raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")

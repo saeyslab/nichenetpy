@@ -10,7 +10,7 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
 
     Parameters
     ----------
-    graph : scipy.csr_matrix
+    graph : scipy.sparse.csr_matrix
         the graph
     src : int
         the source vertex
@@ -26,7 +26,7 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
         if the arguments have the wrong type
     """
     if type(graph) is not csr_matrix:
-        raise TypeError(f"graph should have type scipy.csr_matrix, was {type(csr_matrix)}")
+        raise TypeError(f"graph should have type scipy.sparse.csr_matrix, was {type(csr_matrix)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
     l = graph.shape[0]  # type: ignore # shape is not None
