@@ -17,7 +17,10 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
+def _auc_reverse(
+    x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 
@@ -55,7 +58,10 @@ def _auc_reverse(x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], y: 
     return sum((x[i - 1] - x[i]) * (y[i] + y[i - 1]) for i in range(1, len(x))) / 2
 
 
-def calculate_aupr(response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
+def calculate_aupr(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
 
@@ -95,7 +101,10 @@ def calculate_aupr(response: Sequence[float] | np.ndarray[Any, np.dtype[np.float
     return _auc_reverse(recall, precision)
 
 
-def calculate_auroc(response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
+def calculate_auroc(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
 

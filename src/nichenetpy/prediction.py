@@ -83,9 +83,7 @@ class LigandActivityPredictor[GeneSymbol]:
                     stacklevel=2,
                 )
         else:
-            raise TypeError(
-                f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}"
-            )
+            raise TypeError(f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}")
         if not isinstance(row_names, Sequence):
             raise TypeError(f"row_names should have type Sequence[gene_t], was {type(row_names)}")
         if not isinstance(col_names, Sequence):
@@ -214,7 +212,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 ) from error
         elif type(index) is not int:
             raise TypeError(f"index should have type int if is_index, was {type(index)}")
-        if index >= self.ligand_target_matrix.shape[1]:
+        if index >= self.ligand_target_matrix.shape[1]:  # type: ignore # index is int at this point
             raise IndexError(
                 f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}"
             )

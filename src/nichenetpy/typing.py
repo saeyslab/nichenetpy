@@ -1,6 +1,6 @@
-from typing import TypeVar, Any
+from typing import Any, TypeVar
 
-from numpy import ndarray, dtype, float64
+from numpy import dtype, float64, ndarray
 from scipy.sparse import csc_matrix, csr_matrix
 
 type nichenet_matrix = csr_matrix | csc_matrix | ndarray[Any, dtype[float64]]

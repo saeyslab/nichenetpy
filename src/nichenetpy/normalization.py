@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import lil_matrix, spmatrix
+from scipy.sparse import lil_matrix
 from scipy.stats import median_abs_deviation
 
 from nichenetpy.typing import nichenet_matrix
@@ -34,9 +34,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
         if the arguments have the wrong type
     """
     if not isinstance(data, nichenet_matrix.__value__):
-        raise TypeError(
-            f"data should have type nichenet_matrix, was {type(data)}"
-        )
+        raise TypeError(f"data should have type nichenet_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
@@ -122,7 +120,8 @@ def scale_quantile(
             if isinstance(data[0], Sequence):
                 if by_row:
                     return np.concatenate(
-                        [_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data], axis=0 # type: ignore # data is type checked
+                        [_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data],  # type: ignore # data is type checked
+                        axis=0,
                     )
                 else:
                     return np.concatenate(
@@ -130,7 +129,7 @@ def scale_quantile(
                         axis=1,
                     )
             elif type(data[0]) is float or type(data[0]) is int:
-                return _scale_quantile_seq(data, cutoff=cutoff) # type: ignore # data is type checked
+                return _scale_quantile_seq(data, cutoff=cutoff)  # type: ignore # data is type checked
             else:
                 raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
         else:
