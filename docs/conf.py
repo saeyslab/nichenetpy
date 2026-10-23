@@ -148,6 +148,9 @@ nitpick_ignore = [
     ("py:class", "type"),
     ("py:class", "any"),
     ("py:class", "string"),
+    # numpy
+    ('py:class', "numpy.float64"),
+    ('py:class', "numpy.bool"),
     # autodoc type alias bug
     ("py:class", "gene_t"),
     ("py:type", "gene_t"),
@@ -159,4 +162,11 @@ nitpick_ignore = [
     ("py:exc", "AnnError"),
 ]
 
-autodoc_type_aliases = {"gene_t": "nichenetpy.typing.gene_t", "nichenet_matrix": "nichenetpy.typing.nichenet_matrix"}
+autodoc_type_aliases = {
+    "gene_t": "nichenetpy.typing.gene_t",
+    "nichenet_matrix": "nichenetpy.typing.nichenet_matrix",
+    "numpy.float64": "float",
+    "np.float64": "float",
+    "numpy.bool": "bool",
+    "np.bool": "bool"
+}
