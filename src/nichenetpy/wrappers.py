@@ -137,7 +137,7 @@ def combine_weighted_ligand_target_links(
         list of (ligand, target, weight) tuples representing the combined ligand-target links
     """
     return list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
     )
 
 

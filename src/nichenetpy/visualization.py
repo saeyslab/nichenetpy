@@ -596,14 +596,14 @@ def visualize_ligand_signaling_graph(
             tf_signaling["to"].tolist(),
             tf_signaling["weight"].tolist(),
             repeat(gr_color),
-            strict=True,
+            strict=False,
         ),
         zip(
             tf_regulatory["from"].tolist(),
             tf_regulatory["to"].tolist(),
             tf_regulatory["weight"].tolist(),
             repeat(sig_color),
-            strict=True,
+            strict=False,
         ),
     ):
         graph.add_edge(fr, to, weight=w, color=c)
@@ -822,9 +822,9 @@ def create_barcode_plot(
         raise TypeError(f"max_ligands should have type iny, was {type(max_ligands)}")
     columns = ("rank", "ligand")
     scores1 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0]))
-    ranking1 = pd.DataFrame(zip(range(1, len(scores1)), (e[0] for e in scores1), strict=True), columns=columns)
+    ranking1 = pd.DataFrame(zip(range(1, len(scores1) + 1), (e[0] for e in scores1), strict=True), columns=columns)
     scores2 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0]))
-    ranking2 = pd.DataFrame(zip(range(1, len(scores2)), (e[0] for e in scores2), strict=True), columns=columns)
+    ranking2 = pd.DataFrame(zip(range(1, len(scores2) + 1), (e[0] for e in scores2), strict=True), columns=columns)
     ranking = ranking1.merge(ranking2, on="ligand", how="outer", suffixes=("_agnostic", "_focused"))
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_axis_off()

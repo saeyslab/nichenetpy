@@ -581,7 +581,7 @@ def test_steps() -> None:
     ]
     # combine weighted ligand-target links of different ligands
     active_ligand_target_links = list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
     )
     assert len(active_ligand_target_links) == 579
     assert equals_iter(
@@ -608,7 +608,7 @@ def test_steps() -> None:
         predictor.get_weighted_ligand_target_links(ligand, geneset, n=100) for ligand in best_upstream_ligands
     ]
     active_ligand_target_links = list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=True) for e in active_ligand_target_links))
+        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
     )
     assert len(active_ligand_target_links) == 313
     assert equals_iter(
