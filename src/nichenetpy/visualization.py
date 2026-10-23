@@ -36,7 +36,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol
+from nichenetpy.typing import GeneSymbol, nichenet_matrix
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -264,7 +264,7 @@ def heatmap_1d(
 
 
 def heatmap_2d(
-    mat: list[list[float]] | np.ndarray,
+    mat: Sequence[Sequence[float]] | np.ndarray,
     xlabels: Collection[str],
     ylabels: Collection[str],
     xtitle: str | None = None,
@@ -315,8 +315,8 @@ def heatmap_2d(
     ValueError
         if the arguments are invalid
     """
-    if type(mat) is not np.ndarray and type(mat) is not list and type(mat) is not tuple:
-        raise TypeError(f"mat should have type numpy.ndarray or list or tuple, was {type(mat)}")
+    if not isinstance(mat, nichenet_matrix.__value__):
+        raise TypeError(f"mat should have type nichenet_matrix or list, was {type(mat)}")
     if not isinstance(xlabels, Collection):
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
@@ -1252,9 +1252,9 @@ def create_mushroom_plot(
 
 
 def marker_plot(
-    x: Sequence[str] | np.ndarray,
-    y: Sequence[str] | np.ndarray,
-    a: Sequence[str] | np.ndarray,
+    x: Sequence[float] | np.ndarray,
+    y: Sequence[float] | np.ndarray,
+    a: Sequence[float] | np.ndarray,
     labels: Sequence[str],
     xlabel,
     ylabel,
@@ -1273,11 +1273,11 @@ def marker_plot(
 
     Parameters
     ----------
-    x : list or tuple or numpy.ndarray
+    x : Sequence or numpy.ndarray
         the x-values
-    y : list or tuple or numpy.ndarray
+    y : Sequence or numpy.ndarray
         the y-values
-    a : list or tuple or numpy.ndarray
+    a : Sequence or numpy.ndarray
         the values which are visualized as the size of the markers
     labels : Iterable of str
         the marker labels
@@ -1287,7 +1287,7 @@ def marker_plot(
         the label of the y-axis
     alabel : str
         the label of the size legend
-    c : list or tuple or numpy.ndarray or None
+    c : Sequence or numpy.ndarray or None
         the optional values which are visualized as colors
     clabel : str or None
         the label of the color legend
@@ -1316,12 +1316,12 @@ def marker_plot(
     Axes
         the axes
     """
-    if type(x) is not list and type(x) is not tuple and type(x) is not np.ndarray:
-        raise TypeError(f"x should have type list, tuple or numpy.ndarray, was {type(x)}")
-    if type(y) is not list and type(y) is not tuple and type(y) is not np.ndarray:
-        raise TypeError(f"y should have type list, tuple or numpy.ndarray, was {type(y)}")
-    if type(a) is not list and type(a) is not tuple and type(a) is not np.ndarray:
-        raise TypeError(f"a should have type list, tuple or numpy.ndarray, was {type(a)}")
+    if not isinstance(x, Sequence) and type(x) is not np.ndarray:
+        raise TypeError(f"x should have type Sequence or numpy.ndarray, was {type(x)}")
+    if not isinstance(y, Sequence) and type(y) is not np.ndarray:
+        raise TypeError(f"y should have type Sequence or numpy.ndarray, was {type(y)}")
+    if not isinstance(a, Sequence) and type(a) is not np.ndarray:
+        raise TypeError(f"a should have type Sequence or numpy.ndarray, was {type(a)}")
     if not isinstance(labels, Iterable):
         raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
     if type(xlabel) is not str:
@@ -1340,8 +1340,8 @@ def marker_plot(
         raise TypeError(f"num_ticks_y should have type int, was {type(num_ticks_y)}")
     if c is None:
         c = labels
-    elif type(c) is not list and type(c) is not tuple and type(c) is not np.ndarray:
-        raise TypeError(f"c should have type list, tuple or numpy.ndarray, was {type(c)}")
+    elif not isinstance(c, Sequence) and type(c) is not np.ndarray:
+        raise TypeError(f"c should have type Sequence or numpy.ndarray, was {type(c)}")
     _c = set(c)
     if val2color is None:
         val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c))), strict=True))

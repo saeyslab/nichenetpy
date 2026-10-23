@@ -84,12 +84,12 @@ class LigandActivityPredictor[GeneSymbol]:
                 )
         else:
             raise TypeError(
-                f"ligand_target_matrix should have type numpy.ndarray, scipy.sparse.csr_matrix or scipy.sparse.csc_matrix, was {type(ligand_target_matrix)}"
+                f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}"
             )
-        if type(row_names) is not list and type(row_names) is not tuple:
-            raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")
-        if type(col_names) is not list and type(col_names) is not tuple:
-            raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
+        if not isinstance(row_names, Sequence):
+            raise TypeError(f"row_names should have type Sequence[gene_t], was {type(row_names)}")
+        if not isinstance(col_names, Sequence):
+            raise TypeError(f"col_names should have type Sequence[gene_t], was {type(col_names)}")
         self.row_names: Sequence[GeneSymbol] = row_names
         self.col_names: Sequence[GeneSymbol] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))

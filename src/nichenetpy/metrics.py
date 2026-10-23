@@ -83,10 +83,10 @@ def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[
     )
     0.8851473922902493
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         warnings.warn("There are no true samples in response, AUPR is undefined", stacklevel=2)
         return np.nan
@@ -115,10 +115,10 @@ def calculate_auroc(response: Sequence[float] | np.ndarray, prediction: Sequence
     TypeError
         if the arguments have the wrong type
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
     fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
@@ -159,10 +159,10 @@ def calculate_prediction_evaluation_metrics(
     ValueError
         if response doesn't contain any true samples
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         raise ValueError(
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."

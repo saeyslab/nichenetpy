@@ -294,12 +294,12 @@ def average_expression(
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     data = ann.layers[layer]
-    if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
+    if not isinstance(data, (nichenet_matrix.__value__)):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(data)}")
     if norm_f is not None:
         if not isinstance(norm_f, Callable):  # type: ignore
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
-        data = norm_f(data)
+        data = norm_f(data) # type: ignore # data is type checked
     if keys is None:
         try:
             keys = set(ann.obs[groupby])
