@@ -1,14 +1,13 @@
-from typing import TypeAlias
-from scipy.sparse import csr_matrix, csc_matrix
-from numpy import ndarray
+from typing import Any, TypeVar
 
+from numpy import dtype, float64, ndarray
+from scipy.sparse import csc_matrix, csr_matrix
 
-nichenet_matrix : TypeAlias = csr_matrix|csc_matrix|ndarray
-'''
-Matrix types that are supported in NicheNetPy. 
-'''
+type nichenet_matrix = csr_matrix | csc_matrix | ndarray[Any, dtype[float64]]
+"""Matrix types that are supported in NicheNetPy."""
 
-gene_t : TypeAlias = str|int
-'''
-Gene symbol types that are supported in NicheNetPy. 
-'''
+type gene_t = str | int
+"""Gene symbol types that are supported in NicheNetPy."""
+
+GeneSymbol = TypeVar("GeneSymbol", str, int)
+"""Gene symbol types that are supported in NicheNetPy."""

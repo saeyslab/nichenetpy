@@ -1,16 +1,19 @@
-from nichenetpy.prediction import LigandActivityPredictor
-
-from math import log2, ceil
-from scipy.sparse import csc_matrix, csr_matrix
+import struct
+from collections.abc import Sequence
+from math import ceil, log2
+from typing import overload
 
 import numpy as np
-import struct
+from scipy.sparse import csc_matrix, csr_matrix
 
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import nichenet_matrix
 
 _INT_SIZE = 8
 _DOUBLE_SIZE = 8
 
-def _write_chunks(filename, *chunks, data=None):
+
+def _write_chunks(filename: str, *chunks: bytes | bytearray, data: bytearray | None = None):
     if data is None:
         data = bytearray()
     for chunk in chunks:
@@ -19,16 +22,39 @@ def _write_chunks(filename, *chunks, data=None):
     with open(filename, "wb") as file:
         file.write(data)
 
+
+@overload
 def write_ligand_target_matrix(
-    filename:str,
-    predictor:LigandActivityPredictor|None=None,
-    mat:np.ndarray|None=None,
-    row_names:list[str]|None=None,
-    col_names:list[str]|None=None,
-    column_major:bool=True
+    filename: str,
+    predictor: None,
+    mat: nichenet_matrix,
+    row_names: Sequence[str],
+    col_names: Sequence[str],
+    column_major: bool = True,
+): ...
+
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: LigandActivityPredictor[str],
+    mat: None,
+    row_names: None,
+    col_names: None,
+    column_major: bool = True,
+): ...
+
+
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: LigandActivityPredictor[str] | None = None,
+    mat: nichenet_matrix | None = None,
+    row_names: Sequence[str] | None = None,
+    col_names: Sequence[str] | None = None,
+    column_major: bool = True,
 ):
-    '''
-    Writes a ligand-target matrix to a file. 
+    """
+    Writes a ligand-target matrix to a file.
 
     Parameters
     ----------
@@ -36,48 +62,48 @@ def write_ligand_target_matrix(
         the name of the file to write to
     predictor : LigandActvivityPredictor or None
         the predictor which contains the matrix
-    mat : numpy.ndarray or None
+    mat : nichenet_matrix or None
         the ligand-target matrix
-    row_names : list of str or None
+    row_names : Sequence of str or None
         the names of the rows
-    col_names : list of str or None
+    col_names : Sequence of str or None
         the names of the columns
     column_major : bool
         whether to use column_major or row_major data format
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
-        if type(mat) is not np.ndarray:
-            raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
-        if type(row_names) is not list:
+        if not isinstance(mat, nichenet_matrix.__value__):
+            raise TypeError(f"expected a nichenet_matrix for mat, got {type(mat)}")
+        if not isinstance(row_names, list):
             raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
-        if type(col_names) is not list:
+        if not isinstance(col_names, list):
             raise TypeError(f"expected a list of strings for col_names, got {type(col_names)}")
     else:
-        if type(predictor) is not LigandActivityPredictor:
+        if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
+    if not isinstance(mat, np.ndarray):
+        mat = mat.toarray(order="F" if column_major else "C")  # type: ignore # mat can't be None at this point
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),
         "\n".join(col_names).encode("ascii"),
-        mat.tobytes(order=("F" if column_major else "C"))
+        mat.tobytes(order=("F" if column_major else "C")),
     )
 
-def read_ligand_target_matrix(
-    filename:str,
-    column_major:bool=True
-) -> tuple[np.ndarray, list[str], list[str]]:
-    '''
-    reads a ligand-target matrix from a file. 
+
+def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple[np.ndarray, list[str], list[str]]:
+    """
+    Reads a ligand-target matrix from a file.
 
     Parameters
     ----------
@@ -85,7 +111,7 @@ def read_ligand_target_matrix(
         the name of the file to read from
     column_major : bool
         whether to use column_major or row_major data format
-    
+
     Returns
     -------
     numpy.ndarray
@@ -99,7 +125,7 @@ def read_ligand_target_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(column_major) is not bool:
@@ -108,19 +134,15 @@ def read_ligand_target_matrix(
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
-    row_names = row_names.decode("ascii").split()
-    col_names = col_names.decode("ascii").split()
+    row_names = row_names.decode("ascii").split()  # type: ignore
+    col_names = col_names.decode("ascii").split()  # type: ignore
     mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
-    return (mat, row_names, col_names)
+    return (mat, row_names, col_names)  # type: ignore
 
-def write_sparse_matrix(
-    filename:str,
-    mat:csc_matrix|csr_matrix,
-    row_names:str,
-    col_names:str
-):
-    '''
-    Writes a sparse matrix to a file. 
+
+def write_sparse_matrix(filename: str, mat: csc_matrix | csr_matrix, row_names: str, col_names: str):
+    """
+    Writes a sparse matrix to a file.
 
     Parameters
     ----------
@@ -137,7 +159,7 @@ def write_sparse_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(mat) is not csc_matrix and type(mat) is not csr_matrix:
@@ -152,12 +174,11 @@ def write_sparse_matrix(
         "\n".join(col_names).encode("ascii"),
         mat.data.tobytes(),
         mat.indices.tobytes(),
-        mat.indptr.tobytes()
+        mat.indptr.tobytes(),
     )
 
-def _read_sparse_matrix(
-    filename
-):
+
+def _read_sparse_matrix(filename):
     with open(filename, "rb") as file:
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
@@ -168,17 +189,16 @@ def _read_sparse_matrix(
     col_names = col_names.decode("ascii").split()
     return (data, indices, indptr, row_names, col_names)
 
-def read_csc_matrix(
-    filename:str
-) -> tuple[csc_matrix, list[str], list[str]]:
-    '''
-    reads a csc_matrix from a file. 
+
+def read_csc_matrix(filename: str) -> tuple[csc_matrix, list[str], list[str]]:
+    """
+    Reads a csc_matrix from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     csc_matrix
@@ -192,24 +212,23 @@ def read_csc_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csc_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
 
-def read_csr_matrix(
-    filename:str
-) -> tuple[csr_matrix, list[str], list[str]]:
-    '''
-    reads a csr_matrix from a file. 
+
+def read_csr_matrix(filename: str) -> tuple[csr_matrix, list[str], list[str]]:
+    """
+    Reads a csr_matrix from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     csr_matrix
@@ -223,16 +242,17 @@ def read_csr_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
     mat = csr_matrix((data, indices, indptr))
     return (mat, row_names, col_names)
 
-def write_network(filename:str, mapping:list[tuple[str, str]]):
-    '''
-    Writes a network to a file. 
+
+def write_network(filename: str, mapping: list[tuple[str, str]]):
+    """
+    Writes a network to a file.
 
     Parameters
     ----------
@@ -245,13 +265,13 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(mapping) is not list:
         raise TypeError(f"mapping should have type list[tuple[str, str]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    grouped_mapping = {}
+    name2id = {}
     for fr, to in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append(to)
@@ -269,15 +289,13 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
     _write_chunks(
-        filename,
-        "\n".join(name2id.keys()).encode("ascii"),
-        data,
-        data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, "\n".join(name2id.keys()).encode("ascii"), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
-def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
-    '''
-    Writes a weighted network to a file. 
+
+def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]]):
+    """
+    Writes a weighted network to a file.
 
     Parameters
     ----------
@@ -290,13 +308,13 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(mapping) is not list:
         raise TypeError(f"mapping should have type list[tuple[str, str, float]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    grouped_mapping = {}
+    name2id = {}
     for fr, to, w in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append((to, w))
@@ -315,21 +333,19 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
     _write_chunks(
-        filename,
-        "\n".join(name2id.keys()).encode("ascii"),
-        data,
-        data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, "\n".join(name2id.keys()).encode("ascii"), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
-def read_network(filename:str) -> list[tuple[str, str]]:
-    '''
-    reads a network from a file. 
+
+def read_network(filename: str) -> list[tuple[str, str]]:
+    """
+    Reads a network from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     list of tuples
@@ -339,36 +355,37 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = names.decode("ascii").split()  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0
     while i < len(mapping):
-        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        fr = id2name[int.from_bytes(mapping[i : i + id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        k = int.from_bytes(mapping[i : i + _INT_SIZE])
         i += _INT_SIZE
         for _ in range(k):
-            output.append((fr, id2name[int.from_bytes(mapping[i:i+id_size])]))
+            output.append((fr, id2name[int.from_bytes(mapping[i : i + id_size])]))
             i += id_size
-    return output
+    return output  # type: ignore
 
-def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
-    '''
-    reads a weighted network from a file. 
+
+def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
+    """
+    Reads a weighted network from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     list of tuples
@@ -378,27 +395,29 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = names.decode("ascii").split()  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0
     while i < len(mapping):
-        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        fr = id2name[int.from_bytes(mapping[i : i + id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        k = int.from_bytes(mapping[i : i + _INT_SIZE])
         i += _INT_SIZE
         for _ in range(k):
-            output.append((
-                fr,
-                id2name[int.from_bytes(mapping[i:i+id_size])],
-                struct.unpack("d", mapping[i+id_size:i+id_size+_DOUBLE_SIZE])[0]
-            ))
+            output.append(
+                (
+                    fr,
+                    id2name[int.from_bytes(mapping[i : i + id_size])],
+                    struct.unpack("d", mapping[i + id_size : i + id_size + _DOUBLE_SIZE])[0],
+                )
+            )
             i += id_size + _DOUBLE_SIZE
-    return output
+    return output  # type: ignore

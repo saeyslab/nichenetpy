@@ -1,61 +1,54 @@
-from nichenetpy.typing import (
-    nichenet_matrix,
-    gene_t
-)
-
-from scipy.sparse import hstack, vstack, csc_matrix, csr_matrix
-from collections.abc import Iterable, Callable
-from anndata import AnnData
-from re import (
-    search,
-    Pattern,
-    finditer,
-    compile,
-    split
-)
+import os
+import pickle
+from collections.abc import Callable, Iterable, Sequence
+from re import Pattern, compile, finditer, search, split
+from typing import Any, overload
 
 import numpy as np
 import pandas as pd
-import os
-import pickle
+from anndata import AnnData
+from scipy.sparse import csc_matrix, csr_matrix, hstack, vstack
 
+from nichenetpy.typing import gene_t, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
-_row_name_split = lambda s, i : (s[:i], s[i:])
+_row_name_split = lambda s, i: (s[:i], s[i:])
 
-def read_list_from_csv(filename:str) -> list[str]:
-    '''
-    Reads a sequence of strings from a csv file. 
+
+def read_list_from_csv(filename: str) -> list[str]:
+    """
+    Reads a sequence of strings from a csv file.
 
     Parameters
     ----------
     filename : str
         the name of the csv file to read from
-    
+
     Returns
     -------
     list
         list of read strings
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    return [line.rstrip().strip("\"\'") for line in lines[1:]]
+    return [line.rstrip().strip("\"'") for line in lines[1:]]
+
 
 def read_matrix_from_csv(
-    filename:str,
-    extract_row_name:Callable[[str], tuple[str, str]]|Pattern|None=None,
-    extract_col_name:Callable[[str], list[str]]|Pattern|None=None
-) -> tuple[np.ndarray, str, str]:
-    '''
-    Reads a matrix from a csv file. 
+    filename: str,
+    extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
+    extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[str], list[str]]:
+    """
+    Reads a matrix from a csv file.
 
     Parameters
     ----------
@@ -65,7 +58,7 @@ def read_matrix_from_csv(
         function which extracts the row name and the rest of the string from a line or a search pattern
     extract_col_name : Callable or re.Pattern
         function which extracts the col names from the first line or a search pattern
-    
+
     Returns
     -------
     ndarray
@@ -74,41 +67,39 @@ def read_matrix_from_csv(
         the row labels
     list
         the column labels
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if extract_row_name is None:
         extract_row_name = _default_row_name_pattern
-    if type(extract_row_name) is Pattern:
+    if isinstance(extract_row_name, Pattern):
         row_name_pattern = extract_row_name
-        extract_row_name = lambda x : _row_name_split(x, search(row_name_pattern, x).end())
-    if not isinstance(extract_row_name, Callable):
+        extract_row_name = lambda x: _row_name_split(x, search(row_name_pattern, x).end())  # type: ignore # if search returns None then runtime error
+    if not isinstance(extract_row_name, Callable):  # type: ignore
         raise TypeError(f"extract_row_name should have type Callable, re.Pattern or None, was {type(extract_row_name)}")
     if extract_col_name is None:
         extract_col_name = _default_col_name_pattern
-    if type(extract_col_name) is Pattern:
+    if isinstance(extract_col_name, Pattern):
         col_name_pattern = extract_col_name
-        extract_col_name = lambda x : [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
-    if not isinstance(extract_col_name, Callable):
+        extract_col_name = lambda x: [x[slice(*m.span(1))] for m in finditer(col_name_pattern, x)]
+    if not isinstance(extract_col_name, Callable):  # type: ignore
         raise TypeError(f"extract_col_name should have type Callable, re.Pattern or None, was {type(extract_col_name)}")
     with open(filename) as file:
-        lines = file.readlines()
+        lines: Sequence[str] = file.readlines()
     col_names = extract_col_name(lines[0].rstrip())
-    row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]))
-    rows = [[float(e.strip("\"\'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
-    return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("\'\"") for row_name in row_names], col_names)
+    row_names, lines = zip(*(extract_row_name(line) for line in lines[1:]), strict=True)
+    rows = [[float(e.strip("\"'")) for e in line.strip(",").rstrip().split(",")] for line in lines]
+    return (np.array(rows, dtype=np.float64), [row_name[:-1].strip("'\"") for row_name in row_names], col_names)
 
-def read_csv_rows(
-    filename:str,
-    sep:str|Pattern=","
-) -> tuple[list[str], list[list[str]]]:
-    '''
-    Reads the rows from a csv file. 
+
+def read_csv_rows(filename: str, sep: str | Pattern = ",") -> tuple[list[str], list[list[str]]]:
+    """
+    Reads the rows from a csv file.
 
     Parameters
     ----------
@@ -116,32 +107,30 @@ def read_csv_rows(
         the name of the csv file to read from
     sep : str or re.Pattern
         the separator
-    
+
     Returns
     -------
     list of str
         list of column names
     list of list of str
         list of rows
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
-    return (lines[0], lines[1:])
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
+    return (lines[0], lines[1:])  # type: ignore
 
-def read_csv_cols(
-    filename:str,
-    sep:str|Pattern=","
-) -> dict[str, list[str]]:
-    '''
-    Reads the columns from a csv file. 
+
+def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence[str]]:
+    """
+    Reads the columns from a csv file.
 
     Parameters
     ----------
@@ -149,7 +138,7 @@ def read_csv_cols(
         the name of the csv file to read from
     sep : str or re.Pattern
         the separator
-    
+
     Returns
     -------
     dict
@@ -159,23 +148,24 @@ def read_csv_cols(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename) as file:
         lines = file.readlines()
-    lines = [[word.strip("\"\'") for word in split(sep, line.rstrip())] for line in lines]
-    return dict(zip(lines[0], zip(*lines[1:])))
+    lines = [[word.strip("\"'") for word in split(sep, line.rstrip())] for line in lines]  # type: ignore
+    return dict(zip(lines[0], zip(*lines[1:], strict=True), strict=True))
 
-def read_network_file(filename:str):
-    '''
-    reads a network (pandas.DataFrame) from a csv or pickle file
+
+def read_network_file(filename: str):
+    """
+    Reads a network (pandas.DataFrame) from a csv or pickle file
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     pandas.DataFrame
@@ -185,7 +175,7 @@ def read_network_file(filename:str):
     ------
     ValueError
         if the file name does not have an expected extension
-    '''
+    """
     file_ext = (os.path.split(filename)[1]).split(".")[-1]
     if file_ext == "csv":
         return pd.DataFrame(read_csv_cols(filename))
@@ -196,107 +186,125 @@ def read_network_file(filename:str):
     else:
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
+
+@overload
 def subset_matrix(
-    mat:nichenet_matrix,
-    rows:list[int|bool]|tuple[int|bool]|np.ndarray|None=None,
-    cols:list[int|bool]|tuple[int|bool]|np.ndarray|None=None
+    mat: np.ndarray,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+) -> np.ndarray: ...
+
+
+@overload
+def subset_matrix(
+    mat: csr_matrix | csc_matrix,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+) -> csr_matrix | csc_matrix: ...
+
+
+def subset_matrix(
+    mat: nichenet_matrix,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> nichenet_matrix:
-    '''
-    Subsets a matrix. 
+    """
+    Subsets a matrix.
 
     Parameters
     ----------
-    mat : numpy.ndarray or scipy.csc_matrix or scipy.csr_matrix
+    mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the matrix to subset
     rows : None or list or tuple of int or bool
         list of row indices to keep or list of booleans indicating which rows to keep
     cols : None or list or tuple of int or bool
         list of column indices to keep or list of booleans indicating which columns to keep
-    
+
     Returns
     -------
-    numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix
+    numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the subsetted matrix
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    
+
     Note
     ----
     if the rows of a numpy.ndarray are subsetted, the output is row-major
     if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
-    '''
-    if rows is not None and type(rows) is not tuple and type(rows) is not list and type(rows) is not np.ndarray:
-        raise TypeError(f"rows should be of type list, tuple or numpy.ndarray, was {type(rows)}")
-    if cols is not None and type(cols) is not tuple and type(cols) is not list and type(rows) is not np.ndarray:
-        raise TypeError(f"cols should be of type list or tuple or numpy.ndarray, was {type(cols)}")
+    """
+    if rows is not None and not isinstance(rows, Sequence) and type(rows) is not np.ndarray:
+        raise TypeError(f"rows should be of type Sequence or numpy.ndarray, was {type(rows)}")
+    if cols is not None and not isinstance(cols, Sequence) and type(cols) is not np.ndarray:
+        raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
         rows = [i for i, e in enumerate(rows) if e]
     if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
         cols = [i for i, e in enumerate(cols) if e]
-    if type(mat) is np.ndarray:
+    if isinstance(mat, np.ndarray):
         if rows is None:
             if cols is None:
                 output = mat
             else:
-                output = mat[:, cols]
+                output = mat[:, cols]  # type: ignore # cols are bools
         else:
             output = mat[
-                [[row] for row in rows],
-                [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
+                [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
             ]
     elif isinstance(mat, csc_matrix):
-        if cols is None: # rows is not None
+        if cols is None:  # rows is not None
             output = csr_matrix(mat)
         else:
             output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
         if rows is not None:
-            output = vstack([output[row, :] for row in rows], format="csc")
+            output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
-        if rows is None: # cols is not None
+        if rows is None:  # cols is not None
             output = csc_matrix(mat)
         else:
             output = vstack([mat[row, :] for row in rows], format="csr" if cols is None else "csc")
         if cols is not None:
-            output = hstack([output[:, col] for col in cols], format="csr")
+            output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
-        raise TypeError(f"mat needs to be of type numpy.ndarray, scipy.csc_matrix or scipy.csr_matrix, not {type(mat)}")
-    return output
+        raise TypeError(f"mat needs to be of type nichenet_matrix, not {type(mat)}")
+    return output  # type: ignore # should be fine given the input to hstack and vstack
 
-def remove_zero_rows_cols(mat:np.ndarray) -> np.ndarray:
-    '''
-    Remove all 0-rows and 0-columns from a matrix. 
+
+def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.float64]]) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """
+    Remove all 0-rows and 0-columns from a matrix.
 
     Parameters
     ----------
     mat : numpy.ndarray
         the matrix to remove all 0-rows and 0-columns from
-    
+
     Returns
     -------
     numpy.ndarray
         the subsetted matrix
-    '''
+    """
     return subset_matrix(mat, mat.any(axis=1), mat.any(axis=0))
 
-def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
-    '''
-    Combine tuples of lists matched by the keys in the first list of each passed tuple. 
+
+def combine_by_key[T1, T2](*args: tuple[list[T1], list[T2]]) -> dict[T1, list[T2]]:
+    """
+    Combine tuples of lists matched by the keys in the first list of each passed tuple.
 
     Parameters
     ----------
     *args : tuple
         tuples of equally large lists to combine, where the first list of a tuple contains the keys
-    
+
     Returns
     -------
     dict
         a dictionary where each key is mapped to a list containing one element per input tuple in the order the tuples were passed to the function
-    
+
     Examples
     --------
     >>> combine_by_key(
@@ -310,23 +318,20 @@ def combine_by_key(*args:tuple[list[str], list]) -> dict[str, list]:
         "c": [8, 3, 5],
         "d": [5, 2, 3]
     }
-    '''
-    output = dict()
+    """
+    output: dict[T1, list[T2]] = {}
     for arg in args:
-        for key, val in zip(arg[0], arg[1]):
+        for key, val in zip(arg[0], arg[1], strict=True):
             if key in output:
                 output[key].append(val)
             else:
                 output[key] = [val]
     return output
 
-def combine_dicts(
-    dict1:dict,
-    dict2:dict,
-    func:Callable|None=None
-) -> dict:
-    '''
-    Combine two dictionaries by their mutual keys. 
+
+def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dict:
+    """
+    Combine two dictionaries by their mutual keys.
 
     Parameters
     ----------
@@ -337,18 +342,18 @@ def combine_dicts(
     func : Callable or None
         a binary function that computes the new value from the old values
         if None, the values are combined into a tuple
-    
+
     Returns
     -------
     dict
         a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key,
         or alternatively a function is applied which combines the mappings
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    
+
     Examples
     --------
     >>> combine_dicts(
@@ -391,40 +396,41 @@ def combine_dicts(
         "b": (1, 5),
         "c": (2, 6)
     }
-    '''
+    """
     if func is None:
-        func = lambda x, y : (x, y)
+        func = lambda x, y: (x, y)
     if type(dict1) is not dict:
         raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
     if type(dict2) is not dict:
         raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
-    return dict((key, func(dict1[key], dict2[key])) for key in set(dict1.keys()).intersection(set(dict2.keys())))
+    return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
+
 
 def ligand_activities_df(
-    ligand_activities:dict[gene_t, dict[str, float]]|Iterable[tuple[gene_t, dict[str, float]]]
+    ligand_activities: dict[gene_t, dict[str, float]] | Iterable[tuple[gene_t, dict[str, float]]],
 ) -> pd.DataFrame:
-    '''
-    convert ligand activities to a pandas DataFrame
+    """
+    Convert ligand activities to a pandas DataFrame
 
     Parameters
     ----------
     ligand_activities : dict or Iterable
         the ligand activities to convert
-    
+
     Returns
     -------
     pandas.DataFrame
         a pandas DataFrame containing the ligand activities
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(ligand_activities) is dict:
-        ligands, activities = zip(*ligand_activities.items())
+        ligands, activities = zip(*ligand_activities.items(), strict=True)
     elif isinstance(ligand_activities, Iterable):
-        ligands, activities = zip(*ligand_activities)
+        ligands, activities = zip(*ligand_activities, strict=True)
     else:
         raise TypeError(f"ligand_activities should be of type dict or Iterable, was {type(ligand_activities)}")
     columns = tuple(activities[0].keys())
@@ -433,14 +439,10 @@ def ligand_activities_df(
     df.index.name = "ligand"
     return df
 
-def df_grouped_apply(
-    df:pd.DataFrame,
-    groupby:str,
-    func:Callable,
-    dest:str
-) -> pd.DataFrame:
-    '''
-    apply a function to groups of a dataframe
+
+def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) -> pd.DataFrame:
+    """
+    Apply a function to groups of a dataframe
 
     Parameters
     ----------
@@ -452,26 +454,26 @@ def df_grouped_apply(
         the function to apply
     dest : str
         the column to store the output in
-    
+
     Returns
     -------
     pandas.DataFrame
         the result of the function application
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(df) is not pd.DataFrame:
         raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
     if type(groupby) is not str:
         raise TypeError(f"groupby should have type str, was {type(groupby)}")
-    if not isinstance(func, Callable):
+    if not isinstance(func, Callable):  # type: ignore
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
-    pd.options.mode.chained_assignment = None # false positive warnings removal
+    pd.options.mode.chained_assignment = None  # false positive warnings removal
     vals = sorted(set(df[groupby]))
     groups = []
     for val in vals:
@@ -480,13 +482,11 @@ def df_grouped_apply(
         groups.append(group)
     return pd.concat(groups)
 
-def ncycle(
-    it:Iterable,
-    n:int
-) -> Iterable:
-    '''
+
+def ncycle(it: Iterable, n: int) -> Iterable:
+    """
     A combination of itertools.repeat and itertools.cycle,
-    iterate over it n times. 
+    iterate over it n times.
 
     Parameters
     ----------
@@ -494,17 +494,17 @@ def ncycle(
         the iterable
     n : int
         the amount of times to cycle through the iterable
-    
+
     Returns
     -------
     Iterable
         it chained n times
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {it}")
     if type(n) is not int:
@@ -512,15 +512,12 @@ def ncycle(
     for _ in range(n):
         yield from it
 
-def decomplexify(
-    df:pd.DataFrame,
-    from_col:str="ligand",
-    to_col:str="receptor"
-) -> pd.DataFrame:
-    '''
+
+def decomplexify(df: pd.DataFrame, from_col: str = "ligand", to_col: str = "receptor") -> pd.DataFrame:
+    """
     Helper Function to 'decomplexify' ligands and receptors into individual subunits. (function from LIANA R)
 
-    Splits "from" and "to" in subunits and takes all combinations. 
+    Splits "from" and "to" in subunits and takes all combinations.
 
     Parameters
     ----------
@@ -535,14 +532,14 @@ def decomplexify(
     -------
     pandas.DataFrame
         data frame which has columns from_col and to_col after which contain all combinations of subunits
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    '''
+    """
     if type(df) is not pd.DataFrame:
         raise TypeError(f"df should have type pandas.DataFrame, was {type(df)}")
     if type(from_col) is not str:
@@ -555,22 +552,17 @@ def decomplexify(
         raise ValueError(f"There is no column '{to_col}' in the data frame")
     frs = []
     tos = []
-    for fr, to in zip(df[from_col].tolist(), df[to_col].tolist()):
+    for fr, to in zip(df[from_col].tolist(), df[to_col].tolist(), strict=True):
         for nfr in fr.split("_"):
             for nto in to.split("_"):
                 frs.append(nfr)
                 tos.append(nto)
-    return pd.DataFrame({
-        from_col: frs,
-        to_col: tos
-    })
+    return pd.DataFrame({from_col: frs, to_col: tos})
 
-def rank_genes_groups_to_dataframe(
-    ann:AnnData,
-    groupby:str
-) -> pd.DataFrame:
-    '''
-    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame. 
+
+def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
+    """
+    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame.
 
     Parameters
     ----------
@@ -583,14 +575,14 @@ def rank_genes_groups_to_dataframe(
     -------
     pandas.DataFrame
         the data frame which contains the output of scanpy.tl.rank_genes_groups
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    '''
+    """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
     if groupby not in ann.obs.columns:
@@ -606,23 +598,15 @@ def rank_genes_groups_to_dataframe(
     temp.reset_index(inplace=True)
     output = output.merge(temp, on=["gene", groupby], how="inner")
     output.rename(
-        columns={
-            "logfoldchanges": "lfc",
-            "pvals": "pval",
-            "pvals_adj": "pval_adj",
-            "pts": "pct"
-        },
-        inplace=True
+        columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"}, inplace=True
     )
     ann.uns["rank_genes_groups"] = output
     return output
 
-def get_ties(
-    it:Iterable,
-    key:Callable
-):
-    '''
-    Group the indices of the tied elements of an Iterable. 
+
+def get_ties[T1, T2](it: Iterable[T1], key: Callable[[T1], T2]) -> dict[T2, list[int]]:
+    """
+    Group the indices of the tied elements of an Iterable.
 
     Parameters
     ----------
@@ -635,28 +619,29 @@ def get_ties(
     -------
     dict
         a dictionary which maps tied values to groups of indices whose corresponging values equal the key
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {type(it)}")
-    if not isinstance(key, Callable):
+    if not isinstance(key, Callable):  # type: ignore
         raise TypeError(f"key should have type Callable, was {type(key)}")
-    output = dict()
+    output: dict[T2, list[int]] = {}
     for i, v in enumerate(it):
         v = key(v)
         if v in output:
             output[v].append(i)
         else:
-            output[v] = [i]
+            output[v] = [i]  # type: ignore
     return output
 
-def is_ligand_active(importances:pd.DataFrame):
-    '''
-    Returns a list of booleans indicating whether a ligand is active or not. 
+
+def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
+    """
+    Returns a list of booleans indicating whether a ligand is active or not.
 
     Parameters
     ----------
@@ -667,18 +652,15 @@ def is_ligand_active(importances:pd.DataFrame):
     -------
     list
         a list of booleans indicating whether a ligand is active or not
-    '''
+    """
     return [
-        test_ligand == true_ligand if isinstance(test_ligand, gene_t) else test_ligand in true_ligand
-        for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"])
+        test_ligand == true_ligand if isinstance(test_ligand, gene_t.__value__) else test_ligand in true_ligand
+        for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]
 
-def linked_iter(
-    start:any,
-    nxt:Callable[[any], any],
-    stp:Callable[[any, any], bool]
-):
-    '''
+
+def linked_iter[T](start: T, nxt: Callable[[T], T], stp: Callable[[T, T], bool]):
+    """
     Yields all values reached by calling nxt on the current value until stp returns True
 
     Parameters
@@ -693,10 +675,10 @@ def linked_iter(
         function that returns the output
 
     Yields
-    -------
+    ------
     Any
         all encountered values
-    '''
+    """
     cur = start
     _nxt = nxt(cur)
     while not stp(cur, _nxt):
