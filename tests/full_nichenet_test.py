@@ -1273,7 +1273,9 @@ def test_ligand_activity_single_cell() -> None:
         {"ligand": preds.columns, "pearson": (pearsonr(preds.iloc[:, i], res).statistic for i in range(preds.shape[1]))}
     )
     assert equals_iter(
-        output_correlation_analysis.sort_values(by="pearson", ascending=False).to_numpy(),
+        output_correlation_analysis.sort_values(by="pearson", ascending=False)[
+            : len(LASC_top_10_output_correlation)
+        ].to_numpy(),
         LASC_top_10_output_correlation,
     )
 
@@ -1356,7 +1358,7 @@ def test_model_construction() -> None:
     data_sources_to_keep = set(
         annotations[[e in ["literature", "comprehensive_db", "ChIP"] for e in annotations["type_db"]]]["source"]
     )
-    new_source_weights = {(key, val) for key, val in source_weights.items() if key in data_sources_to_keep}
+    new_source_weights = {key: val for key, val in source_weights.items() if key in data_sources_to_keep}
     new_lr_network = lr_network[[e in data_sources_to_keep for e in lr_network["source"]]]
     new_sig_network = sig_network[[e in data_sources_to_keep for e in sig_network["source"]]]
     new_gr_network = gr_network[[e in data_sources_to_keep for e in gr_network["source"]]]
