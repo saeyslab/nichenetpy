@@ -8,7 +8,7 @@ from typing import Literal, overload
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_matrix, csc_array
 from scipy.stats import t
 
 from nichenetpy.typing import GeneSymbol, nichenet_matrix
@@ -19,11 +19,11 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = cell_groups.tolist()
-    if type(mat) is not csc_matrix:
+    if not isinstance(mat, (csc_matrix, csc_array)):
         try:
-            mat = csc_matrix(mat)
+            mat = csc_array(mat)
         except TypeError as error:
-            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix, was {type(mat)}") from error
+            raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix/array, was {type(mat)}") from error
     if type(mat.shape) is None:
         raise ValueError("mat has shape None")
     output = []
