@@ -97,7 +97,7 @@ def prepare_ligand_target_visualization(
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
     cutoff: float = 0.25,
-) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of regulatory potential.
 
@@ -165,7 +165,7 @@ def prepare_ligand_target_visualization(
 
 def prepare_ligand_receptor_visualization(
     ligand_receptor_links: WeightedNetwork[GeneSymbol],
-) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of prior interaction potential.
 
@@ -264,7 +264,7 @@ def heatmap_1d(
 
 
 def heatmap_2d(
-    mat: Sequence[Sequence[float]] | np.ndarray,
+    mat: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]],
     xlabels: Collection[str],
     ylabels: Collection[str],
     xtitle: str | None = None,
@@ -1252,14 +1252,14 @@ def create_mushroom_plot(
 
 
 def marker_plot(
-    x: Sequence[float] | np.ndarray,
-    y: Sequence[float] | np.ndarray,
-    a: Sequence[float] | np.ndarray,
+    x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    a: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     labels: Sequence[str],
     xlabel,
     ylabel,
     alabel,
-    c: Sequence[str] | np.ndarray | None = None,
+    c: Sequence[str] | np.ndarray[Any, np.dtype[np.float64]] | None = None,
     clabel: str | None = None,
     val2color: dict[Any, float] | Callable[[Any], ColorType] | None = None,
     figsize: tuple[int, int] = (5, 5),

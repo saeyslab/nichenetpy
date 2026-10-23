@@ -12,7 +12,7 @@ from scipy.stats import median_abs_deviation
 from nichenetpy.typing import nichenet_matrix
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> spmatrix | np.ndarray:
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -86,7 +86,7 @@ def scale_quantile(
     data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
     cutoff: float = 0.05,
     by_row: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
 
@@ -160,7 +160,7 @@ def scale_quantile_adapted(
     cutoff: float = 0,
     by_row: bool = False,
     pseudo_count: float = 0.001,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
 
@@ -219,7 +219,7 @@ def scaling_zscore(
         sd = np.std(data)
         avg = np.mean(data)
         return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
-    elif type(data) is np.ndarray or type(data) is pd.Series:
+    elif isinstance(data, (np.ndarray, pd.Series)):
         if len(data) == 1:
             return np.array([0])
         sd = np.std(data)
@@ -261,7 +261,7 @@ def scaling_modified_zscore(
         else:
             mad = median_abs_deviation(data, scale=scale_factor)
             return [scale_factor * (x - md) / mad for x in data]
-    elif type(data) is np.ndarray or type(data) is pd.Series:
+    elif isinstance(data, (np.ndarray, pd.Series)):
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return scale_factor * (data - md)

@@ -1,9 +1,9 @@
-from typing import TypeVar
+from typing import TypeVar, Any
 
-from numpy import ndarray
+from numpy import ndarray, dtype, float64
 from scipy.sparse import csc_matrix, csr_matrix
 
-type nichenet_matrix = csr_matrix | csc_matrix | ndarray
+type nichenet_matrix = csr_matrix | csc_matrix | ndarray[Any, dtype[float64]]
 """Matrix types that are supported in NicheNetPy."""
 
 type gene_t = str | int

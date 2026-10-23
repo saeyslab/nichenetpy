@@ -171,12 +171,12 @@ class LigandActivityPredictor[GeneSymbol]:
         return set(self._gene2index.keys())
 
     @overload
-    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray: ...
+    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
     @overload
-    def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray: ...
+    def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
-    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray:
+    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray[Any, np.dtype[np.float64]]:
         """
         Index the columns of the ligand-target matrix, the key may also be a gene symbol
 

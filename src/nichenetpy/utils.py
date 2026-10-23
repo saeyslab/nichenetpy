@@ -46,7 +46,7 @@ def read_matrix_from_csv(
     filename: str,
     extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
     extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
-) -> tuple[np.ndarray, list[str], list[str]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 

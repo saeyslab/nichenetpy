@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from numbers import Number
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(x: Sequence[float] | np.ndarray, y: Sequence[float] | np.ndarray) -> float:
+def _auc_reverse(x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 
@@ -54,7 +55,7 @@ def _auc_reverse(x: Sequence[float] | np.ndarray, y: Sequence[float] | np.ndarra
     return sum((x[i - 1] - x[i]) * (y[i] + y[i - 1]) for i in range(1, len(x))) / 2
 
 
-def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[float] | np.ndarray) -> float:
+def calculate_aupr(response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
 
@@ -94,7 +95,7 @@ def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[
     return _auc_reverse(recall, precision)
 
 
-def calculate_auroc(response: Sequence[float] | np.ndarray, prediction: Sequence[float] | np.ndarray) -> float:
+def calculate_auroc(response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]]) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
 
@@ -125,8 +126,8 @@ def calculate_auroc(response: Sequence[float] | np.ndarray, prediction: Sequence
 
 
 def calculate_prediction_evaluation_metrics(
-    prediction: Sequence[float] | np.ndarray,
-    response: Sequence[float] | np.ndarray,
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     allow_nan: bool = False,
 ) -> dict[str, float]:
     """
