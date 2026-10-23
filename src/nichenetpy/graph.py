@@ -1,16 +1,16 @@
 import heapq
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array
 
 
-def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
+def dijkstra_spl(graph: csr_array, src: int) -> list[tuple[float, int | None]]:
     """
     Computes the shortest path length from the source vertex to every vertex in the graph using dijkstra's algorithm.
 
     Parameters
     ----------
-    graph : scipy.sparse.csr_matrix
+    graph : scipy.sparse.csr_array
         the graph
     src : int
         the source vertex
@@ -25,8 +25,8 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
     TypeError
         if the arguments have the wrong type
     """
-    if type(graph) is not csr_matrix:
-        raise TypeError(f"graph should have type scipy.sparse.csr_matrix, was {type(csr_matrix)}")
+    if type(graph) is not csr_array:
+        raise TypeError(f"graph should have type scipy.sparse.csr_array, was {type(csr_array)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
     l = graph.shape[0]  # type: ignore # shape is not None
@@ -52,13 +52,13 @@ def dijkstra_spl(graph: csr_matrix, src: int) -> list[tuple[float, int | None]]:
     return spl
 
 
-def get_reachable_nodes(graph: csr_matrix, src: int) -> set[int]:
+def get_reachable_nodes(graph: csr_array, src: int) -> set[int]:
     """
     Returns all nodes in the graph which are reachable from the specified source node.
 
     Parameters
     ----------
-    graph : csr_matrix
+    graph : scipy.sparse.csr_array
         the graph (as adjacency matrix)
     src : int
         the source node
@@ -73,8 +73,8 @@ def get_reachable_nodes(graph: csr_matrix, src: int) -> set[int]:
     TypeError
         if the arguments are not of the correct type
     """
-    if type(graph) is not csr_matrix:
-        raise TypeError(f"graph should have type csr_matrix, was {type(graph)}")
+    if type(graph) is not csr_array:
+        raise TypeError(f"graph should have type scipy.sparse.csr_array, was {type(graph)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
     output = {src}
