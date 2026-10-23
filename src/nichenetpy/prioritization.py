@@ -155,7 +155,7 @@ def get_avg_exp(
     if features is not None:
         ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
-    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts) # type: ignore
+    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)  # type: ignore
     avg_celltype.reset_index(inplace=True)
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"

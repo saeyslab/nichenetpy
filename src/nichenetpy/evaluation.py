@@ -1,6 +1,6 @@
 from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import repeat
-from typing import Literal, overload, Any
+from typing import Any, Literal, overload
 
 import pandas as pd
 
