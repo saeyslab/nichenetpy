@@ -63,15 +63,15 @@ and this project adheres to [Semantic Versioning][].
 
 ### Changes
 
-- Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible! 
+- Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
 
 ### Fixed
 
-- Corrected type signatures. 
+- Corrected type signatures.
 
-- Fixed bug in `prediction.replace_zero_col_by_noisy_scores` where sparse matrices where not supported. 
+- Fixed bug in `prediction.replace_zero_col_by_noisy_scores` where sparse matrices where not supported.
 
-- Fixed bug in `io.write_ligand_target_matrix` where sparse matrices where not supported. 
+- Fixed bug in `io.write_ligand_target_matrix` where sparse matrices where not supported.
 
 - Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted
 
