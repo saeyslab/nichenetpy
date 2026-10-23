@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from numbers import Number
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,10 @@ from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
 
-def _auc_reverse(x: Sequence[float] | np.ndarray, y: Sequence[float] | np.ndarray) -> float:
+def _auc_reverse(
+    x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
 
@@ -54,7 +58,10 @@ def _auc_reverse(x: Sequence[float] | np.ndarray, y: Sequence[float] | np.ndarra
     return sum((x[i - 1] - x[i]) * (y[i] + y[i - 1]) for i in range(1, len(x))) / 2
 
 
-def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[float] | np.ndarray) -> float:
+def calculate_aupr(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
 
@@ -83,10 +90,10 @@ def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[
     )
     0.8851473922902493
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         warnings.warn("There are no true samples in response, AUPR is undefined", stacklevel=2)
         return np.nan
@@ -94,7 +101,10 @@ def calculate_aupr(response: Sequence[float] | np.ndarray, prediction: Sequence[
     return _auc_reverse(recall, precision)
 
 
-def calculate_auroc(response: Sequence[float] | np.ndarray, prediction: Sequence[float] | np.ndarray) -> float:
+def calculate_auroc(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
 
@@ -115,18 +125,18 @@ def calculate_auroc(response: Sequence[float] | np.ndarray, prediction: Sequence
     TypeError
         if the arguments have the wrong type
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
     fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
 
 
 def calculate_prediction_evaluation_metrics(
-    prediction: Sequence[float] | np.ndarray,
-    response: Sequence[float] | np.ndarray,
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     allow_nan: bool = False,
 ) -> dict[str, float]:
     """
@@ -159,10 +169,10 @@ def calculate_prediction_evaluation_metrics(
     ValueError
         if response doesn't contain any true samples
     """
-    if type(response) is not list and type(response) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
-    if type(prediction) is not list and type(prediction) is not tuple and type(response) is not np.ndarray:
-        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         raise ValueError(
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."

@@ -83,13 +83,11 @@ class LigandActivityPredictor[GeneSymbol]:
                     stacklevel=2,
                 )
         else:
-            raise TypeError(
-                f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}"
-            )
-        if type(row_names) is not list and type(row_names) is not tuple:
-            raise TypeError(f"row_names should have type list[gene_t] or tuple[gene_t], was {type(row_names)}")
-        if type(col_names) is not list and type(col_names) is not tuple:
-            raise TypeError(f"col_names should have type list[gene_t] or tuple[gene_t], was {type(col_names)}")
+            raise TypeError(f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}")
+        if not isinstance(row_names, Sequence):
+            raise TypeError(f"row_names should have type Sequence[gene_t], was {type(row_names)}")
+        if not isinstance(col_names, Sequence):
+            raise TypeError(f"col_names should have type Sequence[gene_t], was {type(col_names)}")
         self.row_names: Sequence[GeneSymbol] = row_names
         self.col_names: Sequence[GeneSymbol] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
@@ -175,12 +173,12 @@ class LigandActivityPredictor[GeneSymbol]:
         return set(self._gene2index.keys())
 
     @overload
-    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray: ...
+    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
     @overload
-    def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray: ...
+    def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray[Any, np.dtype[np.float64]]: ...
 
-    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray:
+    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray[Any, np.dtype[np.float64]]:
         """
         Index the columns of the ligand-target matrix, the key may also be a gene symbol
 
@@ -218,7 +216,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 ) from error
         elif type(index) is not int:
             raise TypeError(f"index should have type int if is_index, was {type(index)}")
-        if index >= self.ligand_target_matrix.shape[1]:
+        if index >= self.ligand_target_matrix.shape[1]:  # type: ignore # index is int at this point
             raise IndexError(
                 f"column index out of bounds, {index} for ligand-target matrix of shape {self.ligand_target_matrix.shape}"
             )

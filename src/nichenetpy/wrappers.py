@@ -401,7 +401,7 @@ def run_nichenet_cluster_de(
     ligands_top_n: int | None = 30,
     targets_top_n: int = 200,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
-    geneset: str = "DE",
+    geneset: Literal["DE"] | Literal["up"] | Literal["down"] = "DE",
 ) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.

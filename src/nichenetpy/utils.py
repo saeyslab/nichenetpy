@@ -46,7 +46,7 @@ def read_matrix_from_csv(
     filename: str,
     extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
     extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
-) -> tuple[np.ndarray, list[str], list[str]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 
@@ -241,10 +241,10 @@ def subset_matrix(
     if the rows of a numpy.ndarray are subsetted, the output is row-major
     if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
     """
-    if rows is not None and type(rows) is not tuple and type(rows) is not list and type(rows) is not np.ndarray:
-        raise TypeError(f"rows should be of type list, tuple or numpy.ndarray, was {type(rows)}")
-    if cols is not None and type(cols) is not tuple and type(cols) is not list and type(rows) is not np.ndarray:
-        raise TypeError(f"cols should be of type list or tuple or numpy.ndarray, was {type(cols)}")
+    if rows is not None and not isinstance(rows, Sequence) and type(rows) is not np.ndarray:
+        raise TypeError(f"rows should be of type Sequence or numpy.ndarray, was {type(rows)}")
+    if cols is not None and not isinstance(cols, Sequence) and type(cols) is not np.ndarray:
+        raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
@@ -290,9 +290,7 @@ def subset_matrix(
         if cols is not None:
             output = hstack([output[:, col] for col in cols], format="csr")  # type: ignore # should be fine given the input to hstack
     else:
-        raise TypeError(
-            f"mat needs to be of type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, not {type(mat)}"
-        )
+        raise TypeError(f"mat needs to be of type nichenet_matrix, not {type(mat)}")
     return output  # type: ignore # should be fine given the input to hstack and vstack
 
 

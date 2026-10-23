@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
@@ -299,7 +298,7 @@ def average_expression(
     if norm_f is not None:
         if not isinstance(norm_f, Callable):  # type: ignore
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
-        data = norm_f(data) # type: ignore # data is type checked
+        data = norm_f(data)  # type: ignore # data is type checked
     if keys is None:
         try:
             keys = set(ann.obs[groupby])

@@ -6,13 +6,13 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import lil_matrix, spmatrix
+from scipy.sparse import lil_matrix
 from scipy.stats import median_abs_deviation
 
 from nichenetpy.typing import nichenet_matrix
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> spmatrix | np.ndarray:
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
 
@@ -34,9 +34,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> spmat
         if the arguments have the wrong type
     """
     if not isinstance(data, nichenet_matrix.__value__):
-        raise TypeError(
-            f"data should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(data)}"
-        )
+        raise TypeError(f"data should have type nichenet_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
@@ -83,10 +81,10 @@ def _scale_quantile_seq(
 
 
 def scale_quantile(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
     cutoff: float = 0.05,
     by_row: bool = False,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
 
@@ -117,12 +115,13 @@ def scale_quantile(
         raise TypeError(f"by_row should have type bool, was {type(by_row)}")
     if isinstance(data, pd.Series):
         data = data.to_numpy()  # type: ignore
-    if type(data) is list or type(data) is tuple:
+    if isinstance(data, Sequence):
         if len(data) > 0:
-            if type(data[0]) is list or type(data[0]) is tuple:
+            if isinstance(data[0], Sequence):
                 if by_row:
                     return np.concatenate(
-                        [_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data], axis=0
+                        [_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data],  # type: ignore # data is type checked
+                        axis=0,
                     )
                 else:
                     return np.concatenate(
@@ -130,7 +129,7 @@ def scale_quantile(
                         axis=1,
                     )
             elif type(data[0]) is float or type(data[0]) is int:
-                return _scale_quantile_seq(data, cutoff=cutoff)
+                return _scale_quantile_seq(data, cutoff=cutoff)  # type: ignore # data is type checked
             else:
                 raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
         else:
@@ -152,7 +151,7 @@ def scale_quantile(
         else:
             raise ValueError(f"data should be 1-dimensional or 2-dimensional, shape was {data.shape}")
     else:
-        raise TypeError(f"data should be of type list, tuple, numpy.ndarray or pandas.Series, was {type(data)}")
+        raise TypeError(f"data should be of type Sequence, numpy.ndarray or pandas.Series, was {type(data)}")
 
 
 def scale_quantile_adapted(
@@ -160,7 +159,7 @@ def scale_quantile_adapted(
     cutoff: float = 0,
     by_row: bool = False,
     pseudo_count: float = 0.001,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
 
@@ -193,19 +192,19 @@ def scale_quantile_adapted(
 
 
 def scaling_zscore(
-    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
-) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+) -> Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values in a vector by the z-score method.
 
     Parameters
     ----------
-    data : list of float or numpy.ndarray or pandas.Series
+    data : Sequence of float or numpy.ndarray or pandas.Series
         the data to normalize
 
     Returns
     -------
-    list of float or numpy.ndarray or pandas.Series
+    Sequence of float or numpy.ndarray or pandas.Series
         the normalized data
 
     Raises
@@ -219,26 +218,26 @@ def scaling_zscore(
         sd = np.std(data)
         avg = np.mean(data)
         return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
-    elif type(data) is np.ndarray or type(data) is pd.Series:
+    elif isinstance(data, (np.ndarray, pd.Series)):
         if len(data) == 1:
             return np.array([0])
         sd = np.std(data)
         avg = np.mean(data)
         return (data - avg) / sd if sd > 0 else data - avg
     else:
-        raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
+        raise TypeError(f"data should have type Sequence[float] or numpy.ndarray or pandas.Series, was {type(data)}")
 
 
 def scaling_modified_zscore(
-    data: list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
     scale_factor: float = 0.6744907594765952,
-) -> list[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
+) -> Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
     """
     Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)
 
     Parameters
     ----------
-    data : list of float or numpy.ndarray or pandas.Series
+    data : Sequence of float or numpy.ndarray or pandas.Series
         the data to normalize
 
     scale_factor : float
@@ -246,7 +245,7 @@ def scaling_modified_zscore(
 
     Returns
     -------
-    list of float or numpy.ndarray or pandas.Series
+    Sequence of float or numpy.ndarray or pandas.Series
         the normalized data
 
     Raises
@@ -254,14 +253,14 @@ def scaling_modified_zscore(
     TypeError
         if the arguments have the wrong type
     """
-    if type(data) is list:
+    if isinstance(data, Sequence):
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return [scale_factor * (x - md) for x in data]
         else:
             mad = median_abs_deviation(data, scale=scale_factor)
             return [scale_factor * (x - md) / mad for x in data]
-    elif type(data) is np.ndarray or type(data) is pd.Series:
+    elif isinstance(data, (np.ndarray, pd.Series)):
         md = np.median(data)
         if median_abs_deviation(data, nan_policy="omit", scale=scale_factor) == 0:
             return scale_factor * (data - md)
@@ -269,4 +268,4 @@ def scaling_modified_zscore(
             mad = median_abs_deviation(data, scale=scale_factor)
             return scale_factor * (data - md) / mad
     else:
-        raise TypeError(f"data should have type list[float] or numpy.ndarray or pandas.Series, was {type(data)}")
+        raise TypeError(f"data should have type Sequence[float] or numpy.ndarray or pandas.Series, was {type(data)}")

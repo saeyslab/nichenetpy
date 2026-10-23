@@ -160,7 +160,7 @@ def construct_ligand_tf_matrix(
     algorithm: str = "PPR",
     damping_factor: float = 0.5,
     column_major=False,
-) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
@@ -414,7 +414,7 @@ def construct_ligand_target_matrix(
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
-) -> tuple[np.ndarray, list[gene_t], list[GeneSymbol]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]]: ...
 
 
 @overload
@@ -430,7 +430,7 @@ def construct_ligand_target_matrix(
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
 ) -> tuple[
-    tuple[np.ndarray, list[gene_t], list[GeneSymbol]],
+    tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
@@ -448,7 +448,7 @@ def construct_ligand_target_matrix(
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
-) -> tuple[np.ndarray, list[GeneSymbol], list[gene_t]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]]: ...
 
 
 @overload
@@ -464,7 +464,7 @@ def construct_ligand_target_matrix(
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
 ) -> tuple[
-    tuple[np.ndarray, list[GeneSymbol], list[gene_t]],
+    tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
@@ -482,9 +482,9 @@ def construct_ligand_target_matrix(  # type: ignore
     remove_direct_links: str = "no",
     return_all_matrices: bool = False,
 ) -> (
-    tuple[np.ndarray, list[gene_t], list[gene_t]]
+    tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]]
     | tuple[
-        tuple[np.ndarray, list[gene_t], list[gene_t]],
+        tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
@@ -588,7 +588,7 @@ def construct_ligand_target_matrix(  # type: ignore
         weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
     )
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target: np.ndarray = ltf_matrix @ grn_matrix
+    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ grn_matrix
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
         ligand2target_secondary = ligand2target @ grn_matrix
@@ -672,7 +672,7 @@ def construct_model_from_source_weights(
     if ligands is None:
         ligands = set(lr_network["from"])
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
-    ligand2target: np.ndarray
+    ligand2target: np.ndarray[Any, np.dtype[np.float64]]
     if weighted_networks["lr_sig"].shape[0] > 0:
         weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
         weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
