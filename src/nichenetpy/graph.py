@@ -1,50 +1,47 @@
 import heapq
 
-from scipy.sparse import csr_matrix
-
 import numpy as np
+from scipy.sparse import csr_array
 
 
-def dijkstra_spl(
-    graph:csr_matrix,
-    src:int
-) -> list[float]:
-    '''
-    Computes the shortest path length from the source vertex to every vertex in the graph using dijkstra's algorithm. 
+def dijkstra_spl(graph: csr_array[np.float64], src: int) -> list[tuple[float, int | None]]:
+    """
+    Computes the shortest path length from the source vertex to every vertex in the graph using dijkstra's algorithm.
 
     Parameters
     ----------
-    graph : scipy.csr_matrix
+    graph : scipy.sparse.csr_array
         the graph
     src : int
         the source vertex
-    
+
     Returns
     -------
     list of tuple[float, int]
         the shortest path length along with the previous node on this path from the source vertex to every vertex in the graph
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if type(graph) is not csr_matrix:
-        raise TypeError(f"graph should have type scipy.csr_matrix, was {type(csr_matrix)}")
+    """
+    if type(graph) is not csr_array:
+        raise TypeError(f"graph should have type scipy.sparse.csr_array, was {type(csr_array)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
-    l = graph.shape[0]
-    spl = [(np.inf, None) for _ in range(l)] # initiate shortest path length
+    l = graph.shape[0]  # type: ignore # shape is not None
+    spl: list[tuple[float, int | None]] = [(np.inf, None) for _ in range(l)]  # initiate shortest path length
     done = set()
-    pq = [(0, src)] # priority queue
+    pq = [(0, src)]  # priority queue
     spl[src] = (0, None)
     while len(pq) > 0:
-        cur = heapq.heappop(pq)[1] # for this node the spl is computed
+        cur = heapq.heappop(pq)[1]  # for this node the spl is computed
         if cur not in done:
             # update all neighbours
             for nb, val in zip(
-                graph.indices[graph.indptr[cur]:graph.indptr[cur+1]],
-                graph.data[graph.indptr[cur]:graph.indptr[cur+1]]
+                graph.indices[graph.indptr[cur] : graph.indptr[cur + 1]],
+                graph.data[graph.indptr[cur] : graph.indptr[cur + 1]],
+                strict=True,
             ):
                 pl = spl[cur][0] + val
                 if pl < spl[nb][0]:
@@ -54,41 +51,41 @@ def dijkstra_spl(
             done.add(cur)
     return spl
 
-def get_reachable_nodes(
-    graph:csr_matrix,
-    src:int
-) -> set[int]:
-    '''
-    Returns all nodes in the graph which are reachable from the specified source node. 
+
+def get_reachable_nodes(graph: csr_array[np.float64], src: int) -> set[int]:
+    """
+    Returns all nodes in the graph which are reachable from the specified source node.
 
     Parameters
     ----------
-    graph : csr_matrix
+    graph : scipy.sparse.csr_array
         the graph (as adjacency matrix)
     src : int
         the source node
-    
+
     Returns
     -------
     set of int
         the set of reachable nodes
-    
+
     Raises
     ------
     TypeError
         if the arguments are not of the correct type
-    '''
-    if type(graph) is not csr_matrix:
-        raise TypeError(f"graph should have type csr_matrix, was {type(graph)}")
+    """
+    if type(graph) is not csr_array:
+        raise TypeError(f"graph should have type scipy.sparse.csr_array, was {type(graph)}")
     if type(src) is not int:
         raise TypeError(f"src should have type int, was {type(src)}")
     output = {src}
     q = [src]
     while len(q) > 0:
         cur = q.pop()
-        nxts = graph.indices[graph.indptr[cur]:graph.indptr[cur+1]]
+        nxts = graph.indices[graph.indptr[cur] : graph.indptr[cur + 1]]
         for nxt in nxts:
-            if nxt not in output: # if nxt is in output it's neighbours have already been visited or nxt is already queued
+            if (
+                nxt not in output
+            ):  # if nxt is in output it's neighbours have already been visited or nxt is already queued
                 q.append(nxt)
                 output.add(nxt)
     return output
