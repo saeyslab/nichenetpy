@@ -383,7 +383,7 @@ def _construct_ligand_signaling_df(
     all_ligands: Collection[GeneSymbol],
     all_targets: Collection[GeneSymbol],
     gr: pd.DataFrame,
-    ltf_matrix: csr_matrix,
+    ltf_matrix: csr_matrix[np.float64],
     k: int,
 ) -> pd.DataFrame:
     pd.options.mode.chained_assignment = None  # false positive warnings removal
@@ -409,7 +409,10 @@ def _construct_ligand_signaling_df(
 
 
 def _get_shortest_path_signaling(
-    ligand_oi: GeneSymbol, signaling_df: pd.DataFrame, lr_sig_mat: csr_matrix, gene2id: dict[GeneSymbol, int]
+    ligand_oi: GeneSymbol,
+    signaling_df: pd.DataFrame,
+    lr_sig_mat: csr_matrix[np.float64],
+    gene2id: dict[GeneSymbol, int],
 ):
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
@@ -437,7 +440,7 @@ def _minmax_scaling(df: pd.DataFrame):
 
 
 def get_ligand_signaling_path(
-    ltf_matrix: csr_matrix,
+    ltf_matrix: csr_matrix[np.float64],
     ligands_oi: Collection[str],
     targets_oi: Collection[str],
     all_ligands: Collection[str],

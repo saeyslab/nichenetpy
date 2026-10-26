@@ -197,10 +197,10 @@ def subset_matrix(
 
 @overload
 def subset_matrix(
-    mat: csr_matrix | csc_matrix,
+    mat: csr_matrix[np.float64] | csc_matrix[np.float64],
     rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
     cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-) -> csr_matrix | csc_matrix: ...
+) -> csr_matrix[np.float64] | csc_matrix[np.float64]: ...
 
 @overload
 def subset_matrix(

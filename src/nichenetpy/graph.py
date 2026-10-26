@@ -4,7 +4,7 @@ import numpy as np
 from scipy.sparse import csr_array
 
 
-def dijkstra_spl(graph: csr_array, src: int) -> list[tuple[float, int | None]]:
+def dijkstra_spl(graph: csr_array[np.float64], src: int) -> list[tuple[float, int | None]]:
     """
     Computes the shortest path length from the source vertex to every vertex in the graph using dijkstra's algorithm.
 
@@ -52,7 +52,7 @@ def dijkstra_spl(graph: csr_array, src: int) -> list[tuple[float, int | None]]:
     return spl
 
 
-def get_reachable_nodes(graph: csr_array, src: int) -> set[int]:
+def get_reachable_nodes(graph: csr_array[np.float64], src: int) -> set[int]:
     """
     Returns all nodes in the graph which are reachable from the specified source node.
 

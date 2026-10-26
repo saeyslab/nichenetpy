@@ -149,8 +149,8 @@ nitpick_ignore = [
     ("py:class", "any"),
     ("py:class", "string"),
     # numpy
-    ('py:class', "numpy.float64"),
-    ('py:class', "numpy.bool"),
+    ("py:class", "numpy.float64"),
+    ("py:class", "numpy.bool"),
     # autodoc type alias bug
     ("py:class", "gene_t"),
     ("py:type", "gene_t"),
@@ -168,5 +168,5 @@ autodoc_type_aliases = {
     "numpy.float64": "float",
     "np.float64": "float",
     "numpy.bool": "bool",
-    "np.bool": "bool"
+    "np.bool": "bool",
 }
