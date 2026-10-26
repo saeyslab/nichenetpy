@@ -140,7 +140,9 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
     return (mat, row_names, col_names)  # type: ignore
 
 
-def write_sparse_matrix(filename: str, mat: csc_matrix | csr_matrix, row_names: str, col_names: str):
+def write_sparse_matrix(
+    filename: str, mat: csc_matrix[np.float64] | csr_matrix[np.float64], row_names: str, col_names: str
+):
     """
     Writes a sparse matrix to a file.
 
@@ -190,7 +192,7 @@ def _read_sparse_matrix(filename):
     return (data, indices, indptr, row_names, col_names)
 
 
-def read_csc_matrix(filename: str) -> tuple[csc_matrix, list[str], list[str]]:
+def read_csc_matrix(filename: str) -> tuple[csc_matrix[np.float64], list[str], list[str]]:
     """
     Reads a csc_matrix from a file.
 
@@ -220,7 +222,7 @@ def read_csc_matrix(filename: str) -> tuple[csc_matrix, list[str], list[str]]:
     return (mat, row_names, col_names)
 
 
-def read_csr_matrix(filename: str) -> tuple[csr_matrix, list[str], list[str]]:
+def read_csr_matrix(filename: str) -> tuple[csr_matrix[np.float64], list[str], list[str]]:
     """
     Reads a csr_matrix from a file.
 

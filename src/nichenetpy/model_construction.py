@@ -325,18 +325,18 @@ def construct_ligand_tf_matrix(
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[False] = False
-) -> tuple[csr_matrix, list[gene_t], list[gene_t]]: ...
+) -> tuple[csr_matrix[np.float64], list[gene_t], list[gene_t]]: ...
 
 
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[True] = True
-) -> tuple[csc_matrix, list[gene_t], list[gene_t]]: ...
+) -> tuple[csc_matrix[np.float64], list[gene_t], list[gene_t]]: ...
 
 
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
-) -> tuple[csr_matrix | csc_matrix, list[gene_t], list[gene_t]]:
+) -> tuple[csr_matrix[np.float64] | csc_matrix[np.float64], list[gene_t], list[gene_t]]:
     """
     Convert integrated gene regulatory weighted network into matrix format.
 
@@ -587,10 +587,10 @@ def construct_ligand_target_matrix(  # type: ignore
         weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
     )
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix * grn_matrix
+    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix * grn_matrix  # type: ignore # returns ndarray
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary = ligand2target * grn_matrix
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target * grn_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = (ligand2target**-1 + ligand2target_secondary**-1) ** -1
