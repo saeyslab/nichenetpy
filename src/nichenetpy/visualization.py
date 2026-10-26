@@ -79,12 +79,12 @@ def reorder_labels(
     if nrows > 1 and ncols > 1:
         corr = np.corrcoef(mat, rowvar=False)
         corr = 1 - corr
-        dist = sc.spatial.distance_matrix(corr, corr)
+        dist = sc.spatial.distance.cdist(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_cols = sc.cluster.hierarchy.leaves_list(clust)
         corr = np.corrcoef(mat, rowvar=True)
         corr = 1 - corr
-        dist = sc.spatial.distance_matrix(corr, corr)
+        dist = sc.spatial.distance.cdist(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_rows = sc.cluster.hierarchy.leaves_list(clust)
         mat = subset_matrix(mat, order_rows, order_cols)  # type: ignore # behaves as expected
