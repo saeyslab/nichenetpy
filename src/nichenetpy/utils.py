@@ -7,7 +7,7 @@ from typing import Any, overload
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csr_matrix, csr_array, csc_array, hstack, vstack
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix, hstack, vstack
 
 from nichenetpy.typing import gene_t, nichenet_matrix
 
@@ -202,12 +202,14 @@ def subset_matrix(
     cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> csr_matrix[np.float64] | csc_matrix[np.float64]: ...
 
+
 @overload
 def subset_matrix(
     mat: csr_array | csc_array,
     rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
     cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
 ) -> csr_array | csc_array: ...
+
 
 def subset_matrix(
     mat: nichenet_matrix,
@@ -269,12 +271,12 @@ def subset_matrix(
         if rows is not None:
             output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csc_array):
-            if cols is None:  # rows is not None
-                output = csr_array(mat)
-            else:
-                output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
-            if rows is not None:
-                output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
+        if cols is None:  # rows is not None
+            output = csr_array(mat)
+        else:
+            output = hstack([mat[:, col] for col in cols], format="csc" if rows is None else "csr")
+        if rows is not None:
+            output = vstack([output[row, :] for row in rows], format="csc")  # type: ignore # should be fine given the input to vstack
     elif isinstance(mat, csr_matrix):
         if rows is None:  # cols is not None
             output = csc_matrix(mat)

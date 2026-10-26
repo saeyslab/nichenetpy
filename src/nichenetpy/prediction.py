@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix, csr_array, csc_array, coo_array
+from scipy.sparse import coo_array, csc_array, csc_matrix, csr_array, csr_matrix
 from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
@@ -495,11 +495,7 @@ class LigandActivityPredictor[GeneSymbol]:
         else:
             top_n_score = min(sorted(slc, reverse=True)[:n])
         targets = sorted(
-            {
-                e[0]
-                for e in zip(self.row_names, slc, strict=True)
-                if e[1] >= top_n_score
-            }.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
         )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
@@ -661,7 +657,7 @@ def assess_rf_class_probabilities(
         # random forest trained on some genes
         # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
         rf = RandomForestClassifier(n_estimators=ntrees)
-        rf.fit(X=pred_mat, y=res) # type: ignore # TODO: test this
+        rf.fit(X=pred_mat, y=res)  # type: ignore # TODO: test this
         row_names, res = zip(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_test),
@@ -675,7 +671,7 @@ def assess_rf_class_probabilities(
             cols=[predictor.ligand2index(ligand) for ligand in ligands_oi],
         )
         # prediction for the remaining genes
-        pred = rf.apply(pred_mat) # type: ignore # TODO: test this
+        pred = rf.apply(pred_mat)  # type: ignore # TODO: test this
         # the amount of trees that predict that the gene is differentially expressed (for each gene)
         score = [
             sum(

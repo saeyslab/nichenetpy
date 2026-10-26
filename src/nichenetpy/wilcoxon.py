@@ -8,7 +8,7 @@ from typing import Literal, overload
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csc_array
+from scipy.sparse import csc_array, csc_matrix
 from scipy.stats import t
 
 from nichenetpy.typing import GeneSymbol, nichenet_matrix

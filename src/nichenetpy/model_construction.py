@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import csc_array, csr_array
 from sknetwork.ranking import PageRank
-from scipy.sparse.linalg import matrix_power
 
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
