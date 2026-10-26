@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 from scipy.stats import pearsonr
 from sklearn.metrics import precision_recall_curve, roc_curve
 
@@ -264,8 +264,8 @@ def log_fold_change(
 
 
 def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
-    if type(mat) is csc_matrix or type(mat) is csr_matrix:
-        nrows, ncols = mat.get_shape()
+    if isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array)):
+        nrows, ncols = mat.shape
         if direction == "positive":
             # set all positive elements to 1
             for i in range(len(mat.data)):
@@ -300,9 +300,7 @@ def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
                         mat[i, j] = 1
         return mat.sum(axis=0) / nrows
     else:
-        raise TypeError(
-            f"mat should be of type np.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat)}"
-        )
+        raise TypeError(f"mat should be of nichenet_matrix, was {type(mat)}")
 
 
 def gene_expression_pct(mat: nichenet_matrix) -> list[float]:

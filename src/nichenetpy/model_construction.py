@@ -5,7 +5,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csc_array, csr_array
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
@@ -245,7 +245,7 @@ def construct_ligand_tf_matrix(
     ]
     if algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_matrix(
+        lr_sig_mat = csr_array(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
             shape=(len(gene2id), len(gene2id)),
         )
@@ -266,7 +266,7 @@ def construct_ligand_tf_matrix(
             complete_matrix.append(ppr_matrix.mean(axis=0))
     elif algorithm == "SPL":
         # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_matrix(
+        lr_sig_mat = csr_array(
             (
                 [1 / e for e in lr_sig["weight"]],
                 (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x])),
@@ -302,7 +302,7 @@ def construct_ligand_tf_matrix(
         all_ligands_lst = list(all_ligands)
         lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
         lr_sig = pd.concat((lr_sig, lig_lig))
-        lr_sig_mat = csr_matrix(
+        lr_sig_mat = csr_array(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
             shape=(len(gene2id), len(gene2id)),
         )
@@ -325,18 +325,18 @@ def construct_ligand_tf_matrix(
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[False] = False
-) -> tuple[csr_matrix[np.float64], list[gene_t], list[gene_t]]: ...
+) -> tuple[csr_array[np.float64], list[gene_t], list[gene_t]]: ...
 
 
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[True] = True
-) -> tuple[csc_matrix[np.float64], list[gene_t], list[gene_t]]: ...
+) -> tuple[csc_array[np.float64], list[gene_t], list[gene_t]]: ...
 
 
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
-) -> tuple[csr_matrix[np.float64] | csc_matrix[np.float64], list[gene_t], list[gene_t]]:
+) -> tuple[csr_array[np.float64] | csc_array[np.float64], list[gene_t], list[gene_t]]:
     """
     Convert integrated gene regulatory weighted network into matrix format.
 
@@ -353,7 +353,7 @@ def construct_tf_target_matrix(
 
     Returns
     -------
-    numpy.ndarray
+    csr_array or csc_array
         a matrix containing tf-target regulatory weights
     list of gene_t
         the names of the rows of the matrix
@@ -378,7 +378,7 @@ def construct_tf_target_matrix(
     )
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     fr = gr["from"].apply(lambda x: gene2id[x])
-    grn_matrix = (csc_matrix if column_major else csr_matrix)(
+    grn_matrix = (csc_array if column_major else csr_array)(
         (gr["weight"], (fr, gr["to"].apply(lambda x: gene2id[x]))), shape=(len(gene2id), len(gene2id))
     )
     row_names = all_genes
@@ -587,13 +587,13 @@ def construct_ligand_target_matrix(  # type: ignore
         weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
     )
     grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix * grn_matrix  # type: ignore # returns ndarray
+    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ grn_matrix  # type: ignore # returns ndarray
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target * grn_matrix  # type: ignore # returns ndarray
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ grn_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
-        ligand2target = (ligand2target**-1 + ligand2target_secondary**-1) ** -1
+        ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1
     if return_all_matrices:
         if ligands_as_cols:
             return (

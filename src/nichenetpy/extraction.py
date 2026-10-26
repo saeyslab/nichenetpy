@@ -293,7 +293,7 @@ def average_expression(
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     data = ann.layers[layer]
-    if not isinstance(data, (nichenet_matrix.__value__)):
+    if not isinstance(data, nichenet_matrix.__value__):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(data)}")
     if norm_f is not None:
         if not isinstance(norm_f, Callable):  # type: ignore

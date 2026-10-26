@@ -30,7 +30,7 @@ from matplotlib.spines import Spine
 from matplotlib.text import Text
 from matplotlib.transforms import Affine2D
 from matplotlib.typing import ColorType
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array, csr_matrix
 
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
@@ -79,12 +79,12 @@ def reorder_labels(
     if nrows > 1 and ncols > 1:
         corr = np.corrcoef(mat, rowvar=False)
         corr = 1 - corr
-        dist = sc.spatial.distance_matrix(corr, corr)
+        dist = sc.spatial.distance.cdist(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_cols = sc.cluster.hierarchy.leaves_list(clust)
         corr = np.corrcoef(mat, rowvar=True)
         corr = 1 - corr
-        dist = sc.spatial.distance_matrix(corr, corr)
+        dist = sc.spatial.distance.cdist(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_rows = sc.cluster.hierarchy.leaves_list(clust)
         mat = subset_matrix(mat, order_rows, order_cols)  # type: ignore # behaves as expected
@@ -411,7 +411,7 @@ def _construct_ligand_signaling_df(
 def _get_shortest_path_signaling(
     ligand_oi: GeneSymbol,
     signaling_df: pd.DataFrame,
-    lr_sig_mat: csr_matrix[np.float64],
+    lr_sig_mat: csr_array[np.float64],
     gene2id: dict[GeneSymbol, int],
 ):
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
@@ -510,7 +510,7 @@ def get_ligand_signaling_path(
     )
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
-    lr_sig_mat = csr_matrix(
+    lr_sig_mat = csr_array(
         ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]]))
     )
     # get nodes on shortest path from ligand to each target

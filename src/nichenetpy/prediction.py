@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import coo_array, csc_array, csc_matrix, csr_array, csr_matrix
 from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
@@ -59,21 +59,21 @@ class LigandActivityPredictor[GeneSymbol]:
         row_names: Sequence[GeneSymbol],
         col_names: Sequence[GeneSymbol],
     ) -> None:
-        self.ligand_target_matrix = ligand_target_matrix
-        if isinstance(self.ligand_target_matrix, csr_matrix):
+        self.ligand_target_matrix: nichenet_matrix = ligand_target_matrix
+        if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
             warnings.warn(
-                "a scipy.sparse.csr_matrix was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
+                f"a {type(self.ligand_target_matrix)} was passed, this will result in extremely slow column indexing and is therefore not supported, the matrix is automatically converted to column-major format",
                 stacklevel=2,
             )
             if self.matrix_density() > 0.5:
                 self.ligand_target_matrix = self.ligand_target_matrix.toarray(order="F")
             else:
                 self.ligand_target_matrix = csc_matrix(self.ligand_target_matrix)
-        elif isinstance(self.ligand_target_matrix, csc_matrix):
+        elif isinstance(self.ligand_target_matrix, (csc_matrix, csc_array)):
             density = self.matrix_density()
             if density > 0.5:
                 warnings.warn(
-                    f"a scipy.sparsecsc_matrix was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
+                    f"a {type(self.ligand_target_matrix)} was passed with a density of {density}, the reduction in memory consumption may not be worth the increased time to index columns, consider using a column-major numpy.ndarray in stead",
                     stacklevel=2,
                 )
         elif isinstance(self.ligand_target_matrix, np.ndarray):
@@ -107,7 +107,11 @@ class LigandActivityPredictor[GeneSymbol]:
         return (
             np.count_nonzero(self.ligand_target_matrix)
             if isinstance(self.ligand_target_matrix, np.ndarray)
-            else self.ligand_target_matrix.getnnz()
+            else (
+                self.ligand_target_matrix.getnnz()
+                if isinstance(self.ligand_target_matrix, (csr_matrix, csc_matrix))
+                else self.ligand_target_matrix.nnz
+            )
         ) / (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
 
     def ligand2index(self, ligand: GeneSymbol):
@@ -218,7 +222,7 @@ class LigandActivityPredictor[GeneSymbol]:
             )
         if isinstance(self.ligand_target_matrix, np.ndarray):
             return self.ligand_target_matrix[:, index]  # type: ignore
-        else:  # csc_matrix
+        else:  # csc_matrix or csc_array
             indices_non_zero = self.ligand_target_matrix.indices[
                 self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[  # type: ignore
                     index + 1  # type: ignore
@@ -483,16 +487,15 @@ class LigandActivityPredictor[GeneSymbol]:
             raise TypeError(f"n should have type int, was {type(n)}")
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
+        slc = self.ligand_target_matrix[:, self.ligand2index(ligand)]
+        if isinstance(slc, coo_array):
+            slc = csc_array(slc)
         if n < self.ligand_target_matrix.shape[1]:
-            top_n_score = sorted(self.ligand_target_matrix[:, self.ligand2index(ligand)], reverse=True)[n - 1]
+            top_n_score = sorted(slc, reverse=True)[n - 1]
         else:
-            top_n_score = min(sorted(self.ligand_target_matrix[:, self.ligand2index(ligand)], reverse=True)[:n])
+            top_n_score = min(sorted(slc, reverse=True)[:n])
         targets = sorted(
-            {
-                e[0]
-                for e in zip(self.row_names, self.ligand_target_matrix[:, self.ligand2index(ligand)], strict=True)
-                if e[1] >= top_n_score
-            }.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
         )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
@@ -654,7 +657,7 @@ def assess_rf_class_probabilities(
         # random forest trained on some genes
         # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
         rf = RandomForestClassifier(n_estimators=ntrees)
-        rf.fit(X=pred_mat, y=res)
+        rf.fit(X=pred_mat, y=res)  # type: ignore # TODO: test this
         row_names, res = zip(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_test),
@@ -668,7 +671,7 @@ def assess_rf_class_probabilities(
             cols=[predictor.ligand2index(ligand) for ligand in ligands_oi],
         )
         # prediction for the remaining genes
-        pred = rf.apply(pred_mat)
+        pred = rf.apply(pred_mat)  # type: ignore # TODO: test this
         # the amount of trees that predict that the gene is differentially expressed (for each gene)
         score = [
             sum(
