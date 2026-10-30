@@ -1,24 +1,22 @@
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.metrics import calculate_evaluation_metrics
+from nichenetpy.metrics import calculate_evaluation_metrics, calculate_prediction_evaluation_metrics
 from nichenetpy.utils import is_ligand_active
-from nichenetpy.typing import gene_t
+from nichenetpy.typing import gene_t, target_eval_metric_t, ligand_eval_metric_t
 
-from collections.abc import (
-    Iterable,
-    ItemsView
-)
+from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import (
     repeat,
     chain
 )
 from re import search
 from warnings import warn
+from typing import Any, Literal, overload
 
 import pandas as pd
 
 
-class EvaluationData:
-    '''
+class EvaluationData[GeneSymbol]:
+    """
     Data which can be used for model evaluation. Each item needs to contain
 
         * a ligand
@@ -28,7 +26,7 @@ class EvaluationData:
     Parameters
     ----------
     obj : dict or Iterable of dict or pandas.DataFrame
-        Iterable of a ligand with it's corresponding genes and optionally a name/key for the data element. 
+        Iterable of a ligand with it's corresponding genes and optionally a name/key for the data element.
         Needs to contain at least a mapping for `key_name`, `ligand_name` and `de_genes_name`
     key_name : string
         the name of the key field in the data elements
@@ -43,7 +41,7 @@ class EvaluationData:
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    
+
     Attributes
     ----------
     _data : dict
@@ -54,15 +52,16 @@ class EvaluationData:
         the name of the ligand in the data elements
     _de_genes_name : string
         the name of the target genes in the data elements
-    '''
+    """
+
     def __init__(
         self,
-        obj:dict[str, dict]|Iterable[dict]|ItemsView|pd.DataFrame|None=None,
-        key_name:str="name",
-        ligand_name:str="from",
-        de_genes_name:str="response"
+        obj: dict[str, dict[str, Any]] | Iterable[dict[str, dict[str, Any]]] | ItemsView | pd.DataFrame | None = None,
+        key_name: str = "name",
+        ligand_name: str = "from",
+        de_genes_name: str = "response",
     ):
-        self._data = dict()
+        self._data: dict[str, dict[str, Any]] = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
@@ -71,21 +70,28 @@ class EvaluationData:
                 for key, val in obj.items():
                     self[key] = val
             elif type(obj) is pd.DataFrame:
-                for key, val in zip(obj[key_name], (dict(zip(obj.columns, row)) for row in zip(*(obj[col] for col in obj.columns)))):
+                for key, val in zip(
+                    obj[key_name],
+                    (
+                        dict(zip(obj.columns, row, strict=True))
+                        for row in zip(*(obj[col] for col in obj.columns), strict=True)
+                    ),
+                    strict=True,
+                ):
                     self[key] = val
             elif isinstance(obj, ItemsView):
                 for key, val in obj:
                     self[key] = val
             elif isinstance(obj, Iterable):
                 for item in obj:
-                    self.add(item)
+                    self.add(item)  # type: ignore # obj has type Iterable[dict[str, dict]] due to above conditions
             else:
                 raise TypeError(f"obj should have type dict, pandas.DataFrame, ItemsView or Iterable, was {type(obj)}")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> dict[str, Any]:
         return self._data[key]
-    
-    def __setitem__(self, key:str, val:dict):
+
+    def __setitem__(self, key: str, val: dict[str, Any]):
         if type(key) is not str:
             raise TypeError(f"key should have type str, was {type(key)}")
         if type(val) is not dict:
@@ -101,8 +107,8 @@ class EvaluationData:
         val[self._key_name] = key
         self._data[key] = val
 
-    def add(self, item:dict):
-        '''
+    def add(self, item: dict[str, Any]):
+        """
         Add a dictionary which maps the following keys
 
             * `key_name` -> the name of the data element
@@ -115,14 +121,14 @@ class EvaluationData:
         ----------
         item : dict
             the data element to add
-        
+
         Raises
         ------
         TypeError
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
-        '''
+        """
         if type(item) is not dict:
             raise TypeError(f"item should have type dict, was {type(item)}")
         if self._key_name not in item:
@@ -131,16 +137,16 @@ class EvaluationData:
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if not isinstance(item[self._ligand_name], gene_t) and type(item[self._ligand_name]) is not list:
+        if not isinstance(item[self._ligand_name], gene_t.__value__) and type(item[self._ligand_name]) is not list:
             raise ValueError(f"'{self._ligand_name}' does not map to a gene symbol or list")
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         self._data[item[self._key_name]] = item
-    
-    def add_all(self, items:Iterable[dict]):
-        '''
+
+    def add_all(self, items: Iterable[dict[str, Any]]):
+        """
         Adds dictionaries which map the following keys
 
             * `key_name` -> the name of the data element
@@ -153,65 +159,68 @@ class EvaluationData:
         ----------
         item : Iterable of dict
             the data elements to add
-        
+
         Raises
         ------
         TypeError
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
-        '''
+        """
         for item in items:
             self.add(item)
-    
-    def __contains__(self, key):
+
+    def __contains__(self, key: str) -> bool:
         return key in self._data
-    
-    def __iter__(self):
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
         return iter(self._data.values())
-    
-    def __len__(self):
+
+    def __len__(self) -> int:
         return len(self._data)
-    
+
     def keys(self):
-        '''
-        returns the keys of the data elements
-        
+        """
+        Returns the keys of the data elements
+
         Returns
         -------
         Iterable
             the keys of the data elements
-        '''
+        """
         return self._data.keys()
-    
+
     def values(self):
-        '''
-        returns the data elements
-        
+        """
+        Returns the data elements
+
         Returns
         -------
         Iterable
             the data elements
-        '''
+        """
         return self._data.values()
-    
+
     def items(self):
-        '''
-        returns the data elements along with the corresponding keys
-        
+        """
+        Returns the data elements along with the corresponding keys
+
         Returns
         -------
         Iterable of tuple
             (key, value) tuples where the values are the data elements
-        '''
+        """
         return self._data.items()
-    
-    def get_ligands(
-        self,
-        combination:bool=True
-    ):
-        '''
-        Extract all ligands from the evaluation data. 
+
+    @overload
+    def get_ligands(self, combination: Literal[True] = True) -> set[GeneSymbol | Sequence[GeneSymbol]]: ...
+
+    @overload
+    def get_ligands(self, combination: Literal[False] = False) -> set[GeneSymbol]: ...
+
+    def get_ligands(self, combination: bool = True) -> set[GeneSymbol] | set[GeneSymbol | Sequence[GeneSymbol]]:
+        """
+        Extract all ligands from the evaluation data.
 
         Parameters
         ----------
@@ -222,51 +231,44 @@ class EvaluationData:
         -------
         set
             a set which contains all ligands present in the evaluation data
-        
+
         Raises
         ------
         TypeError
             if the arguments have the wrong type
-        '''
+        """
         if type(combination) is not bool:
             raise TypeError(f"combination should have type bool, was {type(combination)}")
         output = set()
         for setting in self.values():
-            if isinstance(setting["from"], gene_t):
+            if isinstance(setting["from"], gene_t.__value__):
                 output.add(setting["from"])
             else:
                 if combination:
                     output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        return output
-    
+        return output  # type: ignore
+
     def to_dataframe(self) -> pd.DataFrame:
-        '''
+        """
         Convert the evaluation data to a pandas.DataFrame
 
         Returns
         -------
         pandas.DataFrame
             the evaluation data as a dataframe
-        '''
+        """
         keys = set(next(iter(self._data.values())).keys())
-        columns_dct = {
-            k: []
-            for k in keys
-        }
+        columns_dct = {k: [] for k in keys}
         for v in self._data.values():
             for k in keys:
                 columns_dct[k].append(v[k])
         return pd.DataFrame(columns_dct)
-    
-    def get_applicable_evaluation_datasets(
-        self,
-        predictor:LigandActivityPredictor,
-        combination:bool=True
-    ):
-        '''
-        get the subset of applicable evaluation data
+
+    def get_applicable_evaluation_datasets(self, predictor: LigandActivityPredictor, combination: bool = True):
+        """
+        Get the subset of applicable evaluation data
         (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
 
         Parameters
@@ -277,12 +279,12 @@ class EvaluationData:
             whether or not to allow combinations of ligands
 
         Yields
-        -------
+        ------
         str
             the key of the dataset
         dict
             the applicable dataset
-        '''
+        """
         if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
         ligands = predictor.get_ligands()
@@ -305,11 +307,11 @@ class EvaluationData:
 
 def get_single_ligand_importances(
     predictor:LigandActivityPredictor,
-    evaluation_data:Iterable[dict],
+    evaluation_data:Iterable[dict[str, Any]],
     all_ligands:Iterable[gene_t],
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
+    target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson")
 ) -> pd.DataFrame:
-    '''
+    """
     Get ligand importance measures for ligands based on how well a single, individual, ligand can predict
     an observed response. Assess how well every ligand of interest is able to predict the observed transcriptional
     response in a particular dataset, according to the ligand-target model. It can be assumed that the ligand
@@ -320,14 +322,14 @@ def get_single_ligand_importances(
     predictor : LigandActivityPredictor
         the ligand activity predictor
     evaluation_data : dict
-        An Iterable of dictionaries that have the following keys: 
-        
+        An Iterable of dictionaries that have the following keys:
+
             name: the name of the setting
 
             ligand: the name of the ligand which is known to be active in the setting of interest
-        
+
             from:  the name of the ligand of which the predictive performance need to be assessed
-        
+
             response:   the observed target response, indicates for a gene whether it was a target
                         or not in the setting of interest
     all_ligands : Iterable of gene_t
@@ -342,24 +344,24 @@ def get_single_ligand_importances(
         how well the query ligand predicts the response in the particular dataset. Evaluation metrics are
         the same as in evaluate_target_prediction. In addition to the metrics, the name of the particular setting,
         the name of the query ligand (test_ligand), the name of the true active ligand (if known: ligand).
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
-    '''
+    """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix
         - this vector can be used to create a simple target predictor by choosing a threshold to compare the vector components with
         if a component is larger than this threshold the associated gene is predicted to be differentially expressed
         - a few threshold are chosen and for each target gene predictor the precision and recall are computed
         - the area under the precision recall curve is computed
-    '''
+    """
     ligand_importances = pd.DataFrame(
         dict(zip(
             target_evaluation_metrics,
@@ -369,22 +371,24 @@ def get_single_ligand_importances(
                     key=lambda x : x[0]
                 )))[1]
                 for setting in evaluation_data for ligand in all_ligands
-            ))
-        ))
+            ), strict=True)
+        ), strict=True)
     )
-    ligand_importances["setting"], ligand_importances["test_ligand"], ligand_importances["true_ligand"] = (
-        zip(*((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands))
+    ligand_importances["setting"], ligand_importances["test_ligand"], ligand_importances["true_ligand"] = zip(
+        *((setting["name"], ligand, setting["from"]) for setting in evaluation_data for ligand in all_ligands),
+        strict=True,
     )
     return ligand_importances
+
 
 def evaluate_single_importances_ligand_prediction(
     importances:pd.DataFrame,
     group:str,
     allow_nan:bool=False,
-    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
+    ligand_evaluation_metrics:Iterable[ligand_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson")
 ) -> pd.DataFrame:
-    '''
+    """
     Evaluate how well a single ligand importance metric is able to predict the true activity state of a ligand.
     For this it is assumed, that ligand importance measures for truely active ligands will be higher than for
     non-active ligands. Several classification evaluation metrics for the prediction are calculated and variable
@@ -403,25 +407,25 @@ def evaluate_single_importances_ligand_prediction(
     ligand_evaluation_metrics : Iterable of string
         the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson")
 
     Returns
     -------
     pandas.DataFrame
         A data frame containing classification evaluation metrics for the ligand activity state prediction.
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(importances) is not pd.DataFrame:
         raise TypeError(f"importances should have type pandas.DataFrame, was {type(importances)}")
     if type(group) is not str:
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     added = is_ligand_active(importances)
-    '''
+    """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix
         - this vector can be used to create a simple target predictor by choosing a threshold to compare the vector components with
@@ -430,25 +434,33 @@ def evaluate_single_importances_ligand_prediction(
         - the area under the precision recall curve is computed
     ligand prediction score:
         The same principle is applied here but in stead of a column from the ligand-target matrix you use the vector of AUPRs of the ligands
-    '''
+    """
     output = pd.DataFrame(
-        dict(zip(
-            ligand_evaluation_metrics,
-            zip(*(
-                list(zip(*sorted(
-                    calculate_evaluation_metrics(
-                        list(importances[metric]),
-                        added,
-                        metrics=ligand_evaluation_metrics,
-                        allow_nan=allow_nan
-                    ).items(),
-                    key=lambda x : x[0]
-                )))[1]
-                for metric in target_evaluation_metrics
-            ))
-        ))
+        dict(
+            zip(
+                ligand_evaluation_metrics,
+                zip(
+                    *(
+                        list(
+                            zip(
+                                *sorted(
+                                    calculate_evaluation_metrics(
+                                        list(importances[metric]), added, metrics=ligand_evaluation_metrics, allow_nan=allow_nan
+                                    ).items(),
+                                    key=lambda x: x[0],
+                                ),
+                                strict=True,
+                            )
+                        )[1]
+                        for metric in target_evaluation_metrics
+                    ),
+                    strict=True,
+                ),
+                strict=True,
+            )
+        )
     )
     output["group"] = group
     output["ligand"] = importances["true_ligand"].iloc[1]
-    output["metric"] = target_evaluation_metrics
+    output["metric"] = target_evaluation_metrics # type: ignore # behaves as expected
     return output.reindex(list(chain(["metric", "group", "ligand"], ligand_evaluation_metrics)), axis=1)

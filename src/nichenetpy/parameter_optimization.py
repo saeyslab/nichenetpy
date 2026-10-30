@@ -1,27 +1,40 @@
-from nichenetpy.model_construction import (
-    construct_model_from_source_weights
+from nichenetpy.typing import (
+    gene_t,
+    ObjectiveFunction,
+    MetricScoreFunction,
+    eval_metric_t,
+    ligand_eval_metric_t,
+    target_eval_metric_t
 )
-from nichenetpy.evaluation import (
-    EvaluationData,
-    evaluate_single_importances_ligand_prediction
-)
-from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t
 
-from collections.abc import (
-    Iterable,
-    Callable
-)
 from traceback import format_exc
 from itertools import chain
 
 import pandas as pd
 import numpy as np
 import warnings
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, Literal
+import numpy as np
+import pandas as pd
+
+from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_ligand_prediction
+from nichenetpy.model_construction import construct_model_from_source_weights
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import GeneSymbol, gene_t
 
 
 # Can only add docstrings to single line variable declarations (note: *.__doc__ is read-only)
-objective_fs_dct = None
+objective_fs_dct: dict[
+    str,
+    dict[
+        Literal["target_prediction"]|Literal["ligand_prediction"],
+        dict[
+            eval_metric_t,
+            ObjectiveFunction
+        ]
+    ]
+] = None # type: ignore # will be overwritten
 """
 sets of objective functions for the source weight optimization
 
@@ -32,7 +45,8 @@ NNv2
 map&ndcg
     Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
 """
-metric_score_f_dct = None
+
+metric_score_f_dct: dict[str, MetricScoreFunction] = None # type: ignore # will be overwritten
 """
 the function that computes the metric score (which decides the best metric to rank the ligands with)
 
@@ -74,28 +88,27 @@ metric_score_f_dct = {
 }
 
 def _average_performances(
-    ligand_oi,
-    performances,
-    metrics=("auroc", "aupr_corrected")
-):
+    ligand_oi: gene_t | Sequence[gene_t],
+    performances: pd.DataFrame,
+    metrics: Iterable[eval_metric_t]=("auroc", "aupr_corrected")
+) -> Iterable[float]:
     # true ligand must match with ligand(s) of interest
-    performances_oi = performances[[
-        any(
-            ligand in true_ligand if type(true_ligand) is list else ligand == true_ligand
-            for ligand in (
-                (ligand_oi,) if isinstance(ligand_oi, gene_t) else ligand_oi
+    performances_oi = performances[
+        [
+            any(
+                ligand in true_ligand if isinstance(true_ligand, Sequence) else ligand == true_ligand
+                for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t.__value__) else ligand_oi)  # type: ignore # is correct due to conditional
             )
-        )
         for true_ligand in performances["ligand"]
     ]]
     return tuple((performances_oi[metric].median() for metric in metrics))
 
 def _evaluate_single_importances_ligand_prediction(
-    ligand_importances,
-    group,
-    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
-):
+    ligand_importances: pd.DataFrame,
+    group: str,
+    ligand_evaluation_metrics:Iterable[ligand_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson")
+) -> pd.DataFrame | None:
     try:
         return evaluate_single_importances_ligand_prediction(
             ligand_importances,
@@ -105,16 +118,17 @@ def _evaluate_single_importances_ligand_prediction(
             target_evaluation_metrics=target_evaluation_metrics
         )
     except Exception as ex:
-        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}")
+        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}", stacklevel=2)
         return None
+
 
 def evaluate_model(
     predictor:LigandActivityPredictor,
     evaluation_data:EvaluationData,
-    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson")
-):
-    '''
+    ligand_evaluation_metrics:Iterable[ligand_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson")
+) -> dict[str, pd.DataFrame | None]:
+    """
     Evaluate the ligand-target matrix. 
 
     Parameters
@@ -137,13 +151,13 @@ def evaluate_model(
     ------
     TypeError
         if the arguments have the wrong type
-    
+
     Notes
     -----
-    When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored. 
+    When the model can't be evaluated on a golden standard dataset, this particuler dataset is ignored.
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
-    GS set are genes that aren't expressed then the model can't be evaluated on this GS set. 
-    '''
+    GS set are genes that aren't expressed then the model can't be evaluated on this GS set.
+    """
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(evaluation_data) is not EvaluationData:
@@ -161,7 +175,7 @@ def evaluate_model(
         for k, v in predictor.evaluate_target_prediction(
             (
                 setting["from"]
-                if isinstance(setting["from"], gene_t) # potential BUG when using integers
+                if isinstance(setting["from"], gene_t.__value__) # potential BUG when using integers
                 else "-".join(setting["from"])
             ),
             setting["response"],
@@ -198,24 +212,26 @@ def evaluate_model(
                 target_evaluation_metrics=target_evaluation_metrics
             )
             for setting_id in set(ligand_importances["setting"])
-        ) if e is not None
+        )
+        if e is not None
     ]
     if len(performances_ligand_prediction_single) > 0:
         performances_ligand_prediction_single = pd.concat(performances_ligand_prediction_single)
     else:
         performances_ligand_prediction_single = None
     return {
-        "performances_target_prediction": performances_target_prediction,
-        "performances_ligand_prediction": performances_ligand_prediction_single
+        "performances_target_prediction": performances_target_prediction,  # type: ignore
+        "performances_ligand_prediction": performances_ligand_prediction_single,  # type: ignore
     }
 
+
 def compute_evaluation_scores(
-    eval_res:dict[str, pd.DataFrame],
-    ligands:Iterable[gene_t],
-    metric_score_f:Callable=metric_score_f_dct["NNv2"],
-    objective_fs:dict[str, dict[str, Callable]]=objective_fs_dct["NNv2"]
-):
-    '''
+    eval_res:dict[str, pd.DataFrame | None],
+    ligands:Iterable[gene_t | Sequence[gene_t]],
+    metric_score_f:MetricScoreFunction=metric_score_f_dct["NNv2"],
+    objective_fs:dict[Literal["target_prediction"]|Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]]=objective_fs_dct["NNv2"]
+) -> dict[Literal["target_prediction"]|Literal["ligand_prediction"], dict[eval_metric_t, float]]:
+    """
     Construct and evaluate the ligand-target matrix. 
 
     Parameters
@@ -242,9 +258,13 @@ def compute_evaluation_scores(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(eval_res) is not dict:
         raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
+    if eval_res["performances_target_prediction"] is None:
+        raise ValueError("eval_res['performances_target_prediction'] was None")
+    if eval_res["performances_ligand_prediction"] is None:
+        raise ValueError("eval_res['performances_ligand_prediction'] was None")
     if not isinstance(ligands, Iterable):
         raise TypeError(f"ligands should have type Iterable, was {type(ligands)}")
     if not isinstance(metric_score_f, Callable):
@@ -261,18 +281,18 @@ def compute_evaluation_scores(
         ligand_evaluation_metrics.remove(e)
     performances_prediction_averaged = dict()
     # median metric value per ligand for each metric
-    performances_target_prediction_averaged = dict(zip(
+    performances_target_prediction_averaged: dict[target_eval_metric_t, Sequence[float]] = dict(zip(
         target_evaluation_metrics,
         zip(
             *(
                 _average_performances(
                     ligand,
                     eval_res["performances_target_prediction"],
-                    target_evaluation_metrics
+                    target_evaluation_metrics # type: ignore # error at runtime
                 )
                 for ligand in ligands
-            )
-        )
+            ), strict=True
+        ), strict=True
     ))
     performances_prediction_averaged["target_prediction"] = performances_target_prediction_averaged
     for e in performances_target_prediction_averaged.keys():
@@ -281,7 +301,7 @@ def compute_evaluation_scores(
         # only target prediction
         return {
             "target_prediction": {
-                metric: f(performances_target_prediction_averaged[metric]) for metric, f in objective_fs["target_prediction"].items()
+                metric: f(performances_target_prediction_averaged[metric]) for metric, f in objective_fs["target_prediction"].items() # type: ignore # target prediction keys should be fine
             },
             "ligand_prediction": {
                 metric: 0 for metric in objective_fs["ligand_prediction"].keys()
@@ -305,9 +325,10 @@ def compute_evaluation_scores(
     best_metric = max(
         zip(
             ligand_activity_performance_setting_summary["metric"],
-            ligand_activity_performance_setting_summary["score"]
+            ligand_activity_performance_setting_summary["score"],
+            strict=True
         ),
-        key=lambda x : x[1]
+        key=lambda x: x[1],
     )[0]
     # only keep the best target prediction evaluation metric
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
@@ -321,7 +342,7 @@ def compute_evaluation_scores(
                 _average_performances(
                     ligand,
                     performances_ligand_prediction_summary,
-                    ligand_evaluation_metrics
+                    ligand_evaluation_metrics # type: ignore # error at runtime
                 )
                 for ligand in ligands
             )
@@ -329,7 +350,7 @@ def compute_evaluation_scores(
     ))
     performances_prediction_averaged["ligand_prediction"] = performances_ligand_prediction_averaged
     for e in performances_ligand_prediction_averaged.keys():
-        performances_ligand_prediction_averaged[e] = [e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)]
+        performances_ligand_prediction_averaged[e] = [e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)] # type: ignore
     # aggregate metrics over ligands
     return {
         metric_type: {
@@ -339,9 +360,9 @@ def compute_evaluation_scores(
     }
 
 def _empty_solution(
-    ligand_evaluation_metrics:Iterable[str],
-    target_evaluation_metrics:Iterable[str]
-):
+    ligand_evaluation_metrics:Iterable[ligand_eval_metric_t],
+    target_evaluation_metrics:Iterable[target_eval_metric_t]
+) -> tuple[dict[str, None], dict[Literal["target_prediction"]|Literal["ligand_prediction"], dict[eval_metric_t, float]]]:
     return (
         {
             "weighted networks": None,
@@ -355,27 +376,28 @@ def _empty_solution(
         }
     )
 
+
 def construct_and_evaluate(
-    source_weights:dict[str, float]|dict[int, float]|pd.DataFrame,
-    lr_sig_hub:float,
-    gr_hub:float,
-    ltf_cutoff:float,
-    damping_factor:float,
-    lr_network:pd.DataFrame,
-    gr_network:pd.DataFrame,
-    sig_network:pd.DataFrame,
-    evaluation_data:EvaluationData,
-    return_all_matrices:bool=True,
-    return_weighted_networks:bool=True,
-    split_direct:str="no",
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
+    lr_sig_hub: float,
+    gr_hub: float,
+    ltf_cutoff: float,
+    damping_factor: float,
+    lr_network: pd.DataFrame,
+    gr_network: pd.DataFrame,
+    sig_network: pd.DataFrame,
+    evaluation_data: EvaluationData[GeneSymbol],
+    return_all_matrices: bool = True,
+    return_weighted_networks: bool = True,
+    split_direct:Literal["no"]|Literal["ltf"]|Literal["tft"]|Literal["ltf-tft"]="no",
     direct_coef:float=0,
-    ligand_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    target_evaluation_metrics:Iterable[str]=("aupr", "aupr_corrected", "auroc", "pearson"),
-    metric_score_f:Callable=metric_score_f_dct["NNv2"],
-    objective_fs:dict[str, dict[str, Callable]]=objective_fs_dct["NNv2"]
-):
-    '''
-    Construct and evaluate the ligand-target matrix. 
+    ligand_evaluation_metrics:Iterable[ligand_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson"),
+    metric_score_f:MetricScoreFunction=metric_score_f_dct["NNv2"],
+    objective_fs:dict[Literal["target_prediction"]|Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]]=objective_fs_dct["NNv2"]
+) -> tuple[dict[str, Any], dict[Literal["target_prediction"]|Literal["ligand_prediction"], dict[eval_metric_t, float]]]:
+    """
+    Construct and evaluate the ligand-target matrix.
     Returns the matrices and the prediction scores
 
     Parameters
@@ -440,10 +462,8 @@ def construct_and_evaluate(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if (
-        type(source_weights) is dict and sum(source_weights.values()) == 0
-    ) or (
+    """
+    if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
     ):
         return _empty_solution(
@@ -493,13 +513,10 @@ def construct_and_evaluate(
         scores
     )
 
-def weighted_stress_function(
-    w:float,
-    d1:float=0.002,
-    d2:float=0.008
-) -> Callable[[float], float]:
-    '''
-    construct a weighted stress function
+
+def weighted_stress_function(w: float, d1: float = 0.002, d2: float = 0.008) -> Callable[[float], float]:
+    """
+    Construct a weighted stress function
 
     Parameters
     ----------
@@ -514,21 +531,19 @@ def weighted_stress_function(
     -------
     Callable
         the weighted stress function
-    '''
-    a = 0.75 * (1 - w)**2 + 2*(1 - w) + d1
-    b = a + 4*w - 2
-    c = 1 - np.tan(np.pi*(w - 0.5) / (1 + d2)) / np.tan(-np.pi / (2*(1 + d2)))
-    return lambda x : (
-        (w / 2) * np.tan(-np.pi*(x - w) / b) + c
-        if x <= w else
-        c * (1 - np.tan(-np.pi*(x - w) / a) / np.tan(np.pi*(w - 1) / a))
+    """
+    a = 0.75 * (1 - w) ** 2 + 2 * (1 - w) + d1
+    b = a + 4 * w - 2
+    c = 1 - np.tan(np.pi * (w - 0.5) / (1 + d2)) / np.tan(-np.pi / (2 * (1 + d2)))
+    return lambda x: (
+        (w / 2) * np.tan(-np.pi * (x - w) / b) + c
+        if x <= w
+        else c * (1 - np.tan(-np.pi * (x - w) / a) / np.tan(np.pi * (w - 1) / a))
     )
 
-def choose_pareto_optimal_solution(
-    objective_values:Iterable[Iterable[float]],
-    weights:Iterable[float]
-) -> int:
-    '''
+
+def choose_pareto_optimal_solution(objective_values: Iterable[Sequence[float]], weights: Iterable[float]) -> int:
+    """
     Choose one solution from a set of pareto optimal solutions using the weighted stress function method
 
     Parameters
@@ -542,12 +557,12 @@ def choose_pareto_optimal_solution(
     -------
     int
         the chosen solution
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if not isinstance(objective_values, Iterable):
         raise TypeError(f"objective_values should be iterable, was {type(objective_values)}")
     if not isinstance(weights, Iterable):
@@ -556,22 +571,22 @@ def choose_pareto_optimal_solution(
         weights /= np.sum(weights)
     else:
         tw = sum(weights)
-        weights = [weight/tw for weight in weights]
+        weights = [weight / tw for weight in weights]
     fs = [weighted_stress_function(weight) for weight in weights]
-    return np.argmin([
-        sum(
-            np.abs(fs[i](xs[i]) - fs[j](xs[j]))
-            for j in range(len(xs))
-            for i in range(j)
+    return int(
+        np.argmin(
+            [
+                sum(np.abs(fs[i](xs[i]) - fs[j](xs[j])) for j in range(len(xs)) for i in range(j))
+                for xs in objective_values
+            ]
         )
-        for xs in objective_values
-    ])
+    )
+
 
 def choose_pareto_optimal_solution_normalized(
-    objective_values:Iterable[Iterable[float]],
-    weights:Iterable[float]
+    objective_values: Iterable[Iterable[float]], weights: Iterable[float]
 ) -> int:
-    '''
+    """
     Choose one solution from a set of pareto optimal solutions using the weighted stress function method on normalized objectives
 
     Parameters
@@ -585,15 +600,15 @@ def choose_pareto_optimal_solution_normalized(
     -------
     int
         the chosen solution
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    objective_values = list(zip(*objective_values))
+    """
+    objective_values = list(zip(*objective_values, strict=True))
     for i in range(len(objective_values)):
         vals = np.array(objective_values[i])
         vals = (vals - np.min(vals)) / (np.max(vals) - np.min(vals))
         objective_values[i] = vals
-    return choose_pareto_optimal_solution(zip(*objective_values), weights)
+    return choose_pareto_optimal_solution(zip(*objective_values, strict=True), weights)
