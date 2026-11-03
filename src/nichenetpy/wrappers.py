@@ -21,7 +21,7 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
 from nichenetpy.visualization import (
     heatmap_1d,
@@ -164,6 +164,7 @@ def run_nichenet(
     case_control: bool = True,
     use_scanpy: bool = False,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
@@ -215,6 +216,8 @@ def run_nichenet(
         if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -300,7 +303,10 @@ def run_nichenet(
     output["geneset_oi"] = geneset
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     ligand_activities = predictor.predict_ligand_activities(
-        geneset=geneset, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
+        geneset=geneset,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands,
+        target_evaluation_metrics=(target_evaluation_metric,),
     )
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
     output["ligand_activities_sorted"] = ligand_activities_sorted
@@ -328,7 +334,7 @@ def run_nichenet(
             key: val for key, val in ligand_activities.items() if key in potential_ligands_focused
         }
         ligand_activities_sorted_focused = sorted(
-            ligand_activities_focused.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0])
+            ligand_activities_focused.items(), key=lambda x: (-x[1][target_evaluation_metric], x[0])
         )
         output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
@@ -402,6 +408,7 @@ def run_nichenet_cluster_de(
     targets_top_n: int = 200,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
     geneset: Literal["DE"] | Literal["up"] | Literal["down"] = "DE",
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
@@ -438,6 +445,8 @@ def run_nichenet_cluster_de(
         a denormalization function to apply prior to the calculation of the log fold changes
     geneset : str
         geneset Indicate whether to consider all DE genes between condition 1 and 2 ("DE"), or only genes upregulated in condition 1 ("up"), or only genes downregulad in condition 1 ("down").
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -526,9 +535,12 @@ def run_nichenet_cluster_de(
         if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
     }
     ligand_activities_dct = predictor.predict_ligand_activities(
-        geneset=geneset_oi, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
+        geneset=geneset_oi,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands,
+        target_evaluation_metrics=(target_evaluation_metric,),
     )
-    ligand_activities = sorted(ligand_activities_dct.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
+    ligand_activities = sorted(ligand_activities_dct.items(), key=lambda x: (-x[1][target_evaluation_metric], x[0]))
     best_upstream_ligands = [
         e[0] for e in (ligand_activities if ligands_top_n is None else ligand_activities[:ligands_top_n])
     ]
