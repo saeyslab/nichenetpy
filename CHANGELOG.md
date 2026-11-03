@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- Support for scipy sparse arrays. 
+- Support for scipy sparse arrays.
 
 - metrics.precision_at_k
 
@@ -69,9 +69,9 @@ and this project adheres to [Semantic Versioning][].
 
 - metrics.ndcg_at_k
 
-- You can now pass `ligand_evaluation_metrics` and `target_evaluation_metrics` to evaluation / objective functions. 
+- You can now pass `ligand_evaluation_metrics` and `target_evaluation_metrics` to evaluation / objective functions.
 
-- Added optional arguments to split matrices during model construction. 
+- Added optional arguments to split matrices during model construction.
 
 ### Changes
 

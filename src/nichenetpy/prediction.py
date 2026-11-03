@@ -1,17 +1,3 @@
-from nichenetpy.metrics import (
-    calculate_evaluation_metrics,
-    calculate_aupr,
-    calculate_auroc
-)
-from nichenetpy.utils import subset_matrix
-from nichenetpy.typing import (
-    nichenet_matrix,
-    gene_t,
-    target_eval_metric_t
-)
-
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import KFold
 import warnings
 from collections.abc import Collection, Iterable, Sequence
 from itertools import chain, repeat
@@ -26,8 +12,8 @@ from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
-from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_prediction_evaluation_metrics
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
+from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import subset_matrix
 
 
@@ -251,13 +237,13 @@ class LigandActivityPredictor[GeneSymbol]:
             for i, v in zip(indices_non_zero, values_non_zero, strict=True):
                 col[i] = v
             return np.array(col)
-    
+
     def evaluate_target_prediction(
         self,
-        ligand:GeneSymbol,
-        response:dict[GeneSymbol, int],
-        target_evaluation_metrics:Iterable[target_eval_metric_t]=("aupr", "aupr_corrected", "auroc", "pearson")
-    ) -> dict[str, float]:
+        ligand: GeneSymbol,
+        response: dict[GeneSymbol, int],
+        target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
+    ) -> dict[target_eval_metric_t, float]:
         """
         Evaluate how well the model (i.e. the inferred ligand-target probability scores) is able to predict the observed response
         to a ligand (e.g. the set of DE genes after treatment of cells by a ligand). It shows several classification evaluation
@@ -292,8 +278,8 @@ class LigandActivityPredictor[GeneSymbol]:
         prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
         # we need to match the predictions with the responses so we intersect and sort by key
         common_keys = prediction.keys() & response.keys()
-        pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x : x[0])])  # type: ignore # sorted false positive type complaint
-        resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x : x[0])])  # type: ignore # sorted false positive type complaint
+        pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
+        resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
         return calculate_evaluation_metrics(pred, resp, target_evaluation_metrics)
 
     def predict_ligand_activities(
@@ -301,7 +287,8 @@ class LigandActivityPredictor[GeneSymbol]:
         geneset: Collection[GeneSymbol],
         background_expressed_genes: Collection[GeneSymbol],
         potential_ligands: Iterable[GeneSymbol],
-    ) -> dict[GeneSymbol, dict[str, float]]:
+        target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
+    ) -> dict[GeneSymbol, dict[target_eval_metric_t, float]]:
         """
         Predict activities of ligands in regulating expression of a gene set of interest.
         Ligand activities are defined as how well they predict the observed transcriptional response (i.e. gene set) according
@@ -315,6 +302,8 @@ class LigandActivityPredictor[GeneSymbol]:
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential_ligands : Iterable of gene_t
             the potentially active ligands for which you want to compute ligand activities
+        target_evaluation_metrics : Iterable of string
+            the target prediction evaluation metrics to compute
 
         Returns
         -------
@@ -346,14 +335,14 @@ class LigandActivityPredictor[GeneSymbol]:
                 f"The background set is small compared to the geneset of interest, a background size of at least {10 * len(geneset)} is recommended, was {len(background_expressed_genes)}",
                 stacklevel=2,
             )
-        output = {}
+        output: dict[GeneSymbol, dict[target_eval_metric_t, float]] = {}
         # create the expected gene expression response vector
         response = {gene: 0 for gene in background_expressed_genes if gene not in geneset}
         for gene in geneset:
             response[gene] = 1
         # compute the metrics for each ligand
         for ligand in potential_ligands:
-            output[ligand] = self.evaluate_target_prediction(ligand, response)
+            output[ligand] = self.evaluate_target_prediction(ligand, response, target_evaluation_metrics)
         return output
 
     def predict_single_cell_ligand_activities(

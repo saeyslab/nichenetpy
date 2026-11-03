@@ -143,8 +143,8 @@ def combine_weighted_ligand_target_links(
 
 def run_nichenet(
     ann: AnnData,
-    predictor: LigandActivityPredictor,
-    lr_network: LigandReceptorNetwork,
+    predictor: LigandActivityPredictor[str],
+    lr_network: LigandReceptorNetwork[str],
     receiver: str,
     condition_col: str,
     condition_oi: str,
@@ -157,7 +157,7 @@ def run_nichenet(
     expression_pct: float = 0.1,
     ligands_top_n: int = 30,
     targets_top_n: int = 200,
-    lr_sig: WeightedNetwork | None = None,
+    lr_sig: WeightedNetwork[str] | None = None,
     get_ltl: bool = False,
     get_lfc: bool = False,
     get_prioritization_table: bool = False,
@@ -380,7 +380,7 @@ def run_nichenet(
         output["prioritization_table"] = generate_prioritization_table(
             info_tables["sender_receiver_info"],
             info_tables["sender_receiver_de"],
-            ligand_activities_sorted,
+            ligand_activities_sorted,  # type: ignore # false positive
             info_tables["lr_condition_de"],
         )
     return output

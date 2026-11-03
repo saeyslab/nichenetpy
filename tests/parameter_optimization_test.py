@@ -4,22 +4,24 @@
 Here we test some parts of the optimization process.
 """
 
-from common import (
-    equals_dict,
-    get_model_pickle,
-    get_optimization_files,
-    train_path,
-)
 import json
 import os
 from itertools import chain
 
-from common import equals_iter, get_model_pickle, get_network_files, get_optimization_files, network_path, train_path
+from common import (
+    equals_dict,
+    get_model_pickle,
+    get_network_files,
+    get_optimization_files,
+    network_path,
+    train_path,
+)
 
 from nichenetpy.evaluation import EvaluationData
 from nichenetpy.parameter_optimization import compute_evaluation_scores, construct_and_evaluate, evaluate_model
 from nichenetpy.typing import gene_t
 from nichenetpy.utils import read_csv_rows, read_network_file
+
 
 def template_optimization_score(filename, exp, err_bound=0.05):
     model = get_model_pickle("human")
@@ -28,24 +30,18 @@ def template_optimization_score(filename, exp, err_bound=0.05):
         settings_CV = json.loads(file.read())
     evaluation_data = EvaluationData(settings_CV["settings"])
     scores = compute_evaluation_scores(
-        evaluate_model(model["predictor"], evaluation_data),
-        evaluation_data.get_ligands(combination=True)
+        evaluate_model(model["predictor"], evaluation_data), evaluation_data.get_ligands(combination=True)
     )
     assert equals_dict(scores, exp, err_bound=err_bound)
+
 
 def test_optimization_score_0():
     template_optimization_score(
         "settings_training_f1234.json",
         {
-            "target_prediction": {
-                "aupr_corrected": 0.588,
-                "auroc": 0.978
-            },
-            "ligand_prediction": {
-                "aupr_corrected": 0.949,
-                "auroc": 0.991
-            }
-        }
+            "target_prediction": {"aupr_corrected": 0.588, "auroc": 0.978},
+            "ligand_prediction": {"aupr_corrected": 0.949, "auroc": 0.991},
+        },
     )
 
 
@@ -53,15 +49,9 @@ def test_optimization_score_1():
     template_optimization_score(
         "settings_training_f1235.json",
         {
-            "target_prediction": {
-                "aupr_corrected": 0.624,
-                "auroc": 0.98
-            },
-            "ligand_prediction": {
-                "aupr_corrected": 0.954,
-                "auroc": 0.991
-            }
-        }
+            "target_prediction": {"aupr_corrected": 0.624, "auroc": 0.98},
+            "ligand_prediction": {"aupr_corrected": 0.954, "auroc": 0.991},
+        },
     )
 
 
@@ -69,15 +59,9 @@ def test_optimization_score_2():
     template_optimization_score(
         "settings_training_f1245.json",
         {
-            "target_prediction": {
-                "aupr_corrected": 0.636,
-                "auroc": 0.978
-            },
-            "ligand_prediction": {
-                "aupr_corrected": 0.959,
-                "auroc": 0.995
-            }
-        }
+            "target_prediction": {"aupr_corrected": 0.636, "auroc": 0.978},
+            "ligand_prediction": {"aupr_corrected": 0.959, "auroc": 0.995},
+        },
     )
 
 
@@ -86,31 +70,20 @@ def test_optimization_score_3():
     template_optimization_score(
         "settings_training_f1345.json",
         {
-            "target_prediction": {
-                "aupr_corrected": 0.607,
-                "auroc": 0.98
-            },
-            "ligand_prediction": {
-                "aupr_corrected": 0.97,
-                "auroc": 0.949
-            }
+            "target_prediction": {"aupr_corrected": 0.607, "auroc": 0.98},
+            "ligand_prediction": {"aupr_corrected": 0.97, "auroc": 0.949},
         },
-        err_bound=0.06
+        err_bound=0.06,
     )
+
 
 def test_optimization_score_4():
     template_optimization_score(
         "settings_training_f2345.json",
         {
-            "target_prediction": {
-                "aupr_corrected": 0.629,
-                "auroc": 0.986
-            },
-            "ligand_prediction": {
-                "aupr_corrected": 0.966,
-                "auroc": 0.994
-            }
-        }
+            "target_prediction": {"aupr_corrected": 0.629, "auroc": 0.986},
+            "ligand_prediction": {"aupr_corrected": 0.966, "auroc": 0.994},
+        },
     )
 
 
@@ -159,8 +132,8 @@ def test_optuna_objective_optimized_source_weights():
     )
     assert scores["target_prediction"]["auroc"] > 0.9
     assert scores["target_prediction"]["aupr_corrected"] > 0.4
-    assert scores["ligand_prediction"]["auroc"]  > 0.9
-    assert scores["ligand_prediction"]["aupr_corrected"]  > 0.9
+    assert scores["ligand_prediction"]["auroc"] > 0.9
+    assert scores["ligand_prediction"]["aupr_corrected"] > 0.9
 
 
 def test_optuna_objective_optimized_source_weights_with_integer_mapping():
@@ -227,5 +200,5 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     )
     assert scores["target_prediction"]["auroc"] > 0.9
     assert scores["target_prediction"]["aupr_corrected"] > 0.4
-    assert scores["ligand_prediction"]["auroc"]  > 0.9
-    assert scores["ligand_prediction"]["aupr_corrected"]  > 0.9
+    assert scores["ligand_prediction"]["auroc"] > 0.9
+    assert scores["ligand_prediction"]["aupr_corrected"] > 0.9

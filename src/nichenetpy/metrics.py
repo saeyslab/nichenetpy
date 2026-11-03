@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import gene_t, nichenet_matrix, eval_metric_t
+from nichenetpy.typing import eval_metric_t, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -133,13 +133,14 @@ def calculate_auroc(
     fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
 
+
 def precision_at_k(
-    ranking:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    response:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    k: int
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int,
 ) -> float:
-    '''
-    Calculates the precision at index k in the ranking. 
+    """
+    Calculates the precision at index k in the ranking.
 
     Parameters
     ----------
@@ -154,22 +155,23 @@ def precision_at_k(
     -------
     float
         the precision at k
-    '''
+    """
     if not isinstance(ranking, (Sequence, np.ndarray)):
         raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    return sum(response[e] for e in ranking[:k+1]) / (k + 1) # type: ignore # e is float
+    return sum(response[e] for e in ranking[: k + 1]) / (k + 1)  # type: ignore # e is float
+
 
 def average_precision_at_k(
-    response:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    prediction:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    k: int | None = None
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int | None = None,
 ) -> float:
-    '''
-    Calculates the average precision at index k in the ranking. 
+    """
+    Calculates the average precision at index k in the ranking.
 
     Parameters
     ----------
@@ -184,7 +186,7 @@ def average_precision_at_k(
     -------
     float
         the precision at k
-    '''
+    """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
@@ -193,22 +195,23 @@ def average_precision_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x : x[1], reverse=True)]
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
     n = sum(response)
     if n == 1:
         i = 0
         while response[ranking[i]] != 1:
             i += 1
         return 1 / (i + 1) if i <= k else 0
-    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k+1)) / n
+    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k + 1)) / n
+
 
 def dcg_at_k(
-    ranking: Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    response: Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    k: int
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int,
 ) -> float:
-    '''
-    Calculates the discounted cumulative gain at index k in the ranking. 
+    """
+    Calculates the discounted cumulative gain at index k in the ranking.
 
     Parameters
     ----------
@@ -223,20 +226,21 @@ def dcg_at_k(
     -------
     float
         the discounted cumulative gain at k
-    '''
+    """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(ranking, (Sequence, np.ndarray)):
         raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
-    return sum(response[e] / np.log2(i+2) for i, e in enumerate(ranking[:k+1])) # type: ignore # e is float
+    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # type: ignore # e is float
+
 
 def ndcg_at_k(
-    response: Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    prediction: Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    k: int | None = None
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int | None = None,
 ):
-    '''
-    Calculates the normalized discounted cumulative gain at index k in the ranking. 
+    """
+    Calculates the normalized discounted cumulative gain at index k in the ranking.
 
     Parameters
     ----------
@@ -251,7 +255,7 @@ def ndcg_at_k(
     -------
     float
         the normalized discounted cumulative gain at k
-    '''
+    """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
@@ -260,38 +264,40 @@ def ndcg_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x : x[1], reverse=True)]
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
     n = sum(response)
-    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x : x[1], reverse=True)]
+    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x: x[1], reverse=True)]
     # if n is 1 then ideal dcg@k is 1, so let's take a shortcut
     return dcg_at_k(ranking, response, k) / (1 if n == 1 else dcg_at_k(gs_ranking, response, k))
+
 
 _metric_dct: dict[
     eval_metric_t,
     Callable[
         [
-            Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-            Sequence[float]|np.ndarray[Any, np.dtype[np.float64]]
+            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
         ],
-        float
-    ]
+        float,
+    ],
 ] = {
     "aupr": calculate_aupr,
-    "aupr_corrected": lambda response, prediction : calculate_aupr(response, prediction) - sum(response)/len(response),
+    "aupr_corrected": lambda response, prediction: calculate_aupr(response, prediction) - sum(response) / len(response),
     "auroc": calculate_auroc,
-    "pearson": lambda response, prediction : pearsonr(response, prediction).statistic,
+    "pearson": lambda response, prediction: pearsonr(response, prediction).statistic,
     "map": average_precision_at_k,
-    "ndcg": ndcg_at_k
+    "ndcg": ndcg_at_k,
 }
 
-def calculate_evaluation_metrics(
-    prediction:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    response:Sequence[float]|np.ndarray[Any, np.dtype[np.float64]],
-    metrics:Iterable[eval_metric_t],
-    allow_nan:bool=False
-) -> dict[str, float]:
-    '''
-    Calculates evaluation metrics that can be used to rank ligands or to evaluate the ligand ranking. 
+
+def calculate_evaluation_metrics[EvalMetric](
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    metrics: Iterable[EvalMetric],
+    allow_nan: bool = False,
+) -> dict[EvalMetric, float]:
+    """
+    Calculates evaluation metrics that can be used to rank ligands or to evaluate the ligand ranking.
 
     Parameters
     ----------
@@ -308,25 +314,27 @@ def calculate_evaluation_metrics(
     -------
     dict[str, float]
         dictionary with as keys the names of the supported metrics and as values the computed metrics
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if response doesn't contain any true samples
-    '''
+    """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        raise ValueError("There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined.")
-    output = dict()
+        raise ValueError(
+            "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
+        )
+    output: dict[EvalMetric, float] = {}
     warnings.filterwarnings("ignore")
     for metric in metrics:
         try:
-            output[metric] = _metric_dct[metric](response, prediction)
+            output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
         except ValueError as ex:
             if allow_nan:
                 output[metric] = np.nan
@@ -335,11 +343,12 @@ def calculate_evaluation_metrics(
     warnings.filterwarnings("default")
     return output
 
+
 def calculate_prediction_evaluation_metrics(
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     allow_nan: bool = False,
-) -> dict[str, float]:
+) -> dict[eval_metric_t, float]:
     """
     Calculates metrics that can be used to rank ligands.
     currently supported metrics are:
@@ -374,8 +383,9 @@ def calculate_prediction_evaluation_metrics(
         prediction=prediction,
         response=response,
         metrics=("aupr", "aupr_corrected", "auroc", "pearson"),
-        allow_nan=allow_nan
+        allow_nan=allow_nan,
     )
+
 
 def _sub_log_fold_change(
     data: nichenet_matrix,

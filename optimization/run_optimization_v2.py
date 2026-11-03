@@ -1,48 +1,7 @@
-<<<<<<< HEAD
-from nichenetpy.utils import (
-    read_csv_cols,
-    read_csv_rows,
-    read_network_file
-)
-from nichenetpy.parameter_optimization import (
-    construct_and_evaluate,
-    objective_fs_dct,
-    metric_score_f_dct
-)
-from nichenetpy.evaluation import EvaluationData
-from nichenetpy.typing import gene_t
-
-from optuna import (
-    create_study,
-    load_study,
-    Study
-)
-from optuna.trial import Trial
-from optuna.samplers import (
-    TPESampler,
-    NSGAIISampler,
-    GPSampler
-)
-from optuna.storages import JournalStorage
-from optuna.storages.journal import (
-    JournalFileBackend,
-    JournalFileOpenLock
-)
-from optuna.samplers.nsgaii import (
-    BaseCrossover
-)
-from itertools import chain
-from joblib import (
-    Parallel,
-    delayed,
-    cpu_count
-)
-=======
 import argparse
 import json
 import os
 import pickle
->>>>>>> scverse-cookiecutter
 from functools import reduce
 from itertools import chain
 from operator import and_
@@ -59,7 +18,7 @@ from optuna.storages.journal import JournalFileBackend, JournalFileOpenLock
 from optuna.trial import Trial
 
 from nichenetpy.evaluation import EvaluationData
-from nichenetpy.parameter_optimization import construct_and_evaluate
+from nichenetpy.parameter_optimization import construct_and_evaluate, metric_score_f_dct, objective_fs_dct
 from nichenetpy.typing import gene_t
 from nichenetpy.utils import read_csv_cols, read_csv_rows, read_network_file
 
@@ -163,7 +122,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split_direct",
         help="""
-            Whether or not to split the matrix into direct and indirect submatrices and take a weighted average. 
+            Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
             "no": don't split;
             "ltf": split the ltf matrix;
             "tft": split the tft matrix;
@@ -171,21 +130,21 @@ if __name__ == "__main__":
             Default: "no"
         """,
         choices=("no", "ltf", "tft", "ltf-tft"),
-        default="no"
+        default="no",
     )
     parser.add_argument(
         "--ligand_prediction_evaluation_metric",
         help="metrics to evaluate ligand prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
         choices=("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg"),
         action="append",
-        default=[]
+        default=[],
     )
     parser.add_argument(
         "--target_prediction_evaluation_metric",
         help="metrics to evaluate target prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson')",
         choices=("aupr", "aupr_corrected", "auroc", "pearson"),
         action="append",
-        default=[]
+        default=[],
     )
     parser.add_argument(
         "--objective_functions",
@@ -193,14 +152,14 @@ if __name__ == "__main__":
             sets of objective functions for the source weight optimization
 
             NNv2
-                The objective functions used in NicheNetV2. 
-                Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking. 
-                
+                The objective functions used in NicheNetV2.
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking.
+
             map&ndcg
-                Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking. 
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking.
         """,
         choices=("NNv2", "map&ndcg"),
-        default="NNv2"
+        default="NNv2",
     )
     parser.add_argument(
         "--metric_score_function",
@@ -208,15 +167,15 @@ if __name__ == "__main__":
             the function that computes the metric score (which decides the best metric to rank the ligands with)
 
             NNv2
-                The metric score function used in NicheNetV2. 
-                Computes the geometric mean of `aupr_corrected` and `auroc`. 
+                The metric score function used in NicheNetV2.
+                Computes the geometric mean of `aupr_corrected` and `auroc`.
 
             all_geometric_mean
-                The metric score function used in NicheNetV2. 
-                Computes the geometric mean of all available target evaluation metrics. 
+                The metric score function used in NicheNetV2.
+                Computes the geometric mean of all available target evaluation metrics.
         """,
         choices=("NNv2", "all_geometric_mean"),
-        default="NNv2"
+        default="NNv2",
     )
     args = parser.parse_args()
     if len(args.ligand_prediction_evaluation_metric) > 0:
@@ -231,15 +190,23 @@ if __name__ == "__main__":
         raise ValueError("included_database and excluded_database are incompatible with eachother")
     objective_fs = objective_fs_dct[args.objective_functions]
     metric_score_f = metric_score_f_dct[args.metric_score_function]
-    
+
     def make_objective_vector(res):
         tp = res[1]["target_prediction"]
         lp = res[1]["ligand_prediction"]
-        return tuple(chain(
-            tuple(e[0] for e in sorted(((tp[met], tar_eval_metrics.index(met)) for met in tp.keys()), key=lambda x : x[1])),
-            tuple(e[0] for e in sorted(((lp[met], lig_eval_metrics.index(met)) for met in lp.keys()), key=lambda x : x[1]))
-        ))
-    
+        return tuple(
+            chain(
+                tuple(
+                    e[0]
+                    for e in sorted(((tp[met], tar_eval_metrics.index(met)) for met in tp.keys()), key=lambda x: x[1])
+                ),
+                tuple(
+                    e[0]
+                    for e in sorted(((lp[met], lig_eval_metrics.index(met)) for met in lp.keys()), key=lambda x: x[1])
+                ),
+            )
+        )
+
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -368,17 +335,10 @@ if __name__ == "__main__":
     sym2id = dict(zip(syms, range(len(syms)), strict=True))
 
     def network_sym2id(network):
-<<<<<<< HEAD
-        network["from"] = network["from"].apply(lambda x : sym2id[x])
-        network["to"] = network["to"].apply(lambda x : sym2id[x])
-        network["source"] = network["source"].apply(lambda x : sym2id[x])
-    
-=======
-        network["from"] = [sym2id[e] for e in network["from"]]
-        network["to"] = [sym2id[e] for e in network["to"]]
-        network["source"] = [sym2id[e] for e in network["source"]]
+        network["from"] = network["from"].apply(lambda x: sym2id[x])
+        network["to"] = network["to"].apply(lambda x: sym2id[x])
+        network["source"] = network["source"].apply(lambda x: sym2id[x])
 
->>>>>>> scverse-cookiecutter
     def evaluation_data_sym2id(eval):
         for dct in eval.values():
             ligand = dct[eval._ligand_name]
@@ -406,33 +366,6 @@ if __name__ == "__main__":
                 source_name: trial.suggest_float(name=source_name, low=0, high=1) for source_name in source_names
             }
         # define hyperparameters
-<<<<<<< HEAD
-        lr_sig_hub = trial.suggest_float(
-            name="lr_sig_hub",
-            low=0,
-            high=1
-        ) if args.lr_sig_hub is None else args.lr_sig_hub
-        gr_hub = trial.suggest_float(
-            name="gr_hub",
-            low=0,
-            high=1
-        ) if args.gr_hub is None else args.gr_hub
-        ltf_cutoff = trial.suggest_float(
-            name="ltf_cutoff",
-            low=0.9,
-            high=0.999
-        ) if args.ltf_cutoff is None else args.ltf_cutoff
-        damping_factor = trial.suggest_float(
-            name="damping_factor",
-            low=0.01,
-            high=0.99
-        ) if args.damping_factor is None else args.damping_factor
-        direct_coef = trial.suggest_float(
-            name="direct_coef",
-            low=0, # no direct RP
-            high=0.5 # RP is average of direct and indirect RP
-        ) if args.split_direct != "no" else 0.5
-=======
         lr_sig_hub = (
             trial.suggest_float(name="lr_sig_hub", low=0, high=1) if args.lr_sig_hub is None else args.lr_sig_hub
         )
@@ -445,7 +378,15 @@ if __name__ == "__main__":
             if args.damping_factor is None
             else args.damping_factor
         )
->>>>>>> scverse-cookiecutter
+        direct_coef = (
+            trial.suggest_float(
+                name="direct_coef",
+                low=0,  # no direct RP
+                high=0.5,  # RP is average of direct and indirect RP
+            )
+            if args.split_direct != "no"
+            else 0.5
+        )
         if args.semantic_similarity_metric is None:
             _sig_network = sig_network
         else:
@@ -454,35 +395,28 @@ if __name__ == "__main__":
         _sig_network = _sig_network[["from", "to", "source"]]
         # construct the models from the source weights (one per fold) and compute the objectives
         res = [
-<<<<<<< HEAD
-            make_objective_vector(construct_and_evaluate(
-                dict((sym2id[s], w) for s, w in source_weights.items()),
-=======
-            construct_and_evaluate(
-                {(sym2id[s], w) for s, w in source_weights.items()},
->>>>>>> scverse-cookiecutter
-                lr_sig_hub,
-                gr_hub,
-                ltf_cutoff,
-                damping_factor,
-                lr_network,
-                gr,
-                _sig_network,
-                eval,
-                return_all_matrices=False,
-                return_weighted_networks=False,
-<<<<<<< HEAD
-                split_direct=args.split_direct,
-                direct_coef=direct_coef,
-                ligand_evaluation_metrics=lig_eval_metrics,
-                target_evaluation_metrics=tar_eval_metrics,
-                metric_score_f=metric_score_f,
-                objective_fs=objective_fs
-            )) for eval, gr in evaluation_data
-=======
-            )[1:]
+            make_objective_vector(
+                construct_and_evaluate(
+                    {sym2id[s]: w for s, w in source_weights.items()},
+                    lr_sig_hub,
+                    gr_hub,
+                    ltf_cutoff,
+                    damping_factor,
+                    lr_network,
+                    gr,
+                    _sig_network,
+                    eval,
+                    return_all_matrices=False,
+                    return_weighted_networks=False,
+                    split_direct=args.split_direct,
+                    direct_coef=direct_coef,
+                    ligand_evaluation_metrics=lig_eval_metrics,
+                    target_evaluation_metrics=tar_eval_metrics,
+                    metric_score_f=metric_score_f,
+                    objective_fs=objective_fs,
+                )
+            )
             for eval, gr in evaluation_data
->>>>>>> scverse-cookiecutter
         ]
         # average objective vector over all folds
         return tuple(np.mean(res, axis=0))
@@ -500,10 +434,12 @@ if __name__ == "__main__":
         sampler = NSGAIISampler(crossover=FlatCrossover(), crossover_prob=1)
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
-    metric_names = list(chain(
-        (f"target_{met}" for met in objective_fs["target_prediction"].keys()),
-        (f"ligand_{met}" for met in objective_fs["ligand_prediction"].keys())
-    ))
+    metric_names = list(
+        chain(
+            (f"target_{met}" for met in objective_fs["target_prediction"].keys()),
+            (f"ligand_{met}" for met in objective_fs["ligand_prediction"].keys()),
+        )
+    )
     study = create_study(
         sampler=sampler,
         directions=["maximize" for _ in range(len(metric_names))],
@@ -514,8 +450,7 @@ if __name__ == "__main__":
     parallel(
         optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs)
     )
-<<<<<<< HEAD
     study.set_metric_names(metric_names)
-    parallel(optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))
-=======
->>>>>>> scverse-cookiecutter
+    parallel(
+        optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs)
+    )
