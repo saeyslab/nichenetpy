@@ -9,7 +9,7 @@ from scipy.sparse import csc_array, csr_array
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -22,7 +22,7 @@ def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
     )
 
 
-def construct_weighted_networks(
+def construct_weighted_networks[GeneSymbol](
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
@@ -153,7 +153,7 @@ def _quantile_clip(mat, cutoff):
 
 
 @overload
-def construct_ligand_tf_matrix(
+def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -169,7 +169,7 @@ def construct_ligand_tf_matrix(
 
 
 @overload
-def construct_ligand_tf_matrix(
+def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -181,7 +181,7 @@ def construct_ligand_tf_matrix(
 
 
 @overload
-def construct_ligand_tf_matrix(
+def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -193,7 +193,7 @@ def construct_ligand_tf_matrix(
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]: ...
 
 
-def construct_ligand_tf_matrix(
+def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -465,35 +465,35 @@ def _set_min(mat):
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
-    split_direct: str = "no",
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]]: ...
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
-    split_direct: str = "no",
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]],
@@ -503,35 +503,35 @@ def construct_ligand_target_matrix(
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
-    split_direct: str = "no",
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]]: ...
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
-    split_direct: str = "no",
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]],
@@ -540,7 +540,7 @@ def construct_ligand_target_matrix(
 ]: ...
 
 
-def construct_ligand_target_matrix(  # type: ignore
+def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -767,7 +767,7 @@ def construct_ligand_target_matrix(  # type: ignore
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
 
-def construct_model_from_source_weights(
+def construct_model_from_source_weights[GeneSymbol](
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,

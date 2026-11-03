@@ -11,7 +11,6 @@ from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_li
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import (
-    GeneSymbol,
     MetricScoreFunction,
     ObjectiveFunction,
     eval_metric_t,
@@ -71,8 +70,8 @@ metric_score_f_dct = {
 }
 
 
-def _average_performances(
-    ligand_oi: gene_t | Sequence[gene_t],
+def _average_performances[GeneSymbol](
+    ligand_oi: GeneSymbol | Sequence[GeneSymbol],
     performances: pd.DataFrame,
     metrics: Iterable[eval_metric_t] = ("auroc", "aupr_corrected"),
 ) -> Iterable[float]:
@@ -108,9 +107,9 @@ def _evaluate_single_importances_ligand_prediction(
         return None
 
 
-def evaluate_model(
-    predictor: LigandActivityPredictor,
-    evaluation_data: EvaluationData,
+def evaluate_model[GeneSymbol](
+    predictor: LigandActivityPredictor[GeneSymbol],
+    evaluation_data: EvaluationData[GeneSymbol],
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
 ) -> dict[str, pd.DataFrame | None]:
@@ -157,7 +156,7 @@ def evaluate_model(
         performances_target_prediction["ligand"].append(setting["from"])
         for k, v in predictor.evaluate_target_prediction(
             (
-                setting["from"]
+                setting["from"]  # type: ignore
                 if isinstance(setting["from"], gene_t.__value__)  # potential BUG when using integers
                 else "-".join(setting["from"])
             ),
@@ -203,9 +202,9 @@ def evaluate_model(
     }
 
 
-def compute_evaluation_scores(
+def compute_evaluation_scores[GeneSymbol](
     eval_res: dict[str, pd.DataFrame | None],
-    ligands: Iterable[gene_t | Sequence[gene_t]],
+    ligands: Iterable[GeneSymbol | Sequence[GeneSymbol]],
     metric_score_f: MetricScoreFunction = metric_score_f_dct["NNv2"],
     objective_fs: dict[
         Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
@@ -370,7 +369,7 @@ def _empty_solution(
     )
 
 
-def construct_and_evaluate(
+def construct_and_evaluate[GeneSymbol](
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
@@ -496,7 +495,7 @@ def construct_and_evaluate(
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         ),
-        evaluation_data.get_ligands(combination=True),
+        evaluation_data.get_ligands(combination=True),  # type: ignore # false positive
         metric_score_f=metric_score_f,
         objective_fs=objective_fs,
     )

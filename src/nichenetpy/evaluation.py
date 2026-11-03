@@ -261,7 +261,9 @@ class EvaluationData[GeneSymbol]:
                 columns_dct[k].append(v[k])
         return pd.DataFrame(columns_dct)
 
-    def get_applicable_evaluation_datasets(self, predictor: LigandActivityPredictor, combination: bool = True):
+    def get_applicable_evaluation_datasets(
+        self, predictor: LigandActivityPredictor[GeneSymbol], combination: bool = True
+    ):
         """
         Get the subset of applicable evaluation data
         (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
@@ -301,10 +303,10 @@ class EvaluationData[GeneSymbol]:
                     yield (k, gs)
 
 
-def get_single_ligand_importances(
-    predictor: LigandActivityPredictor,
+def get_single_ligand_importances[GeneSymbol](
+    predictor: LigandActivityPredictor[GeneSymbol],
     evaluation_data: Iterable[dict[str, Any]],
-    all_ligands: Iterable[gene_t],
+    all_ligands: Iterable[GeneSymbol],
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
 ) -> pd.DataFrame:
     """

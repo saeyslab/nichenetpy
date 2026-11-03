@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import gene_t, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import subset_matrix
 
 
@@ -584,12 +584,12 @@ class LigandActivityPredictor[GeneSymbol]:
         return len(self.get_ligands().intersection(ligands)) / len(ligands)
 
 
-def assess_rf_class_probabilities(
+def assess_rf_class_probabilities[GeneSymbol](
     folds: int,
     geneset: Collection[GeneSymbol],
     background_expressed_genes: Collection[GeneSymbol],
     ligands_oi: Iterable[GeneSymbol],
-    predictor: LigandActivityPredictor,
+    predictor: LigandActivityPredictor[GeneSymbol],
     ntrees: int = 1000,
 ) -> pd.DataFrame:
     """

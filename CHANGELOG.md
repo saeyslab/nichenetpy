@@ -89,6 +89,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bugs in type checks at runtime
 
+- Fixed bug in run_nichenet_cluster_de where the down cutoff was positive.
+
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/saeyslab/nichenetpy/compare/v1.0.1...v1.0.2

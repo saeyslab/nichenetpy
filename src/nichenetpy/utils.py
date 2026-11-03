@@ -428,8 +428,8 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 
 
-def ligand_activities_df(
-    ligand_activities: dict[gene_t, dict[str, float]] | Iterable[tuple[gene_t, dict[str, float]]],
+def ligand_activities_df[GeneSymbol](
+    ligand_activities: dict[GeneSymbol, dict[str, float]] | Iterable[tuple[GeneSymbol, dict[str, float]]],
 ) -> pd.DataFrame:
     """
     Convert ligand activities to a pandas DataFrame

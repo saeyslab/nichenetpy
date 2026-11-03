@@ -388,8 +388,8 @@ def run_nichenet(
 
 def run_nichenet_cluster_de(
     ann: AnnData,
-    predictor: LigandActivityPredictor,
-    lr_network: LigandReceptorNetwork,
+    predictor: LigandActivityPredictor[str],
+    lr_network: LigandReceptorNetwork[str],
     receiver_affected: str,
     receiver_reference: str,
     sender_celltypes: Iterable[str] | None = None,
@@ -584,7 +584,7 @@ def create_ligand_activity_hist(
 
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted: Iterable[tuple],
+    ligand_activities_sorted: Iterable[tuple[str, str]],
     title: str = "ligand activity",
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
@@ -627,8 +627,8 @@ def create_ligand_activity_heatmap(
 
 
 def create_regulatory_potential_heatmap(
-    predictor: LigandActivityPredictor,
-    active_ligand_target_links: Sequence[tuple[GeneSymbol, GeneSymbol, float]],
+    predictor: LigandActivityPredictor[str],
+    active_ligand_target_links: Sequence[tuple[str, str, float]],
     xtitle="predicted target genes",
     ytitle="prioritized ligands",
     cbar_label="regulatory potential",
@@ -667,8 +667,8 @@ def create_regulatory_potential_heatmap(
     )
     return heatmap_2d(
         ligand_target_vis.transpose(),
-        xlabels=[str(target) for target in targets],
-        ylabels=[str(ligand) for ligand in ligands],
+        xlabels=targets,
+        ylabels=ligands,
         xtitle=xtitle,
         ytitle=ytitle,
         cbar_label=cbar_label,
@@ -678,7 +678,7 @@ def create_regulatory_potential_heatmap(
 
 
 def create_prior_interaction_potential_heatmap(
-    ligand_receptor_links: WeightedNetwork,
+    ligand_receptor_links: WeightedNetwork[str],
     xtitle="receptors",
     ytitle="ligands",
     cbar_label="prior interaction potential",
@@ -1048,12 +1048,12 @@ def create_ligand_links_circos_plot(
     )
 
 
-def generate_info_tables(
+def generate_info_tables[GeneSymbol](
     ann: AnnData,
     celltype_col: str,
     senders_oi: Sequence[str],
     receivers_oi: Sequence[str],
-    lr_network_filtered: LigandReceptorNetwork,
+    lr_network_filtered: LigandReceptorNetwork[GeneSymbol],
     condition_col: str,
     condition_oi: str,
     condition_ref: str,

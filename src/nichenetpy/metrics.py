@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import eval_metric_t, gene_t, nichenet_matrix
+from nichenetpy.typing import eval_metric_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -535,7 +535,7 @@ def _single_group_metrics(
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
 
 
-def group_metrics(
+def group_metrics[GeneSymbol](
     ann: AnnData,
     groupby: str,
     group_oi: str | None = None,
@@ -543,7 +543,7 @@ def group_metrics(
     layer: str = "data",
     lfc_pseudocount: float = 1,
     tie_correction: bool = True,
-    features: Iterable[gene_t] | None = None,
+    features: Iterable[GeneSymbol] | None = None,
     min_abs_lfc: float = 0,
     min_pct: float = 0,
     pval_thresh: float | None = None,  # 0.01 in seurat

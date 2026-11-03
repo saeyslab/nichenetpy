@@ -98,12 +98,12 @@ def get_expressed_genes(
     return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 
-def get_weighted_ligand_receptor_links(
-    best_upstream_ligands: Iterable[gene_t],
-    expressed_receptors: Iterable[gene_t],
-    lr_network: LigandReceptorNetwork,
-    lr_sig: WeightedNetwork,
-) -> WeightedNetwork:
+def get_weighted_ligand_receptor_links[GeneSymbol](
+    best_upstream_ligands: Iterable[GeneSymbol],
+    expressed_receptors: Iterable[GeneSymbol],
+    lr_network: LigandReceptorNetwork[GeneSymbol],
+    lr_sig: WeightedNetwork[GeneSymbol],
+) -> WeightedNetwork[GeneSymbol]:
     """
     Get the weighted ligand-receptor links between a possible ligand and its receptors.
 
@@ -146,7 +146,7 @@ def get_weighted_ligand_receptor_links(
     return lr_sig.subset_sep(best_upstream_ligands.intersection({e[0] for e in lr_network}), best_upstream_receptors)
 
 
-def get_lfc_celltype(
+def get_lfc_celltype[GeneSymbol](
     ann: AnnData,
     celltype: str,
     condition_col: str,
@@ -154,9 +154,9 @@ def get_lfc_celltype(
     condition_ref: str,
     layer: str,
     celltype_col: str = "celltype",
-    features: Iterable[gene_t] | None = None,
+    features: Iterable[GeneSymbol] | None = None,
     scanpy_lfc: bool = False,
-) -> tuple[list[gene_t], list[float]]:
+) -> tuple[list[GeneSymbol], list[float]]:
     """
     Get log fold change of genes between two conditions in cell type of interest from an AnnData object.
 

@@ -11,17 +11,16 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
-from nichenetpy.typing import gene_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
-def calculate_de(
+def calculate_de[GeneSymbol](
     ann: AnnData,
     celltype_col: str,
     condition_oi: str,
     condition_col: str,
     layer="data",
-    features: Iterable[gene_t] | None = None,
+    features: Iterable[GeneSymbol] | None = None,
     min_abs_lfc: float = 0,
     min_pct: float = 0,
     pval_thresh: float = 1,
@@ -101,13 +100,13 @@ def calculate_de(
         return ann.uns["group_metrics"]
 
 
-def get_avg_exp(
+def get_avg_exp[GeneSymbol](
     ann: AnnData,
     celltype_col: str,
     condition_oi: str | None = None,
     condition_col: str | None = None,
     layer: str = "counts",
-    features: Iterable[gene_t] | None = None,
+    features: Iterable[GeneSymbol] | None = None,
 ) -> pd.DataFrame:
     """
     Calculate the average gene expression per cell type.
@@ -162,10 +161,10 @@ def get_avg_exp(
     )
 
 
-def process_table_to_ic(
+def process_table_to_ic[GeneSymbol](
     tab: pd.DataFrame,
     table_type: str,
-    lr_network: LigandReceptorNetwork,
+    lr_network: LigandReceptorNetwork[GeneSymbol],
     senders_oi: Collection[str] | None = None,
     receivers_oi: Collection[str] | None = None,
     celltype_col: str = "celltype",
@@ -328,10 +327,10 @@ def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None
     return output
 
 
-def generate_prioritization_table(
+def generate_prioritization_table[GeneSymbol](
     sender_receiver_info: pd.DataFrame,
     sender_receiver_de: pd.DataFrame,
-    ligand_activities: pd.DataFrame | dict[gene_t, dict[str, float]] | list[tuple[gene_t, dict[str, float]]],
+    ligand_activities: pd.DataFrame | dict[GeneSymbol, dict[str, float]] | list[tuple[GeneSymbol, dict[str, float]]],
     lr_condition_de: pd.DataFrame | None = None,
     prioritizing_weights: dict[str, float] | None = None,
 ) -> pd.DataFrame:

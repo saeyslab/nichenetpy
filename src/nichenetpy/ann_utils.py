@@ -8,9 +8,9 @@ from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
-def _subset_layer(
-    ann: AnnData, layer: str, features: Iterable[gene_t], gene2index: dict[gene_t, int] | None = None
-) -> tuple[nichenet_matrix, Iterable[gene_t]]:
+def _subset_layer[GeneSymbol](
+    ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
+) -> tuple[nichenet_matrix, Iterable[GeneSymbol]]:
     sel_layer = ann.layers[layer]
     if not isinstance(sel_layer, nichenet_matrix.__value__):
         raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
@@ -23,10 +23,10 @@ def _subset_layer(
 
 
 @overload
-def subset_ann(
+def subset_ann[GeneSymbol](
     ann: AnnData,
-    val: gene_t | Iterable[gene_t],
-    genes: Iterable[gene_t] | None = None,
+    val: str | Iterable[str],
+    genes: Iterable[GeneSymbol] | None = None,
     layers: Iterable[str | None] | None = None,
     val_col: str = "celltype",
     subset_X: bool = True,
@@ -34,11 +34,11 @@ def subset_ann(
 
 
 @overload
-def subset_ann(
+def subset_ann[GeneSymbol](
     ann: AnnData,
-    val: gene_t | Iterable[gene_t] | None = None,
+    val: str | Iterable[str] | None = None,
     *,
-    genes: Iterable[gene_t],
+    genes: Iterable[GeneSymbol],
     layers: Iterable[str | None] | None = None,
     val_col: str = "celltype",
     subset_X: bool = True,
@@ -46,7 +46,7 @@ def subset_ann(
 
 
 @overload
-def subset_ann(  # if val and genes are not provided, it should be this overload
+def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be this overload
     ann: AnnData,
     val: None = None,
     genes: None = None,
@@ -56,10 +56,10 @@ def subset_ann(  # if val and genes are not provided, it should be this overload
 ) -> None: ...
 
 
-def subset_ann(
+def subset_ann[GeneSymbol](
     ann: AnnData,
-    val: gene_t | Iterable[gene_t] | None = None,
-    genes: Iterable[gene_t] | None = None,
+    val: str | Iterable[str] | None = None,
+    genes: Iterable[GeneSymbol] | None = None,
     layers: Iterable[str | None] | None = None,
     val_col: str = "celltype",
     subset_X: bool = True,
