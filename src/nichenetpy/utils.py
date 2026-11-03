@@ -693,8 +693,6 @@ def linked_iter[T](start: T, nxt: Callable[[T], T], stp: Callable[[T, T], bool])
         function that returns the next value
     stp : Callable
         function that takes the current and next element as input and decides when to stop
-    res : Callable
-        function that returns the output
 
     Yields
     ------

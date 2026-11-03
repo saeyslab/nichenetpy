@@ -590,7 +590,7 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"arrow_size should have type int, was {type(arrow_size)}")
     if type(label_size) is not int:
         raise TypeError(f"font_size should have type int, was {type(label_size)}")
-    if type(seed) is not int:
+    if seed is not None and type(seed) is not int:
         raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
@@ -778,7 +778,7 @@ def create_barcode_plot(
         the relative x-coordinate of the rank labels
     x_col_agnostic : float
         the relative x-coordinate of the sender-agnostic ranking
-    layer : float
+    x_col_focused : float
         the relative x-coordinate of the sender-focused ranking
     r : float
         the radius of the dots in the slope graph
@@ -1598,7 +1598,7 @@ def create_radar_plot(
     label_size: float = 10,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a plot consisting of variable-size markers.
+    Creates a radar plot.
 
     Parameters
     ----------
@@ -1606,7 +1606,7 @@ def create_radar_plot(
         the data to be plotted
     value_labels : iterable of string
         the labels of the values to be plotted
-    cmap : str
+    cmap : str or Colormap
         the name of the color map
     figsize : tuple of int
         the size of the figure

@@ -83,7 +83,7 @@ class GeneAliasInfo:
 
         Parameters
         ----------
-        obj : Iterable or AnnData or None
+        obj : Iterable or AnnData
             an object that contains gene symbols
 
         Returns
@@ -184,12 +184,7 @@ class GeneInfo:
         Returns
         -------
         Iterable of str
-            the mouse gene symbols
-
-        Raises
-        ------
-        KeyError
-            if a gene symbol isn't recognized
+            the mouse gene symbols or None for genes that aren't recognized
         """
         # this does the same as the NicheNetR equivalent but it makes no sense to me (Victor)
         for symbol in symbols:

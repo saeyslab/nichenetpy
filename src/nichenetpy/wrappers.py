@@ -63,7 +63,7 @@ def get_geneset_oi(
         the name of the layer which contains the data matrix
     max_pval_adj : float
         the upper bound for pval_adj
-    min_lfc : float
+    min_abs_lfc : float
         the lower bound for lfc,
     min_pct : float
         the lower bound for the pct
@@ -82,7 +82,7 @@ def get_geneset_oi(
 
     Returns
     -------
-    list
+    set
         the geneset of interest
 
     Notes
@@ -426,7 +426,7 @@ def run_nichenet_cluster_de(
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
     sender_celltypes : Iterable[str] or None
-        Determine the potential sender cells. Name of cluster identity/identities of cells that presumably affect expression in the receiver cell type. In case you want to look at all possible sender cell types in the data, you can  give this argument the value "all". "all" indicates thus that all cell types in the dataset will be considered as possible sender cells. As final option, you could give this argument the value "undefined"."undefined" won't look at ligands expressed by sender cells, but at all ligands for which a corresponding receptor is expressed. This could be useful if the presumably active sender cell is not profiled. Default: "all".
+        The sender celltypes or None for all celltypes
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str
@@ -545,7 +545,8 @@ def run_nichenet_cluster_de(
         e[0] for e in (ligand_activities if ligands_top_n is None else ligand_activities[:ligands_top_n])
     ]
     active_ligand_target_links = combine_weighted_ligand_target_links(
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n) for ligand in best_upstream_ligands
+        predictor.get_weighted_ligand_target_links(ligand, geneset_oi, n=targets_top_n)
+        for ligand in best_upstream_ligands
     )
     return {
         "expressed_genes_receiver_ref": expressed_genes_receiver_ref,
@@ -946,8 +947,6 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the ligands
     receptors : Iterable of str
         the receptors
-    weights : Iterable of float
-        the weights of the links
     colors : dict
         color mapping for the ligands, should include a 'General' and 'target' mapping as well
     inter_space : float
@@ -963,6 +962,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     -------
     matplotlib.Figure
         the plotted figure
+    matplotlib.Axes
+        the axes
 
     Raises
     ------
@@ -1104,7 +1105,11 @@ def generate_info_tables[GeneSymbol](
         dictionary containing the three dataframes:
         "sender_receiver_de",
         "sender_receiver_info",
-        "group_DE"
+        "lr_condition_de"
+
+    Notes
+    -----
+    "lr_condition_de" is only present if case_control is True
     """
     output = {
         "sender_receiver_de": process_table_to_ic(
@@ -1160,12 +1165,10 @@ def infer_supporting_datasources(
         dataframe which contains signaling interactions
     gr_network : pandas.DataFrame
         dataframe which contains gene regulatory interactions
-    sig_network : pandas.DataFrame
-    gr_network : pandas.DataFrame
 
     Returns
     -------
-    tuple of pandas.DataFrame
+    pandas.DataFrame
         the integrated weighted ligand-signaling and gene regulatory network data frames
 
     Raises

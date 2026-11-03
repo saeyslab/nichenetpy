@@ -179,8 +179,8 @@ def average_precision_at_k(
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
     prediction : list or tuple or numpy.ndarray of float
         vector which contains probability scores for each target gene (for one particular ligand)
-    k : int
-        the index at which to compute the precision
+    k : int or None
+        the index at which to compute the precision or None to compute the precision over everything
 
     Returns
     -------
@@ -244,10 +244,10 @@ def ndcg_at_k(
 
     Parameters
     ----------
-    ranking : list or tuple or numpy.ndarray of float
-        the ranking of response indices from best to worst
-    response : list or tuple  or numpy.ndarray of float
+    response : Sequence or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    prediction : Sequence or numpy.ndarray of float
+        the ranking of response indices from best to worst
     k : int
         the index at which to compute the ndcg
 
@@ -495,7 +495,6 @@ def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
     ----------
     mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         (#cells X #genes) matrix containing the expression values
-    direction :
 
     Returns
     -------

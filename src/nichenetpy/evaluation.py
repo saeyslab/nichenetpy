@@ -152,7 +152,7 @@ class EvaluationData[GeneSymbol]:
 
         Parameters
         ----------
-        item : Iterable of dict
+        items : Iterable of dict
             the data elements to add
 
         Raises

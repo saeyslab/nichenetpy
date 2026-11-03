@@ -141,7 +141,7 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
 
 
 def write_sparse_matrix(
-    filename: str, mat: csc_matrix[np.float64] | csr_matrix[np.float64], row_names: str, col_names: str
+    filename: str, mat: csc_matrix[np.float64] | csr_matrix[np.float64], row_names: list[str], col_names: list[str]
 ):
     """
     Writes a sparse matrix to a file.

@@ -85,7 +85,7 @@ def subset_ann[GeneSymbol](
 
     Returns
     -------
-    AnnData
+    AnnData or None
         the subsetted AnnData object
 
     Raises

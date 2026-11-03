@@ -274,8 +274,8 @@ def average_expression(
 
     Returns
     -------
-    dict
-        a dictionary with the groups as keys and the lists of average expressions for each gene as values
+    pandas.DataFrame
+        Averaged expression values for each group.
 
     Raises
     ------

@@ -118,6 +118,11 @@ class LigandActivityPredictor[GeneSymbol]:
         """
         Get the index of the ligand in the ligand-target matrix
 
+        Parameters
+        ----------
+        ligand : gene_t
+            the ligand
+
         Returns
         -------
         int
@@ -191,7 +196,7 @@ class LigandActivityPredictor[GeneSymbol]:
 
         Returns
         -------
-        dict
+        numpy.ndarray
             the corresponding column
 
         Raises

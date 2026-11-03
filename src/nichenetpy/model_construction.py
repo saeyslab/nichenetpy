@@ -53,7 +53,7 @@ def construct_weighted_networks[GeneSymbol](
     dictionary
         a dictionary containing 2 elements (lr_sig and gr) or 3 elements (lr, sig, gr):
         the integrated weighted ligand-signaling and gene regulatory networks or ligand-receptor,
-        signaling and gene regulatory networks in data frame / tibble format with columns: from, to, weight
+        signaling and gene regulatory networks
 
     Raises
     ------
@@ -115,7 +115,7 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
 
     Returns
     -------
-    dictionary
+    pandas.DataFrame
         the hubiness-corrected network
 
     Raises
@@ -240,8 +240,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
 
     Returns
     -------
-    numpy.ndarray
-        a matrix containing ligand-target probability scores
+    numpy.ndarray or tuple[numpy.ndarray, numpy.ndarray]
+        a matrix (or 2 matrices in case of split) containing ligand-target probability scores
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
@@ -549,7 +549,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: bool = True,
-    remove_direct_links: str = "no",
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
     return_all_matrices: bool = False,
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
@@ -598,7 +598,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         Indicate whether direct ligand-target and receptor-target links in the gene regulatory network should be kept or not.
         "no": keep links;
         "ligand": remove direct ligand-target links;
-        "ligand-receptor": remove both direct ligand-target and receptor-target links.
+        "ligand_receptor": remove both direct ligand-target and receptor-target links.
         Default: "no"
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
@@ -616,7 +616,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     Returns
     -------
     numpy.ndarray
-        a matrix containing tf-target regulatory weights
+        a matrix containing ligand-target regulatory weights
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
@@ -628,6 +628,10 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+
+    Notes
+    -----
+    if return_all_matrices is True, three matrices with row en column labels are returned (ligand-target, ligand-tf and tf-target)
     """
     if type(weighted_networks) is not dict:
         raise TypeError(
