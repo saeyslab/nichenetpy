@@ -513,7 +513,7 @@ def run_nichenet_cluster_de(
         geneset_oi = set(
             DE_table[
                 (DE_table["pval_adj"] <= max_pval_adj)
-                & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= lfc_cutoff))
+                & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= -lfc_cutoff))
             ]["gene"]
         )
     geneset_oi.intersection_update(predictor.row_names)
