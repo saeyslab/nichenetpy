@@ -455,13 +455,9 @@ def construct_tf_target_matrix(
 
 
 def _set_min(mat):
-    for i in range(len(mat)):
-        if mat[i] == 0:
-            mat[i] = np.inf
-    m = min(mat)
-    for i in range(len(mat)):
-        if mat[i] == np.inf:
-            mat[i] = m
+    # All 0's are replaced by the smallest non-zero element
+    mat[mat == 0] = np.inf
+    mat[mat == np.inf] = np.min(mat)
 
 
 @overload
@@ -659,10 +655,10 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if remove_direct_links == "ligand":
         rm_set = set(lr_network["from"])
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     if type(split_direct) is not str:
@@ -758,7 +754,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
                 (ligand2target.transpose(), grn_cols, ltf_rows),
                 (
                     (
-                        (ltf_matrix[0].transpose(), ltf_matrix[1].transpose())
+                        (ltf_direct.transpose(), ltf_indirect.transpose())
                         if split_direct[:3] == "ltf"
                         else ltf_matrix.transpose()
                     ),
@@ -861,7 +857,7 @@ def construct_model_from_source_weights[GeneSymbol](
             direct_coef=direct_coef,
         )
         if return_all_matrices:
-            ligand2target, grn_matrix, ltf_matrix = res  # type: ignore # correct in this conditional path
+            ligand2target, ltf_matrix, grn_matrix = res  # type: ignore # correct in this conditional path
         else:
             ligand2target = res  # type: ignore # correct in this conditional path
             grn_matrix = None

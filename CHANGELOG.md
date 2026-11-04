@@ -87,13 +87,19 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.
 
-- Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted
+- Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted.
 
-- Fixed bugs in type checks at runtime
+- Fixed bugs in type checks at runtime.
 
 - Fixed bug in `run_nichenet_cluster_de` where the down cutoff was positive.
 
 - Fixed bug in `run_nichenet_cluster_de` where the geneset argument was passed to `run_nichenet_cluster_de` in stead of geneset_oi.
+
+- Fixed bug in `construct_model_from_source_weights` where tft and ltf matrices from `construct_ligand_target_matrix` were swapped. 
+
+- Fixed bug in `construct_ligand_target_matrix` where remove_direct_links argument did nothing.
+
+- Fixed bug in `construct_ligand_target_matrix` which occurs when `secondary_targets` is True.
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
