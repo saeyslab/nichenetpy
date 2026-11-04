@@ -73,7 +73,7 @@ def calculate_de[GeneSymbol](
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
-    if not isinstance(features, Iterable):
+    if features is not None and not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
@@ -141,9 +141,9 @@ def get_avg_exp[GeneSymbol](
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
-    if type(condition_oi) is not str:
+    if condition_oi is not None and type(condition_oi) is not str:
         raise TypeError(f"condition_oi should have type str, was {type(condition_oi)}")
-    if type(condition_col) is not str:
+    if condition_col is not None and type(condition_col) is not str:
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")

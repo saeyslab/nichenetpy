@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_array, csc_array, csc_matrix, csr_array, csr_matrix
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
@@ -503,9 +503,9 @@ class LigandActivityPredictor[GeneSymbol]:
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         slc = self.ligand_target_matrix[:, self.ligand2index(ligand)]
-        if isinstance(slc, coo_array):
-            slc = csc_array(slc)
-        if n < self.ligand_target_matrix.shape[1]:
+        if not isinstance(slc, np.ndarray):
+            slc = slc.toarray()
+        if n < self.ligand_target_matrix.shape[0]:
             top_n_score = sorted(slc, reverse=True)[n - 1]
         else:
             top_n_score = min(sorted(slc, reverse=True)[:n])

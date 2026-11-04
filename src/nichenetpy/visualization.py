@@ -510,7 +510,8 @@ def get_ligand_signaling_path(
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     lr_sig_mat = csr_array(
-        ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]]))
+        ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]])),
+        shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
     tfs = set.union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
@@ -534,8 +535,8 @@ def visualize_ligand_signaling_graph(
     tf_regulatory: pd.DataFrame,
     ligands_oi: Collection[str],
     targets_oi: Collection[str],
-    sig_color: str = "blue",
-    gr_color: str = "red",
+    sig_color: str = "red",
+    gr_color: str = "blue",
     neutral_color: str = "gray",
     node_size: int = 1300,
     arrow_size: int = 10,
@@ -597,14 +598,14 @@ def visualize_ligand_signaling_graph(
             tf_signaling["from"].tolist(),
             tf_signaling["to"].tolist(),
             tf_signaling["weight"].tolist(),
-            repeat(gr_color),
+            repeat(sig_color),
             strict=False,
         ),
         zip(
             tf_regulatory["from"].tolist(),
             tf_regulatory["to"].tolist(),
             tf_regulatory["weight"].tolist(),
-            repeat(sig_color),
+            repeat(gr_color),
             strict=False,
         ),
     ):

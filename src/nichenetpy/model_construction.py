@@ -655,10 +655,14 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if remove_direct_links == "ligand":
         rm_set = set(lr_network["from"])
-        weighted_networks["gr"] = weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links == "ligand_receptor":
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
-        weighted_networks["gr"] = weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     if type(split_direct) is not str:
@@ -716,11 +720,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     elif split_direct == "ltf-tft":
-        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+        (ltf_direct, ltf_indirect), ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor, split_ppr=True
         )
-        ltf_direct = ltf_matrix[0]
-        ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
         target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))

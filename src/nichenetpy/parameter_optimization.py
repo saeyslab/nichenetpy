@@ -79,7 +79,9 @@ def _average_performances[GeneSymbol](
     performances_oi = performances[
         [
             any(
-                ligand in true_ligand if isinstance(true_ligand, Sequence) else ligand == true_ligand
+                ligand in true_ligand
+                if isinstance(true_ligand, Sequence) and type(true_ligand) is not str
+                else ligand == true_ligand
                 for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t.__value__) else ligand_oi)  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]

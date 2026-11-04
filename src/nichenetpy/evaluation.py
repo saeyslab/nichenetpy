@@ -352,6 +352,7 @@ def get_single_ligand_importances[GeneSymbol](
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
+    target_evaluation_metrics = sorted(target_evaluation_metrics)
     """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix
@@ -437,6 +438,7 @@ def evaluate_single_importances_ligand_prediction(
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     added = is_ligand_active(importances)
+    ligand_evaluation_metrics = sorted(ligand_evaluation_metrics)
     """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix

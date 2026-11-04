@@ -91,15 +91,25 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bugs in type checks at runtime.
 
-- Fixed bug in `run_nichenet_cluster_de` where the down cutoff was positive.
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where the down cutoff was positive.
 
-- Fixed bug in `run_nichenet_cluster_de` where the geneset argument was passed to `run_nichenet_cluster_de` in stead of geneset_oi.
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where the geneset argument was passed to `prediction.LigandActivityPredictor.get_weighted_ligand_target_links` in stead of geneset_oi.
 
-- Fixed bug in `construct_model_from_source_weights` where tft and ltf matrices from `construct_ligand_target_matrix` were swapped. 
+- Fixed bug in `model_construction.construct_model_from_source_weights` where tft and ltf matrices from `model_construction.construct_ligand_target_matrix` were swapped.
 
-- Fixed bug in `construct_ligand_target_matrix` where remove_direct_links argument did nothing.
+- Fixed bug in `model_construction.construct_ligand_target_matrix` where remove_direct_links argument did nothing.
 
-- Fixed bug in `construct_ligand_target_matrix` which occurs when `secondary_targets` is True.
+- Fixed bug in `model_construction.construct_ligand_target_matrix` which occurs when `secondary_targets` is True.
+
+- Fixed bug in `wrappers.run_nichenet` which occurs when `case_control` is True.
+
+- Fixed bug in `wrappers.combine_weighted_ligand_target_links` that occurs when a ligand has no targets.
+
+- Fixed bug in `prediction.LigandActivityPredictor.get_weighted_ligand_target_links` that occurs when the ligand-target matrix is sparse.
+
+- Added shape to `lr_sig_mat` construction in `visualization.get_ligand_signaling_path` which fixes an edge case bug.
+
+- Fixed swapped colors in `visualization/visualize_ligand_signaling_graph`.
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
