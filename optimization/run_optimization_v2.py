@@ -18,7 +18,7 @@ from optuna.storages.journal import JournalFileBackend, JournalFileOpenLock
 from optuna.trial import Trial
 
 from nichenetpy.evaluation import EvaluationData
-from nichenetpy.parameter_optimization import construct_and_evaluate
+from nichenetpy.parameter_optimization import construct_and_evaluate, metric_score_f_dct, objective_fs_dct
 from nichenetpy.typing import gene_t
 from nichenetpy.utils import read_csv_cols, read_csv_rows, read_network_file
 
@@ -119,9 +119,94 @@ if __name__ == "__main__":
     parser.add_argument(
         "--semantic_similarity_metric", help="The semantic similarity metric to use. Default: None", default=None
     )
+    parser.add_argument(
+        "--split_direct",
+        help="""
+            Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+            "no": don't split;
+            "ltf": split the ltf matrix;
+            "tft": split the tft matrix;
+            "ltf-tft": split both the ltf and tft matrices;
+            Default: "no"
+        """,
+        choices=("no", "ltf", "tft", "ltf-tft"),
+        default="no",
+    )
+    parser.add_argument(
+        "--ligand_prediction_evaluation_metric",
+        help="metrics to evaluate ligand prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson', 'map', 'ndcg')",
+        choices=("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg"),
+        action="append",
+        default=[],
+    )
+    parser.add_argument(
+        "--target_prediction_evaluation_metric",
+        help="metrics to evaluate target prediction, must be a subset of ('aupr', 'aupr_corrected', 'auroc', 'pearson')",
+        choices=("aupr", "aupr_corrected", "auroc", "pearson"),
+        action="append",
+        default=[],
+    )
+    parser.add_argument(
+        "--objective_functions",
+        help="""
+            sets of objective functions for the source weight optimization
+
+            NNv2
+                The objective functions used in NicheNetV2.
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `aupr_corrected` and `auroc` to evaluate the ligand ranking.
+
+            map&ndcg
+                Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking.
+        """,
+        choices=("NNv2", "map&ndcg"),
+        default="NNv2",
+    )
+    parser.add_argument(
+        "--metric_score_function",
+        help="""
+            the function that computes the metric score (which decides the best metric to rank the ligands with)
+
+            NNv2
+                The metric score function used in NicheNetV2.
+                Computes the geometric mean of `aupr_corrected` and `auroc`.
+
+            all_geometric_mean
+                The metric score function used in NicheNetV2.
+                Computes the geometric mean of all available target evaluation metrics.
+        """,
+        choices=("NNv2", "all_geometric_mean"),
+        default="NNv2",
+    )
     args = parser.parse_args()
+    if len(args.ligand_prediction_evaluation_metric) > 0:
+        lig_eval_metrics = args.ligand_prediction_evaluation_metric
+    else:
+        lig_eval_metrics = ("aupr_corrected", "auroc")
+    if len(args.target_prediction_evaluation_metric) > 0:
+        tar_eval_metrics = args.target_prediction_evaluation_metric
+    else:
+        tar_eval_metrics = ("aupr_corrected", "auroc")
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
+    objective_fs = objective_fs_dct[args.objective_functions]
+    metric_score_f = metric_score_f_dct[args.metric_score_function]
+
+    def make_objective_vector(res):
+        tp = res[1]["target_prediction"]
+        lp = res[1]["ligand_prediction"]
+        return tuple(
+            chain(
+                tuple(
+                    e[0]
+                    for e in sorted(((tp[met], tar_eval_metrics.index(met)) for met in tp.keys()), key=lambda x: x[1])
+                ),
+                tuple(
+                    e[0]
+                    for e in sorted(((lp[met], lig_eval_metrics.index(met)) for met in lp.keys()), key=lambda x: x[1])
+                ),
+            )
+        )
+
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -250,9 +335,9 @@ if __name__ == "__main__":
     sym2id = dict(zip(syms, range(len(syms)), strict=True))
 
     def network_sym2id(network):
-        network["from"] = [sym2id[e] for e in network["from"]]
-        network["to"] = [sym2id[e] for e in network["to"]]
-        network["source"] = [sym2id[e] for e in network["source"]]
+        network["from"] = network["from"].apply(lambda x: sym2id[x])
+        network["to"] = network["to"].apply(lambda x: sym2id[x])
+        network["source"] = network["source"].apply(lambda x: sym2id[x])
 
     def evaluation_data_sym2id(eval):
         for dct in eval.values():
@@ -293,6 +378,15 @@ if __name__ == "__main__":
             if args.damping_factor is None
             else args.damping_factor
         )
+        direct_coef = (
+            trial.suggest_float(
+                name="direct_coef",
+                low=0,  # no direct RP
+                high=0.5,  # RP is average of direct and indirect RP
+            )
+            if args.split_direct != "no"
+            else 0.5
+        )
         if args.semantic_similarity_metric is None:
             _sig_network = sig_network
         else:
@@ -301,19 +395,27 @@ if __name__ == "__main__":
         _sig_network = _sig_network[["from", "to", "source"]]
         # construct the models from the source weights (one per fold) and compute the objectives
         res = [
-            construct_and_evaluate(
-                {(sym2id[s], w) for s, w in source_weights.items()},
-                lr_sig_hub,
-                gr_hub,
-                ltf_cutoff,
-                damping_factor,
-                lr_network,
-                gr,
-                _sig_network,
-                eval,
-                return_all_matrices=False,
-                return_weighted_networks=False,
-            )[1:]
+            make_objective_vector(
+                construct_and_evaluate(
+                    {sym2id[s]: w for s, w in source_weights.items()},
+                    lr_sig_hub,
+                    gr_hub,
+                    ltf_cutoff,
+                    damping_factor,
+                    lr_network,
+                    gr,
+                    _sig_network,
+                    eval,
+                    return_all_matrices=False,
+                    return_weighted_networks=False,
+                    split_direct=args.split_direct,
+                    direct_coef=direct_coef,
+                    ligand_evaluation_metrics=lig_eval_metrics,
+                    target_evaluation_metrics=tar_eval_metrics,
+                    metric_score_f=metric_score_f,
+                    objective_fs=objective_fs,
+                )
+            )
             for eval, gr in evaluation_data
         ]
         # average objective vector over all folds
@@ -332,13 +434,23 @@ if __name__ == "__main__":
         sampler = NSGAIISampler(crossover=FlatCrossover(), crossover_prob=1)
     elif args.algorithm == "GP":
         sampler = GPSampler(deterministic_objective=False)
+    metric_names = list(
+        chain(
+            (f"target_{met}" for met in objective_fs["target_prediction"].keys()),
+            (f"ligand_{met}" for met in objective_fs["ligand_prediction"].keys()),
+        )
+    )
     study = create_study(
         sampler=sampler,
-        directions=["maximize", "maximize", "maximize", "maximize"],
+        directions=["maximize" for _ in range(len(metric_names))],
         study_name=args.name,
         storage=storage,
         load_if_exists=args.c,
     )
+    parallel(
+        optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs)
+    )
+    study.set_metric_names(metric_names)
     parallel(
         optimize(args.name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs)
     )

@@ -118,9 +118,38 @@ if __name__ == "__main__":
     parser.add_argument(
         "--semantic_similarity_metric", help="The semantic similarity metric to use. Default: None", default=None
     )
+    parser.add_argument(
+        "--ligand_prediction_evaluation_metric",
+        help="metrics to evaluate ligand prediction",
+        action="append",
+        default=[],
+    )
+    parser.add_argument(
+        "--target_prediction_evaluation_metric",
+        help="metrics to evaluate target prediction",
+        action="append",
+        default=[],
+    )
     args = parser.parse_args()
+    if len(args.ligand_prediction_evaluation_metric) > 0:
+        lig_eval_metrics = args.ligand_prediction_evaluation_metric
+    else:
+        lig_eval_metrics = ("aupr_corrected", "auroc")
+    if len(args.target_prediction_evaluation_metric) > 0:
+        tar_eval_metrics = args.target_prediction_evaluation_metric
+    else:
+        tar_eval_metrics = ("aupr_corrected", "auroc")
     if len(args.included_database) > 0 and len(args.excluded_database) > 0:
         raise ValueError("included_database and excluded_database are incompatible with eachother")
+
+    def make_objective_vector(res):
+        return tuple(
+            chain(
+                (res[1]["target_prediction"][met] for met in tar_eval_metrics),
+                (res[1]["ligand_prediction"][met] for met in lig_eval_metrics),
+            )
+        )
+
     source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
@@ -240,15 +269,15 @@ if __name__ == "__main__":
         )
     )
     sym2id = dict(zip(syms, range(len(syms)), strict=True))
-    lr_network["from"] = [sym2id[e] for e in lr_network["from"]]
-    lr_network["to"] = [sym2id[e] for e in lr_network["to"]]
-    lr_network["source"] = [sym2id[e] for e in lr_network["source"]]
-    gr_network["from"] = [sym2id[e] for e in gr_network["from"]]
-    gr_network["to"] = [sym2id[e] for e in gr_network["to"]]
-    gr_network["source"] = [sym2id[e] for e in gr_network["source"]]
-    sig_network["from"] = [sym2id[e] for e in sig_network["from"]]
-    sig_network["to"] = [sym2id[e] for e in sig_network["to"]]
-    sig_network["source"] = [sym2id[e] for e in sig_network["source"]]
+
+    def network_sym2id(network):
+        network["from"] = network["from"].apply(lambda x: sym2id[x])
+        network["to"] = network["to"].apply(lambda x: sym2id[x])
+        network["source"] = network["source"].apply(lambda x: sym2id[x])
+
+    network_sym2id(lr_network)
+    network_sym2id(gr_network)
+    network_sym2id(sig_network)
     for dct in evaluation_data.values():
         ligand = dct[evaluation_data._ligand_name]
         dct[evaluation_data._ligand_name] = (
@@ -302,8 +331,10 @@ if __name__ == "__main__":
             evaluation_data,
             return_all_matrices=False,
             return_weighted_networks=False,
+            ligand_evaluation_metrics=lig_eval_metrics,
+            target_evaluation_metrics=tar_eval_metrics,
         )
-        return res[1:]
+        return make_objective_vector(res)
 
     name = args.settings_file.split("/")[-1][:-5]
     if not os.path.exists(args.log_dir):
@@ -325,5 +356,8 @@ if __name__ == "__main__":
         study_name=name,
         storage=storage,
         load_if_exists=args.c,
+    )
+    study.set_metric_names(
+        list(chain((f"target_{met}" for met in tar_eval_metrics), (f"ligand_{met}" for met in lig_eval_metrics)))
     )
     parallel(optimize(name, storage, sampler) for _ in range(cpu_count() if parallel.n_jobs == -1 else parallel.n_jobs))

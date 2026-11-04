@@ -9,7 +9,7 @@ from scipy.sparse import csc_array, csr_array
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -22,7 +22,7 @@ def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
     )
 
 
-def construct_weighted_networks(
+def construct_weighted_networks[GeneSymbol](
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
@@ -53,7 +53,7 @@ def construct_weighted_networks(
     dictionary
         a dictionary containing 2 elements (lr_sig and gr) or 3 elements (lr, sig, gr):
         the integrated weighted ligand-signaling and gene regulatory networks or ligand-receptor,
-        signaling and gene regulatory networks in data frame / tibble format with columns: from, to, weight
+        signaling and gene regulatory networks
 
     Raises
     ------
@@ -115,7 +115,7 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
 
     Returns
     -------
-    dictionary
+    pandas.DataFrame
         the hubiness-corrected network
 
     Raises
@@ -152,14 +152,61 @@ def _quantile_clip(mat, cutoff):
                     mat[i, j] = 0
 
 
-def construct_ligand_tf_matrix(
+@overload
+def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] = "PPR",
     damping_factor: float = 0.5,
     column_major=False,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
+    split_ppr: Literal[True] = True,
+) -> tuple[
+    tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.float64]]],
+    list[GeneSymbol],
+    list[GeneSymbol],
+]: ...
+
+
+@overload
+def construct_ligand_tf_matrix[GeneSymbol](
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major=False,
+    split_ppr: Literal[False] = False,
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]: ...
+
+
+@overload
+def construct_ligand_tf_matrix[GeneSymbol](
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    *,
+    algorithm: Literal["SPL"] | Literal["direct"],
+    damping_factor: float = 0.5,
+    column_major=False,
+    split_ppr: Literal[True] = True,
+) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]: ...
+
+
+def construct_ligand_tf_matrix[GeneSymbol](
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major=False,
+    split_ppr=False,
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]]
+    | tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.float64]]],
+    list[GeneSymbol],
+    list[GeneSymbol],
+]:
     """
     Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
@@ -187,12 +234,14 @@ def construct_ligand_tf_matrix(
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
-
+    split_ppr : bool
+        in case of ppr algorithm, whether to split off the reflexive scores,
+        if true a tuple of matrices is returned, the first contains the reflexive scores and the second one the non-reflexive scores
 
     Returns
     -------
-    numpy.ndarray
-        a matrix containing ligand-target probability scores
+    numpy.ndarray or tuple[numpy.ndarray, numpy.ndarray]
+        a matrix (or 2 matrices in case of split) containing ligand-target probability scores
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
@@ -233,6 +282,10 @@ def construct_ligand_tf_matrix(
         raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
+    if type(split_ppr) is not bool:
+        raise TypeError(f"split_ppr should have type bool, was {type(split_ppr)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
@@ -253,8 +306,14 @@ def construct_ligand_tf_matrix(
         pv = np.zeros(shape=lr_sig_mat.shape[0])  # type: ignore # shape can't be None
         pr = PageRank(damping_factor=damping_factor)
         complete_matrix = []
+        if split_ppr:
+            mask = []
         for _ligands in ligands:
             partial_matrix = []
+            if split_ppr:
+                mask.append(np.array([False for _ in range(len(pv))]))
+                for ligand in _ligands:
+                    mask[-1][gene2id[ligand]] = True
             for ligand in _ligands:
                 pv.fill(0)
                 pv[gene2id[ligand]] = 1
@@ -319,6 +378,9 @@ def construct_ligand_tf_matrix(
         for _ligands in ligands
     ]
     col_names = all_genes
+    if algorithm == "PPR" and split_ppr:
+        mask = np.array(mask)
+        return ((np.multiply(ltf_matrix, mask), np.multiply(ltf_matrix, ~mask)), row_names, col_names)
     return (ltf_matrix, row_names, col_names)
 
 
@@ -350,7 +412,6 @@ def construct_tf_target_matrix(
     column_major : bool
         whether to use column_major or row_major data format
 
-
     Returns
     -------
     csr_array or csc_array
@@ -371,6 +432,8 @@ def construct_tf_target_matrix(
         )
     if type(standalone_output) is not bool:
         raise TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     all_genes = sorted(
@@ -402,32 +465,36 @@ def _set_min(mat):
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]]: ...
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[True] = True,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
@@ -436,32 +503,36 @@ def construct_ligand_target_matrix(
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[False] = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]]: ...
 
 
 @overload
-def construct_ligand_target_matrix(
+def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: Literal[False] = False,
     remove_direct_links: str = "no",
     return_all_matrices: Literal[True] = True,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
@@ -469,22 +540,24 @@ def construct_ligand_target_matrix(
 ]: ...
 
 
-def construct_ligand_target_matrix(  # type: ignore
+def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
-    algorithm: str = "PPR",
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
     damping_factor: float = 0.5,
     secondary_targets: bool = False,
     ligands_as_cols: bool = True,
-    remove_direct_links: str = "no",
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
     return_all_matrices: bool = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> (
     tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]]
     | tuple[
         tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]],
-        tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+        tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
 ):
@@ -525,16 +598,25 @@ def construct_ligand_target_matrix(  # type: ignore
         Indicate whether direct ligand-target and receptor-target links in the gene regulatory network should be kept or not.
         "no": keep links;
         "ligand": remove direct ligand-target links;
-        "ligand-receptor": remove both direct ligand-target and receptor-target links.
+        "ligand_receptor": remove both direct ligand-target and receptor-target links.
         Default: "no"
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
-
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+        "no": don't split;
+        "ltf": split the ltf matrix;
+        "tft": split the tft matrix;
+        "ltf-tft": split both the ltf and tft matrices;
+        Default: "no"
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
 
     Returns
     -------
     numpy.ndarray
-        a matrix containing tf-target regulatory weights
+        a matrix containing ligand-target regulatory weights
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
@@ -546,6 +628,10 @@ def construct_ligand_target_matrix(  # type: ignore
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+
+    Notes
+    -----
+    if return_all_matrices is True, three matrices with row en column labels are returned (ligand-target, ligand-tf and tf-target)
     """
     if type(weighted_networks) is not dict:
         raise TypeError(
@@ -579,18 +665,90 @@ def construct_ligand_target_matrix(  # type: ignore
         weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
-    ligands_it: list[Iterable[GeneSymbol]] = [
-        (_ligands,) if isinstance(_ligands, gene_t.__value__) else _ligands  # type: ignore # type is checked
-        for _ligands in ligands
-    ]
-    ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
-        weighted_networks, ligands_it, ltf_cutoff, algorithm, damping_factor
-    )
-    grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ grn_matrix  # type: ignore # returns ndarray
+    if type(split_direct) is not str:
+        raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
+    elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
+        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
+    if not isinstance(direct_coef, Number):
+        raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
+    elif direct_coef < 0 or direct_coef > 1:
+        raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
+    ligands = [(_ligands,) if isinstance(_ligands, gene_t.__value__) else _ligands for _ligands in ligands]  # type: ignore # correct due to conditional
+    if split_direct == "no":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,  # type: ignore
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        ligand2target = ltf_matrix @ tft_matrix  # type: ignore # returns ndarray
+    elif split_direct == "ltf":
+        (ltf_direct, ltf_indirect), ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,  # type: ignore
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            split_ppr=True,
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        rp_direct = ltf_direct @ tft_matrix
+        rp_indirect = ltf_indirect @ tft_matrix
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
+    elif split_direct == "tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
+        target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
+        gr_network = weighted_networks["gr"]  # contains the same links as the unweighted network
+        direct_links = gr_network[gr_network["from"].apply(lambda x: (x,)).isin(ligands)]
+        mask = csr_array(
+            (
+                [True for _ in range(len(direct_links))],
+                (direct_links["from"].apply(lambda x: tf2id[x]), direct_links["to"].apply(lambda x: target2id[x])),
+            ),
+            shape=tft_matrix.shape,
+            dtype=np.bool,
+        )
+        tft_direct = tft_matrix.multiply(mask)
+        tft_indirect = tft_matrix.multiply(~mask.toarray())
+        rp_direct: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
+        rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
+    elif split_direct == "ltf-tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor, split_ppr=True
+        )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
+        target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
+        gr_network = weighted_networks["gr"]  # contains the same links as the unweighted network
+        direct_links = gr_network[gr_network["from"].apply(lambda x: (x,)).isin(ligands)]
+        mask = csr_array(
+            (
+                [True for _ in range(len(direct_links))],
+                (direct_links["from"].apply(lambda x: tf2id[x]), direct_links["to"].apply(lambda x: target2id[x])),
+            ),
+            shape=tft_matrix.shape,
+            dtype=np.bool,
+        )
+        tft_direct = tft_matrix.multiply(mask)
+        tft_indirect = tft_matrix.multiply(~mask.toarray())
+        # same as rp_direct when split_direct == "ltf"?
+        rp_direct = ltf_direct @ tft_direct
+        # same as rp_indirect when split_direct == "tft"?
+        rp_indirect = ltf_indirect @ tft_indirect
+        # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ grn_matrix  # type: ignore # returns ndarray
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ tft_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1
@@ -598,17 +756,22 @@ def construct_ligand_target_matrix(  # type: ignore
         if ligands_as_cols:
             return (
                 (ligand2target.transpose(), grn_cols, ltf_rows),
-                (ltf_matrix.transpose(), ltf_cols, ltf_rows),
-                (grn_matrix.transpose(), grn_cols, grn_rows),
+                (
+                    (
+                        (ltf_matrix[0].transpose(), ltf_matrix[1].transpose())
+                        if split_direct[:3] == "ltf"
+                        else ltf_matrix.transpose()
+                    ),
+                    ltf_cols,
+                    ltf_rows,
+                ),
+                (tft_matrix.transpose(), grn_cols, grn_rows),
             )  # type: ignore # transposition has correct type
-        return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (grn_matrix, grn_rows, grn_cols))  # type: ignore
-    else:
-        return (
-            (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)  # type: ignore # transposition has correct type
-        )
+        return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (tft_matrix, grn_rows, grn_cols))
+    return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
 
-def construct_model_from_source_weights(
+def construct_model_from_source_weights[GeneSymbol](
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
@@ -620,6 +783,8 @@ def construct_model_from_source_weights(
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]] | None = None,
     return_all_matrices: bool = True,
     return_weighted_networks: bool = True,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
 ) -> dict[str, Any]:
     """
     Construct the ligand-target matrix starting from the source weights.
@@ -653,6 +818,16 @@ def construct_model_from_source_weights(
         whether or not to return the ligand-tf and tf-target matrices
     return_weighted_networks : bool
         whether or not to return the weighted networks
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+        "no": don't split;
+        "ltf": split the ltf matrix;
+        "tft": split the tft matrix;
+        "ltf-tft": split both the ltf and tft matrices;
+        Default: "no"
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
 
     Returns
     -------
@@ -682,6 +857,8 @@ def construct_model_from_source_weights(
             damping_factor=damping_factor,
             ltf_cutoff=ltf_cutoff,
             return_all_matrices=return_all_matrices,
+            split_direct=split_direct,
+            direct_coef=direct_coef,
         )
         if return_all_matrices:
             ligand2target, grn_matrix, ltf_matrix = res  # type: ignore # correct in this conditional path

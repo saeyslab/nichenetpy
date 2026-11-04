@@ -36,11 +36,11 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import nichenet_matrix
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
-def reorder_labels(
+def reorder_labels[GeneSymbol](
     mat: np.ndarray, row_labels: list[GeneSymbol], col_labels: list[GeneSymbol]
 ) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
@@ -93,7 +93,7 @@ def reorder_labels(
     return (mat, row_labels, col_labels)
 
 
-def prepare_ligand_target_visualization(
+def prepare_ligand_target_visualization[GeneSymbol](
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
     cutoff: float = 0.25,
@@ -163,7 +163,7 @@ def prepare_ligand_target_visualization(
     return reorder_labels(ligand_target_vis, targets, ligands)  # type: ignore
 
 
-def prepare_ligand_receptor_visualization(
+def prepare_ligand_receptor_visualization[GeneSymbol](
     ligand_receptor_links: WeightedNetwork[GeneSymbol],
 ) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
     """
@@ -190,8 +190,8 @@ def prepare_ligand_receptor_visualization(
     """
     if not isinstance(ligand_receptor_links, WeightedNetwork):
         raise TypeError(f"ligand_receptor_links should have type WeightedNetwork, was {type(ligand_receptor_links)}")
-    ligands = sorted(ligand_receptor_links.get_ligands())
-    receptors = sorted(ligand_receptor_links.get_receptors())
+    ligands = sorted(ligand_receptor_links.get_ligands())  # type: ignore # false postive
+    receptors = sorted(ligand_receptor_links.get_receptors())  # type: ignore # false positive
     ligand2index = dict(zip(ligands, range(len(ligands)), strict=True))
     receptor2index = dict(zip(receptors, range(len(receptors)), strict=True))
     mat = np.zeros(shape=(len(ligands), len(receptors)))
@@ -377,7 +377,7 @@ def heatmap_2d(
     return (fig, ax)
 
 
-def _construct_ligand_signaling_df(
+def _construct_ligand_signaling_df[GeneSymbol](
     ligands_oi: Collection[GeneSymbol],
     targets_oi: Collection[GeneSymbol],
     all_ligands: Collection[GeneSymbol],
@@ -394,7 +394,7 @@ def _construct_ligand_signaling_df(
         ltf_vis.index.name = "TF"
         ltf_vis.reset_index(inplace=True)
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
-        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]
+        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]  # type: ignore
         for target in targets_oi:
             gr_filtered = gr[gr["to"] == target]
             gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
@@ -408,7 +408,7 @@ def _construct_ligand_signaling_df(
     return pd.concat(dfs)
 
 
-def _get_shortest_path_signaling(
+def _get_shortest_path_signaling[GeneSymbol](
     ligand_oi: GeneSymbol,
     signaling_df: pd.DataFrame,
     lr_sig_mat: csr_array[np.float64],
@@ -590,7 +590,7 @@ def visualize_ligand_signaling_graph(
         raise TypeError(f"arrow_size should have type int, was {type(arrow_size)}")
     if type(label_size) is not int:
         raise TypeError(f"font_size should have type int, was {type(label_size)}")
-    if type(seed) is not int:
+    if seed is not None and type(seed) is not int:
         raise TypeError(f"seed should have type int, was {type(seed)}")
     graph = nx.DiGraph()
     for fr, to, w, c in chain(
@@ -778,7 +778,7 @@ def create_barcode_plot(
         the relative x-coordinate of the rank labels
     x_col_agnostic : float
         the relative x-coordinate of the sender-agnostic ranking
-    layer : float
+    x_col_focused : float
         the relative x-coordinate of the sender-focused ranking
     r : float
         the radius of the dots in the slope graph
@@ -1598,7 +1598,7 @@ def create_radar_plot(
     label_size: float = 10,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a plot consisting of variable-size markers.
+    Creates a radar plot.
 
     Parameters
     ----------
@@ -1606,7 +1606,7 @@ def create_radar_plot(
         the data to be plotted
     value_labels : iterable of string
         the labels of the values to be plotted
-    cmap : str
+    cmap : str or Colormap
         the name of the color map
     figsize : tuple of int
         the size of the figure

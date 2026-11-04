@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import eval_metric_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -90,9 +90,9 @@ def calculate_aupr(
     )
     0.8851473922902493
     """
-    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+    if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
-    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+    if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
         warnings.warn("There are no true samples in response, AUPR is undefined", stacklevel=2)
@@ -125,20 +125,230 @@ def calculate_auroc(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
+    if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
-    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
+    if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
     fp, tp, _ = roc_curve(response, prediction)
     fp, tp = zip(*sorted(zip(fp, tp, strict=True), key=lambda x: x[0]), strict=True)
     return -_auc_reverse(fp, tp)
 
 
+def precision_at_k(
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int,
+) -> float:
+    """
+    Calculates the precision at index k in the ranking.
+
+    Parameters
+    ----------
+    ranking : list or tuple or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    response : list or tuple or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    k : int
+        the index at which to compute the precision
+
+    Returns
+    -------
+    float
+        the precision at k
+    """
+    if not isinstance(ranking, (Sequence, np.ndarray)):
+        raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
+    if not isinstance(response, (Sequence, np.ndarray)):
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if type(k) is not int:
+        raise TypeError(f"k should be of type int, had type {type(k)}")
+    return sum(response[e] for e in ranking[: k + 1]) / (k + 1)  # type: ignore # e is float
+
+
+def average_precision_at_k(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int | None = None,
+) -> float:
+    """
+    Calculates the average precision at index k in the ranking.
+
+    Parameters
+    ----------
+    response : list or tuple or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    prediction : list or tuple or numpy.ndarray of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+    k : int or None
+        the index at which to compute the precision or None to compute the precision over everything
+
+    Returns
+    -------
+    float
+        the precision at k
+    """
+    if not isinstance(response, (Sequence, np.ndarray)):
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, (Sequence, np.ndarray)):
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
+    if k is None:
+        k = len(response) - 1
+    elif type(k) is not int:
+        raise TypeError(f"k should be of type int, had type {type(k)}")
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
+    n = sum(response)
+    if n == 1:
+        i = 0
+        while response[ranking[i]] != 1:
+            i += 1
+        return 1 / (i + 1) if i <= k else 0
+    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k + 1)) / n
+
+
+def dcg_at_k(
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int,
+) -> float:
+    """
+    Calculates the discounted cumulative gain at index k in the ranking.
+
+    Parameters
+    ----------
+    ranking : list or tuple or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    response : list or tuple or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    k : int
+        the index at which to compute the dcg
+
+    Returns
+    -------
+    float
+        the discounted cumulative gain at k
+    """
+    if not isinstance(response, (Sequence, np.ndarray)):
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(ranking, (Sequence, np.ndarray)):
+        raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
+    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # type: ignore # e is float
+
+
+def ndcg_at_k(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    k: int | None = None,
+):
+    """
+    Calculates the normalized discounted cumulative gain at index k in the ranking.
+
+    Parameters
+    ----------
+    response : Sequence or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    prediction : Sequence or numpy.ndarray of float
+        the ranking of response indices from best to worst
+    k : int
+        the index at which to compute the ndcg
+
+    Returns
+    -------
+    float
+        the normalized discounted cumulative gain at k
+    """
+    if not isinstance(response, (Sequence, np.ndarray)):
+        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, (Sequence, np.ndarray)):
+        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
+    if k is None:
+        k = len(response) - 1
+    elif type(k) is not int:
+        raise TypeError(f"k should be of type int, had type {type(k)}")
+    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
+    n = sum(response)
+    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x: x[1], reverse=True)]
+    # if n is 1 then ideal dcg@k is 1, so let's take a shortcut
+    return dcg_at_k(ranking, response, k) / (1 if n == 1 else dcg_at_k(gs_ranking, response, k))
+
+
+_metric_dct: dict[
+    eval_metric_t,
+    Callable[
+        [
+            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+        ],
+        float,
+    ],
+] = {
+    "aupr": calculate_aupr,
+    "aupr_corrected": lambda response, prediction: calculate_aupr(response, prediction) - sum(response) / len(response),
+    "auroc": calculate_auroc,
+    "pearson": lambda response, prediction: pearsonr(response, prediction).statistic,
+    "map": average_precision_at_k,
+    "ndcg": ndcg_at_k,
+}
+
+
+def calculate_evaluation_metrics[EvalMetric](
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    metrics: Iterable[EvalMetric],
+    allow_nan: bool = False,
+) -> dict[EvalMetric, float]:
+    """
+    Calculates evaluation metrics that can be used to rank ligands or to evaluate the ligand ranking.
+
+    Parameters
+    ----------
+    prediction : list or tuple or numpy.ndarray of float
+        vector which contains probability scores for each target gene (for one particular ligand)
+    response : list or tuple or numpy.ndarray of float
+        vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
+    metrics : Iterable of str
+        the metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+    allow_nan : bool
+        if True, return nan values in case a specific metric is undefined, if False the errors are not caught
+
+    Returns
+    -------
+    dict[str, float]
+        dictionary with as keys the names of the supported metrics and as values the computed metrics
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if response doesn't contain any true samples
+    """
+    if not isinstance(response, (Sequence, np.ndarray)):
+        raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
+    if not isinstance(prediction, (Sequence, np.ndarray)):
+        raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    if sum(response) == 0:
+        raise ValueError(
+            "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
+        )
+    output: dict[EvalMetric, float] = {}
+    warnings.filterwarnings("ignore")
+    for metric in metrics:
+        try:
+            output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
+        except ValueError as ex:
+            if allow_nan:
+                output[metric] = np.nan
+            else:
+                raise ex
+    warnings.filterwarnings("default")
+    return output
+
+
 def calculate_prediction_evaluation_metrics(
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
     allow_nan: bool = False,
-) -> dict[str, float]:
+) -> dict[eval_metric_t, float]:
     """
     Calculates metrics that can be used to rank ligands.
     currently supported metrics are:
@@ -169,38 +379,12 @@ def calculate_prediction_evaluation_metrics(
     ValueError
         if response doesn't contain any true samples
     """
-    if not isinstance(response, Sequence) and type(response) is not np.ndarray:
-        raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
-    if not isinstance(prediction, Sequence) and type(prediction) is not np.ndarray:
-        raise TypeError(f"prediction should be a Sequence or numpy.ndarray of floats, had type {type(prediction)}")
-    if sum(response) == 0:
-        raise ValueError(
-            "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
-        )
-    try:
-        aupr = calculate_aupr(response, prediction)
-    except ValueError as ex:
-        if allow_nan:
-            aupr = np.nan
-        else:
-            raise ex
-    try:
-        auroc = calculate_auroc(response, prediction)
-    except ValueError as ex:
-        if allow_nan:
-            auroc = np.nan
-        else:
-            raise ex
-    warnings.filterwarnings("ignore")
-    try:
-        pcc = pearsonr(response, prediction).statistic  # type: ignore # the statistic attribute exists
-    except ValueError as ex:
-        if allow_nan:
-            pcc = np.nan
-        else:
-            raise ex
-    warnings.filterwarnings("default")
-    return {"auroc": auroc, "pearson": pcc, "aupr": aupr, "aupr_corrected": aupr - sum(response) / len(response)}
+    return calculate_evaluation_metrics(
+        prediction=prediction,
+        response=response,
+        metrics=("aupr", "aupr_corrected", "auroc", "pearson"),
+        allow_nan=allow_nan,
+    )
 
 
 def _sub_log_fold_change(
@@ -311,7 +495,6 @@ def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
     ----------
     mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         (#cells X #genes) matrix containing the expression values
-    direction :
 
     Returns
     -------
@@ -351,7 +534,7 @@ def _single_group_metrics(
     return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
 
 
-def group_metrics(
+def group_metrics[GeneSymbol](
     ann: AnnData,
     groupby: str,
     group_oi: str | None = None,
@@ -359,7 +542,7 @@ def group_metrics(
     layer: str = "data",
     lfc_pseudocount: float = 1,
     tie_correction: bool = True,
-    features: Iterable[gene_t] | None = None,
+    features: Iterable[GeneSymbol] | None = None,
     min_abs_lfc: float = 0,
     min_pct: float = 0,
     pval_thresh: float | None = None,  # 0.01 in seurat

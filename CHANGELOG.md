@@ -59,7 +59,19 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- Support for scipy sparse arrays. TODO?
+- Support for scipy sparse arrays.
+
+- metrics.precision_at_k
+
+- metrics.average_precision_at_k
+
+- metrics.dcg_at_k
+
+- metrics.ndcg_at_k
+
+- You can now pass `ligand_evaluation_metrics` and `target_evaluation_metrics` to evaluation / objective functions.
+
+- Added optional arguments to split matrices during model construction.
 
 ### Changes
 
@@ -69,13 +81,19 @@ and this project adheres to [Semantic Versioning][].
 
 - Corrected type signatures.
 
-- Fixed bug in `prediction.replace_zero_col_by_noisy_scores` where sparse matrices where not supported.
+- Corrected docstrings.
 
-- Fixed bug in `io.write_ligand_target_matrix` where sparse matrices where not supported.
+- Fixed bug in `prediction.replace_zero_col_by_noisy_scores` where sparse matrices were not supported.
+
+- Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.
 
 - Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted
 
 - Fixed bugs in type checks at runtime
+
+- Fixed bug in `run_nichenet_cluster_de` where the down cutoff was positive.
+
+- Fixed bug in `run_nichenet_cluster_de` where the geneset argument was passed to `run_nichenet_cluster_de` in stead of geneset_oi.
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3

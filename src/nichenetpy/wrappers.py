@@ -21,7 +21,7 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
 from nichenetpy.visualization import (
     heatmap_1d,
@@ -63,7 +63,7 @@ def get_geneset_oi(
         the name of the layer which contains the data matrix
     max_pval_adj : float
         the upper bound for pval_adj
-    min_lfc : float
+    min_abs_lfc : float
         the lower bound for lfc,
     min_pct : float
         the lower bound for the pct
@@ -82,7 +82,7 @@ def get_geneset_oi(
 
     Returns
     -------
-    list
+    set
         the geneset of interest
 
     Notes
@@ -143,8 +143,8 @@ def combine_weighted_ligand_target_links(
 
 def run_nichenet(
     ann: AnnData,
-    predictor: LigandActivityPredictor,
-    lr_network: LigandReceptorNetwork,
+    predictor: LigandActivityPredictor[str],
+    lr_network: LigandReceptorNetwork[str],
     receiver: str,
     condition_col: str,
     condition_oi: str,
@@ -157,13 +157,14 @@ def run_nichenet(
     expression_pct: float = 0.1,
     ligands_top_n: int = 30,
     targets_top_n: int = 200,
-    lr_sig: WeightedNetwork | None = None,
+    lr_sig: WeightedNetwork[str] | None = None,
     get_ltl: bool = False,
     get_lfc: bool = False,
     get_prioritization_table: bool = False,
     case_control: bool = True,
     use_scanpy: bool = False,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
@@ -215,6 +216,8 @@ def run_nichenet(
         if true, use scanpy.tl.rank_genes_groups to compute the metrics (lfc, p-values, pct)
     lfc_denormalize : Callable or None
         a denormalization function to apply prior to the calculation of the log fold changes
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -300,7 +303,10 @@ def run_nichenet(
     output["geneset_oi"] = geneset
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     ligand_activities = predictor.predict_ligand_activities(
-        geneset=geneset, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
+        geneset=geneset,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands,
+        target_evaluation_metrics=(target_evaluation_metric,),
     )
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
     output["ligand_activities_sorted"] = ligand_activities_sorted
@@ -328,7 +334,7 @@ def run_nichenet(
             key: val for key, val in ligand_activities.items() if key in potential_ligands_focused
         }
         ligand_activities_sorted_focused = sorted(
-            ligand_activities_focused.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0])
+            ligand_activities_focused.items(), key=lambda x: (-x[1][target_evaluation_metric], x[0])
         )
         output["ligand_activities_sorted_focused"] = ligand_activities_sorted_focused
         best_upstream_ligands_focused = [e[0] for e in ligand_activities_sorted_focused[:ligands_top_n]]
@@ -380,7 +386,7 @@ def run_nichenet(
         output["prioritization_table"] = generate_prioritization_table(
             info_tables["sender_receiver_info"],
             info_tables["sender_receiver_de"],
-            ligand_activities_sorted,
+            ligand_activities_sorted,  # type: ignore # false positive
             info_tables["lr_condition_de"],
         )
     return output
@@ -388,8 +394,8 @@ def run_nichenet(
 
 def run_nichenet_cluster_de(
     ann: AnnData,
-    predictor: LigandActivityPredictor,
-    lr_network: LigandReceptorNetwork,
+    predictor: LigandActivityPredictor[str],
+    lr_network: LigandReceptorNetwork[str],
     receiver_affected: str,
     receiver_reference: str,
     sender_celltypes: Iterable[str] | None = None,
@@ -402,6 +408,7 @@ def run_nichenet_cluster_de(
     targets_top_n: int = 200,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
     geneset: Literal["DE"] | Literal["up"] | Literal["down"] = "DE",
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
     Runs a standard nichenet analysis.
@@ -419,7 +426,7 @@ def run_nichenet_cluster_de(
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
     sender_celltypes : Iterable[str] or None
-        Determine the potential sender cells. Name of cluster identity/identities of cells that presumably affect expression in the receiver cell type. In case you want to look at all possible sender cell types in the data, you can  give this argument the value "all". "all" indicates thus that all cell types in the dataset will be considered as possible sender cells. As final option, you could give this argument the value "undefined"."undefined" won't look at ligands expressed by sender cells, but at all ligands for which a corresponding receptor is expressed. This could be useful if the presumably active sender cell is not profiled. Default: "all".
+        The sender celltypes or None for all celltypes
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str
@@ -438,6 +445,8 @@ def run_nichenet_cluster_de(
         a denormalization function to apply prior to the calculation of the log fold changes
     geneset : str
         geneset Indicate whether to consider all DE genes between condition 1 and 2 ("DE"), or only genes upregulated in condition 1 ("up"), or only genes downregulad in condition 1 ("down").
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -513,7 +522,7 @@ def run_nichenet_cluster_de(
         geneset_oi = set(
             DE_table[
                 (DE_table["pval_adj"] <= max_pval_adj)
-                & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= lfc_cutoff))
+                & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= -lfc_cutoff))
             ]["gene"]
         )
     geneset_oi.intersection_update(predictor.row_names)
@@ -526,14 +535,18 @@ def run_nichenet_cluster_de(
         if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
     }
     ligand_activities_dct = predictor.predict_ligand_activities(
-        geneset=geneset_oi, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
+        geneset=geneset_oi,
+        background_expressed_genes=background_expressed_genes,
+        potential_ligands=potential_ligands,
+        target_evaluation_metrics=(target_evaluation_metric,),
     )
-    ligand_activities = sorted(ligand_activities_dct.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
+    ligand_activities = sorted(ligand_activities_dct.items(), key=lambda x: (-x[1][target_evaluation_metric], x[0]))
     best_upstream_ligands = [
         e[0] for e in (ligand_activities if ligands_top_n is None else ligand_activities[:ligands_top_n])
     ]
     active_ligand_target_links = combine_weighted_ligand_target_links(
-        predictor.get_weighted_ligand_target_links(ligand, geneset, n=targets_top_n) for ligand in best_upstream_ligands
+        predictor.get_weighted_ligand_target_links(ligand, geneset_oi, n=targets_top_n)
+        for ligand in best_upstream_ligands
     )
     return {
         "expressed_genes_receiver_ref": expressed_genes_receiver_ref,
@@ -584,7 +597,7 @@ def create_ligand_activity_hist(
 
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted: Iterable[tuple],
+    ligand_activities_sorted: Iterable[tuple[str, str]],
     title: str = "ligand activity",
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
@@ -627,8 +640,8 @@ def create_ligand_activity_heatmap(
 
 
 def create_regulatory_potential_heatmap(
-    predictor: LigandActivityPredictor,
-    active_ligand_target_links: Sequence[tuple[GeneSymbol, GeneSymbol, float]],
+    predictor: LigandActivityPredictor[str],
+    active_ligand_target_links: Sequence[tuple[str, str, float]],
     xtitle="predicted target genes",
     ytitle="prioritized ligands",
     cbar_label="regulatory potential",
@@ -667,8 +680,8 @@ def create_regulatory_potential_heatmap(
     )
     return heatmap_2d(
         ligand_target_vis.transpose(),
-        xlabels=[str(target) for target in targets],
-        ylabels=[str(ligand) for ligand in ligands],
+        xlabels=targets,
+        ylabels=ligands,
         xtitle=xtitle,
         ytitle=ytitle,
         cbar_label=cbar_label,
@@ -678,7 +691,7 @@ def create_regulatory_potential_heatmap(
 
 
 def create_prior_interaction_potential_heatmap(
-    ligand_receptor_links: WeightedNetwork,
+    ligand_receptor_links: WeightedNetwork[str],
     xtitle="receptors",
     ytitle="ligands",
     cbar_label="prior interaction potential",
@@ -934,8 +947,6 @@ def create_ligand_receptor_links_prioritization_circos_plot(
         the ligands
     receptors : Iterable of str
         the receptors
-    weights : Iterable of float
-        the weights of the links
     colors : dict
         color mapping for the ligands, should include a 'General' and 'target' mapping as well
     inter_space : float
@@ -951,6 +962,8 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     -------
     matplotlib.Figure
         the plotted figure
+    matplotlib.Axes
+        the axes
 
     Raises
     ------
@@ -1048,12 +1061,12 @@ def create_ligand_links_circos_plot(
     )
 
 
-def generate_info_tables(
+def generate_info_tables[GeneSymbol](
     ann: AnnData,
     celltype_col: str,
     senders_oi: Sequence[str],
     receivers_oi: Sequence[str],
-    lr_network_filtered: LigandReceptorNetwork,
+    lr_network_filtered: LigandReceptorNetwork[GeneSymbol],
     condition_col: str,
     condition_oi: str,
     condition_ref: str,
@@ -1092,7 +1105,11 @@ def generate_info_tables(
         dictionary containing the three dataframes:
         "sender_receiver_de",
         "sender_receiver_info",
-        "group_DE"
+        "lr_condition_de"
+
+    Notes
+    -----
+    "lr_condition_de" is only present if case_control is True
     """
     output = {
         "sender_receiver_de": process_table_to_ic(
@@ -1148,12 +1165,10 @@ def infer_supporting_datasources(
         dataframe which contains signaling interactions
     gr_network : pandas.DataFrame
         dataframe which contains gene regulatory interactions
-    sig_network : pandas.DataFrame
-    gr_network : pandas.DataFrame
 
     Returns
     -------
-    tuple of pandas.DataFrame
+    pandas.DataFrame
         the integrated weighted ligand-signaling and gene regulatory network data frames
 
     Raises

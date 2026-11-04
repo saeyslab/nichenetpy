@@ -108,9 +108,14 @@ class Network[GeneSymbol]:
         """
         return ((key, self[key]) for key in self.key_iter())
 
-    def mapping_iter(self, key) -> Iterator[GeneSymbol]:
+    def mapping_iter(self, key: GeneSymbol) -> Iterator[GeneSymbol]:
         """
         Iterates over the "to" values that correspond with the specified "from" value.
+
+        Parameters
+        ----------
+        key : gene_t
+            the "from" value
 
         Yields
         ------
@@ -128,8 +133,8 @@ class Network[GeneSymbol]:
         """
         Return all values that are present in the network.
 
-        Yields
-        ------
+        Returns
+        -------
         set
             all values present in the network
         """
@@ -164,7 +169,7 @@ class Network[GeneSymbol]:
 
         Parameters
         ----------
-        from : Collection or None
+        fr : Collection or None
             collection of "from" values to subset by
         to : Collection or None
             collection of "to" values to subset by
