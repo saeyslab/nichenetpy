@@ -36,7 +36,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -315,8 +315,7 @@ def heatmap_2d(
     ValueError
         if the arguments are invalid
     """
-    if not isinstance(mat, nichenet_matrix.__value__):
-        raise TypeError(f"mat should have type nichenet_matrix or list, was {type(mat)}")
+    validate_matrix_type(mat, f"mat should have type nichenet_matrix or list, was {type(mat)}")
     if not isinstance(xlabels, Collection):
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):

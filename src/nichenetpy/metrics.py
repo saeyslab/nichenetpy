@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import eval_metric_t, nichenet_matrix
+from nichenetpy.typing import eval_metric_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -430,14 +430,8 @@ def log_fold_change(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(mat1, nichenet_matrix.__value__):
-        raise TypeError(
-            f"mat1 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat1)}"
-        )
-    if not isinstance(mat2, nichenet_matrix.__value__):
-        raise TypeError(
-            f"mat2 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat2)}"
-        )
+    validate_matrix_type(mat1, f"mat1 should have type nicheent_matrix, was {type(mat1)}")
+    validate_matrix_type(mat2, f"mat2 should have type nicheent_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):  # type: ignore
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
@@ -629,8 +623,7 @@ def group_metrics[GeneSymbol](
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
-    if not isinstance(mat, nichenet_matrix.__value__):
-        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
+    validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))

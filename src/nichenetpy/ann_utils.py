@@ -4,7 +4,7 @@ from typing import overload
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -12,8 +12,7 @@ def _subset_layer[GeneSymbol](
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
 ) -> tuple[nichenet_matrix, Iterable[GeneSymbol]]:
     sel_layer = ann.layers[layer]
-    if not isinstance(sel_layer, nichenet_matrix.__value__):
-        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
+    validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
     if type(features) is set:
