@@ -601,9 +601,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
+        "ltf": split the ltf matrix (only valid with 'PPR' algorithm);
         "tft": split the tft matrix;
-        "ltf-tft": split both the ltf and tft matrices;
+        "ltf-tft": split both the ltf and tft matrices (only valid with 'PPR' algorithm);
         Default: "no"
     direct_coef : float
         The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
@@ -654,11 +654,13 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if remove_direct_links == "ligand":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(lr_network["from"])
         weighted_networks["gr"] = weighted_networks["gr"][
             weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
         ]
     elif remove_direct_links == "ligand_receptor":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
         weighted_networks["gr"] = weighted_networks["gr"][
             weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
@@ -668,7 +670,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     if type(split_direct) is not str:
         raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
-        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
+        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft'], was {split_direct}")
+    if split_direct[:3] == "ltf" and algorithm != "PPR":
+        raise ValueError("When split_direct is 'ltf' or 'ltf-tft' algorithm must be 'PPR'")
     if not isinstance(direct_coef, Number):
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
     elif direct_coef < 0 or direct_coef > 1:
@@ -685,7 +689,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         ligand2target = ltf_matrix @ tft_matrix  # type: ignore # returns ndarray
     elif split_direct == "ltf":
-        (ltf_direct, ltf_indirect), ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
             ligands,  # type: ignore
             ltf_cutoff,
@@ -693,6 +697,8 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             damping_factor,
             split_ppr=True,
         )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         rp_direct = ltf_direct @ tft_matrix
         rp_indirect = ltf_indirect @ tft_matrix
@@ -720,9 +726,11 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     elif split_direct == "ltf-tft":
-        (ltf_direct, ltf_indirect), ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor, split_ppr=True
         )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
         target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
@@ -747,6 +755,10 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     if secondary_targets:
         _quantile_clip(ligand2target, ltf_cutoff)
         ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ tft_matrix  # type: ignore # returns ndarray
+        """
+        This is same as in nichenetr but this seems really bad, I (Victor) think this should be changed. 
+        _set_min replaces 0's in the matrix by the smallest non-zero value in the matrix, this is a significant change that makes no sense
+        """
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1

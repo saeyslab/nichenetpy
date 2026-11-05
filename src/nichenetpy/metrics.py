@@ -430,8 +430,8 @@ def log_fold_change(
     TypeError
         if the arguments have the wrong type
     """
-    validate_matrix_type(mat1, f"mat1 should have type nicheent_matrix, was {type(mat1)}")
-    validate_matrix_type(mat2, f"mat2 should have type nicheent_matrix, was {type(mat2)}")
+    validate_matrix_type(mat1, f"mat1 should have type nichenet_matrix, was {type(mat1)}")
+    validate_matrix_type(mat2, f"mat2 should have type nichenet_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):  # type: ignore
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):

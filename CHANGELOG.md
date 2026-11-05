@@ -101,7 +101,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `model_construction.construct_ligand_target_matrix` which occurs when `secondary_targets` is True.
 
-- Fixed bug in `wrappers.run_nichenet` which occurs when `case_control` is True.
+- Fixed bug in `wrappers.run_nichenet` which occurs when `case_control` is False.
 
 - Fixed bug in `wrappers.combine_weighted_ligand_target_links` that occurs when a ligand has no targets.
 

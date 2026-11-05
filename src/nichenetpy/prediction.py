@@ -504,14 +504,17 @@ class LigandActivityPredictor[GeneSymbol]:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         slc = self.ligand_target_matrix[:, self.ligand2index(ligand)]
         if not isinstance(slc, np.ndarray):
-            slc = slc.toarray()
+            slc = np.ravel(slc.toarray())
         if n < self.ligand_target_matrix.shape[0]:
-            top_n_score = sorted(slc, reverse=True)[n - 1]
+            k = self.ligand_target_matrix.shape[0] - n
+            top_n_score = np.partition(slc, k)[k] # type: ignore # slc is np.ndarray
+            targets = sorted(
+                {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            )
         else:
-            top_n_score = min(sorted(slc, reverse=True)[:n])
-        targets = sorted(
-            {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
-        )
+            targets = sorted(
+                {e[0] for e in zip(self.row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
         else:
@@ -519,7 +522,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 "ligand": ligand,
                 "target": targets,
                 "weight": [
-                    self.ligand_target_matrix[self.gene2index(target)][self.ligand2index(ligand)] for target in targets
+                    self.ligand_target_matrix[self.gene2index(target), self.ligand2index(ligand)] for target in targets
                 ],
             }
 
