@@ -507,7 +507,7 @@ class LigandActivityPredictor[GeneSymbol]:
             slc = np.ravel(slc.toarray())
         if n < self.ligand_target_matrix.shape[0]:
             k = self.ligand_target_matrix.shape[0] - n
-            top_n_score = np.partition(slc, k)[k] # type: ignore # slc is np.ndarray
+            top_n_score = np.partition(slc, k)[k]  # type: ignore # slc is np.ndarray
             targets = sorted(
                 {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )

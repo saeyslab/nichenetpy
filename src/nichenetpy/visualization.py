@@ -36,7 +36,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import validate_matrix_type, target_eval_metric_t
+from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -825,11 +825,15 @@ def create_barcode_plot(
     if not isinstance(r, Number):
         raise TypeError(f"r should have type float, was {type(r)}")
     if type(max_ligands) is not int:
-        raise TypeError(f"max_ligands should have type iny, was {type(max_ligands)}")
+        raise TypeError(f"max_ligands should have type int, was {type(max_ligands)}")
     columns = ("rank", "ligand")
-    scores1 = sorted(((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0]))
+    scores1 = sorted(
+        ((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0])
+    )
     ranking1 = pd.DataFrame(zip(range(1, len(scores1) + 1), (e[0] for e in scores1), strict=True), columns=columns)
-    scores2 = sorted(((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0]))
+    scores2 = sorted(
+        ((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0])
+    )
     ranking2 = pd.DataFrame(zip(range(1, len(scores2) + 1), (e[0] for e in scores2), strict=True), columns=columns)
     ranking = ranking1.merge(ranking2, on="ligand", how="outer", suffixes=("_agnostic", "_focused"))
     fig, ax = plt.subplots(figsize=figsize)

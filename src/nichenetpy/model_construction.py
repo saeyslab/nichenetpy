@@ -144,12 +144,7 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
 
 def _quantile_clip(mat, cutoff):
     if cutoff > 0:
-        for i in range(mat.shape[0]):
-            row = mat[i, :]
-            qt = np.quantile(row, cutoff)
-            for j in range(len(row)):
-                if row[j] <= qt:
-                    mat[i, j] = 0
+        mat[mat <= np.quantile(mat, cutoff, axis=1, keepdims=True)] = 0
 
 
 @overload
@@ -753,12 +748,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
-        _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ tft_matrix  # type: ignore # returns ndarray
-        """
-        This is same as in nichenetr but this seems really bad, I (Victor) think this should be changed. 
-        _set_min replaces 0's in the matrix by the smallest non-zero value in the matrix, this is a significant change that makes no sense
-        """
+        ltf_secondary = ligand2target.copy()
+        _quantile_clip(ltf_secondary, ltf_cutoff)
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ltf_secondary @ tft_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1

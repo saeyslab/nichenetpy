@@ -69,7 +69,9 @@ and this project adheres to [Semantic Versioning][].
 
 - metrics.ndcg_at_k
 
-- You can now pass `ligand_evaluation_metrics` and `target_evaluation_metrics` to evaluation / objective functions.
+- You can now pass `ligand_evaluation_metrics` and/or `target_evaluation_metrics` to evaluation / objective functions.
+
+- You can now pass `ligand_evaluation_metric` and/or `target_evaluation_metric` functions that always used `aupr_corrected` prior to this version.
 
 - Added optional arguments to split matrices during model construction.
 

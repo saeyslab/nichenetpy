@@ -11,6 +11,7 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
+from nichenetpy.typing import target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
@@ -333,6 +334,7 @@ def generate_prioritization_table[GeneSymbol](
     ligand_activities: pd.DataFrame | dict[GeneSymbol, dict[str, float]] | list[tuple[GeneSymbol, dict[str, float]]],
     lr_condition_de: pd.DataFrame | None = None,
     prioritizing_weights: dict[str, float] | None = None,
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> pd.DataFrame:
     """
     User can choose the importance attached to each of the following prioritization criteria:
@@ -360,6 +362,8 @@ def generate_prioritization_table[GeneSymbol](
         "exprs_receptor",
         "ligand_condition_specificity",
         "receptor_condition_specificity"
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -438,18 +442,18 @@ def generate_prioritization_table[GeneSymbol](
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
-        ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(
+        ligand_activities["rank"] = ligand_activities[[target_evaluation_metric]].rank(
             method="average", na_option="bottom", ascending=False
         )
     sender_ligand_prioritization = _prioritization(sender_receiver_de, "ligand", "sender")
     receiver_receptor_prioritization = _prioritization(sender_receiver_de, "receptor", "receiver")
     if "receiver" in ligand_activities.columns:
-        ligand_activity_prioritization = ligand_activities[["aupr_corrected", "rank", "receiver"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank", "receiver"]]
     else:
-        ligand_activity_prioritization = ligand_activities[["aupr_corrected", "rank"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank"]]
     ligand_activity_prioritization.index.name = "ligand"
     ligand_activity_prioritization.reset_index(inplace=True)
-    ligand_activity_prioritization.rename(columns={"aupr_corrected": "activity"}, inplace=True)
+    ligand_activity_prioritization.rename(columns={target_evaluation_metric: "activity"}, inplace=True)
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
     ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
         ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True
