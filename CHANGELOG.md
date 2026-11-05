@@ -113,6 +113,15 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed swapped colors in `visualization/visualize_ligand_signaling_graph`.
 
+- Fixed bug in `ann_utils.subset_ann` where subsetting without specifying `layers` failed with newer anndata versions (≥ 0.12), which expose `X` as the layer `None`. This also fixes `metrics.group_metrics` when both `group_oi` and `group_ref` are given, and thereby `wrappers.run_nichenet` with `get_prioritization_table=True` and `case_control=True`.
+
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where `geneset="up"` and `geneset="down"` both returned up- and downregulated genes. Fold changes are now computed as `receiver_affected` versus `receiver_reference`.
+
+- Fixed support for dense (`numpy.ndarray`) and sparse array (`scipy.sparse.csr_array`/`csc_array`) layers: `metrics.group_metrics` crashed and `extraction.get_lfc_celltype` returned a single value instead of a list of log fold changes. `utils.subset_matrix` now subsets sparse arrays correctly (and faster), and `metrics.gene_expression_pct` no longer modifies its input matrix or counts explicitly stored zeros as expressed.
+
+- Fixed bug in `prioritization.get_avg_exp` where passing `features` subsetted the genes before normalization, so library sizes were computed from the selected genes only (inflating the average expression and changing its relative values across cell types). Results now match Seurat's `AverageExpression`. Also fixed a `KeyError` when `ann.var_names` is not named "gene", and `features` now accepts any iterable (including tuples) or a single gene name.
+
+
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/saeyslab/nichenetpy/compare/v1.0.1...v1.0.2

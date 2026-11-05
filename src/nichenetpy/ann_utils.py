@@ -103,7 +103,7 @@ def subset_ann[GeneSymbol](
     if genes is not None and not isinstance(genes, Iterable):
         raise TypeError(f"genes should be an Iterable of strings, was {type(genes)}")
     if layers is None:
-        layers = list(ann.layers.keys())
+        layers = [key for key in ann.layers.keys() if key is not None]
     elif not isinstance(layers, Iterable):
         raise TypeError(f"layers should be an Iterable of strings, was {type(layers)}")
     if val is None:

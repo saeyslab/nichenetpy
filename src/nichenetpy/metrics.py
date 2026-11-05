@@ -436,49 +436,22 @@ def log_fold_change(
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
         raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
-    return (
+    # make sure the output is a 1D array
+    return np.asarray(
         _sub_log_fold_change(mat1, denormalize, pseudocount) - _sub_log_fold_change(mat2, denormalize, pseudocount)
-    ).transpose()
+    ).ravel()
 
 
 def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
-    if isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array)):
-        nrows, ncols = mat.shape
-        if direction == "positive":
-            # set all positive elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1 if mat.data[i] > 0 else 0
-        elif direction == "negative":
-            # set all negative elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1 if mat.data[i] < 0 else 0
-        else:
-            # set all non-zero elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1
-        output = mat.sum(axis=0) / nrows
-        return [output[0, i] for i in range(ncols)]
-    elif type(mat) is np.ndarray:
-        nrows, ncols = mat.shape
-        if direction == "positive":
-            # set all positive elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    mat[i, j] = 1 if mat[i, j] > 0 else 0
-        elif direction == "negative":
-            # set all negative elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    mat[i, j] = 1 if mat[i, j] < 0 else 0
-        else:
-            # set all non-zero elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    if mat[i, j] != 0:
-                        mat[i, j] = 1
-        return mat.sum(axis=0) / nrows
+    if not isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array, np.ndarray)):
+        raise TypeError(f"mat should be of type nichenet_matrix, was {type(mat)}")
+    if direction == "positive":
+        hits = mat > 0  # type: ignore
+    elif direction == "negative":
+        hits = mat < 0  # type: ignore
     else:
-        raise TypeError(f"mat should be of nichenet_matrix, was {type(mat)}")
+        hits = mat != 0
+    return (np.ravel(hits.sum(axis=0)) / mat.shape[0]).tolist()  # type: ignore
 
 
 def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
@@ -661,7 +634,7 @@ def group_metrics[GeneSymbol](
         lfc.append(x)
         pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),  # type: ignore # error at runtime
+        pd.DataFrame(np.column_stack(lfc), index=genes, columns=(groups if group_oi is None else [group_oi])),  # type: ignore # error at runtime
         var_name=groupby,
         value_name="lfc",
         ignore_index=False,

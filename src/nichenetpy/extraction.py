@@ -243,7 +243,7 @@ def get_lfc_celltype[GeneSymbol](
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
         )
-        return (genes if type(genes) is list else list(genes), lfc.reshape(-1).tolist()[0])
+        return (genes if type(genes) is list else list(genes), lfc.tolist())
 
 
 def average_expression(

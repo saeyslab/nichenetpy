@@ -152,10 +152,12 @@ def get_avg_exp[GeneSymbol](
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    if features is not None:
-        ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
-    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)  # type: ignore
+    # normalize on all genes (library sizes must include every gene), select features afterwards
+    avg_celltype: pd.DataFrame = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)  # type: ignore
+    avg_celltype.index.name = "gene"
+    if features is not None:
+        avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
     avg_celltype.reset_index(inplace=True)
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"

@@ -394,7 +394,7 @@ def run_nichenet(
             info_tables["sender_receiver_de"],
             ligand_activities_sorted,  # type: ignore # false positive
             info_tables["lr_condition_de"] if case_control else None,
-            target_evaluation_metric=target_evaluation_metric
+            target_evaluation_metric=target_evaluation_metric,
         )
     return output
 
@@ -520,6 +520,8 @@ def run_nichenet_cluster_de(
         group_metrics(
             ann_filtered,
             groupby=celltype_col,
+            group_oi=receiver_affected,
+            group_ref=receiver_reference,
             layer=layer,
             min_pct=expression_pct,
             min_abs_lfc=0,
