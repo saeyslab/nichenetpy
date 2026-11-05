@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning][].
 
 - You can now pass `ligand_evaluation_metrics` and/or `target_evaluation_metrics` to evaluation / objective functions.
 
-- You can now pass `ligand_evaluation_metric` and/or `target_evaluation_metric` functions that always used `aupr_corrected` prior to this version.
+- You can now pass `ligand_evaluation_metric` and/or `target_evaluation_metric` to functions that always used `aupr_corrected` prior to this version.
 
 - Added optional arguments to split matrices during model construction.
 
@@ -101,7 +101,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `model_construction.construct_ligand_target_matrix` where remove_direct_links argument did nothing.
 
-- Fixed bug in `model_construction.construct_ligand_target_matrix` which occurs when `secondary_targets` is True.
+- Fixed `model_construction.construct_ligand_target_matrix` with `secondary_targets=True`, which previously always raised a `ValueError`. The secondary-target scores are now computed as in NicheNetR: the quantile cutoff (`ltf_cutoff`) is applied only to the matrix used to infer secondary targets, and the primary ligand-target scores are left unclipped.
 
 - Fixed bug in `wrappers.run_nichenet` which occurs when `case_control` is False.
 

@@ -394,6 +394,7 @@ def run_nichenet(
             info_tables["sender_receiver_de"],
             ligand_activities_sorted,  # type: ignore # false positive
             info_tables["lr_condition_de"] if case_control else None,
+            target_evaluation_metric=target_evaluation_metric
         )
     return output
 
