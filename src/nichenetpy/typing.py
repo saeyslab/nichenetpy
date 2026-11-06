@@ -1,14 +1,65 @@
-from typing import TypeAlias
-from scipy.sparse import csr_matrix, csc_matrix
-from numpy import ndarray
+from collections.abc import Callable, Sequence
+from typing import Any, Literal, Protocol, TypeVar
+
+from numpy import dtype, float64, ndarray
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
+
+type nichenet_matrix = (
+    csr_matrix[float64] | csc_matrix[float64] | csr_array[float64] | csc_array[float64] | ndarray[Any, dtype[float64]]
+)
+"""Matrix types that are supported in NicheNetPy."""
+
+type gene_t = str | int
+"""Gene symbol types that are supported in NicheNetPy."""
+
+type target_eval_metric_t = Literal["aupr"] | Literal["aupr_corrected"] | Literal["auroc"] | Literal["pearson"]
+"""Metrics to evaluate the target prediction. """
+
+type ligand_eval_metric_t = (
+    Literal["aupr"]
+    | Literal["aupr_corrected"]
+    | Literal["auroc"]
+    | Literal["pearson"]
+    | Literal["map"]
+    | Literal["ndcg"]
+)
+"""Metrics to evaluate the ligand ranking. """
+
+type eval_metric_t = target_eval_metric_t | ligand_eval_metric_t
+"""Evaluation metrics. """
+
+type ObjectiveFunction = Callable[[Sequence[float] | ndarray[Any, dtype[float64]]], float]
+"""Objective function for the source weight optimization"""
 
 
-nichenet_matrix : TypeAlias = csr_matrix|csc_matrix|ndarray
-'''
-Matrix types that are supported in NicheNetPy. 
-'''
+class MetricScoreFunction(Protocol):
+    """Function that computes the metric score (which decides the best metric to rank the ligands with)"""
 
-gene_t : TypeAlias = str|int
-'''
-Gene symbol types that are supported in NicheNetPy. 
-'''
+    def __call__(self, **kwargs: float) -> float: ...  # noqa: D102
+
+
+GeneSymbol = TypeVar("GeneSymbol", str, int)
+"""Gene symbol types that are supported in NicheNetPy."""
+
+EvalMetric = TypeVar("EvalMetric", target_eval_metric_t, ligand_eval_metric_t)
+"""Evaluation metrics. """
+
+
+def validate_matrix_type(obj: object, err_msg: str) -> None:
+    """
+    Check if the object is an ungeneric nichenet_matrix and raise a TypeError if it isn't.
+
+    Parameters
+    ----------
+    obj : object
+        the object to validate
+    err_msg : str
+        the error message
+
+    Raises
+    ------
+    TypeError
+        if the object is not an (ungeneric) nichenet_matrix
+    """
+    if not isinstance(obj, (csr_matrix, csc_matrix, csr_array, csc_array, ndarray)):
+        raise TypeError(err_msg)
