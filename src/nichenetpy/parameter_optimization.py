@@ -461,10 +461,23 @@ def construct_and_evaluate[GeneSymbol](
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    If all source weights are 0, or all ligand-receptor and signaling sources have weight 0 (no ligand-signaling
+    network), no model is constructed and all prediction scores are 0.
     """
-    if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
-        type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
-    ):
+    weights = (
+        source_weights
+        if type(source_weights) is dict
+        else dict(zip(source_weights["source"], source_weights["weight"], strict=True))
+    )
+    # A model without ligand-signaling links (all ligand-receptor and signaling sources weighted 0 or not given)
+    # can't propagate signals from ligands to transcription factors, so it is scored as an empty model instead of
+    # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
+    # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
+    lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
+    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):
         return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
     model = construct_model_from_source_weights(
         source_weights,

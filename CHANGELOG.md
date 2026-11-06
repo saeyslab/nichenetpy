@@ -83,6 +83,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
 
+- `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
+
 ### Fixed
 
 - Corrected type signatures.
@@ -128,6 +130,10 @@ and this project adheres to [Semantic Versioning][].
 - Fixed bug in `visualization.create_radar_plot` where omitting `max_val` raised an error.
 
 - Fixed `cmap` rejecting `matplotlib.colors.Colormap` objects despite its type hint, and corrected the type of `data` to a collection of series.
+
+- Fixed bug in `model_construction.construct_model_from_source_weights` where an empty ligand-signaling network (all ligand-receptor and signaling sources weighted 0) produced a transposed gene regulatory matrix with all genes as columns instead of a targets × ligands matrix. Such models now go through the regular construction path, where each ligand only reaches itself.
+
+- Fixed ligand prediction evaluation for evaluation datasets with a ligand combination: `utils.is_ligand_active` never marked any ligand as active for a combination (it now marks each member, as in NicheNetR, and a combined "A-B" ligand), so these datasets were always dropped from the ligand prediction evaluation and from the corresponding optimization objectives. `evaluation.evaluate_single_importances_ligand_prediction` now assigns the full combination as true ligand to every output row, and no longer fails when the model contains only one ligand.
 
 
 
