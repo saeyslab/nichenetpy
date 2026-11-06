@@ -244,8 +244,6 @@ def compute_evaluation_scores[GeneSymbol](
         raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
     if eval_res["performances_target_prediction"] is None:
         raise ValueError("eval_res['performances_target_prediction'] was None")
-    if eval_res["performances_ligand_prediction"] is None:
-        raise ValueError("eval_res['performances_ligand_prediction'] was None")
     if not isinstance(ligands, Iterable):
         raise TypeError(f"ligands should have type Iterable, was {type(ligands)}")
     if not isinstance(metric_score_f, Callable):  # type: ignore
@@ -263,9 +261,6 @@ def compute_evaluation_scores[GeneSymbol](
     target_evaluation_metrics: set[target_eval_metric_t] = set(eval_res["performances_target_prediction"].columns)  # type: ignore # error at runtime
     for e in ("setting", "ligand"):
         target_evaluation_metrics.remove(e)  # type: ignore
-    ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
-    for e in ("metric", "group", "ligand"):
-        ligand_evaluation_metrics.remove(e)
     performances_prediction_averaged = {}
     # median metric value per ligand for each metric
     performances_target_prediction_averaged: dict[target_eval_metric_t, Sequence[float]] = dict(
@@ -291,7 +286,7 @@ def compute_evaluation_scores[GeneSymbol](
             e for e in performances_target_prediction_averaged[e] if not np.isnan(e)
         ]
     if eval_res["performances_ligand_prediction"] is None:
-        # only target prediction
+        # ligand prediction could not be evaluated on any data set: only score target prediction
         return {
             "target_prediction": {
                 metric: f(performances_target_prediction_averaged[metric])  # type: ignore # target prediction keys should be fine
@@ -299,6 +294,9 @@ def compute_evaluation_scores[GeneSymbol](
             },
             "ligand_prediction": dict.fromkeys(objective_fs["ligand_prediction"].keys(), 0),
         }
+    ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
+    for e in ("metric", "group", "ligand"):
+        ligand_evaluation_metrics.remove(e)
     ligand_activity_performance_setting_summary = (
         eval_res["performances_ligand_prediction"][list(chain(("metric",), ligand_evaluation_metrics))]
         .groupby("metric")
@@ -470,14 +468,14 @@ def construct_and_evaluate[GeneSymbol](
     weights = (
         source_weights
         if type(source_weights) is dict
-        else dict(zip(source_weights["source"], source_weights["weight"], strict=True))
+        else dict(zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True)) # type: ignore
     )
     # A model without ligand-signaling links (all ligand-receptor and signaling sources weighted 0 or not given)
     # can't propagate signals from ligands to transcription factors, so it is scored as an empty model instead of
     # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
     # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
     lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
-    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):
+    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources): # type: ignore
         return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
     model = construct_model_from_source_weights(
         source_weights,
