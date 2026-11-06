@@ -205,7 +205,7 @@ def heatmap_1d(
     labels: Collection[str],
     title: str | None = None,
     cbar_label: str | None = None,
-    cmap: str = "Greys",
+    cmap: str | Colormap = "Greys",
     figsize: tuple[float, float] = (8, 8),
 ) -> tuple[Figure, Axes]:
     """
@@ -221,8 +221,8 @@ def heatmap_1d(
         the title of the plot
     cbar_label : str or None
         the label of the color bar
-    cmap : str
-        the name of the color map
+    cmap : str or Colormap
+        the name of the color map or a color map
     figsize : tuple of float
         the size of figure
 
@@ -242,8 +242,10 @@ def heatmap_1d(
         raise TypeError(f"vals should have type Iterable, was {type(vals)}")
     if not isinstance(labels, Collection):
         raise TypeError(f"labels should have type Collection, was {type(labels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(figsize) is not tuple:
         raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
     fig, ax = plt.subplots(figsize=figsize)
@@ -272,7 +274,7 @@ def heatmap_2d(
     cbar_label: str | None = None,
     cbar_position: str = "top",
     cbar_orientation: str = "horizontal",
-    cmap: str = "Greys",
+    cmap: str | Colormap = "Greys",
     figsize: tuple[float, float] = (5, 5),
 ) -> tuple[Figure, Axes]:
     """
@@ -296,8 +298,8 @@ def heatmap_2d(
         the position of the color bar ("top", "bottom", "left" or "right")
     cbar_orientation : str
         the orientation of the color bar ("horizontal", "vertical")
-    cmap : str
-        the name of the color map
+    cmap : str or Colormap
+        the name of the color map or a color map
     figsize : tuple of float
         the size of figure
 
@@ -320,8 +322,10 @@ def heatmap_2d(
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
         raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(mat) is np.ndarray:
         nrows, ncols = mat.shape
     else:
@@ -1597,7 +1601,7 @@ def _radar_factory(num_vars, frame="circle"):
 
 
 def create_radar_plot(
-    data: Iterable[float],
+    data: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]],
     value_labels: Iterable[str],
     cmap: str | Colormap = "gist_rainbow",
     figsize: tuple[int, int] = (9, 9),
@@ -1609,7 +1613,7 @@ def create_radar_plot(
 
     Parameters
     ----------
-    data : iterable of float
+    data : sequence of sequence of float or numpy.ndarray
         the data to be plotted
     value_labels : iterable of string
         the labels of the values to be plotted
@@ -1638,20 +1642,19 @@ def create_radar_plot(
         raise TypeError(f"data should have type Iterable, was {type(data)}")
     if not isinstance(value_labels, Iterable):
         raise TypeError(f"value_labels should have type Iterable, was {type(value_labels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(figsize) is not tuple and type(figsize) is not list:
         raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
-    if not isinstance(data, Collection):
-        data = tuple(data)
+    data = tuple(tuple(e) if not isinstance(e, Sequence) else e for e in data)
     if not isinstance(value_labels, Collection):
         value_labels = tuple(value_labels)
     if max_val is None:
-        max_val = max(data)
+        max_val = max(max(e) for e in data)
     elif not isinstance(max_val, Number):
         raise TypeError(f"max_val should have type float, was {type(max_val)}")
-    if type(cmap) is str:
-        cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame="polygon")
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
     ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])  # type: ignore # attribute exists

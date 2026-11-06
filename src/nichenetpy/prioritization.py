@@ -154,7 +154,9 @@ def get_avg_exp[GeneSymbol](
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     celltypes = set(ann.obs[celltype_col])
     # normalize on all genes (library sizes must include every gene), select features afterwards
-    avg_celltype: pd.DataFrame = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)  # type: ignore
+    avg_celltype: pd.DataFrame = average_expression(
+        ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts
+    )  # type: ignore
     avg_celltype.index.name = "gene"
     if features is not None:
         avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
