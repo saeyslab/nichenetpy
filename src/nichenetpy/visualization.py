@@ -36,7 +36,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -205,7 +205,7 @@ def heatmap_1d(
     labels: Collection[str],
     title: str | None = None,
     cbar_label: str | None = None,
-    cmap: str = "Greys",
+    cmap: str | Colormap = "Greys",
     figsize: tuple[float, float] = (8, 8),
 ) -> tuple[Figure, Axes]:
     """
@@ -221,8 +221,8 @@ def heatmap_1d(
         the title of the plot
     cbar_label : str or None
         the label of the color bar
-    cmap : str
-        the name of the color map
+    cmap : str or Colormap
+        the name of the color map or a color map
     figsize : tuple of float
         the size of figure
 
@@ -242,8 +242,10 @@ def heatmap_1d(
         raise TypeError(f"vals should have type Iterable, was {type(vals)}")
     if not isinstance(labels, Collection):
         raise TypeError(f"labels should have type Collection, was {type(labels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(figsize) is not tuple:
         raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
     fig, ax = plt.subplots(figsize=figsize)
@@ -272,7 +274,7 @@ def heatmap_2d(
     cbar_label: str | None = None,
     cbar_position: str = "top",
     cbar_orientation: str = "horizontal",
-    cmap: str = "Greys",
+    cmap: str | Colormap = "Greys",
     figsize: tuple[float, float] = (5, 5),
 ) -> tuple[Figure, Axes]:
     """
@@ -296,8 +298,8 @@ def heatmap_2d(
         the position of the color bar ("top", "bottom", "left" or "right")
     cbar_orientation : str
         the orientation of the color bar ("horizontal", "vertical")
-    cmap : str
-        the name of the color map
+    cmap : str or Colormap
+        the name of the color map or a color map
     figsize : tuple of float
         the size of figure
 
@@ -315,14 +317,15 @@ def heatmap_2d(
     ValueError
         if the arguments are invalid
     """
-    if not isinstance(mat, nichenet_matrix.__value__):
-        raise TypeError(f"mat should have type nichenet_matrix or list, was {type(mat)}")
+    validate_matrix_type(mat, f"mat should have type nichenet_matrix or list, was {type(mat)}")
     if not isinstance(xlabels, Collection):
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
         raise TypeError(f"ylabels should have type Collection, was {type(ylabels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(mat) is np.ndarray:
         nrows, ncols = mat.shape
     else:
@@ -511,7 +514,8 @@ def get_ligand_signaling_path(
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
     lr_sig_mat = csr_array(
-        ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]]))
+        ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]])),
+        shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
     tfs = set.union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
@@ -535,8 +539,8 @@ def visualize_ligand_signaling_graph(
     tf_regulatory: pd.DataFrame,
     ligands_oi: Collection[str],
     targets_oi: Collection[str],
-    sig_color: str = "blue",
-    gr_color: str = "red",
+    sig_color: str = "red",
+    gr_color: str = "blue",
     neutral_color: str = "gray",
     node_size: int = 1300,
     arrow_size: int = 10,
@@ -598,14 +602,14 @@ def visualize_ligand_signaling_graph(
             tf_signaling["from"].tolist(),
             tf_signaling["to"].tolist(),
             tf_signaling["weight"].tolist(),
-            repeat(gr_color),
+            repeat(sig_color),
             strict=False,
         ),
         zip(
             tf_regulatory["from"].tolist(),
             tf_regulatory["to"].tolist(),
             tf_regulatory["weight"].tolist(),
-            repeat(sig_color),
+            repeat(gr_color),
             strict=False,
         ),
     ):
@@ -761,6 +765,7 @@ def create_barcode_plot(
     r: float = 0.005,
     max_ligands: int = 20,
     figsize: tuple[float, float] = (10, 10),
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> tuple[Figure, Axes]:
     """
     Creates a slope graph combined with a barcode plot. This visualization is suitable for comparison between
@@ -786,6 +791,8 @@ def create_barcode_plot(
         the maximum amount of ligands
     figsize : tuple of floats
         the size of the figure
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Raises
     ------
@@ -822,11 +829,15 @@ def create_barcode_plot(
     if not isinstance(r, Number):
         raise TypeError(f"r should have type float, was {type(r)}")
     if type(max_ligands) is not int:
-        raise TypeError(f"max_ligands should have type iny, was {type(max_ligands)}")
+        raise TypeError(f"max_ligands should have type int, was {type(max_ligands)}")
     columns = ("rank", "ligand")
-    scores1 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0]))
+    scores1 = sorted(
+        ((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_agnostic), key=lambda x: (-x[1], x[0])
+    )
     ranking1 = pd.DataFrame(zip(range(1, len(scores1) + 1), (e[0] for e in scores1), strict=True), columns=columns)
-    scores2 = sorted(((e[0], e[1]["aupr_corrected"]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0]))
+    scores2 = sorted(
+        ((e[0], e[1][target_evaluation_metric]) for e in ligand_activities_focused), key=lambda x: (-x[1], x[0])
+    )
     ranking2 = pd.DataFrame(zip(range(1, len(scores2) + 1), (e[0] for e in scores2), strict=True), columns=columns)
     ranking = ranking1.merge(ranking2, on="ligand", how="outer", suffixes=("_agnostic", "_focused"))
     fig, ax = plt.subplots(figsize=figsize)
@@ -1590,7 +1601,7 @@ def _radar_factory(num_vars, frame="circle"):
 
 
 def create_radar_plot(
-    data: Iterable[float],
+    data: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]],
     value_labels: Iterable[str],
     cmap: str | Colormap = "gist_rainbow",
     figsize: tuple[int, int] = (9, 9),
@@ -1602,7 +1613,7 @@ def create_radar_plot(
 
     Parameters
     ----------
-    data : iterable of float
+    data : sequence of sequence of float or numpy.ndarray
         the data to be plotted
     value_labels : iterable of string
         the labels of the values to be plotted
@@ -1631,20 +1642,19 @@ def create_radar_plot(
         raise TypeError(f"data should have type Iterable, was {type(data)}")
     if not isinstance(value_labels, Iterable):
         raise TypeError(f"value_labels should have type Iterable, was {type(value_labels)}")
-    if type(cmap) is not str:
-        raise TypeError(f"cmap should have type str, was {type(cmap)}")
+    if type(cmap) is str:
+        cmap = cm[cmap]
+    elif not isinstance(cmap, Colormap):
+        raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
     if type(figsize) is not tuple and type(figsize) is not list:
         raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
-    if not isinstance(data, Collection):
-        data = tuple(data)
+    data = tuple(tuple(e) if not isinstance(e, Sequence) else e for e in data)
     if not isinstance(value_labels, Collection):
         value_labels = tuple(value_labels)
     if max_val is None:
-        max_val = max(data)
+        max_val = max(max(e) for e in data)
     elif not isinstance(max_val, Number):
         raise TypeError(f"max_val should have type float, was {type(max_val)}")
-    if type(cmap) is str:
-        cmap = cm[cmap]
     theta = _radar_factory(len(value_labels), frame="polygon")
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
     ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])  # type: ignore # attribute exists

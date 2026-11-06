@@ -7,7 +7,7 @@ import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import nichenet_matrix, validate_matrix_type
 
 _INT_SIZE = 8
 _DOUBLE_SIZE = 8
@@ -79,8 +79,7 @@ def write_ligand_target_matrix(
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
-        if not isinstance(mat, nichenet_matrix.__value__):
-            raise TypeError(f"expected a nichenet_matrix for mat, got {type(mat)}")
+        validate_matrix_type(mat, f"expected a nichenet_matrix for mat, got {type(mat)}")
         if not isinstance(row_names, list):
             raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
         if not isinstance(col_names, list):

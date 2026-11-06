@@ -11,7 +11,7 @@ from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix
 from scipy.stats import t
 
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -174,13 +174,11 @@ def wilcoxon_rank_sum_test[GeneSymbol](
     n_total = len(ann.obs)
     pvals = {}
     if layer is None:
-        if not isinstance(ann.X, nichenet_matrix.__value__):
-            raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
+        validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
         mat = ann.X
     else:
         mat = ann.layers[layer]
-        if not isinstance(mat, nichenet_matrix.__value__):
-            raise ValueError(f"the selected layer should be of type nichenet_matrix, was {type(ann.X)}")
+        validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     if genes is None:
         genes = ann.var_names  # type: ignore # this works fine
     else:

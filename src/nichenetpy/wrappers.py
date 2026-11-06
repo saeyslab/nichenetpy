@@ -137,7 +137,13 @@ def combine_weighted_ligand_target_links(
         list of (ligand, target, weight) tuples representing the combined ligand-target links
     """
     return list(
-        chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
+        chain(
+            *(
+                zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False)
+                for e in active_ligand_target_links
+                if e["target"] is not None
+            )
+        )
     )
 
 
@@ -308,7 +314,7 @@ def run_nichenet(
         potential_ligands=potential_ligands,
         target_evaluation_metrics=(target_evaluation_metric,),
     )
-    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
+    ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1][target_evaluation_metric], x[0]))
     output["ligand_activities_sorted"] = ligand_activities_sorted
     best_upstream_ligands = [e[0] for e in ligand_activities_sorted[:ligands_top_n]]
     output["best_upstream_ligands"] = best_upstream_ligands
@@ -387,7 +393,8 @@ def run_nichenet(
             info_tables["sender_receiver_info"],
             info_tables["sender_receiver_de"],
             ligand_activities_sorted,  # type: ignore # false positive
-            info_tables["lr_condition_de"],
+            info_tables["lr_condition_de"] if case_control else None,
+            target_evaluation_metric=target_evaluation_metric,
         )
     return output
 
@@ -513,6 +520,8 @@ def run_nichenet_cluster_de(
         group_metrics(
             ann_filtered,
             groupby=celltype_col,
+            group_oi=receiver_affected,
+            group_ref=receiver_reference,
             layer=layer,
             min_pct=expression_pct,
             min_abs_lfc=0,
@@ -565,6 +574,7 @@ def create_ligand_activity_hist(
     xtitle: str = "ligand activity",
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> tuple[Figure, Axes]:
     """
     Creates a ligand activity histogram.
@@ -579,6 +589,8 @@ def create_ligand_activity_hist(
         the title of the y-axis
     figsize : tuple of float
         the size of the figure
+    target_evaluation_metric : string
+        the target prediction evaluation metric to use
 
     Returns
     -------
@@ -588,7 +600,7 @@ def create_ligand_activity_hist(
         the axes
     """
     fig, ax = plt.subplots(figsize=figsize)
-    vals = [e[1]["aupr_corrected"] for e in ligand_activities_sorted]
+    vals = [e[1][target_evaluation_metric] for e in ligand_activities_sorted]
     plt.hist(vals, bins=40, edgecolor="black")
     plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
     plt.xlabel(xtitle)
@@ -602,6 +614,7 @@ def create_ligand_activity_heatmap(
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
     figsize: tuple[float, float] = (6, 6),
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> tuple[Figure, Axes]:
     """
     Creates a ligand activity heatmap.
@@ -618,6 +631,8 @@ def create_ligand_activity_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    target_evaluation_metric : string
+        the target prediction evaluation metric to use
 
     Returns
     -------
@@ -628,7 +643,7 @@ def create_ligand_activity_heatmap(
     """
     ligands, metrics = zip(*ligand_activities_sorted, strict=True)
     fig, ax = heatmap_1d(
-        [e["aupr_corrected"] for e in metrics],
+        [e[target_evaluation_metric] for e in metrics],
         labels=ligands,
         title=title,
         cbar_label=cbar_label,
@@ -745,6 +760,7 @@ def create_lfc_heatmap(
     cbar_label="LFC",
     cmap="seismic",
     figsize: tuple[float, float] = (6, 6),
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> tuple[Figure, Axes]:
     """
     Creates an LFC heatmap.
@@ -767,6 +783,8 @@ def create_lfc_heatmap(
         the color map
     figsize : tuple of float
         the size of the figure
+    target_evaluation_metric : string
+        the target prediction evaluation metric to use
 
     Returns
     -------
@@ -782,7 +800,7 @@ def create_lfc_heatmap(
             (ligand, metrics_vals[1])
             for ligand, metrics_vals in sorted(
                 combine_dicts(ligand_activities, lfcs_dct).items(),
-                key=lambda x: x[1][0]["aupr_corrected"],
+                key=lambda x: x[1][0][target_evaluation_metric],
                 reverse=True,
             )
         ),

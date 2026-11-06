@@ -61,17 +61,23 @@ and this project adheres to [Semantic Versioning][].
 
 - Support for scipy sparse arrays.
 
-- metrics.precision_at_k
+- Added function `metrics.precision_at_k`
 
-- metrics.average_precision_at_k
+- Added function `metrics.average_precision_at_k`
 
-- metrics.dcg_at_k
+- Added function `metrics.dcg_at_k`
 
-- metrics.ndcg_at_k
+- Added function `metrics.ndcg_at_k`
 
-- You can now pass `ligand_evaluation_metrics` and `target_evaluation_metrics` to evaluation / objective functions.
+- You can now pass `ligand_evaluation_metrics` and/or `target_evaluation_metrics` to evaluation / objective functions.
 
-- Added optional arguments to split matrices during model construction.
+- You can now pass `ligand_evaluation_metric` and/or `target_evaluation_metric` to functions that always used `aupr_corrected` prior to this version.
+
+- Added `split_direct` and `direct_coef` arguments to `model_construction.construct_ligand_target_matrix`, `model_construction.construct_model_from_source_weights` and `parameter_optimization.construct_and_evaluate`. They control how much weight direct ligand-target links get relative to indirect ones. `split_direct` chooses which matrix is split into a direct and an indirect part: `"ltf"` (ligand-tf), `"tft"` (tf-target), `"ltf-tft"` (both) or `"no"` (default, unchanged behaviour). The ligand-target matrix is then `direct_coef * direct + (1 - direct_coef) * indirect`. `"ltf"` and `"ltf-tft"` require `algorithm="PPR"`.
+
+- Added `split_ppr` argument to `model_construction.construct_ligand_tf_matrix`, which separates the PPR scores into two matrices.
+
+- `visualization.heatmap_1d` and `visualization.heatmap_2d` now also accept a `matplotlib.colors.Colormap` for `cmap`, in addition to a colormap name.
 
 ### Changes
 
@@ -87,13 +93,43 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.
 
-- Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted
+- Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted.
 
-- Fixed bugs in type checks at runtime
+- Fixed bugs in type checks at runtime.
 
-- Fixed bug in `run_nichenet_cluster_de` where the down cutoff was positive.
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where the down cutoff was positive.
 
-- Fixed bug in `run_nichenet_cluster_de` where the geneset argument was passed to `run_nichenet_cluster_de` in stead of geneset_oi.
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where the geneset argument was passed to `prediction.LigandActivityPredictor.get_weighted_ligand_target_links` in stead of geneset_oi.
+
+- Fixed bug in `wrappers.run_nichenet_cluster_de` where `geneset="up"` and `geneset="down"` both returned up- and downregulated genes. Fold changes are now computed as `receiver_affected` versus `receiver_reference`.
+
+- Fixed bug in `model_construction.construct_model_from_source_weights` where tft and ltf matrices from `model_construction.construct_ligand_target_matrix` were swapped.
+
+- Fixed bug in `model_construction.construct_ligand_target_matrix` where remove_direct_links argument did nothing.
+
+- Fixed `model_construction.construct_ligand_target_matrix` with `secondary_targets=True`, which previously always raised a `ValueError`. The secondary-target scores are now computed as in NicheNetR: the quantile cutoff (`ltf_cutoff`) is applied only to the matrix used to infer secondary targets, and the primary ligand-target scores are left unclipped.
+
+- Fixed bug in `wrappers.run_nichenet` which occurs when `case_control` is False.
+
+- Fixed bug in `wrappers.combine_weighted_ligand_target_links` that occurs when a ligand has no targets.
+
+- Fixed bug in `prediction.LigandActivityPredictor.get_weighted_ligand_target_links` that occurs when the ligand-target matrix is sparse.
+
+- Added shape to `lr_sig_mat` construction in `visualization.get_ligand_signaling_path` which fixes an edge case bug.
+
+- Fixed swapped colors in `visualization/visualize_ligand_signaling_graph`.
+
+- Fixed bug in `ann_utils.subset_ann` where subsetting without specifying `layers` failed with newer anndata versions (≥ 0.12), which expose `X` as the layer `None`. This also fixes `metrics.group_metrics` when both `group_oi` and `group_ref` are given, and thereby `wrappers.run_nichenet` with `get_prioritization_table=True` and `case_control=True`.
+
+- Fixed support for dense (`numpy.ndarray`) and sparse array (`scipy.sparse.csr_array`/`csc_array`) layers: `metrics.group_metrics` crashed and `extraction.get_lfc_celltype` returned a single value instead of a list of log fold changes. `utils.subset_matrix` now subsets sparse arrays correctly (and faster), and `metrics.gene_expression_pct` no longer modifies its input matrix or counts explicitly stored zeros as expressed.
+
+- Fixed bug in `prioritization.get_avg_exp` where passing `features` subsetted the genes before normalization, so library sizes were computed from the selected genes only (inflating the average expression and changing its relative values across cell types). Results now match Seurat's `AverageExpression`. Also fixed a `KeyError` when `ann.var_names` is not named "gene", and `features` now accepts any iterable (including tuples) or a single gene name.
+
+- Fixed bug in `visualization.create_radar_plot` where omitting `max_val` raised an error.
+
+- Fixed `cmap` rejecting `matplotlib.colors.Colormap` objects despite its type hint, and corrected the type of `data` to a collection of series.
+
+
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3

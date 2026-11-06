@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.sparse import lil_matrix
 from scipy.stats import median_abs_deviation
 
-from nichenetpy.typing import nichenet_matrix
+from nichenetpy.typing import nichenet_matrix, validate_matrix_type
 
 
 def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
@@ -33,8 +33,7 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(data, nichenet_matrix.__value__):
-        raise TypeError(f"data should have type nichenet_matrix, was {type(data)}")
+    validate_matrix_type(data, f"data should have type nichenet_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
     mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))

@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import eval_metric_t, nichenet_matrix
+from nichenetpy.typing import eval_metric_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -430,61 +430,28 @@ def log_fold_change(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(mat1, nichenet_matrix.__value__):
-        raise TypeError(
-            f"mat1 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat1)}"
-        )
-    if not isinstance(mat2, nichenet_matrix.__value__):
-        raise TypeError(
-            f"mat2 should have type numpy.ndarray, scipy.sparse.csc_matrix or scipy.sparse.csr_matrix, was {type(mat2)}"
-        )
+    validate_matrix_type(mat1, f"mat1 should have type nichenet_matrix, was {type(mat1)}")
+    validate_matrix_type(mat2, f"mat2 should have type nichenet_matrix, was {type(mat2)}")
     if denormalize is not None and not isinstance(denormalize, Callable):  # type: ignore
         raise TypeError(f"denormalize should be a Callable or None, had type {type(denormalize)}")
     if not isinstance(pseudocount, Number):
         raise TypeError(f"pseudocount should have type float, was {type(pseudocount)}")
-    return (
+    # make sure the output is a 1D array
+    return np.asarray(
         _sub_log_fold_change(mat1, denormalize, pseudocount) - _sub_log_fold_change(mat2, denormalize, pseudocount)
-    ).transpose()
+    ).ravel()
 
 
 def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
-    if isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array)):
-        nrows, ncols = mat.shape
-        if direction == "positive":
-            # set all positive elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1 if mat.data[i] > 0 else 0
-        elif direction == "negative":
-            # set all negative elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1 if mat.data[i] < 0 else 0
-        else:
-            # set all non-zero elements to 1
-            for i in range(len(mat.data)):
-                mat.data[i] = 1
-        output = mat.sum(axis=0) / nrows
-        return [output[0, i] for i in range(ncols)]
-    elif type(mat) is np.ndarray:
-        nrows, ncols = mat.shape
-        if direction == "positive":
-            # set all positive elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    mat[i, j] = 1 if mat[i, j] > 0 else 0
-        elif direction == "negative":
-            # set all negative elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    mat[i, j] = 1 if mat[i, j] < 0 else 0
-        else:
-            # set all non-zero elements to 1
-            for i in range(nrows):
-                for j in range(ncols):
-                    if mat[i, j] != 0:
-                        mat[i, j] = 1
-        return mat.sum(axis=0) / nrows
+    if not isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array, np.ndarray)):
+        raise TypeError(f"mat should be of type nichenet_matrix, was {type(mat)}")
+    if direction == "positive":
+        hits = mat > 0  # type: ignore
+    elif direction == "negative":
+        hits = mat < 0  # type: ignore
     else:
-        raise TypeError(f"mat should be of nichenet_matrix, was {type(mat)}")
+        hits = mat != 0
+    return (np.ravel(hits.sum(axis=0)) / mat.shape[0]).tolist()  # type: ignore
 
 
 def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
@@ -629,8 +596,7 @@ def group_metrics[GeneSymbol](
     else:
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
-    if not isinstance(mat, nichenet_matrix.__value__):
-        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
+    validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
@@ -668,7 +634,7 @@ def group_metrics[GeneSymbol](
         lfc.append(x)
         pct.append(y)
     output = pd.melt(
-        pd.DataFrame(np.concatenate(lfc, axis=1), index=genes, columns=(groups if group_oi is None else [group_oi])),  # type: ignore # error at runtime
+        pd.DataFrame(np.column_stack(lfc), index=genes, columns=(groups if group_oi is None else [group_oi])),  # type: ignore # error at runtime
         var_name=groupby,
         value_name="lfc",
         ignore_index=False,

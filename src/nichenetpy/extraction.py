@@ -9,7 +9,7 @@ from anndata import AnnData
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -30,12 +30,10 @@ def _get_expressed_features(
     if not isinstance(ann.obs, pd.DataFrame):
         raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
     if layer is None:
-        if not isinstance(ann.X, nichenet_matrix.__value__):
-            raise TypeError(f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
+        validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     else:
         sel_layer = ann.layers[layer]
-        if not isinstance(sel_layer, nichenet_matrix.__value__):
-            raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
+        validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
@@ -237,8 +235,7 @@ def get_lfc_celltype[GeneSymbol](
         else:
             # filter genes in specified layer
             mat, genes = _subset_layer(ann_sender, layer, features)
-        if not isinstance(mat, nichenet_matrix.__value__):
-            raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
+        validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
         cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
@@ -246,7 +243,7 @@ def get_lfc_celltype[GeneSymbol](
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
         )
-        return (genes if type(genes) is list else list(genes), lfc.reshape(-1).tolist()[0])
+        return (genes if type(genes) is list else list(genes), lfc.tolist())
 
 
 def average_expression(
@@ -293,8 +290,7 @@ def average_expression(
     if type(layer) is not str:
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     data = ann.layers[layer]
-    if not isinstance(data, nichenet_matrix.__value__):
-        raise TypeError(f"the selected layer should be of type nichenet_matrix, was {type(data)}")
+    validate_matrix_type(data, f"the selected layer should be of type nichenet_matrix, was {type(data)}")
     if norm_f is not None:
         if not isinstance(norm_f, Callable):  # type: ignore
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")

@@ -11,6 +11,7 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
+from nichenetpy.typing import target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
@@ -73,7 +74,7 @@ def calculate_de[GeneSymbol](
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
-    if not isinstance(features, Iterable):
+    if features is not None and not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
@@ -141,9 +142,9 @@ def get_avg_exp[GeneSymbol](
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should have type str, was {type(celltype_col)}")
-    if type(condition_oi) is not str:
+    if condition_oi is not None and type(condition_oi) is not str:
         raise TypeError(f"condition_oi should have type str, was {type(condition_oi)}")
-    if type(condition_col) is not str:
+    if condition_col is not None and type(condition_col) is not str:
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
@@ -151,10 +152,14 @@ def get_avg_exp[GeneSymbol](
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    if features is not None:
-        ann = subset_ann(ann, genes=features)
     celltypes = set(ann.obs[celltype_col])
-    avg_celltype = average_expression(ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts)  # type: ignore
+    # normalize on all genes (library sizes must include every gene), select features afterwards
+    avg_celltype: pd.DataFrame = average_expression(
+        ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts
+    )  # type: ignore
+    avg_celltype.index.name = "gene"
+    if features is not None:
+        avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
     avg_celltype.reset_index(inplace=True)
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"
@@ -333,6 +338,7 @@ def generate_prioritization_table[GeneSymbol](
     ligand_activities: pd.DataFrame | dict[GeneSymbol, dict[str, float]] | list[tuple[GeneSymbol, dict[str, float]]],
     lr_condition_de: pd.DataFrame | None = None,
     prioritizing_weights: dict[str, float] | None = None,
+    target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> pd.DataFrame:
     """
     User can choose the importance attached to each of the following prioritization criteria:
@@ -360,6 +366,8 @@ def generate_prioritization_table[GeneSymbol](
         "exprs_receptor",
         "ligand_condition_specificity",
         "receptor_condition_specificity"
+    target_evaluation_metric : string
+        the target prediction evaluation metric to compute (ligands are ranked based on this metric)
 
     Returns
     -------
@@ -438,18 +446,18 @@ def generate_prioritization_table[GeneSymbol](
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
-        ligand_activities["rank"] = ligand_activities[["aupr_corrected"]].rank(
+        ligand_activities["rank"] = ligand_activities[[target_evaluation_metric]].rank(
             method="average", na_option="bottom", ascending=False
         )
     sender_ligand_prioritization = _prioritization(sender_receiver_de, "ligand", "sender")
     receiver_receptor_prioritization = _prioritization(sender_receiver_de, "receptor", "receiver")
     if "receiver" in ligand_activities.columns:
-        ligand_activity_prioritization = ligand_activities[["aupr_corrected", "rank", "receiver"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank", "receiver"]]
     else:
-        ligand_activity_prioritization = ligand_activities[["aupr_corrected", "rank"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank"]]
     ligand_activity_prioritization.index.name = "ligand"
     ligand_activity_prioritization.reset_index(inplace=True)
-    ligand_activity_prioritization.rename(columns={"aupr_corrected": "activity"}, inplace=True)
+    ligand_activity_prioritization.rename(columns={target_evaluation_metric: "activity"}, inplace=True)
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
     ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
         ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True

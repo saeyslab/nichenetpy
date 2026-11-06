@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_array, csc_array, csc_matrix, csr_array, csr_matrix
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
@@ -503,15 +503,18 @@ class LigandActivityPredictor[GeneSymbol]:
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         slc = self.ligand_target_matrix[:, self.ligand2index(ligand)]
-        if isinstance(slc, coo_array):
-            slc = csc_array(slc)
-        if n < self.ligand_target_matrix.shape[1]:
-            top_n_score = sorted(slc, reverse=True)[n - 1]
+        if not isinstance(slc, np.ndarray):
+            slc = np.ravel(slc.toarray())
+        if n < self.ligand_target_matrix.shape[0]:
+            k = self.ligand_target_matrix.shape[0] - n
+            top_n_score = np.partition(slc, k)[k]  # type: ignore # slc is np.ndarray
+            targets = sorted(
+                {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            )
         else:
-            top_n_score = min(sorted(slc, reverse=True)[:n])
-        targets = sorted(
-            {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
-        )
+            targets = sorted(
+                {e[0] for e in zip(self.row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+            )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
         else:
@@ -519,7 +522,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 "ligand": ligand,
                 "target": targets,
                 "weight": [
-                    self.ligand_target_matrix[self.gene2index(target)][self.ligand2index(ligand)] for target in targets
+                    self.ligand_target_matrix[self.gene2index(target), self.ligand2index(ligand)] for target in targets
                 ],
             }
 

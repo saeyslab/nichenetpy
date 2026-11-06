@@ -43,3 +43,23 @@ GeneSymbol = TypeVar("GeneSymbol", str, int)
 
 EvalMetric = TypeVar("EvalMetric", target_eval_metric_t, ligand_eval_metric_t)
 """Evaluation metrics. """
+
+
+def validate_matrix_type(obj: object, err_msg: str) -> None:
+    """
+    Check if the object is an ungeneric nichenet_matrix and raise a TypeError if it isn't.
+
+    Parameters
+    ----------
+    obj : object
+        the object to validate
+    err_msg : str
+        the error message
+
+    Raises
+    ------
+    TypeError
+        if the object is not an (ungeneric) nichenet_matrix
+    """
+    if not isinstance(obj, (csr_matrix, csc_matrix, csr_array, csc_array, ndarray)):
+        raise TypeError(err_msg)

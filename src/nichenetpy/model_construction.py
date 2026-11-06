@@ -144,12 +144,7 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
 
 def _quantile_clip(mat, cutoff):
     if cutoff > 0:
-        for i in range(mat.shape[0]):
-            row = mat[i, :]
-            qt = np.quantile(row, cutoff)
-            for j in range(len(row)):
-                if row[j] <= qt:
-                    mat[i, j] = 0
+        mat[mat <= np.quantile(mat, cutoff, axis=1, keepdims=True)] = 0
 
 
 @overload
@@ -455,13 +450,9 @@ def construct_tf_target_matrix(
 
 
 def _set_min(mat):
-    for i in range(len(mat)):
-        if mat[i] == 0:
-            mat[i] = np.inf
-    m = min(mat)
-    for i in range(len(mat)):
-        if mat[i] == np.inf:
-            mat[i] = m
+    # All 0's are replaced by the smallest non-zero element
+    mat[mat == 0] = np.inf
+    mat[mat == np.inf] = np.min(mat)
 
 
 @overload
@@ -605,9 +596,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
+        "ltf": split the ltf matrix (only valid with 'PPR' algorithm);
         "tft": split the tft matrix;
-        "ltf-tft": split both the ltf and tft matrices;
+        "ltf-tft": split both the ltf and tft matrices (only valid with 'PPR' algorithm);
         Default: "no"
     direct_coef : float
         The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
@@ -658,17 +649,25 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if remove_direct_links == "ligand":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(lr_network["from"])
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links == "ligand_receptor":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links != "no":
         raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
     if type(split_direct) is not str:
         raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
-        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft], was {remove_direct_links}")
+        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft'], was {split_direct}")
+    if split_direct[:3] == "ltf" and algorithm != "PPR":
+        raise ValueError("When split_direct is 'ltf' or 'ltf-tft' algorithm must be 'PPR'")
     if not isinstance(direct_coef, Number):
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
     elif direct_coef < 0 or direct_coef > 1:
@@ -685,7 +684,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         ligand2target = ltf_matrix @ tft_matrix  # type: ignore # returns ndarray
     elif split_direct == "ltf":
-        (ltf_direct, ltf_indirect), ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
             ligands,  # type: ignore
             ltf_cutoff,
@@ -693,6 +692,8 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             damping_factor,
             split_ppr=True,
         )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         rp_direct = ltf_direct @ tft_matrix
         rp_indirect = ltf_indirect @ tft_matrix
@@ -747,8 +748,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
-        _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ligand2target @ tft_matrix  # type: ignore # returns ndarray
+        ltf_secondary = ligand2target.copy()
+        _quantile_clip(ltf_secondary, ltf_cutoff)
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ltf_secondary @ tft_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1
@@ -758,7 +760,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
                 (ligand2target.transpose(), grn_cols, ltf_rows),
                 (
                     (
-                        (ltf_matrix[0].transpose(), ltf_matrix[1].transpose())
+                        (ltf_direct.transpose(), ltf_indirect.transpose())
                         if split_direct[:3] == "ltf"
                         else ltf_matrix.transpose()
                     ),
@@ -861,7 +863,7 @@ def construct_model_from_source_weights[GeneSymbol](
             direct_coef=direct_coef,
         )
         if return_all_matrices:
-            ligand2target, grn_matrix, ltf_matrix = res  # type: ignore # correct in this conditional path
+            ligand2target, ltf_matrix, grn_matrix = res  # type: ignore # correct in this conditional path
         else:
             ligand2target = res  # type: ignore # correct in this conditional path
             grn_matrix = None
