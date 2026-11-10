@@ -478,6 +478,52 @@ def _set_min(mat):
     mat[mat == np.inf] = np.min(mat)
 
 
+def _split_tft_direct(
+    gr_network: pd.DataFrame,
+    ligands: list[tuple],
+    tft_matrix: csr_array,
+    grn_rows: list,
+    grn_cols: list,
+) -> tuple[csr_array, csr_array]:
+    """
+    Split the tf-target matrix into the direct links (regulatory links that start at a ligand) and the other links.
+
+    Parameters
+    ----------
+    gr_network : pandas.DataFrame
+        the (weighted) gene regulatory network, contains the same links as the tf-target matrix
+    ligands : list of tuple
+        the ligands (combinations) as tuples
+    tft_matrix : scipy.sparse.csr_array
+        the tf-target matrix
+    grn_rows : list
+        the row names (tfs) of the tf-target matrix
+    grn_cols : list
+        the column names (targets) of the tf-target matrix
+
+    Returns
+    -------
+    scipy.sparse.csr_array
+        the tf-target matrix with only the direct links
+    scipy.sparse.csr_array
+        the tf-target matrix without the direct links
+    """
+    tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
+    target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
+    # direct links: regulatory links that start at a (single) ligand
+    single_ligands = {_ligands[0] for _ligands in ligands if len(_ligands) == 1}
+    direct_links = gr_network[gr_network["from"].isin(single_ligands)]
+    mask = csr_array(
+        (
+            np.ones(len(direct_links), dtype=bool),
+            (direct_links["from"].map(tf2id).to_numpy(), direct_links["to"].map(target2id).to_numpy()),
+        ),
+        shape=tft_matrix.shape,
+    )
+    tft_direct = tft_matrix.multiply(mask)
+    return tft_direct, tft_matrix - tft_direct
+
+
 @overload
 def construct_ligand_target_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
@@ -727,20 +773,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
-        target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-        gr_network = weighted_networks["gr"]  # contains the same links as the unweighted network
-        direct_links = gr_network[gr_network["from"].apply(lambda x: (x,)).isin(ligands)]
-        mask = csr_array(
-            (
-                [True for _ in range(len(direct_links))],
-                (direct_links["from"].apply(lambda x: tf2id[x]), direct_links["to"].apply(lambda x: target2id[x])),
-            ),
-            shape=tft_matrix.shape,
-            dtype=np.bool,
-        )
-        tft_direct = tft_matrix.multiply(mask)
-        tft_indirect = tft_matrix - tft_direct
+        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
         rp_direct: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
         rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -751,20 +784,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         ltf_direct = ltf_matrix[0]
         ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
-        target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-        gr_network = weighted_networks["gr"]  # contains the same links as the unweighted network
-        direct_links = gr_network[gr_network["from"].apply(lambda x: (x,)).isin(ligands)]
-        mask = csr_array(
-            (
-                [True for _ in range(len(direct_links))],
-                (direct_links["from"].apply(lambda x: tf2id[x]), direct_links["to"].apply(lambda x: target2id[x])),
-            ),
-            shape=tft_matrix.shape,
-            dtype=np.bool,
-        )
-        tft_direct = tft_matrix.multiply(mask)
-        tft_indirect = tft_matrix - tft_direct
+        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
         # same as rp_direct when split_direct == "ltf"?
         rp_direct = ltf_direct @ tft_direct
         # same as rp_indirect when split_direct == "tft"?
