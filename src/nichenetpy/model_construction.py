@@ -5,7 +5,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_array, csr_array
+from scipy.sparse import csc_array, csr_array, csr_matrix
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
@@ -322,7 +322,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
             mask.append(row > 0)
     elif algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_array(
+        # NOTE: sparse matrices are deprecated in favor of sparse arrays but PageRank doesn't accept sparse arrays in the latest release (10-11-26)
+        lr_sig_mat = csr_matrix(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
             shape=(len(gene2id), len(gene2id)),
         )
