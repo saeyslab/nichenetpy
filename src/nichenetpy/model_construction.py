@@ -362,17 +362,11 @@ def construct_ligand_tf_matrix[GeneSymbol](
             spl_matrix = np.array(
                 [[e[0] for e in dijkstra_spl(graph=lr_sig_mat, src=gene2id[src])] for src in _ligands]
             )
-            for i in range(spl_matrix.shape[0]):
-                for j in range(spl_matrix.shape[1]):
-                    if spl_matrix[i, j] == np.inf:
-                        spl_matrix[i, j] = -1
-            max_dist = spl_matrix.max()
-            for i in range(spl_matrix.shape[0]):
-                for j in range(spl_matrix.shape[1]):
-                    if spl_matrix[i, j] == -1:
-                        spl_matrix[i, j] = 0
-                    else:
-                        spl_matrix[i, j] = max_dist - spl_matrix[i, j]
+            # convert distances to scores: max_dist - distance, unreachable genes (distance inf) get 0
+            unreachable = np.isinf(spl_matrix)
+            # the ligand itself (distance 0) is always reachable, so max_dist >= 0
+            max_dist = spl_matrix[~unreachable].max()
+            spl_matrix = np.where(unreachable, 0.0, max_dist - spl_matrix)
             _quantile_clip(spl_matrix, ltf_cutoff)
             complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
