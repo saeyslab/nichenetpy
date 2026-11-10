@@ -740,7 +740,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             dtype=np.bool,
         )
         tft_direct = tft_matrix.multiply(mask)
-        tft_indirect = tft_matrix.multiply(~mask.toarray())
+        tft_indirect = tft_matrix - tft_direct
         rp_direct: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
         rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -764,7 +764,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             dtype=np.bool,
         )
         tft_direct = tft_matrix.multiply(mask)
-        tft_indirect = tft_matrix.multiply(~mask.toarray())
+        tft_indirect = tft_matrix - tft_direct
         # same as rp_direct when split_direct == "ltf"?
         rp_direct = ltf_direct @ tft_direct
         # same as rp_indirect when split_direct == "tft"?
