@@ -75,11 +75,13 @@ class Network[GeneSymbol]:
         return self._mapping.__iter__()
 
     def __contains__(self, item: tuple):
-        start, count = self._index[item[0]]
-        return item in self._mapping[start : start + count]
+        if self._pairs is None:
+            self._pairs = {link[:2] for link in self._mapping}
+        return tuple(item[:2]) in self._pairs
 
     def _build_index(self):
         self._index.clear()
+        self._pairs = None  # the pairs set is invalidated, next call to __contains__ will rebuild it
         for i, item in enumerate(self._mapping):
             if item[0] in self._index:
                 self._index[item[0]][1] += 1

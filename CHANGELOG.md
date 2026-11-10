@@ -147,6 +147,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `network.Network.subset_sep` where calling it on a `network.WeightedNetwork` without `to` raised a `ValueError`.
 
+- Fixed `network.Network.__contains__` (`(from, to) in network`): it raised a `KeyError` for an unknown "from" gene and never matched links of a `network.WeightedNetwork` without the exact weight. Membership is now based on (from, to) only and uses a set of (from, to) pairs that is built on the first membership check (much faster for repeated checks) and reset by `network.Network._build_index` when the links change.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
