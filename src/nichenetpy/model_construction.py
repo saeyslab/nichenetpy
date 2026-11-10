@@ -6,9 +6,9 @@ from typing import Any, Literal, overload
 import numpy as np
 import pandas as pd
 from scipy.sparse import csc_array, csr_array, csr_matrix
+from scipy.sparse.csgraph import dijkstra
 from sknetwork.ranking import PageRank
 
-from nichenetpy.graph import dijkstra_spl
 from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
@@ -359,9 +359,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
         )
         complete_matrix = []
         for _ligands in ligands:
-            spl_matrix = np.array(
-                [[e[0] for e in dijkstra_spl(graph=lr_sig_mat, src=gene2id[src])] for src in _ligands]
-            )
+            # shortest path lengths from each ligand (of the combination) to every gene, one row per ligand
+            spl_matrix = dijkstra(lr_sig_mat, directed=True, indices=[gene2id[src] for src in _ligands])
             # convert distances to scores: max_dist - distance, unreachable genes (distance inf) get 0
             unreachable = np.isinf(spl_matrix)
             # the ligand itself (distance 0) is always reachable, so max_dist >= 0

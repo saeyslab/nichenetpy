@@ -85,9 +85,11 @@ and this project adheres to [Semantic Versioning][].
 
 - `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
 
-- Faster quantile clipping and conversion of shortest path lengths to scores (SPL algorithm) during ligand-tf matrix construction.
+- Faster quantile clipping and conversion of shortest path lengths to scores (SPL algorithm) during ligand-tf matrix construction; shortest paths are now computed with `scipy.sparse.csgraph.dijkstra` (~20x faster SPL ligand-tf matrices).
 
 - `model_construction.construct_ligand_tf_matrix` (and therefore `construct_ligand_target_matrix` and `construct_model_from_source_weights`) now raises a `ValueError` when none of the requested ligands are present in the weighted networks, instead of failing later during matrix multiplication.
+
+- Removed `graph.dijkstra_spl`, use `scipy.sparse.csgraph.dijkstra` instead. As a result, `visualization.visualize_ligand_signaling_graph` may show a different path when several shortest paths have the same length.
 
 ### Fixed
 

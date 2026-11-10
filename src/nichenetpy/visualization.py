@@ -31,9 +31,9 @@ from matplotlib.text import Text
 from matplotlib.transforms import Affine2D
 from matplotlib.typing import ColorType
 from scipy.sparse import csr_array, csr_matrix
+from scipy.sparse.csgraph import dijkstra
 
 from nichenetpy.ann_utils import subset_ann
-from nichenetpy.graph import dijkstra_spl
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
@@ -420,14 +420,15 @@ def _get_shortest_path_signaling[GeneSymbol](
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
     ligand_id = gene2id[ligand_oi]
-    spl = dijkstra_spl(lr_sig_mat, ligand_id)
+    # predecessor of every gene on its shortest path from the ligand (-9999 for the ligand itself and unreachable genes)
+    _, predecessors = dijkstra(lr_sig_mat, directed=True, indices=ligand_id, return_predecessors=True)
     return set.union(
         *(
             set(
                 linked_iter(
                     tf,
-                    lambda x: spl[x][1],  # type: ignore # don't infer type of lambda
-                    lambda _, x: x is None,
+                    lambda x: int(predecessors[x]),
+                    lambda _, x: x < 0,
                 )
             )
             for tf in tfs
