@@ -2,7 +2,6 @@ import warnings
 from collections.abc import Collection, Iterable, Sequence
 from itertools import chain, repeat
 from numbers import Number
-from random import uniform
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -531,33 +530,40 @@ class LigandActivityPredictor[GeneSymbol]:
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         if isinstance(self.ligand_target_matrix, np.ndarray):
-            m = min(e for r in self.ligand_target_matrix for e in r if e > 0)
-            for j in range(self.ligand_target_matrix.shape[1]):
-                if sum(self.ligand_target_matrix[:, j]) == 0:
-                    for i in range(self.ligand_target_matrix.shape[0]):
-                        self.ligand_target_matrix[i, j] = uniform(0, m)
+            mat = self.ligand_target_matrix
+            # smallest positive score, the noise stays below every real score
+            m = mat[mat > 0].min()
+            # indices of the all-zero columns: any(axis=0) is True for columns with a non-zero value, ~ inverts it
+            # and flatnonzero turns the remaining True positions into column indices
+            zero_cols = np.flatnonzero(~mat.any(axis=0))
+            if zero_cols.size > 0:
+                # in place, keeps the memory order (column-major) of the matrix
+                mat[:, zero_cols] = np.random.uniform(0, m, size=(mat.shape[0], zero_cols.size))
         else:
-            m = min(self.ligand_target_matrix.data)
-            if isinstance(self.ligand_target_matrix, csr_matrix):
-                # this operation would be slow on csr_matrix (there is no reason for the ligand-target matrix to ever be in row-major format)
+            if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
+                # column operations are slow on row-major matrices (and the ligand-target matrix should be column-major)
                 warnings.warn(
                     "Converted ligand-target matrix to column-major sparse matrix. (NicheNet analysis is faster in column-major format)",
                     stacklevel=2,
                 )
-                self.ligand_target_matrix = self.ligand_target_matrix.tocsc()
-            for j in range(self.ligand_target_matrix.shape[1]):
-                if (
-                    sum(
-                        self.ligand_target_matrix.data[
-                            self.ligand_target_matrix.indptr[j] : self.ligand_target_matrix.indptr[j + 1]
-                        ]
-                    )
-                    == 0
-                ):
-                    i = self.ligand_target_matrix.indptr[j]
-                    while i < self.ligand_target_matrix.indptr[j + 1]:
-                        self.ligand_target_matrix.data[i] = uniform(0, m)
-                        i += 1
+            mat = self.ligand_target_matrix.tocsc()
+            # smallest positive score: explicitly stored zeros must not lower the noise range to 0
+            m = mat.data[mat.data > 0].min()
+            # all-zero columns have no (non-zero) stored values, so they have to be added as new entries;
+            # flatnonzero flattens the column sums, which are 2-D (1 x n) for sparse matrices and 1-D for sparse arrays
+            zero_cols = np.flatnonzero(abs(mat).sum(axis=0) == 0)
+            if zero_cols.size > 0:
+                # build a sparse noise matrix in coordinate form ((values, (rows, cols))) with an entry for every
+                # (row, zero column) combination, e.g. n_rows = 3 and zero_cols = [1, 4]:
+                #   rows = [0, 1, 2, 0, 1, 2]  (np.tile: the whole range of row indices, once per zero column)
+                #   cols = [1, 1, 1, 4, 4, 4]  (np.repeat: each zero column index, once per row)
+                n_rows = mat.shape[0]
+                rows = np.tile(np.arange(n_rows), zero_cols.size)
+                cols = np.repeat(zero_cols, n_rows)
+                noise = np.random.uniform(0, m, size=rows.size)
+                # the noise matrix only has entries in the zero columns, so the other columns are left unchanged
+                mat = mat + type(mat)((noise, (rows, cols)), shape=mat.shape)
+            self.ligand_target_matrix = mat
 
     def gene_presence(self, genes: Collection[GeneSymbol]) -> float:
         """

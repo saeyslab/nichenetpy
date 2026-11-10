@@ -159,12 +159,17 @@ nitpick_ignore = [
     ("py:obj", "nichenetpy.typing.nichenet_matrix"),
     ("py:obj", "nichenetpy.typing.gene_t"),
     ("py:obj", "nichenetpy.typing.GeneSymbol"),
+    # PEP 695 type parameters (def f[GeneSymbol](...)) are local TypeVars with __module__ == "typing"
+    ("py:obj", "typing.GeneSymbol"),
+    ("py:class", "typing.GeneSymbol"),
     ("py:exc", "AnnError"),
 ]
 
 autodoc_type_aliases = {
     "gene_t": "nichenetpy.typing.gene_t",
     "nichenet_matrix": "nichenetpy.typing.nichenet_matrix",
+    "GeneSymbol": "nichenetpy.typing.GeneSymbol",
+    "typing.GeneSymbol": "nichenetpy.typing.GeneSymbol",
     "numpy.float64": "float",
     "np.float64": "float",
     "numpy.bool": "bool",

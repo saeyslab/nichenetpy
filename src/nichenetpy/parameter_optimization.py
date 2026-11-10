@@ -207,10 +207,11 @@ def evaluate_model[GeneSymbol](
 def compute_evaluation_scores[GeneSymbol](
     eval_res: dict[str, pd.DataFrame | None],
     ligands: Iterable[GeneSymbol | Sequence[GeneSymbol]],
-    metric_score_f: MetricScoreFunction = metric_score_f_dct["NNv2"],
+    metric_score_f: MetricScoreFunction | None = None,
     objective_fs: dict[
         Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
-    ] = objective_fs_dct["NNv2"],
+    ]
+    | None = None,
 ) -> dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]:
     """
     Construct and evaluate the ligand-target matrix.
@@ -221,14 +222,16 @@ def compute_evaluation_scores[GeneSymbol](
         The output of a call to `nichenetpy.parameter_optimization.evaluate_model`
     ligands : Iterable of gene_t
         The ligands of interest
-    metric_score_f : Callable
+    metric_score_f : Callable or None
         Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
         prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function.
         (tip: use `**kwargs` to make sure you catch them)
-    objective_fs : dict of dict[str, Callable]
+        If None, `metric_score_f_dct["NNv2"]` is used.
+    objective_fs : dict of dict[str, Callable] or None
         Dictionary which maps the keys "target_prediction" and "ligand_prediction" to dictionaries which map metrics to
         functions that aggregate values of said metric. These functions are used to compute the optimization objectives
         which are aggregated from metric values computed over multiple data sets.
+        If None, `objective_fs_dct["NNv2"]` is used.
 
     Returns
     -------
@@ -240,12 +243,16 @@ def compute_evaluation_scores[GeneSymbol](
     TypeError
         if the arguments have the wrong type
     """
+    # the defaults are looked up here instead of in the signature, so the signature (and its documentation) doesn't
+    # contain the dictionaries of functions themselves (note: the default is still the shared module-level object)
+    if metric_score_f is None:
+        metric_score_f = metric_score_f_dct["NNv2"]
+    if objective_fs is None:
+        objective_fs = objective_fs_dct["NNv2"]
     if type(eval_res) is not dict:
         raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
     if eval_res["performances_target_prediction"] is None:
         raise ValueError("eval_res['performances_target_prediction'] was None")
-    if eval_res["performances_ligand_prediction"] is None:
-        raise ValueError("eval_res['performances_ligand_prediction'] was None")
     if not isinstance(ligands, Iterable):
         raise TypeError(f"ligands should have type Iterable, was {type(ligands)}")
     if not isinstance(metric_score_f, Callable):  # type: ignore
@@ -263,9 +270,6 @@ def compute_evaluation_scores[GeneSymbol](
     target_evaluation_metrics: set[target_eval_metric_t] = set(eval_res["performances_target_prediction"].columns)  # type: ignore # error at runtime
     for e in ("setting", "ligand"):
         target_evaluation_metrics.remove(e)  # type: ignore
-    ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
-    for e in ("metric", "group", "ligand"):
-        ligand_evaluation_metrics.remove(e)
     performances_prediction_averaged = {}
     # median metric value per ligand for each metric
     performances_target_prediction_averaged: dict[target_eval_metric_t, Sequence[float]] = dict(
@@ -291,7 +295,7 @@ def compute_evaluation_scores[GeneSymbol](
             e for e in performances_target_prediction_averaged[e] if not np.isnan(e)
         ]
     if eval_res["performances_ligand_prediction"] is None:
-        # only target prediction
+        # ligand prediction could not be evaluated on any data set: only score target prediction
         return {
             "target_prediction": {
                 metric: f(performances_target_prediction_averaged[metric])  # type: ignore # target prediction keys should be fine
@@ -299,6 +303,9 @@ def compute_evaluation_scores[GeneSymbol](
             },
             "ligand_prediction": dict.fromkeys(objective_fs["ligand_prediction"].keys(), 0),
         }
+    ligand_evaluation_metrics = set(eval_res["performances_ligand_prediction"].columns)
+    for e in ("metric", "group", "ligand"):
+        ligand_evaluation_metrics.remove(e)
     ligand_activity_performance_setting_summary = (
         eval_res["performances_ligand_prediction"][list(chain(("metric",), ligand_evaluation_metrics))]
         .groupby("metric")
@@ -387,10 +394,11 @@ def construct_and_evaluate[GeneSymbol](
     direct_coef: float = 0,
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
-    metric_score_f: MetricScoreFunction = metric_score_f_dct["NNv2"],
+    metric_score_f: MetricScoreFunction | None = None,
     objective_fs: dict[
         Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
-    ] = objective_fs_dct["NNv2"],
+    ]
+    | None = None,
 ) -> tuple[
     dict[str, Any], dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]
 ]:
@@ -441,14 +449,16 @@ def construct_and_evaluate[GeneSymbol](
             the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
         the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
-    metric_score_f : Callable
+    metric_score_f : Callable or None
         Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
         prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function.
         (tip: use `**kwargs` to make sure you catch them)
-    objective_fs : dict of dict[str, Callable]
+        If None, `metric_score_f_dct["NNv2"]` is used.
+    objective_fs : dict of dict[str, Callable] or None
         Dictionary which maps the keys "target_prediction" and "ligand_prediction" to dictionaries which map metrics to
         functions that aggregate values of said metric. These functions are used to compute the optimization objectives
         which are aggregated from metric values computed over multiple data sets.
+        If None, `objective_fs_dct["NNv2"]` is used.
 
     Returns
     -------
@@ -461,10 +471,23 @@ def construct_and_evaluate[GeneSymbol](
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    If all source weights are 0, or all ligand-receptor and signaling sources have weight 0 (no ligand-signaling
+    network), no model is constructed and all prediction scores are 0.
     """
-    if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
-        type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
-    ):
+    weights = (
+        source_weights
+        if type(source_weights) is dict
+        else dict(zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True))  # type: ignore
+    )
+    # A model without ligand-signaling links (all ligand-receptor and signaling sources weighted 0 or not given)
+    # can't propagate signals from ligands to transcription factors, so it is scored as an empty model instead of
+    # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
+    # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
+    lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
+    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):  # type: ignore
         return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
     model = construct_model_from_source_weights(
         source_weights,

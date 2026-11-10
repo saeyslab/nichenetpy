@@ -5,7 +5,7 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_array, csr_array
+from scipy.sparse import csc_array, csr_array, csr_matrix
 from sknetwork.ranking import PageRank
 
 from nichenetpy.graph import dijkstra_spl
@@ -247,10 +247,16 @@ def construct_ligand_tf_matrix[GeneSymbol](
     TypeError
         if the arguments have the wrong type
     ValueError
-        if the arguments are invalid
+        if ltf_cutoff or damping_factor is not between 0 and 1
+        if algorithm is not "PPR", "SPL" or "direct"
+        if none of the ligands are present in the weighted networks
 
     Notes
     -----
+    If the ligand-signaling network (weighted_networks["lr_sig"]) is empty, each ligand only reaches itself:
+    its row is 1 at the ligand (1/k at each member of a combination of k ligands) and 0 elsewhere,
+    which is the personalized pagerank result on a network without links.
+
     `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
     and `E` the amount of links in the lr_sig weighted matrix
 
@@ -291,9 +297,33 @@ def construct_ligand_tf_matrix[GeneSymbol](
         for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
         if len(ligand) > 0  # ligand is not in the weighted networks, so it can't be in the matrix
     ]
-    if algorithm == "PPR":
+    if len(ligands) == 0:
+        # without ligands, complete_matrix stays empty and np.array([]) has shape (0,) instead of
+        # (0, len(all_genes)), which breaks the ligand-tf @ tf-target product further on
+        raise ValueError("none of the ligands are present in the weighted networks")
+    if algorithm not in ("PPR", "SPL", "direct"):
+        raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
+    if len(lr_sig) == 0:
+        # All ligand-receptor and signaling sources have weight 0, so there are no ligand-signaling links.
+        # PageRank (scikit-network) rejects an empty adjacency matrix, so the result is built directly:
+        # without edges the random walker can't leave its seed, so personalized pagerank gives 1 for the ligand
+        # itself and 0 elsewhere; the quantile clip keeps that value (it is the row maximum) and combinations
+        # are averaged over their members (as in the PPR branch), i.e. 1/k for each of the k members.
+        # ligands only contains members present in the networks (filtered above), so gene2id[ligand] is safe.
+        complete_matrix = []
+        # mask marks the ligand's own nodes, as in the PPR branch, so split_ppr can separate the ligand's own
+        # (direct) scores from the rest (indirect); here the direct part is the whole row, the indirect part is 0
+        mask = []
+        for _ligands in ligands:
+            row = np.zeros(len(all_genes))
+            for ligand in _ligands:
+                row[gene2id[ligand]] = 1 / len(_ligands)
+            complete_matrix.append(row)
+            mask.append(row > 0)
+    elif algorithm == "PPR":
         # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_array(
+        # NOTE: sparse matrices are deprecated in favor of sparse arrays but PageRank doesn't accept sparse arrays in the latest release (10-11-26)
+        lr_sig_mat = csr_matrix(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
             shape=(len(gene2id), len(gene2id)),
         )
@@ -619,6 +649,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+        if none of the ligands are present in the weighted networks
 
     Notes
     -----
@@ -840,6 +871,9 @@ def construct_model_from_source_weights[GeneSymbol](
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the arguments are invalid
+        if none of the ligands are present in the weighted networks
     """
     if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
@@ -849,29 +883,26 @@ def construct_model_from_source_weights[GeneSymbol](
         ligands = set(lr_network["from"])
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
     ligand2target: np.ndarray[Any, np.dtype[np.float64]]
-    if weighted_networks["lr_sig"].shape[0] > 0:
-        weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
-        weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        res = construct_ligand_target_matrix(  # type: ignore
-            weighted_networks,
-            lr_network,
-            ligands,
-            damping_factor=damping_factor,
-            ltf_cutoff=ltf_cutoff,
-            return_all_matrices=return_all_matrices,
-            split_direct=split_direct,
-            direct_coef=direct_coef,
-        )
-        if return_all_matrices:
-            ligand2target, ltf_matrix, grn_matrix = res  # type: ignore # correct in this conditional path
-        else:
-            ligand2target = res  # type: ignore # correct in this conditional path
-            grn_matrix = None
-            ltf_matrix = None
-    else:  # lr_sig is empty -> lt_matrix is grn_matrix
-        grn_matrix = construct_tf_target_matrix(weighted_networks, standalone_output=True)
-        grn_matrix = (grn_matrix[0].toarray(order="F"), grn_matrix[1], grn_matrix[2])
-        ligand2target = grn_matrix  # type: ignore # toarray should return np.ndarray
+    # an empty ligand-signaling network (all ligand-receptor and signaling sources weighted 0) is handled by
+    # construct_ligand_tf_matrix, so every model goes through the same construction path and the output has the
+    # same layout (targets x ligands ligand-target matrix, ltf and grn matrices with matching orientation)
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
+    res = construct_ligand_target_matrix(  # type: ignore
+        weighted_networks,
+        lr_network,
+        ligands,
+        damping_factor=damping_factor,
+        ltf_cutoff=ltf_cutoff,
+        return_all_matrices=return_all_matrices,
+        split_direct=split_direct,
+        direct_coef=direct_coef,
+    )
+    if return_all_matrices:
+        ligand2target, ltf_matrix, grn_matrix = res  # type: ignore # correct in this conditional path
+    else:
+        ligand2target = res  # type: ignore # correct in this conditional path
+        grn_matrix = None
         ltf_matrix = None
     output = {
         "weighted networks": weighted_networks,
