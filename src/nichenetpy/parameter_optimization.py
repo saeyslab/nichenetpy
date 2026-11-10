@@ -601,6 +601,7 @@ def choose_pareto_optimal_solution_normalized(
 ) -> int:
     """
     Choose one solution from a set of pareto optimal solutions using the weighted stress function method on normalized objectives
+    Objectives without variance (the same value for every solution) are not taken into account.
 
     Parameters
     ----------
@@ -619,9 +620,14 @@ def choose_pareto_optimal_solution_normalized(
     TypeError
         if the arguments have the wrong type
     """
-    objective_values = list(zip(*objective_values, strict=True))
-    for i in range(len(objective_values)):
-        vals = np.array(objective_values[i])
-        vals = (vals - np.min(vals)) / (np.max(vals) - np.min(vals))
-        objective_values[i] = vals
-    return choose_pareto_optimal_solution(zip(*objective_values, strict=True), weights)
+    # one array per objective (the values of all solutions for that objective)
+    objectives = [np.asarray(vals, dtype=float) for vals in zip(*objective_values, strict=True)]
+    weights = list(weights)
+    # objectives without variance (the same value for every solution) are not taken into account, neither is their
+    # weight: they can't distinguish between solutions, and min-max normalization would divide by zero for them;
+    # the remaining weights are renormalized in choose_pareto_optimal_solution
+    keep = [i for i, vals in enumerate(objectives) if vals.max() > vals.min()]
+    if len(keep) == 0:
+        return 0  # no objective has any variance: all solutions are equivalent
+    normalized = [(objectives[i] - objectives[i].min()) / (objectives[i].max() - objectives[i].min()) for i in keep]
+    return choose_pareto_optimal_solution(zip(*normalized, strict=True), [weights[i] for i in keep])

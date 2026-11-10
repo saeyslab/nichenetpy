@@ -141,6 +141,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `parameter_optimization.compute_evaluation_scores` where a ValueError was raised when ligand prediction could not be evaluated on any data set, instead of falling back to scoring target prediction only (with ligand prediction objectives set to 0).
 
+- Fixed bug in `parameter_optimization.choose_pareto_optimal_solution_normalized` where an objective without variance (the same value for every solution) led to a division by zero, so the first solution was always chosen. Such objectives are now not taken into account.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
