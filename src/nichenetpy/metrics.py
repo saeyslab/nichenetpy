@@ -498,7 +498,11 @@ def _single_group_metrics(
         raise NicheNetError("There are no cells in the reference group")
     mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
     mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
-    return (log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount), gene_expression_pct(mat1))
+    return (
+        log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount),
+        gene_expression_pct(mat1),
+        gene_expression_pct(mat2),
+    )
 
 
 def group_metrics[GeneSymbol](
@@ -519,7 +523,9 @@ def group_metrics[GeneSymbol](
     """
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
     the log fold changes and the p-values / adjusted p-values.
-    The result is a pandas dataframe stored in ann.uns["group_metrics"]
+    The result is a pandas dataframe stored in ann.uns["group_metrics"] with the columns "gene", `groupby`, "lfc",
+    "pct" (fraction of expressing cells in the group), "pct_ref" (fraction of expressing cells in the reference cells:
+    the other groups or `group_ref`), "pval" and "pval_adj".
 
     Parameters
     ----------
@@ -540,9 +546,11 @@ def group_metrics[GeneSymbol](
     features : Iterable of str or None
         the genes to consider
     min_abs_lfc : float
-        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+        a gene is only tested (and reported) in a comparison if its absolute log fold change is at least this value
+        (as logfc.threshold in Seurat's FindMarkers)
     min_pct : float
-        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+        a gene is only tested (and reported) in a comparison if it's expressed in at least this fraction of the cells of
+        the group or of the reference cells (as min.pct in Seurat's FindMarkers)
     pval_thresh : float or None
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     wilcoxon_limma : bool
@@ -604,11 +612,12 @@ def group_metrics[GeneSymbol](
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
     lfc = []
     pct = []
+    pct_ref = []
     # start by computing lfc and pct (these are also used for filtering before computing the p-values)
     if group_oi is None:
         # compare each group with the reference group
         for group in groups:
-            x, y = _single_group_metrics(
+            x, y, z = _single_group_metrics(
                 ann,
                 mat,  # type: ignore # mat is type checked
                 row2index,
@@ -620,8 +629,9 @@ def group_metrics[GeneSymbol](
             )
             lfc.append(x)
             pct.append(y)
+            pct_ref.append(z)
     else:
-        x, y = _single_group_metrics(
+        x, y, z = _single_group_metrics(
             ann,
             mat,  # type: ignore # mat is type checked
             row2index,
@@ -633,6 +643,7 @@ def group_metrics[GeneSymbol](
         )
         lfc.append(x)
         pct.append(y)
+        pct_ref.append(z)
     output = pd.melt(
         pd.DataFrame(np.column_stack(lfc), index=genes, columns=(groups if group_oi is None else [group_oi])),  # type: ignore # error at runtime
         var_name=groupby,
@@ -641,10 +652,24 @@ def group_metrics[GeneSymbol](
     )
     output.index.name = "gene"
     output.reset_index(inplace=True)
-    pct = pd.melt(pd.DataFrame(pct, index=groups, columns=genes), value_name="pct", var_name="gene", ignore_index=False)  # type: ignore # error at runtime
-    pct.index.name = groupby  # type: ignore
-    pct.reset_index(inplace=True)  # type: ignore
-    output = output.merge(pct, on=["gene", groupby], how="inner")  # type: ignore
+    # pct: fraction of expressing cells in the group of interest, pct_ref: in the reference cells (the other groups or
+    # group_ref); both are needed for the prefilter, otherwise genes lost in the group of interest
+    # (low pct, high pct_ref) would never be tested
+    pct_groups = groups if group_oi is None else [group_oi]
+    pct_df = pd.DataFrame(
+        {
+            groupby: np.repeat(pct_groups, len(genes)),
+            "gene": np.tile(np.asarray(genes), len(pct_groups)),
+            "pct": np.concatenate([np.asarray(e, dtype=float) for e in pct]),
+            "pct_ref": np.concatenate([np.asarray(e, dtype=float) for e in pct_ref]),
+        }
+    )
+    output = output.merge(pct_df, on=["gene", groupby], how="inner")  # type: ignore
+    # prefilter as in Seurat's FindMarkers: a gene is tested in a comparison if it's expressed in at least min_pct of
+    # the cells of either group and its absolute log fold change is at least min_abs_lfc
+    output = output[
+        (np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)
+    ]
     ann_orig = ann
     if group_oi is not None and group_ref is not None:
         # select only the groups the group of interest and the reference group
@@ -653,11 +678,11 @@ def group_metrics[GeneSymbol](
             raise RuntimeError("Failed to correctly subset the AnnData object. ")
         ann = ann_sub
     # compute the p-values
-    # genes passing the pct / lfc filters (the same genes the default wilcoxon test is computed for)
-    test_genes = list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
+    # genes passing the pct / lfc filters in at least one comparison (rows that didn't pass are already removed)
+    test_genes = list(set(output["gene"]))
     if wilcoxon_limma:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
-        mat = subset_matrix(ann.layers[layer], cols=[gene2index[gene] for gene in test_genes])
+        mat = subset_matrix(ann.layers[layer], cols=[gene2index[gene] for gene in test_genes])  # type: ignore # the layer is type checked
         groups = set(ann.obs[groupby])
         group_masks = {group: (ann.obs[groupby] == group).to_numpy() for group in groups}
         pvals = {group: [] for group in groups}

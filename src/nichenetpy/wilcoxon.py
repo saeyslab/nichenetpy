@@ -223,7 +223,10 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 
 
 def wilcoxon_rank_sum_test_with_correlation(
-    index: Iterable[int] | Iterable[bool], statistics: Sequence[float], correlation: float = 0, df: float = np.inf
+    index: Iterable[int] | Iterable[bool],
+    statistics: Sequence[float] | np.ndarray[tuple[int], np.dtype[np.floating]],
+    correlation: float = 0,
+    df: float = np.inf,
 ) -> tuple[float, float]:
     """
     Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
@@ -232,7 +235,7 @@ def wilcoxon_rank_sum_test_with_correlation(
     ----------
     index : Iterable of int or Iterable of bool
         indices or mask of the test group
-    statistics : Iterable[float]
+    statistics : Sequence of float or 1-D numpy.ndarray of float
         the values of the test statistic
     correlation : float
         The average correlation between cases in the test group.

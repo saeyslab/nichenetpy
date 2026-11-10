@@ -10,13 +10,13 @@ from nichenetpy.utils import subset_matrix
 
 def _subset_layer[GeneSymbol](
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
-) -> tuple[nichenet_matrix, Iterable[GeneSymbol]]:
+) -> tuple[nichenet_matrix, list[GeneSymbol]]:
     sel_layer = ann.layers[layer]
     validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
-    if type(features) is set:
-        features = sorted(features)
+    # sets are sorted (they have no fixed order), other iterables are stored in a list (a generator can only be used once)
+    features = sorted(features) if type(features) is set else list(features)
     ids = [gene2index[gene] for gene in features]
     return (subset_matrix(sel_layer, cols=ids), features)  # type: ignore # sel_layer is type checked
 

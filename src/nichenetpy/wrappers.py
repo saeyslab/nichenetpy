@@ -64,9 +64,10 @@ def get_geneset_oi(
     max_pval_adj : float
         the upper bound for pval_adj
     min_abs_lfc : float
-        the lower bound for lfc,
+        the lower bound for the absolute log fold change
     min_pct : float
-        the lower bound for the pct
+        genes are only considered if they're expressed in at least this fraction of the cells of the condition of
+        interest or of the other conditions (with use_scanpy: of the condition of interest)
     use_scanpy : bool
         if true, use scanpy.tl.rank_genes_groups to compute the metrics
     scanpy_corr_method : str
@@ -200,9 +201,11 @@ def run_nichenet(
     max_pval_adj : float
         the upper bound for pval_adj
     min_abs_lfc : float
-        the lower bound for lfc
+        the lower bound for the absolute log fold change of the genes of interest
     expression_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+        the minimum fraction of the cells of a cell type that must express a gene for it to be considered expressed
+        (receiver and sender genes); also used as `min_pct` for the differential expression: genes are only tested if
+        they're expressed in at least this fraction of the cells of one of the compared groups
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -443,7 +446,9 @@ def run_nichenet_cluster_de(
     lfc_cutoff: float
         the cutoff for the logfold change
     expression_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+        the minimum fraction of the cells of a cell type that must express a gene for it to be considered expressed
+        (receiver and sender genes); also used as `min_pct` for the differential expression: genes are only tested if
+        they're expressed in at least this fraction of the cells of one of the compared groups
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int

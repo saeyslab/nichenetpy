@@ -46,9 +46,11 @@ def calculate_de[GeneSymbol](
     features : Iterable of gene_t or None
         the genes to consider
     min_abs_lfc : float
-        genes with a lfc lower than this value will be excluded from the wilcoxon rank sum test
+        a gene is only tested in a comparison if its absolute log fold change is at least this value
+        (see `metrics.group_metrics`), not used if use_scanpy is True
     min_pct : float
-        genes with a pct lower than this value will be excluded from the wilcoxon rank sum test
+        a gene is only tested in a comparison if it's expressed in at least this fraction of the cells of the cell type
+        or of the other cells (see `metrics.group_metrics`), not used if use_scanpy is True
     pval_thresh : float
         upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
     use_scanpy : bool
@@ -155,8 +157,8 @@ def get_avg_exp[GeneSymbol](
     celltypes = set(ann.obs[celltype_col])
     # normalize on all genes (library sizes must include every gene), select features afterwards
     avg_celltype: pd.DataFrame = average_expression(
-        ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts
-    )  # type: ignore
+        ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts # type: ignore
+    )
     avg_celltype.index.name = "gene"
     if features is not None:
         avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
