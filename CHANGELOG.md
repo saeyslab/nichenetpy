@@ -145,6 +145,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `parameter_optimization.choose_pareto_optimal_solution_normalized` where an objective without variance (the same value for every solution) led to a division by zero, so the first solution was always chosen. Such objectives are now not taken into account.
 
+- Fixed bug in `network.Network.subset_sep` where calling it on a `network.WeightedNetwork` without `to` raised a `ValueError`.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

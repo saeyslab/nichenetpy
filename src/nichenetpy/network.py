@@ -184,15 +184,15 @@ class Network[GeneSymbol]:
         TypeError
             if the arguments have the wrong type
         """
-        if fr is None:
-            fr = set(self.key_iter())
-        if to is None:
-            to = {e for _, e in self._mapping}
-        if not isinstance(fr, Collection):
+        if fr is not None and not isinstance(fr, Collection):
             raise TypeError(f"fr should be a Collection of gene_t, was {type(fr)}")
-        if not isinstance(to, Collection):
+        if to is not None and not isinstance(to, Collection):
             raise TypeError(f"to should be a Collection of gene_t, was {type(to)}")
-        return type(self)(mapping=[tup for tup in self._mapping if tup[0] in fr and tup[1] in to])
+        return type(self)(
+            mapping=[
+                tup for tup in self._mapping if (fr is None or tup[0] in fr) and (to is None or tup[1] in to)
+            ]
+        )
 
     def to_dataframe(self) -> pd.DataFrame:
         """
