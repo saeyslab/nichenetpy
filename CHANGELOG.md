@@ -149,6 +149,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `network.Network.__contains__` (`(from, to) in network`): it raised a `KeyError` for an unknown "from" gene and never matched links of a `network.WeightedNetwork` without the exact weight. Membership is now based on (from, to) only and uses a set of (from, to) pairs that is built on the first membership check (much faster for repeated checks) and reset by `network.Network._build_index` when the links change.
 
+- Fixed `metrics.group_metrics` with `wilcoxon_limma=True`: it failed when `features` was given or the layer was a sparse array, and it ignored `min_pct` and `min_abs_lfc`. It now tests the same genes as the default Wilcoxon test; p-values are verified against limma's `rankSumTestWithCorrelation` (as used by Seurat's `FindMarkers(test.use = "wilcox_limma")`).
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

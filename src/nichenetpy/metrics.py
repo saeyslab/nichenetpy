@@ -653,33 +653,20 @@ def group_metrics[GeneSymbol](
             raise RuntimeError("Failed to correctly subset the AnnData object. ")
         ann = ann_sub
     # compute the p-values
+    # genes passing the pct / lfc filters (the same genes the default wilcoxon test is computed for)
+    test_genes = list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"]))
     if wilcoxon_limma:
-        mat = ann.layers[layer]
+        gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
+        mat = subset_matrix(ann.layers[layer], cols=[gene2index[gene] for gene in test_genes])
         groups = set(ann.obs[groupby])
+        group_masks = {group: (ann.obs[groupby] == group).to_numpy() for group in groups}
         pvals = {group: [] for group in groups}
-        if mat.shape is None:
-            raise ValueError("The selected layer's shape is None. ")
-        # for each gene
-        for i in range(mat.shape[1]):
-            if isinstance(mat, csr_matrix) or isinstance(mat, csc_matrix):
-                col = mat[:, i].todense()
-            else:
-                col = mat[:, i]
+        for i in range(len(test_genes)):
+            col = mat[:, [i]].toarray().ravel() if hasattr(mat, "toarray") else np.asarray(mat[:, i])
             for group in groups:
-                pvals[group].append(
-                    min(
-                        2
-                        * min(
-                            wilcoxon_rank_sum_test_with_correlation(
-                                ann.obs[groupby] == group,
-                                col,  # type: ignore # this should be correct
-                            )
-                        ),
-                        1,
-                    )
-                )
-        pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this should be correct
-        pvals.index.name = "gene"  # type: ignore
+                pvals[group].append(min(2 * min(wilcoxon_rank_sum_test_with_correlation(group_masks[group], col)), 1))
+        pvals = pd.DataFrame(pvals, index=test_genes)
+        pvals.index.name = "gene"
     else:
         pvals = wilcoxon_rank_sum_test(  # type: ignore
             ann,
@@ -687,7 +674,7 @@ def group_metrics[GeneSymbol](
             as_dataframe=True,
             tie_correction=tie_correction,
             layer=layer,
-            genes=list(set(output[(output["pct"] >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]["gene"])),
+            genes=test_genes,
         )
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)  # type: ignore
     if pval_thresh is not None:
