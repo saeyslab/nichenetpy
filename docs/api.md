@@ -165,16 +165,6 @@
 ## Algorithms
 
 ```{eval-rst}
-.. module:: graph
-.. currentmodule:: nichenetpy
-
-.. autosummary::
-    :toctree: generated
-
-    graph
-```
-
-```{eval-rst}
 .. module:: wilcoxon
 .. currentmodule:: nichenetpy
 
