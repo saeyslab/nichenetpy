@@ -1,3 +1,5 @@
+# type: ignore
+
 """
 Here we test if the gene symbol conversion is the same as in NicheNetR.
 """
