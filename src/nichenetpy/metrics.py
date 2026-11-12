@@ -331,16 +331,18 @@ def calculate_evaluation_metrics[EvalMetric](
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
         )
     output: dict[EvalMetric, float] = {}
-    warnings.filterwarnings("ignore")
-    for metric in metrics:
-        try:
-            output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
-        except ValueError as ex:
-            if allow_nan:
-                output[metric] = np.nan
-            else:
-                raise ex
-    warnings.filterwarnings("default")
+    # silence the warnings of the metric functions (e.g. undefined metrics) in this block only, catch_warnings restores
+    # the caller's warning filters afterwards, also when an error is raised
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for metric in metrics:
+            try:
+                output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
+            except ValueError as ex:
+                if allow_nan:
+                    output[metric] = np.nan
+                else:
+                    raise ex
     return output
 
 

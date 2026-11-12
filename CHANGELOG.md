@@ -159,6 +159,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `metrics.group_metrics` with `group_ref` but without `group_oi`: the log fold changes compared each group with `group_ref`, but the p-values compared it with all other cells, and `group_ref` itself was reported (compared with itself). P-values are now computed against `group_ref` and the reference group is no longer in the output. Also fixed an `IndexError` when no gene passes the `min_pct` / `min_abs_lfc` filters (an empty table is returned), and `group_oi` equal to `group_ref` now raises a `ValueError`.
 
+- Fixed `metrics.calculate_evaluation_metrics` changing the global warning filters: after each call all warnings were reset to the "default" action (overriding filters set by the user, e.g. warnings as errors), and when an error was raised all warnings stayed silenced. Warnings are now only silenced during the call.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
