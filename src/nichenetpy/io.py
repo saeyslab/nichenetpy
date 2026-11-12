@@ -1,6 +1,6 @@
 import struct
 from collections.abc import Iterable, Sequence
-from typing import overload
+from typing import Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -183,8 +183,8 @@ def write_sparse_matrix(
     filename : str
         the name of the file to write to
     mat : csc_matrix or csr_matrix or csc_array or csr_array
-        the sparse matrix (read it back with `read_csc_matrix` or `read_csr_matrix`, which return a csc_matrix or
-        csr_matrix)
+        the sparse matrix (read it back with `read_csc_matrix` or `read_csr_matrix`, which return a sparse array or a
+        sparse matrix depending on their `sparse_array` argument, not on the type that was written)
     row_names : Sequence of str
         the names of the rows
     col_names : Sequence of str
@@ -233,18 +233,41 @@ def _read_sparse_matrix(filename):
     return (data, indices, indptr, row_names, col_names)
 
 
-def read_csc_matrix(filename: str) -> tuple[csc_matrix[np.float64], list[str], list[str]]:
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: Literal[True] = True
+) -> tuple[csc_array[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: Literal[False]
+) -> tuple[csc_matrix[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csc_array[np.float64] | csc_matrix[np.float64], list[str], list[str]]: ...
+
+
+def read_csc_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csc_array[np.float64] | csc_matrix[np.float64], list[str], list[str]]:
     """
-    Reads a csc_matrix from a file.
+    Reads a sparse matrix in compressed sparse column format from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
+    sparse_array : bool
+        if True, return a scipy.sparse.csc_array, otherwise a scipy.sparse.csc_matrix (scipy expects to deprecate
+        the sparse matrix interface)
 
     Returns
     -------
-    csc_matrix
+    csc_array or csc_matrix
         the sparse matrix
     list of str
         the names of the rows
@@ -258,23 +281,49 @@ def read_csc_matrix(filename: str) -> tuple[csc_matrix[np.float64], list[str], l
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(sparse_array) is not bool:
+        raise TypeError(f"sparse_array should have type bool, was {type(sparse_array)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csc_matrix((data, indices, indptr), shape=(len(row_names), len(col_names)))
+    sparse_type = csc_array if sparse_array else csc_matrix
+    mat = sparse_type((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
 
 
-def read_csr_matrix(filename: str) -> tuple[csr_matrix[np.float64], list[str], list[str]]:
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: Literal[True] = True
+) -> tuple[csr_array[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: Literal[False]
+) -> tuple[csr_matrix[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csr_array[np.float64] | csr_matrix[np.float64], list[str], list[str]]: ...
+
+
+def read_csr_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csr_array[np.float64] | csr_matrix[np.float64], list[str], list[str]]:
     """
-    Reads a csr_matrix from a file.
+    Reads a sparse matrix in compressed sparse row format from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
+    sparse_array : bool
+        if True, return a scipy.sparse.csr_array, otherwise a scipy.sparse.csr_matrix (scipy expects to deprecate
+        the sparse matrix interface)
 
     Returns
     -------
-    csr_matrix
+    csr_array or csr_matrix
         the sparse matrix
     list of str
         the names of the rows
@@ -288,8 +337,11 @@ def read_csr_matrix(filename: str) -> tuple[csr_matrix[np.float64], list[str], l
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if type(sparse_array) is not bool:
+        raise TypeError(f"sparse_array should have type bool, was {type(sparse_array)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csr_matrix((data, indices, indptr), shape=(len(row_names), len(col_names)))
+    sparse_type = csr_array if sparse_array else csr_matrix
+    mat = sparse_type((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
 
 

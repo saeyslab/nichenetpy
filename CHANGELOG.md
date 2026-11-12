@@ -91,6 +91,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Removed the `graph` module (`graph.dijkstra_spl` and `graph.get_reachable_nodes`), use `scipy.sparse.csgraph` instead. As a result, `visualization.visualize_ligand_signaling_graph` may show a different path when several shortest paths have the same length.
 
+- `io.read_csc_matrix` and `io.read_csr_matrix` now return a `scipy.sparse.csc_array` / `csr_array` by default, as scipy expects to deprecate the sparse matrix interface. Use `sparse_array=False` to get a `csc_matrix` / `csr_matrix` as before.
+
 ### Fixed
 
 - Corrected docstrings.
