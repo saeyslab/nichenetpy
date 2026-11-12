@@ -22,6 +22,18 @@ def _write_chunks(filename: str, *chunks: bytes | bytearray, data: bytearray | N
         file.write(data)
 
 
+def _encode_names(names: Sequence[str]) -> bytes:
+    # the names are separated by newlines, so a name can't contain one
+    if any("\n" in name for name in names):
+        raise ValueError("names can't contain a newline character")
+    return "\n".join(names).encode("utf-8")
+
+
+def _decode_names(names: bytes) -> list[str]:
+    # split on newlines only (names can contain spaces), UTF-8 is a superset of ASCII so older files can still be read
+    return names.decode("utf-8").split("\n") if names else []
+
+
 @overload
 def write_ligand_target_matrix(
     filename: str,
@@ -74,6 +86,8 @@ def write_ligand_target_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if a name contains a newline character
     """
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
@@ -93,8 +107,8 @@ def write_ligand_target_matrix(
         mat = mat.toarray(order="F" if column_major else "C")  # type: ignore # mat can't be None at this point
     _write_chunks(
         filename,
-        "\n".join(row_names).encode("ascii"),
-        "\n".join(col_names).encode("ascii"),
+        _encode_names(row_names),
+        _encode_names(col_names),
         # the reader assumes float64 data (np.frombuffer default), so other float types are converted
         mat.astype(np.float64, copy=False).tobytes(order=("F" if column_major else "C")),
     )
@@ -133,8 +147,8 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
-    row_names = row_names.decode("ascii").split()  # type: ignore
-    col_names = col_names.decode("ascii").split()  # type: ignore
+    row_names = _decode_names(row_names)  # type: ignore
+    col_names = _decode_names(col_names)  # type: ignore
     mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
     return (mat, row_names, col_names)  # type: ignore
 
@@ -163,6 +177,7 @@ def write_sparse_matrix(
     ValueError
         if the number of row or column names doesn't match the shape of mat
         if mat is too large for the file format (more than 2^31 - 1 rows, columns or nonzero values)
+        if a name contains a newline character
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
@@ -183,8 +198,8 @@ def write_sparse_matrix(
         raise ValueError(f"mat is too large to write, it has shape {mat.shape} and {mat.nnz} nonzero values")
     _write_chunks(
         filename,
-        "\n".join(row_names).encode("ascii"),
-        "\n".join(col_names).encode("ascii"),
+        _encode_names(row_names),
+        _encode_names(col_names),
         # the reader assumes float64 data (np.frombuffer default), so other float types are converted
         mat.data.astype(np.float64, copy=False).tobytes(),
         mat.indices.astype(np.int32, copy=False).tobytes(),
@@ -199,8 +214,8 @@ def _read_sparse_matrix(filename):
         data = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
         indices = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
         indptr = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
-    row_names = row_names.decode("ascii").split()
-    col_names = col_names.decode("ascii").split()
+    row_names = _decode_names(row_names)
+    col_names = _decode_names(col_names)
     return (data, indices, indptr, row_names, col_names)
 
 
@@ -284,6 +299,8 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if a gene name contains a newline character
 
     Notes
     -----
@@ -318,7 +335,7 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
     _write_chunks(
-        filename, "\n".join(name2id.keys()).encode("ascii"), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, _encode_names(list(name2id)), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
 
@@ -337,6 +354,8 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if a gene name contains a newline character
 
     Notes
     -----
@@ -374,7 +393,7 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
     _write_chunks(
-        filename, "\n".join(name2id.keys()).encode("ascii"), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, _encode_names(list(name2id)), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
     )
 
 
@@ -403,7 +422,7 @@ def read_network(filename: str) -> list[tuple[str, str]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()  # type: ignore
+    names = _decode_names(names)  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0
@@ -443,7 +462,7 @@ def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()  # type: ignore
+    names = _decode_names(names)  # type: ignore
     id2name = dict(enumerate(names))
     output = []
     i = 0

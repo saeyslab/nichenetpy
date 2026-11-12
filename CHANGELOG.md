@@ -165,6 +165,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `io.write_network` and `io.write_weighted_network`, which failed for networks with fewer than 3 genes and used one byte per bit for the gene ids (e.g. 15 instead of 2 bytes for 25,000 genes). Files are now 2-3 times smaller and remain readable by older versions; older files can still be read.
 
+- Fixed the readers in `io` splitting names on any whitespace, which shifted the names of matrices or silently changed the links of networks when a name contained a space or tab. Names are now only separated by newlines, can contain any (UTF-8) character instead of only ASCII, and the writers raise a `ValueError` if a name contains a newline. Existing files can still be read.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
