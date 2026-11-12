@@ -173,6 +173,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `prediction.LigandActivityPredictor` warning about a row-major `numpy.ndarray` for matrices with a single row or column (e.g. a single ligand), which are also column-major.
 
+- Fixed `utils.read_matrix_from_csv` with the default arguments, which only read csv files where all names are quoted (as written by R): unquoted files (e.g. written by pandas) silently gave wrong row names, column names and values. Without custom `extract_row_name` / `extract_col_name` the file is now read with `pandas.read_csv`, and "NA" or empty values become NaN instead of raising an error.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

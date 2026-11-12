@@ -54,9 +54,11 @@ def read_matrix_from_csv(
     ----------
     filename : str
         the name of the csv file to read from
-    extract_row_name : Callable or re.Pattern
-        function which extracts the row name and the rest of the string from a line or a search pattern
-    extract_col_name : Callable or re.Pattern
+    extract_row_name : Callable or re.Pattern or None
+        function which extracts the row name and the rest of the string from a line or a search pattern; if both
+        extract_row_name and extract_col_name are None the file is read with pandas.read_csv (quoted or unquoted csv,
+        "NA" and empty values become NaN)
+    extract_col_name : Callable or re.Pattern or None
         function which extracts the col names from the first line or a search pattern
 
     Returns
@@ -75,6 +77,14 @@ def read_matrix_from_csv(
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if extract_row_name is None and extract_col_name is None:
+        # pandas handles quoted and unquoted fields, commas in quoted names, a header without a cell for the row names
+        # and Windows line endings; everything is read as str so that names stay as they are (e.g. a gene "NA" or "1")
+        df = pd.read_csv(filename, index_col=0, dtype=str, keep_default_na=False)
+        values = df.to_numpy()
+        # missing values (NA in R, empty cells) become NaN
+        values = np.where(np.isin(values, ("NA", "")), "nan", values).astype(np.float64)
+        return (values, df.index.tolist(), df.columns.tolist())
     if extract_row_name is None:
         extract_row_name = _default_row_name_pattern
     if isinstance(extract_row_name, Pattern):
