@@ -152,17 +152,24 @@ def evaluate_model[GeneSymbol](
     performances_target_prediction = {"setting": [], "ligand": []}
     for met in target_evaluation_metrics:
         performances_target_prediction[met] = []
-    evaluation_data = EvaluationData(e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor))
+    # the field names of the evaluation data (they used to be "from" and "response", whatever the data used)
+    ligand_name, de_genes_name = evaluation_data.ligand_name, evaluation_data.de_genes_name
+    evaluation_data = EvaluationData(
+        (e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor)),
+        key_name=evaluation_data.key_name,
+        ligand_name=ligand_name,
+        de_genes_name=de_genes_name,
+    )
     for setting_id, setting in evaluation_data.items():
         performances_target_prediction["setting"].append(setting_id)
-        performances_target_prediction["ligand"].append(setting["from"])
+        performances_target_prediction["ligand"].append(setting[ligand_name])
         for k, v in predictor.evaluate_target_prediction(
             (
-                setting["from"]  # type: ignore
-                if isinstance(setting["from"], gene_t.__value__)  # potential BUG when using integers
-                else "-".join(setting["from"])
+                setting[ligand_name]  # type: ignore
+                if isinstance(setting[ligand_name], gene_t.__value__)  # potential BUG when using integers
+                else "-".join(setting[ligand_name])
             ),
-            setting["response"],
+            setting[de_genes_name],
             target_evaluation_metrics,
         ).items():
             performances_target_prediction[k].append(v)
@@ -175,9 +182,9 @@ def evaluate_model[GeneSymbol](
         for ligand in all_ligands:
             ligand_importances["setting"].append(setting_id)
             ligand_importances["test_ligand"].append(ligand)
-            ligand_importances["true_ligand"].append(setting["from"])
+            ligand_importances["true_ligand"].append(setting[ligand_name])
             for k, v in predictor.evaluate_target_prediction(
-                ligand, setting["response"], target_evaluation_metrics
+                ligand, setting[de_genes_name], target_evaluation_metrics
             ).items():
                 ligand_importances[k].append(v)
     ligand_importances = pd.DataFrame(ligand_importances)

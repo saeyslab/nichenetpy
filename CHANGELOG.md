@@ -211,6 +211,10 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `utils.subset_matrix` failing on an empty list of rows or columns.
 
+- Fixed `evaluation.EvaluationData` with a custom `ligand_name` (`get_ligands` and `get_applicable_evaluation_datasets` always read the ligand from "from"), and `parameter_optimization.evaluate_model` and `evaluation.get_single_ligand_importances` with evaluation data that uses custom field names (they used the default names "name", "from" and "response"). `EvaluationData` has new read-only properties `key_name`, `ligand_name` and `de_genes_name`.
+
+- Fixed `evaluation.get_single_ligand_importances` failing when `evaluation_data` or `all_ligands` is a generator (they were iterated twice). Corrected its documentation of the expected keys.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
