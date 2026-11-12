@@ -76,7 +76,8 @@ class LigandActivityPredictor[GeneSymbol]:
                     stacklevel=2,
                 )
         elif isinstance(self.ligand_target_matrix, np.ndarray):
-            if self.ligand_target_matrix.flags.c_contiguous:
+            # a matrix with a single row or column is both row- and column-major, so no warning is needed
+            if self.ligand_target_matrix.flags.c_contiguous and not self.ligand_target_matrix.flags.f_contiguous:
                 warnings.warn(
                     "a row-major numpy.ndarray was passed, consider converting to a column-major numpy.ndarray for faster column indexing",
                     stacklevel=2,

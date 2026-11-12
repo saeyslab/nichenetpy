@@ -169,6 +169,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed type checks in `io` that were stricter than the documented types: the matrix writers now accept any ordered sequence of names (e.g. a tuple, numpy array or pandas Index) instead of only a list, `io.write_sparse_matrix` also accepts `csc_array` and `csr_array`, and `io.write_network` and `io.write_weighted_network` accept any iterable of links (e.g. a generator). `io.write_ligand_target_matrix` now raises a `ValueError` if the number of names doesn't match the shape of the matrix, instead of writing a file that reads back with a different shape.
 
+- Fixed `prediction.LigandActivityPredictor` warning about a row-major `numpy.ndarray` for matrices with a single row or column (e.g. a single ligand), which are also column-major.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

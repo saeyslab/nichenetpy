@@ -1,8 +1,9 @@
 # type: ignore
 
 """
-Here we test the custom oi functions. These functions are not very useful though as they
-turned out to have the same memory consumption as pickle files.
+Here we test the custom io functions: a ligand-target matrix and (weighted) networks are written to a file and read
+back. The network files are 2-5 times smaller than pickle files (see the Notes of `io.write_network` and
+`io.write_weighted_network`).
 """
 
 import random
