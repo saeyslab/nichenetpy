@@ -1,6 +1,5 @@
 import struct
 from collections.abc import Sequence
-from math import ceil, log2
 from typing import overload
 
 import numpy as np
@@ -265,6 +264,11 @@ def read_csr_matrix(filename: str) -> tuple[csr_matrix[np.float64], list[str], l
     return (mat, row_names, col_names)
 
 
+def _id_size(n_names: int) -> int:
+    # number of bytes needed to store the ids 0 to n_names - 1 (at least 1)
+    return max(1, ((n_names - 1).bit_length() + 7) // 8)
+
+
 def write_network(filename: str, mapping: list[tuple[str, str]]):
     """
     Writes a network to a file.
@@ -296,7 +300,7 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
-    id_size = ceil(log2(len(name2id) - 1))
+    id_size = _id_size(len(name2id))
     data = bytearray()
     for fr, tos in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
@@ -339,7 +343,7 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
-    id_size = ceil(log2(len(name2id) - 1))
+    id_size = _id_size(len(name2id))
     data = bytearray()
     for fr, group in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))

@@ -163,6 +163,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `io.read_csc_matrix` and `io.read_csr_matrix` returning a matrix that was too small when its last rows (csc) or last columns (csr) contained only zeros; the shape is now taken from the stored row and column names. Fixed `io.write_sparse_matrix` for matrices with int64 indices (used by scipy for large matrices and after some operations), which could not be read back; the indices are now written as int32. `io.write_sparse_matrix` now raises a `ValueError` if the number of names doesn't match the shape of the matrix or if the matrix is too large for the file format.
 
+- Fixed `io.write_network` and `io.write_weighted_network`, which failed for networks with fewer than 3 genes and used one byte per bit for the gene ids (e.g. 15 instead of 2 bytes for 25,000 genes). Files are now 2-3 times smaller and remain readable by older versions; older files can still be read.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
