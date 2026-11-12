@@ -231,20 +231,12 @@ class LigandActivityPredictor[GeneSymbol]:
         if isinstance(self.ligand_target_matrix, np.ndarray):
             return self.ligand_target_matrix[:, index]  # type: ignore
         else:  # csc_matrix or csc_array
-            indices_non_zero = self.ligand_target_matrix.indices[
-                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[  # type: ignore
-                    index + 1  # type: ignore
-                ]
-            ]
-            values_non_zero = self.ligand_target_matrix.data[
-                self.ligand_target_matrix.indptr[index] : self.ligand_target_matrix.indptr[  # type: ignore
-                    index + 1  # type: ignore
-                ]
-            ]
+            # the stored values of the column are data[start:end], in the rows indices[start:end]
+            start = self.ligand_target_matrix.indptr[index]  # type: ignore
+            end = self.ligand_target_matrix.indptr[index + 1]  # type: ignore
             col = np.zeros(shape=(self.ligand_target_matrix.shape[0],))
-            for i, v in zip(indices_non_zero, values_non_zero, strict=True):
-                col[i] = v
-            return np.array(col)
+            col[self.ligand_target_matrix.indices[start:end]] = self.ligand_target_matrix.data[start:end]
+            return col
 
     def evaluate_target_prediction(
         self,
@@ -282,13 +274,15 @@ class LigandActivityPredictor[GeneSymbol]:
             raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
-        # create the prediction model vector
-        prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
-        # we need to match the predictions with the responses so we intersect and sort by key
-        common_keys = prediction.keys() & response.keys()
-        pred = np.array([tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
-        resp = np.array([tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])])  # type: ignore # sorted false positive type complaint
-        return calculate_evaluation_metrics(pred, resp, target_evaluation_metrics)
+        genes, rows = self._shared_genes(response.keys())
+        resp = np.array([response[gene] for gene in genes])
+        return calculate_evaluation_metrics(self.get_col(ligand, is_index=False)[rows], resp, target_evaluation_metrics)
+
+    def _shared_genes(self, genes: Iterable[GeneSymbol]) -> tuple[list[GeneSymbol], list[int]]:
+        # the genes that are both in genes and in the ligand-target matrix, sorted (predictions and responses are matched
+        # in this order), and their rows in the ligand-target matrix
+        shared = sorted(self._gene2index.keys() & set(genes))  # type: ignore # genes of one type (str or int) are comparable
+        return shared, [self._gene2index[gene] for gene in shared]
 
     def predict_ligand_activities(
         self,
@@ -348,9 +342,15 @@ class LigandActivityPredictor[GeneSymbol]:
         response = {gene: 0 for gene in background_expressed_genes if gene not in geneset}
         for gene in geneset:
             response[gene] = 1
-        # compute the metrics for each ligand
+        # the genes are matched once (the same for every ligand), then the metrics are computed for each ligand
+        genes, rows = self._shared_genes(response.keys())
+        resp = np.array([response[gene] for gene in genes])
         for ligand in potential_ligands:
-            output[ligand] = self.evaluate_target_prediction(ligand, response, target_evaluation_metrics)
+            if not isinstance(ligand, gene_t.__value__):
+                raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
+            output[ligand] = calculate_evaluation_metrics(
+                self.get_col(ligand, is_index=False)[rows], resp, target_evaluation_metrics
+            )
         return output
 
     def predict_single_cell_ligand_activities(
@@ -427,6 +427,12 @@ class LigandActivityPredictor[GeneSymbol]:
         if type(calc_pearson) is not bool:
             raise TypeError(f"calc_pearson should have type bool, was {type(calc_pearson)}")
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows)), strict=True))
+        # the genes shared by the expression matrix and the model are the same for every cell and ligand, so they're
+        # matched once: their rows in the ligand-target matrix and their columns in the expression matrix
+        col2id = dict(zip(expression_scaled_cols, range(len(expression_scaled_cols)), strict=True))
+        genes, model_rows = self._shared_genes(col2id.keys())
+        expression_cols = [col2id[gene] for gene in genes]
+        predictions = {ligand: self.get_col(ligand, is_index=False)[model_rows] for ligand in potential_ligands}
         # only the lists of the computed metrics are filled and returned
         aupr: list[float] = []
         aupr_corrected: list[float] = []
@@ -435,18 +441,12 @@ class LigandActivityPredictor[GeneSymbol]:
         for cell in cells:
             if cell not in row2id:
                 raise ValueError(f"{cell} not in ligand_target_matrix")
-            response = expression_scaled[row2id[cell], :]
-            qt = np.quantile(response, quantile_cutoff)
-            response = dict(zip(expression_scaled_cols, (1 if e >= qt else 0 for e in response), strict=True))
+            expression = np.asarray(expression_scaled[row2id[cell], :]).ravel()
+            # the response: whether the gene is in the top (1 - quantile_cutoff) of the cell's expression
+            qt = np.quantile(expression, quantile_cutoff)
+            resp = (expression[expression_cols] >= qt).astype(int)
             for ligand in potential_ligands:
-                prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
-                common_keys = prediction.keys() & response.keys()  # type: ignore
-                pred = np.array(
-                    [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]  # pyright: ignore[reportArgumentType, reportCallIssue] # sorted false positive type complaint
-                )
-                resp = np.array(
-                    [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])]  # pyright: ignore[reportArgumentType, reportCallIssue] # sorted false positive type complaint
-                )
+                pred = predictions[ligand]
                 if calc_aupr:
                     aupr.append(calculate_aupr(resp, pred))
                     aupr_corrected.append(aupr[-1] - sum(resp) / len(resp))

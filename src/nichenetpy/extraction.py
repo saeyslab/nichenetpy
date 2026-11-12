@@ -302,17 +302,16 @@ def average_expression(
             raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
     elif not isinstance(keys, Iterable):
         raise TypeError(f"keys should be an Iterable of strings, was {type(keys)}")
-    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
+    groups = ann.obs[groupby].to_numpy()
     # make sure all keys are in ann.obs
-    keys = set(ann.obs[groupby]).intersection(keys)
+    keys = set(groups.tolist()).intersection(keys)
+    # the rows of each group are found with one comparison per group (instead of looking up each cell's group with
+    # ann.obs.loc for every group); np.asarray(...).ravel() works for dense and sparse means
     col_names, cols = zip(
-        *(
-            (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
-            for key in keys
-        ),
+        *((key, np.asarray(data[np.flatnonzero(groups == key), :].mean(axis=0)).ravel()) for key in keys),
         strict=True,
     )
-    df = pd.DataFrame(np.column_stack([col.T for col in cols]))
+    df = pd.DataFrame(np.column_stack(cols))
     df.index = ann.var_names
     df.columns = col_names
     return df

@@ -95,6 +95,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `io.write_ligand_target_matrix` and `io.write_sparse_matrix` are 2-2.5 times faster and no longer use twice the size of the matrix in extra memory while writing; the files are unchanged.
 
+- Faster `extraction.average_expression` (and therefore `prioritization.get_avg_exp`), e.g. ~25-60 times for 20,000 cells, and faster ligand activity prediction: `prediction.LigandActivityPredictor.predict_ligand_activities` ~2 times, `predict_single_cell_ligand_activities` ~2.5 times, and `get_col` on sparse matrices ~9 times. The results are unchanged.
+
 ### Fixed
 
 - Corrected docstrings.
@@ -206,6 +208,8 @@ and this project adheres to [Semantic Versioning][].
 - Fixed the prioritization table of `wrappers.run_nichenet` being based on the ligand activities of all potential ligands instead of the sender-focused ones (the ligands expressed by the sender cell types, as in NicheNetR), which changed the scaled activities and prioritization scores.
 
 - Fixed `wrappers.generate_info_tables` (and therefore `wrappers.run_nichenet` with `get_prioritization_table=True`) always using the "data" and "counts" layers and overwriting `ann.uns["group_metrics"]`. It now has a `layer` argument (passed on by `wrappers.run_nichenet`) with the log-normalized data, from which the average expression is also computed (after expm1, as Seurat's `AverageExpression`; `prioritization.get_avg_exp` has a new `log_normalized` argument for this), so no counts layer is needed; `ann.uns` is no longer changed.
+
+- Fixed `utils.subset_matrix` failing on an empty list of rows or columns.
 
 
 

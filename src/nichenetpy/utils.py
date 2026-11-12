@@ -197,6 +197,17 @@ def read_network_file(filename: str):
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
 
+def _index_array(
+    idx: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]],
+) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
+    # integer indices, from indices or a boolean mask (an empty list gives an empty integer array; the type of the first
+    # element was used to tell masks from indices, which failed for an empty list)
+    arr = np.asarray(idx)
+    if arr.dtype == np.bool_:
+        return np.flatnonzero(arr)
+    return arr.astype(np.intp, copy=False).reshape(-1)
+
+
 @overload
 def subset_matrix(
     mat: np.ndarray,
@@ -259,20 +270,15 @@ def subset_matrix(
         raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
     if rows is None and cols is None:
         return mat
-    if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
-        rows = [i for i, e in enumerate(rows) if e]
-    if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
-        cols = [i for i, e in enumerate(cols) if e]
+    if rows is not None:
+        rows = _index_array(rows)
+    if cols is not None:
+        cols = _index_array(cols)
     if isinstance(mat, np.ndarray):
         if rows is None:
-            if cols is None:
-                output = mat
-            else:
-                output = mat[:, cols]
+            output = mat[:, cols]
         else:
-            output = mat[
-                [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
-            ]
+            output = mat[np.ix_(rows, np.arange(mat.shape[1]) if cols is None else cols)]
     elif isinstance(mat, (csc_matrix, csc_array, csr_matrix, csr_array)):
         output = mat
         if rows is not None:
