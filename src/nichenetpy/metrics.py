@@ -18,8 +18,8 @@ from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_w
 
 
 def _auc_reverse(
-    x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    x: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    y: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
 ) -> float:
     """
     Calculates the area under the curve using the trapezoid rule. The points should be specified in descending order of the x-values.
@@ -59,8 +59,8 @@ def _auc_reverse(
 
 
 def calculate_aupr(
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
 ) -> float:
     """
     Calculates the area under the precision-recall curve using the trapezoid rule.
@@ -102,8 +102,8 @@ def calculate_aupr(
 
 
 def calculate_auroc(
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
 ) -> float:
     """
     Calculates the area under the roc-curve using the trapezoid rule.
@@ -135,8 +135,8 @@ def calculate_auroc(
 
 
 def precision_at_k(
-    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     k: int,
 ) -> float:
     """
@@ -166,8 +166,8 @@ def precision_at_k(
 
 
 def average_precision_at_k(
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     k: int | None = None,
 ) -> float:
     """
@@ -206,8 +206,8 @@ def average_precision_at_k(
 
 
 def dcg_at_k(
-    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     k: int,
 ) -> float:
     """
@@ -235,8 +235,8 @@ def dcg_at_k(
 
 
 def ndcg_at_k(
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     k: int | None = None,
 ):
     """
@@ -275,8 +275,8 @@ _metric_dct: dict[
     eval_metric_t,
     Callable[
         [
-            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-            Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+            Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+            Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
         ],
         float,
     ],
@@ -291,8 +291,8 @@ _metric_dct: dict[
 
 
 def calculate_evaluation_metrics[EvalMetric](
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     metrics: Iterable[EvalMetric],
     allow_nan: bool = False,
 ) -> dict[EvalMetric, float]:
@@ -345,8 +345,8 @@ def calculate_evaluation_metrics[EvalMetric](
 
 
 def calculate_prediction_evaluation_metrics(
-    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    response: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     allow_nan: bool = False,
 ) -> dict[eval_metric_t, float]:
     """

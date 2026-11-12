@@ -97,7 +97,7 @@ def prepare_ligand_target_visualization[GeneSymbol](
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
     cutoff: float = 0.25,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of regulatory potential.
 
@@ -165,7 +165,7 @@ def prepare_ligand_target_visualization[GeneSymbol](
 
 def prepare_ligand_receptor_visualization[GeneSymbol](
     ligand_receptor_links: WeightedNetwork[GeneSymbol],
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Compute the data for a heatmap of prior interaction potential.
 
@@ -266,7 +266,7 @@ def heatmap_1d(
 
 
 def heatmap_2d(
-    mat: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]],
+    mat: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.floating]],
     xlabels: Collection[str],
     ylabels: Collection[str],
     xtitle: str | None = None,
@@ -386,7 +386,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
     all_ligands: Collection[GeneSymbol],
     all_targets: Collection[GeneSymbol],
     gr: pd.DataFrame,
-    ltf_matrix: csr_matrix[np.float64],
+    ltf_matrix: csr_matrix[np.floating],
     k: int,
 ) -> pd.DataFrame:
     pd.options.mode.chained_assignment = None  # false positive warnings removal
@@ -414,7 +414,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
 def _get_shortest_path_signaling[GeneSymbol](
     ligand_oi: GeneSymbol,
     signaling_df: pd.DataFrame,
-    lr_sig_mat: csr_array[np.float64],
+    lr_sig_mat: csr_array[np.floating],
     gene2id: dict[GeneSymbol, int],
 ):
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
@@ -444,7 +444,7 @@ def _minmax_scaling(df: pd.DataFrame):
 
 
 def get_ligand_signaling_path(
-    ltf_matrix: csr_matrix[np.float64],
+    ltf_matrix: csr_matrix[np.floating],
     ligands_oi: Collection[str],
     targets_oi: Collection[str],
     all_ligands: Collection[str],
@@ -1267,14 +1267,14 @@ def create_mushroom_plot(
 
 
 def marker_plot(
-    x: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    y: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
-    a: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]],
+    x: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    y: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    a: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     labels: Sequence[str],
     xlabel,
     ylabel,
     alabel,
-    c: Sequence[str] | np.ndarray[Any, np.dtype[np.float64]] | None = None,
+    c: Sequence[str] | np.ndarray[Any, np.dtype[np.floating]] | None = None,
     clabel: str | None = None,
     val2color: dict[Any, float] | Callable[[Any], ColorType] | None = None,
     figsize: tuple[int, int] = (5, 5),
@@ -1602,7 +1602,7 @@ def _radar_factory(num_vars, frame="circle"):
 
 
 def create_radar_plot(
-    data: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]],
+    data: Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.floating]],
     value_labels: Iterable[str],
     cmap: str | Colormap = "gist_rainbow",
     figsize: tuple[int, int] = (9, 9),

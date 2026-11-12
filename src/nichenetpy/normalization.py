@@ -67,8 +67,8 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
 
 
 def _scale_quantile_seq(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]], cutoff: float = 0.05
-) -> np.ndarray[Any, np.dtype[np.float64]]:
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]], cutoff: float = 0.05
+) -> np.ndarray[Any, np.dtype[np.floating]]:
     qs: tuple[float, float] = (np.quantile(data, cutoff), np.quantile(data, 1 - cutoff))
     sub = qs[0]
     div = 1 if qs[0] == qs[1] else qs[1] - qs[0]
@@ -80,10 +80,10 @@ def _scale_quantile_seq(
 
 
 def scale_quantile(
-    data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float],
     cutoff: float = 0.05,
     by_row: bool = False,
-) -> np.ndarray[Any, np.dtype[np.float64]]:
+) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
 
@@ -154,11 +154,11 @@ def scale_quantile(
 
 
 def scale_quantile_adapted(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float],
     cutoff: float = 0,
     by_row: bool = False,
     pseudo_count: float = 0.001,
-) -> np.ndarray[Any, np.dtype[np.float64]]:
+) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Normalize values in a vector by quantile scaling. Add a pseudovalue to avoid having a score of 0 for the lowest value.
 
@@ -191,8 +191,8 @@ def scale_quantile_adapted(
 
 
 def scaling_zscore(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
-) -> Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float],
+) -> Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float]:
     """
     Normalize values in a vector by the z-score method.
 
@@ -228,9 +228,9 @@ def scaling_zscore(
 
 
 def scaling_modified_zscore(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float],
+    data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float],
     scale_factor: float = 0.6744907594765952,
-) -> Sequence[float] | np.ndarray[Any, np.dtype[np.float64]] | pd.Series[float]:
+) -> Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float]:
     """
     Normalize values by the modified z-score method (uses median and median absolute deviation instead of mean)
 

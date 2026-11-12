@@ -155,6 +155,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `metrics.group_metrics` and `extraction.get_lfc_celltype` when `features` is a generator (the gene names came back empty).
 
+- Fixed `io.write_sparse_matrix` and `io.write_ligand_target_matrix` for matrices with a float type other than float64 (e.g. float32): the readers assume float64, so reading such a file raised a `ValueError` or returned wrong values. The data is now converted to float64 when it is written.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

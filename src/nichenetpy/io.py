@@ -96,7 +96,8 @@ def write_ligand_target_matrix(
         filename,
         "\n".join(row_names).encode("ascii"),
         "\n".join(col_names).encode("ascii"),
-        mat.tobytes(order=("F" if column_major else "C")),
+        # the reader assumes float64 data (np.frombuffer default), so other float types are converted
+        mat.astype(np.float64, copy=False).tobytes(order=("F" if column_major else "C")),
     )
 
 
@@ -140,7 +141,7 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
 
 
 def write_sparse_matrix(
-    filename: str, mat: csc_matrix[np.float64] | csr_matrix[np.float64], row_names: list[str], col_names: list[str]
+    filename: str, mat: csc_matrix[np.floating] | csr_matrix[np.floating], row_names: list[str], col_names: list[str]
 ):
     """
     Writes a sparse matrix to a file.
@@ -173,7 +174,8 @@ def write_sparse_matrix(
         filename,
         "\n".join(row_names).encode("ascii"),
         "\n".join(col_names).encode("ascii"),
-        mat.data.tobytes(),
+        # the reader assumes float64 data (np.frombuffer default), so other float types are converted
+        mat.data.astype(np.float64, copy=False).tobytes(),
         mat.indices.tobytes(),
         mat.indptr.tobytes(),
     )

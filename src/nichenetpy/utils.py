@@ -46,7 +46,7 @@ def read_matrix_from_csv(
     filename: str,
     extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
     extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[str], list[str]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 
@@ -190,31 +190,31 @@ def read_network_file(filename: str):
 @overload
 def subset_matrix(
     mat: np.ndarray,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> np.ndarray: ...
 
 
 @overload
 def subset_matrix(
-    mat: csr_matrix[np.float64] | csc_matrix[np.float64],
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-) -> csr_matrix[np.float64] | csc_matrix[np.float64]: ...
+    mat: csr_matrix[np.floating] | csc_matrix[np.floating],
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+) -> csr_matrix[np.floating] | csc_matrix[np.floating]: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_array | csc_array,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> csr_array | csc_array: ...
 
 
 def subset_matrix(
     mat: nichenet_matrix,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> nichenet_matrix:
     """
     Subsets a matrix.
@@ -274,7 +274,7 @@ def subset_matrix(
     return output
 
 
-def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.float64]]) -> np.ndarray[Any, np.dtype[np.float64]]:
+def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.floating]]) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Remove all 0-rows and 0-columns from a matrix.
 

@@ -1,11 +1,15 @@
 from collections.abc import Callable, Sequence
 from typing import Any, Literal, Protocol, TypeVar
 
-from numpy import dtype, float64, ndarray
+from numpy import dtype, floating, ndarray
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
 type nichenet_matrix = (
-    csr_matrix[float64] | csc_matrix[float64] | csr_array[float64] | csc_array[float64] | ndarray[Any, dtype[float64]]
+    csr_matrix[floating]
+    | csc_matrix[floating]
+    | csr_array[floating]
+    | csc_array[floating]
+    | ndarray[Any, dtype[floating]]
 )
 """Matrix types that are supported in NicheNetPy."""
 
@@ -28,7 +32,7 @@ type ligand_eval_metric_t = (
 type eval_metric_t = target_eval_metric_t | ligand_eval_metric_t
 """Evaluation metrics. """
 
-type ObjectiveFunction = Callable[[Sequence[float] | ndarray[Any, dtype[float64]]], float]
+type ObjectiveFunction = Callable[[Sequence[float] | ndarray[Any, dtype[floating]]], float]
 """Objective function for the source weight optimization"""
 
 

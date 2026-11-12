@@ -157,7 +157,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
     column_major=False,
     split_ppr: Literal[True] = True,
 ) -> tuple[
-    tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.float64]]],
+    tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
     list[GeneSymbol],
     list[GeneSymbol],
 ]: ...
@@ -172,7 +172,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
     damping_factor: float = 0.5,
     column_major=False,
     split_ppr: Literal[False] = False,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]: ...
 
 
 @overload
@@ -185,7 +185,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
     damping_factor: float = 0.5,
     column_major=False,
     split_ppr: Literal[True] = True,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[GeneSymbol]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]: ...
 
 
 def construct_ligand_tf_matrix[GeneSymbol](
@@ -197,8 +197,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
     column_major=False,
     split_ppr=False,
 ) -> tuple[
-    np.ndarray[Any, np.dtype[np.float64]]
-    | tuple[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.float64]]],
+    np.ndarray[Any, np.dtype[np.floating]]
+    | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
     list[GeneSymbol],
     list[GeneSymbol],
 ]:
@@ -405,18 +405,18 @@ def construct_ligand_tf_matrix[GeneSymbol](
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[False] = False
-) -> tuple[csr_array[np.float64], list[gene_t], list[gene_t]]: ...
+) -> tuple[csr_array[np.floating], list[gene_t], list[gene_t]]: ...
 
 
 @overload
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[True] = True
-) -> tuple[csc_array[np.float64], list[gene_t], list[gene_t]]: ...
+) -> tuple[csc_array[np.floating], list[gene_t], list[gene_t]]: ...
 
 
 def construct_tf_target_matrix(
     weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
-) -> tuple[csr_array[np.float64] | csc_array[np.float64], list[gene_t], list[gene_t]]:
+) -> tuple[csr_array[np.floating] | csc_array[np.floating], list[gene_t], list[gene_t]]:
     """
     Convert integrated gene regulatory weighted network into matrix format.
 
@@ -538,7 +538,7 @@ def construct_ligand_target_matrix[GeneSymbol](
     return_all_matrices: Literal[False] = False,
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]]: ...
 
 
 @overload
@@ -556,7 +556,7 @@ def construct_ligand_target_matrix[GeneSymbol](
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[
-    tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[GeneSymbol]],
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
@@ -576,7 +576,7 @@ def construct_ligand_target_matrix[GeneSymbol](
     return_all_matrices: Literal[False] = False,
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]]: ...
 
 
 @overload
@@ -594,7 +594,7 @@ def construct_ligand_target_matrix[GeneSymbol](
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> tuple[
-    tuple[np.ndarray[Any, np.dtype[np.float64]], list[GeneSymbol], list[gene_t]],
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]],
     tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
@@ -614,9 +614,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
 ) -> (
-    tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]]
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]]
     | tuple[
-        tuple[np.ndarray[Any, np.dtype[np.float64]], list[gene_t], list[gene_t]],
+        tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]],
         tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
@@ -774,8 +774,8 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
         tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
-        rp_direct: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
-        rp_indirect: np.ndarray[Any, np.dtype[np.float64]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
+        rp_direct: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
+        rp_indirect: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     elif split_direct == "ltf-tft":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
@@ -794,7 +794,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     if secondary_targets:
         ltf_secondary = ligand2target.copy()
         _quantile_clip(ltf_secondary, ltf_cutoff)
-        ligand2target_secondary: np.ndarray[Any, np.dtype[np.float64]] = ltf_secondary @ tft_matrix  # type: ignore # returns ndarray
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.floating]] = ltf_secondary @ tft_matrix  # type: ignore # returns ndarray
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
         ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1
@@ -895,7 +895,7 @@ def construct_model_from_source_weights[GeneSymbol](
     if ligands is None:
         ligands = set(lr_network["from"])
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
-    ligand2target: np.ndarray[Any, np.dtype[np.float64]]
+    ligand2target: np.ndarray[Any, np.dtype[np.floating]]
     # an empty ligand-signaling network (all ligand-receptor and signaling sources weighted 0) is handled by
     # construct_ligand_tf_matrix, so every model goes through the same construction path and the output has the
     # same layout (targets x ligands ligand-target matrix, ltf and grn matrices with matching orientation)
