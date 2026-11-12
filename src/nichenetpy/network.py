@@ -1,5 +1,4 @@
 from collections.abc import Collection, Iterator
-from itertools import chain
 from typing import overload
 
 import pandas as pd
@@ -14,7 +13,7 @@ class Network[GeneSymbol]:
     Parameters
     ----------
     mapping : list or pandas.DataFrame or None
-        sorted list of tuples (from, to) or pandas dataframe with keys ("from", "to")
+        list of tuples (from, to) or pandas dataframe with keys ("from", "to")
     filename : str or None
         name of the file to read the network from
 
@@ -28,13 +27,14 @@ class Network[GeneSymbol]:
     Attributes
     ----------
     mapping : list
-        sorted list of tuples (from, to)
+        list of tuples (from, to), sorted by "from"
     _index : dict
         index for the mapping
 
     Notes
     -----
-    You must pass a list SORTED by "from" as mapping, a pandas dataframe with keys ("from", "to") or the name of a file to read from.
+    The network stores a copy of the links sorted by "from" (the order of the links with the same "from" is kept), so
+    the list that is passed doesn't need to be sorted and can be changed afterwards.
     """
 
     @overload
@@ -49,10 +49,12 @@ class Network[GeneSymbol]:
         self._mapping: list[tuple[GeneSymbol, GeneSymbol]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
-                mapping = sorted(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True), key=lambda x: x[0])  # type: ignore
+                mapping = list(zip(mapping["from"].tolist(), mapping["to"].tolist(), strict=True))
             elif type(mapping) is not list:
                 raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
-            self._mapping = mapping
+            # a sorted copy: the index needs the links of a "from" value next to each other, and the caller's list
+            # mustn't be shared (sorting is stable and fast for a list that's already sorted)
+            self._mapping = sorted(mapping, key=lambda x: x[0])  # type: ignore
         elif filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
@@ -138,9 +140,9 @@ class Network[GeneSymbol]:
         Returns
         -------
         set
-            all values present in the network
+            all values present in the network (the "from" and "to" values, not the weights of a WeightedNetwork)
         """
-        return set(chain(*zip(*self._mapping, strict=True)))
+        return {gene for link in self._mapping for gene in link[:2]}
 
     def subset(self, from_to: Collection[tuple[GeneSymbol, GeneSymbol]]):
         """
@@ -203,9 +205,10 @@ class Network[GeneSymbol]:
         Returns
         -------
         pandas.DataFrame
-            the network as a dataframe
+            the network as a dataframe (one row per link, duplicate links appear once)
         """
-        return pd.concat([pd.DataFrame({"from": fr, "to": list(tos)}) for fr, tos in self.item_iter()])
+        # built directly from the links (works for an empty network, keeps the order of the links)
+        return pd.DataFrame(self._mapping, columns=["from", "to"]).drop_duplicates(ignore_index=True)
 
 
 class LigandReceptorNetwork[GeneSymbol](Network):
@@ -214,9 +217,9 @@ class LigandReceptorNetwork[GeneSymbol](Network):
 
     Parameters
     ----------
-    mapping : list
-        sorted list of tuples (from, to)
-    filename : str
+    mapping : list or pandas.DataFrame or None
+        list of tuples (from, to) or pandas dataframe with keys ("from", "to")
+    filename : str or None
         name of the file to read the network from
 
     Raises
@@ -229,13 +232,13 @@ class LigandReceptorNetwork[GeneSymbol](Network):
     Attributes
     ----------
     mapping : list
-        sorted list of tuples (from, to)
+        list of tuples (from, to), sorted by "from"
     _index : dict
         index for the mapping
 
     Notes
     -----
-    You must pass a list SORTED by "from" as mapping or the name of a file to read from.
+    The network stores a copy of the links sorted by "from", so the list that is passed doesn't need to be sorted.
     """
 
     def get_ligands(self) -> set[GeneSymbol]:
@@ -268,7 +271,8 @@ class WeightedNetwork[GeneSymbol](Network):
     Parameters
     ----------
     mapping : list or pandas.DataFrame or None
-        sorted list of tuples (from, to, weight) or pandas dataframe with keys ("from", "to", "weight")
+        list of tuples (from, to, weight) or pandas dataframe with keys ("from", "to", "weight"); the network stores a
+        copy sorted by "from"
     filename : str or None
         name of the file to read the network from
 
@@ -299,13 +303,13 @@ class WeightedNetwork[GeneSymbol](Network):
         self._mapping: list[tuple[GeneSymbol, GeneSymbol, float]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
-                mapping = sorted(
-                    zip(mapping["from"], mapping["to"], mapping["weight"], strict=True),
-                    key=lambda x: x[0],  # type: ignore
+                mapping = list(
+                    zip(mapping["from"].tolist(), mapping["to"].tolist(), mapping["weight"].tolist(), strict=True)
                 )
             elif type(mapping) is not list:
                 raise TypeError(f"mapping should have type list or pandas.DataFrame, was {type(mapping)}")
-            self._mapping = mapping
+            # a sorted copy (see Network)
+            self._mapping = sorted(mapping, key=lambda x: x[0])  # type: ignore
         elif filename is not None:
             if type(filename) is not str:
                 raise TypeError(f"filename should have type str, was {type(filename)}")
@@ -362,10 +366,8 @@ class WeightedNetwork[GeneSymbol](Network):
         Returns
         -------
         pandas.DataFrame
-            the network as a dataframe
+            the network as a dataframe (one row per link; for a duplicate link, the last weight is kept)
         """
-        temp = []
-        for fr, mapping in self.item_iter():
-            tos, ws = zip(*mapping.items(), strict=True)
-            temp.append(pd.DataFrame({"from": fr, "to": tos, "weight": ws}))
-        return pd.concat(temp)
+        # built directly from the links (works for an empty network, keeps the order of the links)
+        df = pd.DataFrame(self._mapping, columns=["from", "to", "weight"])
+        return df.drop_duplicates(subset=["from", "to"], keep="last", ignore_index=True)

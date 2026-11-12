@@ -219,6 +219,10 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
 
+- Fixed `network.Network` and `network.WeightedNetwork` giving wrong links when the mapping list wasn't sorted by "from", and changing when the caller changed the list afterwards; they now store a sorted copy of the list (the list no longer needs to be sorted).
+
+- Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
