@@ -215,6 +215,10 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `evaluation.get_single_ligand_importances` failing when `evaluation_data` or `all_ligands` is a generator (they were iterated twice). Corrected its documentation of the expected keys.
 
+- Fixed `wilcoxon.wilcoxon_rank_sum_test_with_correlation` returning the lower and upper tail p-values in swapped order; they are now returned as documented and as limma's `rankSumTestWithCorrelation` ("less", "greater"). The upper tail is computed more precisely, so `metrics.group_metrics` with `wilcoxon_limma=True` matches limma more closely (it doesn't depend on the order).
+
+- Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

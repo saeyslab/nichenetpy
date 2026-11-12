@@ -524,7 +524,7 @@ def ncycle(it: Iterable, n: int) -> Iterable:
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {it}")
     if type(n) is not int:
-        TypeError(f"n should have type int, was {n}")
+        raise TypeError(f"n should have type int, was {type(n)}")
     for _ in range(n):
         yield from it
 

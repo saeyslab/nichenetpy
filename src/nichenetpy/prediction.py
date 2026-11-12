@@ -207,8 +207,9 @@ class LigandActivityPredictor[GeneSymbol]:
         TypeError
             if the arguments have the wrong type
         IndexError
-            if the index is invalid
+            if the index is out of bounds
         ValueError
+            if the gene symbol is not a ligand (column) of the ligand-target matrix
             if the shape of the ligand-target matrix is None
         """
         if self.ligand_target_matrix.shape is None:
@@ -216,12 +217,8 @@ class LigandActivityPredictor[GeneSymbol]:
         if type(index) is str:
             is_index = False
         if not is_index:
-            try:
-                index = self.ligand2index(index)  # type: ignore # if is_index == False then index has type GeneSymbol
-            except KeyError as error:
-                raise IndexError(
-                    f"{index} is not a gene symbol with a corresponding column in the ligand-target matrix"
-                ) from error
+            # raises a ValueError for an unknown gene symbol
+            index = self.ligand2index(index)  # type: ignore # if is_index == False then index has type GeneSymbol
         elif type(index) is not int:
             raise TypeError(f"index should have type int if is_index, was {type(index)}")
         if index >= self.ligand_target_matrix.shape[1]:  # type: ignore # index is int at this point

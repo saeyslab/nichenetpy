@@ -24,8 +24,6 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
             mat = csc_array(mat)
         except TypeError as error:
             raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix/array, was {type(mat)}") from error
-    if type(mat.shape) is None:
-        raise ValueError("mat has shape None")
     output = []
     group_mat = []
     nrows, ncols = mat.shape
@@ -258,9 +256,9 @@ def wilcoxon_rank_sum_test_with_correlation(
     Returns
     -------
     float
-        lower tail p-value
+        lower tail p-value (alternative: the statistics of the test group are smaller), "less" in limma
     float
-        upper tail p-value
+        upper tail p-value (alternative: the statistics of the test group are larger), "greater" in limma
 
     Raises
     ------
@@ -303,4 +301,6 @@ def wilcoxon_rank_sum_test_with_correlation(
         sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
     zuppertail = (u - 0.5 - mu) / sqrt(sigma2)
-    return (t.cdf(zlowertail, df), 1 - t.cdf(zuppertail, df))
+    # as limma: less = pt(zuppertail, lower.tail = FALSE), greater = pt(zlowertail) (the two were returned swapped);
+    # t.sf is 1 - t.cdf without the loss of precision for small p-values
+    return (t.sf(zuppertail, df), t.cdf(zlowertail, df))
