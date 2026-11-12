@@ -32,7 +32,7 @@ type ligand_eval_metric_t = (
 type eval_metric_t = target_eval_metric_t | ligand_eval_metric_t
 """Evaluation metrics. """
 
-type ObjectiveFunction = Callable[[Sequence[float] | ndarray[Any, dtype[floating]]], float]
+type ObjectiveFunction = Callable[[Sequence[float] | ndarray[Any, dtype[floating]]], float | floating]
 """Objective function for the source weight optimization"""
 
 

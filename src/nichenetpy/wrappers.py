@@ -44,7 +44,7 @@ def get_geneset_oi(
     scanpy_corr_method: Literal["bonferroni"] | Literal["benjamini-hochberg"] = "benjamini-hochberg",
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -170,7 +170,7 @@ def run_nichenet(
     get_prioritization_table: bool = False,
     case_control: bool = True,
     use_scanpy: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
@@ -416,7 +416,7 @@ def run_nichenet_cluster_de(
     expression_pct: float = 0.1,
     ligands_top_n: int | None = 30,
     targets_top_n: int = 200,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
     geneset: Literal["DE"] | Literal["up"] | Literal["down"] = "DE",
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
@@ -849,8 +849,8 @@ def _create_circos_plot(
     for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
         sender_tup: tuple[str, str]
         receiver_tup: tuple[str, str]
-        sender_tup, receiver_tup = link if opacity is None else link[0]  # type: ignore # correct due to conditional
-        weight: float = 1 if opacity is None else link[1]  # type: ignore # correct due to conditional
+        sender_tup, receiver_tup = link if opacity is None else link[0]
+        weight: float = 1 if opacity is None else link[1]
         sender_group, sender = sender_tup
         receiver_group, receiver = receiver_tup
         key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"

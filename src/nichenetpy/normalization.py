@@ -63,7 +63,7 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
     if isinstance(data_rc, np.ndarray):
         return np.log1p(data_rc)
     else:
-        return data_rc.log1p()  # type: ignore # log1p exists for all spmatrix
+        return data_rc.log1p()  # pyright: ignore[reportReturnType] # log1p exists for all spmatrix
 
 
 def _scale_quantile_seq(
@@ -113,7 +113,7 @@ def scale_quantile(
     if type(by_row) is not bool:
         raise TypeError(f"by_row should have type bool, was {type(by_row)}")
     if isinstance(data, pd.Series):
-        data = data.to_numpy()  # type: ignore
+        data = data.to_numpy()
     if isinstance(data, Sequence):
         if len(data) > 0:
             if isinstance(data[0], Sequence):

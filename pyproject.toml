@@ -164,6 +164,12 @@ lint.pydocstyle.convention = "numpy"
 files = [ "src", "tests" ]
 disable_error_code = [ "assignment", "has-type", "import-untyped", "var-annotated" ]
 
+[tool.pyright]
+typeCheckingMode = "standard"
+# skip the same error categories as mypy's disable_error_code ("assignment", "import-untyped")
+reportAssignmentType = "none"
+reportMissingTypeStubs = "none"
+
 [tool.coverage]
 run.source = [ "nichenetpy" ]
 run.omit = [

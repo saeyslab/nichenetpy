@@ -41,7 +41,7 @@ class Network[GeneSymbol]:
     def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame, filename: None = None): ...
 
     @overload
-    def __init__(self, mapping: None, filename: str): ...
+    def __init__(self, mapping: None = None, *, filename: str): ...
 
     def __init__(
         self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame | None = None, filename: str | None = None
@@ -286,12 +286,10 @@ class WeightedNetwork[GeneSymbol](Network):
     """
 
     @overload
-    def __init__(
-        self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame | None = None, filename: None = None
-    ): ...
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame, filename: None = None): ...
 
     @overload
-    def __init__(self, mapping: None, filename: str): ...
+    def __init__(self, mapping: None = None, *, filename: str): ...
 
     def __init__(
         self,

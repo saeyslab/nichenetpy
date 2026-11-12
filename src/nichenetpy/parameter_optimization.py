@@ -22,7 +22,7 @@ from nichenetpy.typing import (
 # Can only add docstrings to single line variable declarations (note: *.__doc__ is read-only)
 objective_fs_dct: dict[
     str, dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]]
-] = None  # type: ignore # will be overwritten
+] = None  # will be overwritten
 """
 sets of objective functions for the source weight optimization
 
@@ -34,7 +34,7 @@ map&ndcg
     Only rank ligands using `aupr_corrected` and `auroc`. Use `map` and `ndcg` to evaluate the ligand ranking.
 """
 
-metric_score_f_dct: dict[str, MetricScoreFunction] = None  # type: ignore # will be overwritten
+metric_score_f_dct: dict[str, MetricScoreFunction] = None  # will be overwritten
 """
 the function that computes the metric score (which decides the best metric to rank the ligands with)
 
@@ -280,7 +280,7 @@ def compute_evaluation_scores[GeneSymbol](
                     _average_performances(
                         ligand,
                         eval_res["performances_target_prediction"],
-                        target_evaluation_metrics,  # type: ignore # error at runtime
+                        target_evaluation_metrics,
                     )
                     for ligand in ligands
                 ),
@@ -354,7 +354,7 @@ def compute_evaluation_scores[GeneSymbol](
     )
     performances_prediction_averaged["ligand_prediction"] = performances_ligand_prediction_averaged
     for e in performances_ligand_prediction_averaged.keys():
-        performances_ligand_prediction_averaged[e] = [  # type: ignore # target prediction keys should be fine
+        performances_ligand_prediction_averaged[e] = [  # pyright: ignore[reportArgumentType] # target prediction keys should be fine
             e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)
         ]
     # aggregate metrics over ligands
@@ -487,7 +487,7 @@ def construct_and_evaluate[GeneSymbol](
     # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
     # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
     lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
-    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):  # type: ignore
+    if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):
         return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
     model = construct_model_from_source_weights(
         source_weights,
@@ -520,7 +520,7 @@ def construct_and_evaluate[GeneSymbol](
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         ),
-        evaluation_data.get_ligands(combination=True),  # type: ignore # false positive
+        evaluation_data.get_ligands(combination=True),
         metric_score_f=metric_score_f,
         objective_fs=objective_fs,
     )

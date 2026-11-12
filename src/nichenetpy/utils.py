@@ -268,7 +268,7 @@ def subset_matrix(
             if cols is None:
                 output = mat
             else:
-                output = mat[:, cols]  # type: ignore # cols are bools
+                output = mat[:, cols]
         else:
             output = mat[
                 [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
@@ -276,9 +276,9 @@ def subset_matrix(
     elif isinstance(mat, (csc_matrix, csc_array, csr_matrix, csr_array)):
         output = mat
         if rows is not None:
-            output = output[rows, :]  # type: ignore
+            output = output[rows, :]
         if cols is not None:
-            output = output[:, cols]  # type: ignore
+            output = output[:, cols]
     else:
         raise TypeError(f"mat needs to be of type nichenet_matrix, not {type(mat)}")
     return output

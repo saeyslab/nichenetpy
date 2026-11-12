@@ -231,7 +231,7 @@ def dcg_at_k(
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(ranking, (Sequence, np.ndarray)):
         raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
-    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # type: ignore # e is float
+    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # pyright: ignore[reportArgumentType, reportCallIssue] # e is float
 
 
 def ndcg_at_k(
@@ -391,7 +391,7 @@ def calculate_prediction_evaluation_metrics(
 
 def _sub_log_fold_change(
     data: nichenet_matrix,
-    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # np.expm1 is valid
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
     pseudocount: float = 1,
 ):
     if denormalize is not None:
@@ -404,7 +404,7 @@ def _sub_log_fold_change(
 def log_fold_change(
     mat1: nichenet_matrix,
     mat2: nichenet_matrix,
-    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # np.expm1 is valid
+    denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
     pseudocount: float = 1,
 ) -> np.ndarray:
     """
@@ -453,7 +453,7 @@ def _calc_pct(mat: nichenet_matrix, direction: str = "both") -> list[float]:
         hits = mat < 0  # type: ignore
     else:
         hits = mat != 0
-    return (np.ravel(hits.sum(axis=0)) / mat.shape[0]).tolist()  # type: ignore
+    return (np.ravel(hits.sum(axis=0)) / mat.shape[0]).tolist()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
@@ -520,7 +520,7 @@ def group_metrics[GeneSymbol](
     min_pct: float = 0,
     pval_thresh: float | None = None,  # 0.01 in seurat
     wilcoxon_limma: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # np.expm1 is valid
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
 ):
     """
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
@@ -640,7 +640,7 @@ def group_metrics[GeneSymbol](
         pct.append(y)
         pct_ref.append(z)
     output = pd.melt(
-        pd.DataFrame(np.column_stack(lfc), index=genes, columns=comparison_groups),  # type: ignore # error at runtime
+        pd.DataFrame(np.column_stack(lfc), index=genes, columns=comparison_groups),
         var_name=groupby,
         value_name="lfc",
         ignore_index=False,
@@ -658,7 +658,7 @@ def group_metrics[GeneSymbol](
             "pct_ref": np.concatenate([np.asarray(e, dtype=float) for e in pct_ref]),
         }
     )
-    output = output.merge(pct_df, on=["gene", groupby], how="inner")  # type: ignore
+    output = output.merge(pct_df, on=["gene", groupby], how="inner")
     # prefilter as in Seurat's FindMarkers: a gene is tested in a comparison if it's expressed in at least min_pct of
     # the cells of either group and its absolute log fold change is at least min_abs_lfc
     output = output[
@@ -689,13 +689,13 @@ def group_metrics[GeneSymbol](
         # genes not tested in a comparison get NaN here, they're dropped by the merge below
         pvals = pd.concat(group_pvals, axis=1)
         pvals.index.name = "gene"
-    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)  # type: ignore
+    pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     if pval_thresh is not None:
-        pvals = pvals[pvals["pval"] < pval_thresh]  # type: ignore
-    pvals.reset_index(inplace=True)  # type: ignore
-    output = output.merge(pvals, on=["gene", groupby], how="inner")  # type: ignore
+        pvals = pvals[pvals["pval"] < pval_thresh]
+    pvals.reset_index(inplace=True)
+    output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
-    output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)  # type: ignore # operation behaves as expected
+    output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)
     ann.uns["group_metrics"] = output
 
 
@@ -708,15 +708,17 @@ def _group_pvals(
         mat = subset_matrix(ann.layers[layer], cols=[gene2index[gene] for gene in test_genes])  # type: ignore # the layer is type checked
         groups = set(ann.obs[groupby])
         group_masks = {group: (ann.obs[groupby] == group).to_numpy() for group in groups}
-        pvals = {group: [] for group in groups}
+        group_pvals: dict[Any, list[float]] = {group: [] for group in groups}
         for i in range(len(test_genes)):
-            col = mat[:, [i]].toarray().ravel() if hasattr(mat, "toarray") else np.asarray(mat[:, i])
+            col = np.asarray(mat[:, i]) if isinstance(mat, np.ndarray) else mat[:, [i]].toarray().ravel()
             for group in groups:
-                pvals[group].append(min(2 * min(wilcoxon_rank_sum_test_with_correlation(group_masks[group], col)), 1))
-        pvals = pd.DataFrame(pvals, index=test_genes)
+                group_pvals[group].append(
+                    min(2 * min(wilcoxon_rank_sum_test_with_correlation(group_masks[group], col)), 1)
+                )
+        pvals = pd.DataFrame(group_pvals, index=test_genes)
         pvals.index.name = "gene"
         return pvals
-    return wilcoxon_rank_sum_test(  # type: ignore
+    return wilcoxon_rank_sum_test(
         ann,
         groupby=groupby,
         as_dataframe=True,

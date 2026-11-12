@@ -87,7 +87,7 @@ def reorder_labels[GeneSymbol](
         dist = sc.spatial.distance.cdist(corr, corr)
         clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
         order_rows = sc.cluster.hierarchy.leaves_list(clust)
-        mat = subset_matrix(mat, order_rows, order_cols)  # type: ignore # behaves as expected
+        mat = subset_matrix(mat, order_rows, order_cols)
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
     return (mat, row_labels, col_labels)
@@ -397,7 +397,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
         ltf_vis.index.name = "TF"
         ltf_vis.reset_index(inplace=True)
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
-        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]  # type: ignore
+        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]  # pyright: ignore[reportArgumentType, reportCallIssue]
         for target in targets_oi:
             gr_filtered = gr[gr["to"] == target]
             gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
@@ -624,17 +624,17 @@ def visualize_ligand_signaling_graph(
     nx.draw_networkx_labels(
         graph, pos, labels=dict(zip(graph.nodes, graph.nodes, strict=True)), font_size=label_size, font_color="white"
     )
-    nx.draw_networkx_edges(
+    nx.draw_networkx_edges(  # pyright: ignore[reportCallIssue] # behaves as expected
         graph,
         pos,
         arrowstyle="->",
         arrowsize=arrow_size,
         arrows=True,
-        label=graph.nodes,  # type: ignore # behaves as expected
+        label=graph.nodes,  # pyright: ignore[reportArgumentType] # behaves as expected
         node_size=node_size,
         edge_color=[e[2]["color"] for e in graph.edges.data()],
         width=[e[2]["weight"] for e in graph.edges.data()],
-    )  # type: ignore # behaves as expected
+    )
     plt.legend(
         handles=[
             Patch(color=sig_color, label="ligand-signaling"),
@@ -1585,7 +1585,7 @@ def _radar_factory(num_vars, frame="circle"):
 
         def _gen_axes_spines(self):
             if frame == "circle":
-                return super()._gen_axes_spines()  # type: ignore
+                return super()._gen_axes_spines()  # pyright: ignore[reportAttributeAccessIssue]
             elif frame == "polygon":
                 # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
                 spine = Spine(axes=self, spine_type="circle", path=Path.unit_regular_polygon(num_vars))
@@ -1660,7 +1660,7 @@ def create_radar_plot(
     fig, ax = plt.subplots(figsize=figsize, nrows=1, ncols=1, subplot_kw={"projection": "radar"})
     ax.set_rgrids([i * max_val / 5 for i in range(1, 5)], labels=["" for _ in range(4)])  # type: ignore # attribute exists
     for i, d in enumerate(data):
-        color = cmap(i / len(data))  # type: ignore # cmap can't be a string anymore at this point
+        color = cmap(i / len(data))
         ax.plot(theta, d, color=color)
         ax.fill(theta, d, facecolor=color, alpha=0.25, label="_nolegend_")
     ax.set_varlabels(value_labels)  # type: ignore # attribute exists

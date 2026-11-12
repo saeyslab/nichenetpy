@@ -211,7 +211,10 @@ class EvaluationData[GeneSymbol]:
     def get_ligands(self, combination: Literal[True] = True) -> set[GeneSymbol | Sequence[GeneSymbol]]: ...
 
     @overload
-    def get_ligands(self, combination: Literal[False] = False) -> set[GeneSymbol]: ...
+    def get_ligands(self, combination: Literal[False]) -> set[GeneSymbol]: ...
+
+    @overload
+    def get_ligands(self, combination: bool = True) -> set[GeneSymbol] | set[GeneSymbol | Sequence[GeneSymbol]]: ...
 
     def get_ligands(self, combination: bool = True) -> set[GeneSymbol] | set[GeneSymbol | Sequence[GeneSymbol]]:
         """
@@ -243,7 +246,7 @@ class EvaluationData[GeneSymbol]:
                     output.add(tuple(setting["from"]))
                 for ligand in setting["from"]:
                     output.add(ligand)
-        return output  # type: ignore
+        return output
 
     def to_dataframe(self) -> pd.DataFrame:
         """

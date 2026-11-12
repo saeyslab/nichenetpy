@@ -77,6 +77,17 @@ def _decode_names(names: bytes) -> list[str]:
 @overload
 def write_ligand_target_matrix(
     filename: str,
+    predictor: LigandActivityPredictor[str],
+    mat: None = None,
+    row_names: None = None,
+    col_names: None = None,
+    column_major: bool = True,
+): ...
+
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
     predictor: None,
     mat: nichenet_matrix,
     row_names: Sequence[str],
@@ -88,10 +99,11 @@ def write_ligand_target_matrix(
 @overload
 def write_ligand_target_matrix(
     filename: str,
-    predictor: LigandActivityPredictor[str],
-    mat: None,
-    row_names: None,
-    col_names: None,
+    predictor: None = None,
+    *,
+    mat: nichenet_matrix,
+    row_names: Sequence[str],
+    col_names: Sequence[str],
     column_major: bool = True,
 ): ...
 
@@ -188,8 +200,8 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
-    row_names = _decode_names(row_names)  # type: ignore
-    col_names = _decode_names(col_names)  # type: ignore
+    row_names = _decode_names(row_names)
+    col_names = _decode_names(col_names)
     mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
     return (mat, row_names, col_names)  # type: ignore
 
@@ -513,7 +525,7 @@ def read_network(filename: str) -> list[tuple[str, str]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = _decode_names(names)  # type: ignore
+    names = _decode_names(names)
     id2name = dict(enumerate(names))
     output = []
     i = 0
@@ -553,7 +565,7 @@ def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = _decode_names(names)  # type: ignore
+    names = _decode_names(names)
     id2name = dict(enumerate(names))
     output = []
     i = 0

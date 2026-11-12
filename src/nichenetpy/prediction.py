@@ -178,10 +178,13 @@ class LigandActivityPredictor[GeneSymbol]:
         return set(self._gene2index.keys())
 
     @overload
-    def get_col(self, index: int, is_index: Literal[True]) -> np.ndarray[Any, np.dtype[np.floating]]: ...
+    def get_col(self, index: int, is_index: Literal[True] = True) -> np.ndarray[Any, np.dtype[np.floating]]: ...
 
     @overload
     def get_col(self, index: GeneSymbol, is_index: Literal[False]) -> np.ndarray[Any, np.dtype[np.floating]]: ...
+
+    @overload
+    def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray[Any, np.dtype[np.floating]]: ...
 
     def get_col(self, index: int | GeneSymbol, is_index: bool = True) -> np.ndarray[Any, np.dtype[np.floating]]:
         """
@@ -424,13 +427,11 @@ class LigandActivityPredictor[GeneSymbol]:
         if type(calc_pearson) is not bool:
             raise TypeError(f"calc_pearson should have type bool, was {type(calc_pearson)}")
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows)), strict=True))
-        if calc_aupr:
-            aupr = []
-            aupr_corrected = []
-        if calc_auroc:
-            auroc = []
-        if calc_pearson:
-            pearson = []
+        # only the lists of the computed metrics are filled and returned
+        aupr: list[float] = []
+        aupr_corrected: list[float] = []
+        auroc: list[float] = []
+        pearson: list[float] = []
         for cell in cells:
             if cell not in row2id:
                 raise ValueError(f"{cell} not in ligand_target_matrix")
@@ -441,10 +442,10 @@ class LigandActivityPredictor[GeneSymbol]:
                 prediction = dict(zip(self.row_names, self.get_col(ligand, is_index=False), strict=True))
                 common_keys = prediction.keys() & response.keys()  # type: ignore
                 pred = np.array(
-                    [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]  # type: ignore # sorted false positive type complaint
+                    [tup[1] for tup in sorted(((key, prediction[key]) for key in common_keys), key=lambda x: x[0])]  # pyright: ignore[reportArgumentType, reportCallIssue] # sorted false positive type complaint
                 )
                 resp = np.array(
-                    [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])]  # type: ignore # sorted false positive type complaint
+                    [tup[1] for tup in sorted(((key, response[key]) for key in common_keys), key=lambda x: x[0])]  # pyright: ignore[reportArgumentType, reportCallIssue] # sorted false positive type complaint
                 )
                 if calc_aupr:
                     aupr.append(calculate_aupr(resp, pred))
@@ -452,7 +453,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 if calc_auroc:
                     auroc.append(calculate_auroc(resp, pred))
                 if calc_pearson:
-                    pearson.append(pearsonr(resp, pred).statistic)  # type: ignore # statistic attribute exists
+                    pearson.append(pearsonr(resp, pred).statistic)
         output = {
             "cell": chain(*(repeat(cell, len(potential_ligands)) for cell in cells)),
             "ligand": chain(*repeat(potential_ligands, len(cells))),
@@ -507,7 +508,7 @@ class LigandActivityPredictor[GeneSymbol]:
             slc = np.ravel(slc.toarray())
         if n < self.ligand_target_matrix.shape[0]:
             k = self.ligand_target_matrix.shape[0] - n
-            top_n_score = np.partition(slc, k)[k]  # type: ignore # slc is np.ndarray
+            top_n_score = np.partition(slc, k)[k]
             targets = sorted(
                 {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
@@ -682,7 +683,7 @@ def assess_rf_class_probabilities[GeneSymbol](
         # random forest trained on some genes
         # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
         rf = RandomForestClassifier(n_estimators=ntrees)
-        rf.fit(X=pred_mat, y=res)  # type: ignore # TODO: test this
+        rf.fit(X=pred_mat, y=res)  # TODO: test this
         row_names, res = zip(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_test),
@@ -696,7 +697,7 @@ def assess_rf_class_probabilities[GeneSymbol](
             cols=[predictor.ligand2index(ligand) for ligand in ligands_oi],
         )
         # prediction for the remaining genes
-        pred = rf.apply(pred_mat)  # type: ignore # TODO: test this
+        pred = rf.apply(pred_mat)  # TODO: test this
         # the amount of trees that predict that the gene is differentially expressed (for each gene)
         score = [
             sum(

@@ -110,13 +110,13 @@ def subset_ann[GeneSymbol](
         row_ids = None
     else:
         if isinstance(val, gene_t.__value__):
-            val = {val}  # type: ignore # val has type set[gene_t] which satisfies Iterable[gene_t]
+            val = {val}
         elif not isinstance(val, Iterable):
             raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")
         elif type(val) is not set:
             val = set(val)
         try:
-            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]  # type: ignore # val has type set[gene_t]
+            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]  # pyright: ignore[reportArgumentType] # val has type set[gene_t]
         except KeyError as error:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
         if len(cells_oi) == 0:
@@ -151,9 +151,9 @@ def subset_ann[GeneSymbol](
         raise ValueError("if layers=[] then X must be defined and subset_X must be True")
     output = AnnData(obs=ann.obs if row_ids is None else cells_oi, layers=new_layers, shape=new_shape)  # type: ignore # despite the type warning this behaves as expected
     if genes is None:
-        output.var_names = ann.var_names  # type: ignore # despite the type warning this behaves as expected
+        output.var_names = ann.var_names  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     else:
-        output.var_names = ann.var_names.reindex(genes)[0]  # type: ignore # despite the type warning this behaves as expected
+        output.var_names = ann.var_names.reindex(genes)[0]  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     output.var_names.name = "gene"
     if ann.X is not None:
         output.X = new_X
@@ -181,7 +181,7 @@ def prepare_ann(ann: AnnData):
     if ann.var_names is None:
         # nichenetpy expects the gene names to be stored here
         if "gene" in ann.var:
-            ann.var_names = ann.var["gene"]  # type: ignore # despite the type warning this behaves as expected
+            ann.var_names = ann.var["gene"]  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
         else:
             raise ValueError("var_names and var['gene'] are both missing from the AnnData object")
     elif "gene" not in ann.var:

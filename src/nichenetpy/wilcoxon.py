@@ -93,6 +93,17 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
 def wilcoxon_rank_sum_test[GeneSymbol](
     ann: AnnData,
     groupby: str,
+    as_dataframe: Literal[False] = False,
+    tie_correction: bool = True,
+    layer: str | None = "data",
+    genes: Sequence[GeneSymbol] | None = None,
+) -> dict[str, list[float]]: ...
+
+
+@overload
+def wilcoxon_rank_sum_test[GeneSymbol](
+    ann: AnnData,
+    groupby: str,
     as_dataframe: Literal[True],
     tie_correction: bool = True,
     layer: str | None = "data",
@@ -104,11 +115,11 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 def wilcoxon_rank_sum_test[GeneSymbol](
     ann: AnnData,
     groupby: str,
-    as_dataframe: Literal[False],
+    as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
     genes: Sequence[GeneSymbol] | None = None,
-) -> dict[str, GeneSymbol]: ...
+) -> pd.DataFrame | dict[str, list[float]]: ...
 
 
 def wilcoxon_rank_sum_test[GeneSymbol](
@@ -118,7 +129,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
     tie_correction: bool = True,
     layer: str | None = "data",
     genes: Sequence[GeneSymbol] | None = None,
-) -> pd.DataFrame | dict[str, GeneSymbol]:
+) -> pd.DataFrame | dict[str, list[float]]:
     """
     Perform the wilcoxon rank sum test and return the p-values
 
@@ -140,7 +151,8 @@ def wilcoxon_rank_sum_test[GeneSymbol](
     Returns
     -------
     pandas.DataFrame or dict
-        the p-value for each gene
+        the p-value for each gene (rows) and group (columns), or a dict with for each group the list of p-values (in
+        the order of the genes)
 
     Raises
     ------
@@ -180,7 +192,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
         mat = ann.layers[layer]
         validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     if genes is None:
-        genes = ann.var_names  # type: ignore # this works fine
+        genes = ann.var_names
     else:
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
@@ -217,7 +229,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
             else:
                 pvals[group] = [pval]
     if as_dataframe:
-        pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this behaves as expected
+        pvals = pd.DataFrame(pvals, index=genes)  # pyright: ignore[reportArgumentType] # this behaves as expected
         pvals.index.name = "gene"  # type: ignore
     return pvals  # type: ignore
 
