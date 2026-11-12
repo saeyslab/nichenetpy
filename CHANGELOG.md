@@ -157,6 +157,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `io.write_sparse_matrix` and `io.write_ligand_target_matrix` for matrices with a float type other than float64 (e.g. float32): the readers assume float64, so reading such a file raised a `ValueError` or returned wrong values. The data is now converted to float64 when it is written.
 
+- Fixed `metrics.group_metrics` with `group_ref` but without `group_oi`: the log fold changes compared each group with `group_ref`, but the p-values compared it with all other cells, and `group_ref` itself was reported (compared with itself). P-values are now computed against `group_ref` and the reference group is no longer in the output. Also fixed an `IndexError` when no gene passes the `min_pct` / `min_abs_lfc` filters (an empty table is returned), and `group_oi` equal to `group_ref` now raises a `ValueError`.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

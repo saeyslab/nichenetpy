@@ -1,7 +1,8 @@
 # type: ignore
 
 """
-Compare group_metrics with Seurat's FindMarkers (two groups) and FindAllMarkers (one group vs the rest):
+Compare group_metrics with Seurat's FindMarkers (two groups, and each group vs a reference group for group_ref without
+group_oi) and FindAllMarkers (one group vs the rest):
 the (gene, group) pairs that pass the min_pct / min_abs_lfc prefilter, the p-values, log fold changes and pct values.
 The reference results are generated with data/group_metrics_seurat/generate_reference.R
 """
@@ -25,7 +26,12 @@ settings = sorted(set(zip(reference["mode"], reference["min_pct"], reference["lf
 
 @pytest.mark.parametrize(("mode", "min_pct", "min_abs_lfc"), settings)
 def test_group_metrics_same_as_seurat(mode, min_pct, min_abs_lfc):
-    kwargs = {} if mode == "one_vs_rest" else dict(zip(("group_oi", "group_ref"), mode.split("_vs_"), strict=True))
+    if mode == "one_vs_rest":
+        kwargs = {}
+    elif mode.startswith("vs_"):
+        kwargs = {"group_ref": mode.removeprefix("vs_")}
+    else:
+        kwargs = dict(zip(("group_oi", "group_ref"), mode.split("_vs_"), strict=True))
     mat = data.to_numpy().T
     ann = AnnData(X=csr_matrix(mat), obs=meta, var=pd.DataFrame(index=data.index))
     ann.layers["data"] = csr_matrix(mat)

@@ -1,6 +1,6 @@
 # Reference results for tests/group_metrics_seurat_test.py
-# Seurat's FindMarkers (two groups) and FindAllMarkers (one group vs the rest) with the Wilcoxon test, for several
-# min.pct / logfc.threshold settings, without any other filter
+# Seurat's FindMarkers (two groups, and each group vs reference group A) and FindAllMarkers (one group vs the rest)
+# with the Wilcoxon test, for several min.pct / logfc.threshold settings, without any other filter
 # usage (from this directory): Rscript generate_reference.R
 # generated with R 4.5.1, Seurat 5.3.0 (without presto, i.e. using wilcox.test)
 suppressPackageStartupMessages(library(Seurat))
@@ -18,6 +18,14 @@ for (s in settings) {
     res[[length(res) + 1]] <- data.frame(mode = paste0(pair[1], "_vs_", pair[2]), min_pct = s[["min_pct"]],
                                          lfc_thr = s[["lfc"]], gene = rownames(m), group = pair[1], pval = m$p_val,
                                          lfc = m$avg_log2FC, pct = m$pct.1, pct_ref = m$pct.2)
+  }
+  # group_ref without group_oi (no single Seurat function): each other group vs the reference group with FindMarkers
+  for (g in setdiff(sort(unique(meta$group)), "A")) {
+    m <- FindMarkers(obj, ident.1 = g, ident.2 = "A", test.use = "wilcox", min.pct = s[["min_pct"]],
+                     logfc.threshold = s[["lfc"]], min.cells.feature = 0, min.cells.group = 0, verbose = FALSE)
+    res[[length(res) + 1]] <- data.frame(mode = "vs_A", min_pct = s[["min_pct"]], lfc_thr = s[["lfc"]],
+                                         gene = rownames(m), group = g, pval = m$p_val, lfc = m$avg_log2FC,
+                                         pct = m$pct.1, pct_ref = m$pct.2)
   }
   m <- FindAllMarkers(obj, test.use = "wilcox", min.pct = s[["min_pct"]], logfc.threshold = s[["lfc"]], only.pos = FALSE,
                       return.thresh = 1, min.cells.feature = 0, min.cells.group = 0, verbose = FALSE)
