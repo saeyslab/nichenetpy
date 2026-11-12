@@ -1,3 +1,26 @@
+"""
+Read and write ligand-target matrices, sparse matrices and (weighted) networks in a simple binary format.
+
+Each file stores the data together with its row and column names (or gene names), so a matrix is read back with the
+names that belong to it. Unlike pickle files, these files only contain names and numbers and don't execute code when
+they are read, so files from other sources are safe to read.
+
+File layout: a sequence of chunks, each preceded by its length in bytes (8-byte big-endian integer).
+Names are stored as one UTF-8 chunk, separated by newlines (names can't contain a newline). Matrix values are float64,
+sparse indices int32 and network weights float64, in the machine's native byte order (little-endian on common
+hardware). A network file starts with the size of its gene ids in bytes (8-byte big-endian integer), and stores each
+gene name once; the links are stored as pairs of gene ids.
+
+Size and speed compared with pickle (random data):
+
+- networks: 2-5 times smaller files, written and read somewhat slower (see `write_network` and
+  `write_weighted_network`)
+- dense and sparse matrices: files of the same size as pickle, `numpy.save` and `scipy.sparse.save_npz` (the raw
+  float64 values), written and read about as fast
+
+Files written by older versions of NicheNetPy can still be read.
+"""
+
 import struct
 from collections.abc import Iterable, Sequence
 from typing import Literal, overload
@@ -13,14 +36,15 @@ _INT_SIZE = 8
 _DOUBLE_SIZE = 8
 
 
-def _write_chunks(filename: str, *chunks: bytes | bytearray, data: bytearray | None = None):
-    if data is None:
-        data = bytearray()
-    for chunk in chunks:
-        data.extend(len(chunk).to_bytes(length=_INT_SIZE))
-        data.extend(chunk)
+def _write_chunks(filename: str, *chunks: bytes | bytearray | np.ndarray, header: bytes = b""):
+    # write the header and then each chunk preceded by its length in bytes; numpy arrays (1-D and contiguous) are written
+    # directly from their memory, without first copying them into a bytes object
     with open(filename, "wb") as file:
-        file.write(data)
+        file.write(header)
+        for chunk in chunks:
+            size = chunk.nbytes if isinstance(chunk, np.ndarray) else len(chunk)
+            file.write(size.to_bytes(length=_INT_SIZE))
+            file.write(chunk)
 
 
 def _encode_names(names: Sequence[str]) -> bytes:
@@ -126,7 +150,8 @@ def write_ligand_target_matrix(
         _encode_names(row_names),
         _encode_names(col_names),
         # the reader assumes float64 data (np.frombuffer default), so other float types are converted
-        mat.astype(np.float64, copy=False).tobytes(order=("F" if column_major else "C")),
+        # ravel returns a view (no copy) if the matrix is already in the requested order
+        mat.astype(np.float64, copy=False).ravel(order=("F" if column_major else "C")),
     )
 
 
@@ -215,9 +240,9 @@ def write_sparse_matrix(
         _encode_names(row_names),
         _encode_names(col_names),
         # the reader assumes float64 data (np.frombuffer default), so other float types are converted
-        mat.data.astype(np.float64, copy=False).tobytes(),
-        mat.indices.astype(np.int32, copy=False).tobytes(),
-        mat.indptr.astype(np.int32, copy=False).tobytes(),
+        mat.data.astype(np.float64, copy=False),
+        mat.indices.astype(np.int32, copy=False),
+        mat.indptr.astype(np.int32, copy=False),
     )
 
 
@@ -401,7 +426,7 @@ def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
     _write_chunks(
-        filename, _encode_names(list(name2id)), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE)
     )
 
 
@@ -459,7 +484,7 @@ def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, floa
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
     _write_chunks(
-        filename, _encode_names(list(name2id)), data, data=bytearray(id_size.to_bytes(_INT_SIZE))
+        filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE)
     )
 
 

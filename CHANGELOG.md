@@ -93,6 +93,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `io.read_csc_matrix` and `io.read_csr_matrix` now return a `scipy.sparse.csc_array` / `csr_array` by default, as scipy expects to deprecate the sparse matrix interface. Use `sparse_array=False` to get a `csc_matrix` / `csr_matrix` as before.
 
+- `io.write_ligand_target_matrix` and `io.write_sparse_matrix` are 2-2.5 times faster and no longer use twice the size of the matrix in extra memory while writing; the files are unchanged.
+
 ### Fixed
 
 - Corrected docstrings.
