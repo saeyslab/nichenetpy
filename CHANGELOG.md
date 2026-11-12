@@ -161,6 +161,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `metrics.calculate_evaluation_metrics` changing the global warning filters: after each call all warnings were reset to the "default" action (overriding filters set by the user, e.g. warnings as errors), and when an error was raised all warnings stayed silenced. Warnings are now only silenced during the call.
 
+- Fixed `io.read_csc_matrix` and `io.read_csr_matrix` returning a matrix that was too small when its last rows (csc) or last columns (csr) contained only zeros; the shape is now taken from the stored row and column names. Fixed `io.write_sparse_matrix` for matrices with int64 indices (used by scipy for large matrices and after some operations), which could not be read back; the indices are now written as int32. `io.write_sparse_matrix` now raises a `ValueError` if the number of names doesn't match the shape of the matrix or if the matrix is too large for the file format.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

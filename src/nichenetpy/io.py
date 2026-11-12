@@ -161,6 +161,9 @@ def write_sparse_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the number of row or column names doesn't match the shape of mat
+        if mat is too large for the file format (more than 2^31 - 1 rows, columns or nonzero values)
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
@@ -170,14 +173,23 @@ def write_sparse_matrix(
         raise TypeError(f"row_names should be a list of strings, had type {type(row_names)}")
     if type(col_names) is not list:
         raise TypeError(f"col_names should be a list of strings, had type {type(col_names)}")
+    # the shape isn't stored, the reader takes it from the names
+    if (len(row_names), len(col_names)) != mat.shape:
+        raise ValueError(
+            f"mat has shape {mat.shape}, but there are {len(row_names)} row names and {len(col_names)} column names"
+        )
+    # the reader assumes int32 indices and indptr, scipy uses int64 for large matrices (and after some operations)
+    int32_max = np.iinfo(np.int32).max
+    if max(mat.shape) > int32_max or mat.nnz > int32_max:
+        raise ValueError(f"mat is too large to write, it has shape {mat.shape} and {mat.nnz} nonzero values")
     _write_chunks(
         filename,
         "\n".join(row_names).encode("ascii"),
         "\n".join(col_names).encode("ascii"),
         # the reader assumes float64 data (np.frombuffer default), so other float types are converted
         mat.data.astype(np.float64, copy=False).tobytes(),
-        mat.indices.tobytes(),
-        mat.indptr.tobytes(),
+        mat.indices.astype(np.int32, copy=False).tobytes(),
+        mat.indptr.astype(np.int32, copy=False).tobytes(),
     )
 
 
@@ -219,7 +231,7 @@ def read_csc_matrix(filename: str) -> tuple[csc_matrix[np.float64], list[str], l
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csc_matrix((data, indices, indptr))
+    mat = csc_matrix((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
 
 
@@ -249,7 +261,7 @@ def read_csr_matrix(filename: str) -> tuple[csr_matrix[np.float64], list[str], l
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csr_matrix((data, indices, indptr))
+    mat = csr_matrix((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
 
 
