@@ -284,6 +284,16 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    Each gene name is stored once, the links are stored as pairs of gene ids of 1 byte (up to 256 genes), 2 bytes (up to
+    65,536 genes), etc. `read_network` returns the links grouped by source gene, not in the original order.
+
+    Compared with pickle (highest protocol) on random networks, files are about 5 times smaller (2.3 MB vs 12.0 MB for
+    15,000 genes and 1 million links, gzip compressed pickle: 5.8 MB). Pickle is somewhat faster (3 million links: write
+    0.9 s, read 0.4 s vs write 0.9 s, read 0.6 s), as this function and `read_network` loop over the links in Python.
+    Unlike pickle files, these files don't execute code when they are read, so files from other sources are safe to read.
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
@@ -327,6 +337,18 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    Each gene name is stored once, the links are stored as pairs of gene ids of 1 byte (up to 256 genes), 2 bytes (up to
+    65,536 genes), etc. followed by the weight (8 byte float). `read_weighted_network` returns the links grouped by source
+    gene, not in the original order.
+
+    Compared with pickle (highest protocol) on random networks, files are about 2 times smaller (10.3 MB vs 21.0 MB for
+    15,000 genes and 1 million links, gzip compressed pickle: 14.5 MB); the weights take up most of the space. Pickle is
+    faster (3 million links: write 1.0 s, read 0.5 s vs write 2.6 s, read 1.1 s), as this function and
+    `read_weighted_network` loop over the links in Python. Unlike pickle files, these files don't execute code when they
+    are read, so files from other sources are safe to read.
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
