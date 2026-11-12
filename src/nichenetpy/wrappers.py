@@ -580,14 +580,15 @@ def create_ligand_activity_hist(
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
+    top_n: int = 30,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a ligand activity histogram.
+    Creates a ligand activity histogram with a dashed line at the activity of the top_n-th ligand.
 
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand
+        the computed metrics for each ligand, sorted from the most to the least active ligand
     xtitle : str
         the title of the x-axis
     ytitle : str
@@ -596,6 +597,8 @@ def create_ligand_activity_hist(
         the size of the figure
     target_evaluation_metric : string
         the target prediction evaluation metric to use
+    top_n : int
+        the dashed line marks the activity of the top_n-th ligand (the last ligand if there are fewer)
 
     Returns
     -------
@@ -603,13 +606,27 @@ def create_ligand_activity_hist(
         the figure
     Axes
         the axes
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if there are no ligands or top_n is smaller than 1
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    if type(top_n) is not int:
+        raise TypeError(f"top_n should have type int, was {type(top_n)}")
+    if top_n < 1:
+        raise ValueError(f"top_n should be at least 1, was {top_n}")
     vals = [e[1][target_evaluation_metric] for e in ligand_activities_sorted]
-    plt.hist(vals, bins=40, edgecolor="black")
-    plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
-    plt.xlabel(xtitle)
-    plt.ylabel(ytitle)
+    if len(vals) == 0:
+        raise ValueError("ligand_activities_sorted is empty")
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.hist(vals, bins=40, edgecolor="black")
+    # axvline spans the full height of the plot (the line used to stop at a fixed count of 120)
+    ax.axvline(x=vals[min(top_n, len(vals)) - 1], color="red", linestyle="dashed")
+    ax.set_xlabel(xtitle)
+    ax.set_ylabel(ytitle)
     return (fig, ax)
 
 
@@ -838,54 +855,51 @@ def _create_circos_plot(
     separate_sender_receiver: bool = True,
     sender_receiver_space: float = 0,
 ) -> tuple[Figure, Axes]:
-    link_count_in = {}
-    link_count_out = {}
+    circos_links = list(circos_links)
+    # opacity is used twice (its maximum and the value of each link), so it's stored in a list (it may be a generator)
+    weights = [1.0] * len(circos_links) if opacity is None else list(opacity)
+    if len(weights) != len(circos_links):
+        raise ValueError(f"opacity should have a value for each of the {len(circos_links)} links, had {len(weights)}")
+    max_weight = max(weights, default=1.0)
+
+    # Each rectangle is identified by (role, group, gene) and each sector by (role, group), with role "send" or "rec"
+    # (or "" if senders and receivers aren't separated). The names are kept as tuples, so groups and genes can contain
+    # any character (they used to be joined with "_" and split again, which failed for names containing "_").
+    def sector_name(role: str, group: str) -> str:
+        return f"{role}_{group}" if role else group
+
+    send_role, rec_role = ("send", "rec") if separate_sender_receiver else ("", "")
+    link_count_out: dict[tuple[str, str, str], int] = {}
+    link_count_in: dict[tuple[str, str, str], int] = {}
     links = []
-    if not isinstance(circos_links, Sequence):
-        circos_links = tuple(circos_links)
-    max_weight = 1 if opacity is None else max(opacity)
-    # define unique identifiers for each rectangle and create a list of links between rectangles
-    # the opacity and start/end positions of the links are also specified
-    for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
-        sender_tup: tuple[str, str]
-        receiver_tup: tuple[str, str]
-        sender_tup, receiver_tup = link if opacity is None else link[0]
-        weight: float = 1 if opacity is None else link[1]
-        sender_group, sender = sender_tup
-        receiver_group, receiver = receiver_tup
-        key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"
-        if key_out in link_count_out:
-            link_count_out[key_out] += 1
-        else:
-            link_count_out[key_out] = 1
-        key_in = f"{'rec_' if separate_sender_receiver else ''}{receiver_group}_{receiver}"
-        if key_in in link_count_in:
-            link_count_in[key_in] += 1
-        else:
-            link_count_in[key_in] = 1
+    # count the links of each rectangle; the n-th link of a rectangle starts at position n - 1 within the rectangle
+    for ((sender_group, sender), (receiver_group, receiver)), weight in zip(circos_links, weights, strict=True):
+        key_out = (send_role, sender_group, sender)
+        key_in = (rec_role, receiver_group, receiver)
+        link_count_out[key_out] = link_count_out.get(key_out, 0) + 1
+        link_count_in[key_in] = link_count_in.get(key_in, 0) + 1
         links.append((key_out, key_in, weight / max_weight, link_count_out[key_out], link_count_in[key_in]))
-    groups = {}
-    group_sizes = {}
-    # group the rectangles into sectors and keep track of the size of each group
-    for key, count in chain(link_count_in.items(), link_count_out.items()):
-        if separate_sender_receiver:
-            role, group, elem = key.split("_")
-            group = f"{role}_{group}"
+    # the genes of each sector (in order of appearance, a set had a different order in every Python session) and the
+    # size of each sector (its links + the space between its genes)
+    sector2group: dict[str, str] = {}
+    sector_genes: dict[str, list[str]] = {}
+    group_sizes: dict[str, float] = {}
+    for (role, group, gene), count in chain(link_count_in.items(), link_count_out.items()):
+        name = sector_name(role, group)
+        sector2group[name] = group
+        if name in group_sizes:
+            sector_genes[name].append(gene)
+            group_sizes[name] += count + intra_space
         else:
-            group, elem = key.split("_")
-        if group in groups:
-            groups[group].add(elem)
-        else:
-            groups[group] = {elem}
-        if group in group_sizes:
-            group_sizes[group] += count + intra_space
-        else:
-            group_sizes[group] = count
-    # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
-    rec_sector_count = len({key.split("_")[1] for key in link_count_in.keys()})
+            sector_genes[name] = [gene]
+            group_sizes[name] = count
     if separate_sender_receiver:
+        # pycirclize doesn't let you order the sectors, they're drawn in the order of group_sizes:
+        # the receiver sectors ("rec_...") first, then the sender sectors ("send_...")
         group_sizes = dict(sorted(group_sizes.items(), key=lambda x: x[0]))
         if sender_receiver_space > 0:
+            # extra space at the start of the first receiver sector and the end of the last receiver sector
+            rec_sector_count = len({group for _, group, _ in link_count_in})
             keys = list(group_sizes.keys())
             for i in (0, rec_sector_count - 1):
                 group_sizes[keys[i]] += sender_receiver_space
@@ -896,43 +910,40 @@ def _create_circos_plot(
             * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space))
         ),
     )
-    link_count = dict(chain(link_count_in.items(), link_count_out.items()))
-    rects = {}
+    link_count = {
+        (sector_name(role, group), gene): count
+        for (role, group, gene), count in chain(link_count_in.items(), link_count_out.items())
+    }
+    rects: dict[str, dict[str, float]] = {}
     # create a track for each sector and add the rectangles
     start = sender_receiver_space if separate_sender_receiver else 0
     for sector in circos.sectors:
-        group = sector.name
-        sub_rects = {}
-        rects[group] = sub_rects
+        name = sector.name
+        sub_rects: dict[str, float] = {}
+        rects[name] = sub_rects
         track = sector.add_track((95, 100))
-        for elem in groups[group]:
-            end = start + link_count[f"{group}_{elem}"]
-            track.rect(start, end, fc=colors[group.split("_")[1] if separate_sender_receiver else group])
-            sub_rects[elem] = start
+        for gene in sector_genes[name]:
+            end = start + link_count[(name, gene)]
+            track.rect(start, end, fc=colors[sector2group[name]])
+            sub_rects[gene] = start
             track.text(
-                elem, (end + start) / 2, r=track.r_center + track.r_size + len(elem) + 4, size=6, orientation="vertical"
+                gene, (end + start) / 2, r=track.r_center + track.r_size + len(gene) + 4, size=6, orientation="vertical"
             )
             start = end + intra_space
         start = 0
     # link the rectangles
-    for sender, receiver, weight, send_pos, rec_pos in links:
-        if separate_sender_receiver:
-            _, sender_group, sender = sender.split("_")
-            _, receiver_group, receiver_gene = receiver.split("_")
-            sender_group = f"send_{sender_group}"
-            receiver_group = f"rec_{receiver_group}"
-        else:
-            sender_group, sender = sender.split("_")
-            receiver_group, receiver_gene = receiver.split("_")
+    for (s_role, s_group, sender), (r_role, r_group, receiver), weight, send_pos, rec_pos in links:
+        sender_sector = sector_name(s_role, s_group)
+        receiver_sector = sector_name(r_role, r_group)
         circos.link(
-            (sender_group, rects[sender_group][sender] + send_pos - 1, rects[sender_group][sender] + send_pos),
+            (sender_sector, rects[sender_sector][sender] + send_pos - 1, rects[sender_sector][sender] + send_pos),
             (
-                receiver_group,
-                rects[receiver_group][receiver_gene] + rec_pos - 1,
-                rects[receiver_group][receiver_gene] + rec_pos,
+                receiver_sector,
+                rects[receiver_sector][receiver] + rec_pos - 1,
+                rects[receiver_sector][receiver] + rec_pos,
             ),
             direction=1,
-            color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
+            color=colors[s_group],
             alpha=weight,
         )
     # add a legend to the plot
@@ -1029,22 +1040,24 @@ def create_ligand_links_circos_plot(
     sender_receiver_space: float = 0,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a circos plot showing the links between ligands and targets.
+    Creates a circos plot showing the links between ligands and their targets or receptors.
 
     Parameters
     ----------
     circos_links : pandas.DataFrame
-        dataframe with columns 'ligand', 'target', 'weight' and 'ligand_type'
+        dataframe with one row per link and the columns 'ligand', 'ligand_type' (the cell type the ligand is assigned
+        to, e.g. by visualization.assign_ligands_to_celltype) and `dest_name` (the receiving genes)
     colors : dict
-        color mapping for the ligands, should include a 'General' and 'target' mapping as well
+        color mapping for the ligand types and `dest_name`, e.g. {'General': ..., 'NK': ..., 'target': ...}
     dest_name : str
-        name of the receiving type
+        the column with the receiving genes, also used as the name (and color key) of the receiving sector, e.g.
+        'target' or 'receptor'
     inter_space : float
         space between celltypes
     intra_space : float
         space between genes
     opacity : Iterable of float or None
-        the opacity of each link
+        the opacity of each link (relative to the largest value), e.g. circos_links['weight']
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
 
@@ -1052,11 +1065,15 @@ def create_ligand_links_circos_plot(
     -------
     matplotlib.Figure
         the plotted figure
+    matplotlib.Axes
+        the axes
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if opacity doesn't have one value per link
     """
     if type(circos_links) is not pd.DataFrame:
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")

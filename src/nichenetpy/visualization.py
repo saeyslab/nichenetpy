@@ -1,7 +1,7 @@
 import os
 from collections.abc import Callable, Collection, Iterable, Sequence
 from contextlib import redirect_stdout
-from itertools import chain, repeat
+from itertools import chain, groupby, repeat
 from math import isnan, sqrt
 from numbers import Number
 from typing import Any
@@ -38,6 +38,20 @@ from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
+
+
+def _cluster_order(mat: np.ndarray, rowvar: bool) -> np.ndarray:
+    # order of the rows (rowvar=True) or columns (rowvar=False) after hierarchical clustering on 1 - correlation
+    with np.errstate(invalid="ignore", divide="ignore"):
+        corr = np.corrcoef(mat, rowvar=rowvar)
+    # the correlation with a constant row/column is undefined (NaN), it's treated as uncorrelated (0) with the others
+    # and perfectly correlated with itself, otherwise the clustering fails on the NaN distances
+    corr = np.nan_to_num(corr, nan=0.0)
+    np.fill_diagonal(corr, 1.0)
+    corr = 1 - corr
+    dist = sc.spatial.distance.cdist(corr, corr)
+    clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
+    return sc.cluster.hierarchy.leaves_list(clust)
 
 
 def reorder_labels[GeneSymbol](
@@ -77,16 +91,8 @@ def reorder_labels[GeneSymbol](
         raise TypeError(f"col_labels should have type list[str] or tuple[str], was {type(col_labels)}")
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
-        corr = np.corrcoef(mat, rowvar=False)
-        corr = 1 - corr
-        dist = sc.spatial.distance.cdist(corr, corr)
-        clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
-        order_cols = sc.cluster.hierarchy.leaves_list(clust)
-        corr = np.corrcoef(mat, rowvar=True)
-        corr = 1 - corr
-        dist = sc.spatial.distance.cdist(corr, corr)
-        clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
-        order_rows = sc.cluster.hierarchy.leaves_list(clust)
+        order_cols = _cluster_order(mat, rowvar=False)
+        order_rows = _cluster_order(mat, rowvar=True)
         mat = subset_matrix(mat, order_rows, order_cols)
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
@@ -282,8 +288,8 @@ def heatmap_2d(
 
     Parameters
     ----------
-    mat : numpy.ndarray or list of list of float
-        a matrix of values to plot
+    mat : numpy.ndarray or sparse matrix or list of list of float
+        a matrix of values to plot (a list of rows)
     xlabels : Collection of str
         the labels of the x values
     ylabels : Collection of str
@@ -317,7 +323,15 @@ def heatmap_2d(
     ValueError
         if the arguments are invalid
     """
-    validate_matrix_type(mat, f"mat should have type nichenet_matrix or list, was {type(mat)}")
+    if isinstance(mat, Sequence):
+        # a list (or tuple) of rows
+        mat = np.asarray(mat, dtype=np.float64)
+    else:
+        validate_matrix_type(mat, f"mat should have type nichenet_matrix or list, was {type(mat)}")
+        if not isinstance(mat, np.ndarray):
+            mat = mat.toarray()  # pcolormesh needs a dense matrix
+    if mat.ndim != 2:
+        raise ValueError(f"mat should be 2-dimensional, had shape {mat.shape}")
     if not isinstance(xlabels, Collection):
         raise TypeError(f"xlabels should have type Collection, was {type(xlabels)}")
     if not isinstance(ylabels, Collection):
@@ -326,11 +340,7 @@ def heatmap_2d(
         cmap = cm[cmap]
     elif not isinstance(cmap, Colormap):
         raise TypeError(f"cmap should have type str or Colormap, was {type(cmap)}")
-    if type(mat) is np.ndarray:
-        nrows, ncols = mat.shape
-    else:
-        nrows = len(mat)
-        ncols = len(mat[0])
+    nrows, ncols = mat.shape
     if ncols == 1:
         fig, ax = heatmap_1d(chain(*mat), ylabels, None, cbar_label, cmap, figsize)
         if xtitle is not None:
@@ -389,18 +399,16 @@ def _construct_ligand_signaling_df[GeneSymbol](
     ltf_matrix: csr_matrix[np.floating],
     k: int,
 ) -> pd.DataFrame:
-    pd.options.mode.chained_assignment = None  # false positive warnings removal
     target2id = dict(zip(all_targets, range(len(all_targets)), strict=True))
     dfs = []
     for ligand in ligands_oi:
         ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)  # type: ignore # behaves as expected
         ltf_vis.index.name = "TF"
         ltf_vis.reset_index(inplace=True)
-        ltf_vis = ltf_vis[ltf_vis["weight"] > 0]
-        ltf_vis["ligand"] = [ligand for _ in range(len(ltf_vis))]  # pyright: ignore[reportArgumentType, reportCallIssue]
+        # assign returns a new DataFrame, so the column isn't added to a view of ltf_vis
+        ltf_vis = ltf_vis[ltf_vis["weight"] > 0].assign(ligand=ligand)  # pyright: ignore[reportArgumentType] # a gene (str or int) is a valid value
         for target in targets_oi:
-            gr_filtered = gr[gr["to"] == target]
-            gr_filtered.rename(columns={"from": "TF", "weight": "weight_grn"}, inplace=True)
+            gr_filtered = gr[gr["to"] == target].rename(columns={"from": "TF", "weight": "weight_grn"})
             combined_df = ltf_vis.merge(gr_filtered, on="TF")
             # ltf weight multiplied with gr weight
             combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
@@ -408,6 +416,9 @@ def _construct_ligand_signaling_df[GeneSymbol](
             # select top k
             combined_df = combined_df.iloc[0 : min(k, len(combined_df))]
             dfs.append(combined_df)
+    if len(dfs) == 0:
+        # no ligands or targets of interest (pd.concat fails on an empty list)
+        return pd.DataFrame(columns=["TF", "weight", "ligand", "to", "weight_grn", "total_weight"])
     return pd.concat(dfs)
 
 
@@ -422,7 +433,8 @@ def _get_shortest_path_signaling[GeneSymbol](
     ligand_id = gene2id[ligand_oi]
     # predecessor of every gene on its shortest path from the ligand (-9999 for the ligand itself and unreachable genes)
     _, predecessors = dijkstra(lr_sig_mat, directed=True, indices=ligand_id, return_predecessors=True)
-    return set.union(
+    # set().union instead of set.union, which fails without arguments (when the ligand has no TFs)
+    return set().union(
         *(
             set(
                 linked_iter(
@@ -436,11 +448,15 @@ def _get_shortest_path_signaling[GeneSymbol](
     )
 
 
-def _minmax_scaling(df: pd.DataFrame):
-    weight = np.array(df["weight"])
+def _minmax_scaling(df: pd.DataFrame) -> pd.DataFrame:
+    # (weight - min) / (max - min) + 0.75 as in NicheNetR, so the weights range from 0.75 to 1.75; if all weights are the
+    # same (max == min) NicheNetR gives NaN, here they all become 0.75
+    weight = df["weight"].to_numpy(dtype=np.float64)
+    if weight.size == 0:
+        return df.copy()
     mn = weight.min()
-    mx = weight.max()
-    df["weight"] = (weight - mn) / (mx - mn) + 0.75
+    rng = weight.max() - mn
+    return df.assign(weight=(weight - mn) / (rng if rng > 0 else 1) + 0.75)
 
 
 def get_ligand_signaling_path(
@@ -478,8 +494,9 @@ def get_ligand_signaling_path(
         Top regulators are regulators that score both high for being upstream of the target gene(s) and high for being downstream of the ligand.
         Default: 4
     minmax_scaling : bool
-        Indicate whether the weights of both dataframes should be min-max scaled between 0.75 and 1.
-        Default: FALSE
+        Indicate whether the weights of both dataframes should be min-max scaled between 0.75 and 1.75 (as in
+        NicheNetR; if all weights of a dataframe are equal, they all become 0.75).
+        Default: False
 
     Returns
     -------
@@ -519,19 +536,24 @@ def get_ligand_signaling_path(
         shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
-    tfs = set.union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
+    tfs = set().union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
     tfs = {all_genes[e] for e in tfs}
     # ligand-tf or tf-tf
     tf_signaling = lr_sig[
-        [(fr in ligands_oi or fr in tfs) and to in tfs for fr, to in zip(lr_sig["from"], lr_sig["to"], strict=True)]
+        [
+            (fr in ligands_oi or fr in tfs) and to in tfs
+            for fr, to in zip(lr_sig["from"].tolist(), lr_sig["to"].tolist(), strict=True)
+        ]
     ]
     tf_signaling = tf_signaling.groupby(["from", "to"], as_index=False).sum()
     combined_df_tf = set(combined_df["TF"])
     # incoming edges of target nodes
-    tf_regulatory = gr[[fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"], gr["to"], strict=True)]]
+    tf_regulatory = gr[
+        [fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"].tolist(), gr["to"].tolist(), strict=True)]
+    ]
     if minmax_scaling:
-        _minmax_scaling(tf_signaling)
-        _minmax_scaling(tf_regulatory)
+        tf_signaling = _minmax_scaling(tf_signaling)
+        tf_regulatory = _minmax_scaling(tf_regulatory)
     return (tf_signaling, tf_regulatory)
 
 
@@ -616,8 +638,9 @@ def visualize_ligand_signaling_graph(
     ):
         graph.add_edge(fr, to, weight=w, color=c)
     pos = nx.arf_layout(graph, seed=seed)
+    # as documented (and as in the legend): ligands in the ligand-signaling color, targets in the gene regulatory color
     node2color = {
-        node: (gr_color if node in ligands_oi else sig_color if node in targets_oi else neutral_color)
+        node: (sig_color if node in ligands_oi else gr_color if node in targets_oi else neutral_color)
         for node in graph.nodes
     }
     nx.draw_networkx_nodes(graph, pos, node_color=[node2color[node] for node in graph.nodes], node_size=node_size)
@@ -699,19 +722,25 @@ def assign_ligands_to_celltype(
     else:
         ann_sub = subset_ann(ann, genes=ligands, val_col=condition_col, val=condition_oi, layers=[layer])
     celltypes = sorted(set(ann_sub.obs[celltype_col]))
-    avg_expression_ligands = []
+    avg_expression_rows = []
     for celltype in celltypes:
         ann_celltype = subset_ann(ann_sub, val_col=celltype_col, val=celltype, layers=[layer])
         mat = ann_celltype.layers[layer]
         if layer == "data":
-            mat = np.expm1(mat)
-        mat = mat.tocsr()
-        avg_expression_ligands.append(mat.mean(axis=0).A.reshape((-1,)))
-    avg_expression_ligands = np.array(avg_expression_ligands)
+            mat = np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
+        # np.asarray(...).ravel() works for dense layers, sparse matrices (mean returns a numpy.matrix) and sparse arrays
+        avg_expression_rows.append(np.asarray(mat.mean(axis=0)).ravel())
+    # cell types x ligands
+    avg_expression_ligands = np.array(avg_expression_rows)
     assig = np.mean(avg_expression_ligands, axis=0)
-    assig += np.std(avg_expression_ligands, mean=assig, axis=0)
+    # sample standard deviation (ddof=1), as sd() in NicheNetR; with a single cell type it's undefined (NA in NicheNetR),
+    # so no ligand is assigned to a cell type (all are "General")
+    if avg_expression_ligands.shape[0] > 1:
+        assig += np.std(avg_expression_ligands, mean=assig, axis=0, ddof=1)
+    else:
+        assig[:] = np.inf
     sender_ligand_assignment = {
-        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}  # type: ignore
+        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}
         for i, celltype in enumerate(celltypes)
     }
     count = {}
@@ -853,7 +882,7 @@ def create_barcode_plot(
     ax.add_artist(Text(x_col_focused, top_offset / ymax, "Focused", horizontalalignment="center", size=12))
     # add marks and lines
     for ligand, rank_agnostic, rank_focused in zip(
-        ranking["ligand"], ranking["rank_agnostic"], ranking["rank_focused"], strict=True
+        ranking["ligand"].tolist(), ranking["rank_agnostic"].tolist(), ranking["rank_focused"].tolist(), strict=True
     ):
         xy1 = (x_col_agnostic, (rank_agnostic + top_offset) / ymax)
         xy2 = (x_col_focused, (rank_focused + top_offset) / ymax)
@@ -940,17 +969,10 @@ def create_barcode_plot(
     # add barcode plot
     top_offset = ranking.shape[0] / 6
     ymax = ranking.shape[0] + top_offset + bot_offset
-    runs = []
-    run_length = 1
-    group = isnan(ranking["rank_focused"][0])
-    ranking.sort_values(by="rank_agnostic", ascending=True, inplace=True)
-    for rank in ranking["rank_focused"][1:]:
-        if isnan(rank) == group:
-            run_length += 1
-        else:
-            runs.append((group, run_length))
-            group = isnan(rank)
-            run_length = 1
+    # in the order of the agnostic ranking, whether each ligand is missing from the focused ranking (red) or not
+    # (black); consecutive ligands of the same kind form one segment (run) of the barcode
+    only_agnostic = ranking.sort_values(by="rank_agnostic")["rank_focused"].isna().tolist()
+    runs = [(group, len(list(run))) for group, run in groupby(only_agnostic)]
     pos = 0
     for group, run_length in runs:
         segment_height = run_length / ymax
@@ -1119,11 +1141,13 @@ def create_mushroom_plot(
         raise TypeError(f"color_prefix should have type str, was {type(color_prefix)}")
     if type(max_rows) is not int:
         raise TypeError(f"max_rows should have type int, was {type(max_rows)}")
+    # work on a copy, so the caller's dataframe isn't sorted and doesn't get a "show" column
     if use_absolute_rank:
-        df["show"] = df["prioritization_rank"] <= top_n
+        df = df.assign(show=df["prioritization_rank"] <= top_n)
     else:
-        df.sort_values(by="prioritization_rank", inplace=True)
-        df["show"] = list(chain(repeat(True, top_n), repeat(False, df.shape[0] - top_n)))
+        df = df.sort_values(by="prioritization_rank")
+        # the first top_n rows (all rows if there are fewer than top_n)
+        df = df.assign(show=np.arange(df.shape[0]) < top_n)
     interactions = df.drop_duplicates(subset=["ligand", "receptor"])
     if max_rows > interactions.shape[0]:
         max_rows = interactions.shape[0]
@@ -1293,7 +1317,8 @@ def marker_plot(
     y : Sequence or numpy.ndarray
         the y-values
     a : Sequence or numpy.ndarray
-        the values which are visualized as the size of the markers
+        the values which are visualized as the size of the markers (the area of a marker is proportional to its value,
+        the largest absolute value gets the maximal marker size)
     labels : Iterable of str
         the marker labels
     xlabel : str
@@ -1311,7 +1336,7 @@ def marker_plot(
     figsize : tuple of int
         the size of the figure
     max_marker_size : float
-        the maximal size of a marker (the marker size associated with the largest value in a)
+        the maximal size of a marker (the marker size associated with the largest absolute value in a)
     num_ticks_x : int
         the number of ticks on the x-axis
     num_ticks_y : int
@@ -1347,8 +1372,9 @@ def marker_plot(
         raise TypeError(f"alabel should have type str, was {type(alabel)}")
     if clabel is not None and type(clabel) is not str:
         raise TypeError(f"clabel should have type str, was {type(clabel)}")
-    if type(max_marker_size) is not float:
+    if not isinstance(max_marker_size, Number) or type(max_marker_size) is bool:
         raise TypeError(f"max_marker_size should have type float, was {type(max_marker_size)}")
+    max_marker_size = float(max_marker_size)
     if type(num_ticks_x) is not int:
         raise TypeError(f"num_ticks_x should have type int, was {type(num_ticks_x)}")
     if type(num_ticks_y) is not int:
@@ -1357,7 +1383,9 @@ def marker_plot(
         c = labels
     elif not isinstance(c, Sequence) and type(c) is not np.ndarray:
         raise TypeError(f"c should have type Sequence or numpy.ndarray, was {type(c)}")
-    _c = set(c)
+    # unique values in order of appearance (a set has no fixed order for strings, so the default colors and the color
+    # legend would change between Python sessions)
+    _c = list(dict.fromkeys(c))
     if val2color is None:
         val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c))), strict=True))
     if isinstance(val2color, dict):
@@ -1384,12 +1412,13 @@ def marker_plot(
     # Ellipse is used in stead of circle because the markers are 'stretched' in case xmax - xmin != ymax - ymin
     max_marker_width = max_marker_size * (xmax - xmin)
     max_marker_height = max_marker_size * (ymax - ymin)
-    amax = np.max(a)
-    amin = np.min(a)
+    # marker sizes are relative to the largest absolute value in a (if all values are 0, all markers have size 0)
+    amax = float(np.max(np.abs(a)))
+    a_scale = amax if amax > 0 else 1.0
     texts = []
     for xp, yp, ap, cp, label in zip(x, y, a, c, labels, strict=True):
         # linear with radius
-        size_mult = ap / amax
+        size_mult = ap / a_scale
         # linear with area
         size_mult = np.sign(size_mult) * np.sqrt(np.abs(size_mult))
         marker_width = max_marker_width * size_mult
@@ -1433,7 +1462,8 @@ def marker_plot(
             Text(
                 x_pos,
                 y_pos + (ymax - ymin) / 20,
-                f"{amin + (amax - amin) * size:3.2f}",
+                # a marker with this relative area represents the value size * amax (sizes are relative to amax)
+                f"{amax * size:3.2f}",
                 horizontalalignment="center",
                 verticalalignment="center",
                 size=text_size,
@@ -1455,7 +1485,8 @@ def marker_plot(
     if clabel is not None:
         x_diff = max_marker_width * 4
         y_diff = max_marker_height * 4
-        n_color_legend_rows = int((ymax - ymin) / (2 * y_diff))
+        # at least one row (with a large max_marker_size no row fits, which led to a division by zero below)
+        n_color_legend_rows = max(1, int((ymax - ymin) / (2 * y_diff)))
         n_color_legend_cols = int(np.ceil(len(_c) / n_color_legend_rows))
         color_legend_width = n_color_legend_cols * x_diff
         color_legend_center = (
@@ -1466,13 +1497,12 @@ def marker_plot(
         y_pos_s = color_legend_center[1]
         x_pos = x_pos_s
         y_pos = y_pos_s
-        _c = list(_c)
         i = 0
         for _ in range(n_color_legend_rows):
             for _ in range(n_color_legend_cols):
                 if i >= len(_c):
                     break
-                cp = _c[i]  # type: ignore
+                cp = _c[i]
                 color = val2color(cp)
                 ax.add_patch(Ellipse((x_pos, y_pos), max_marker_width, max_marker_height, fc=color, clip_on=False))
                 ax.add_artist(
@@ -1556,11 +1586,13 @@ def _radar_factory(num_vars, frame="circle"):
             """Override fill so that line is closed by default"""
             return super().fill(*args, closed=closed, **kwargs)
 
-        def plot(self, *args, **kwargs):
+        def plot(self, *args, scalex=True, scaley=True, data=None, **kwargs) -> list[Line2D]:
             """Override plot so that line is closed by default"""
-            lines = super().plot(*args, **kwargs)
+            # same signature and return value as Axes.plot (the lines were not returned)
+            lines = super().plot(*args, scalex=scalex, scaley=scaley, data=data, **kwargs)
             for line in lines:
                 self._close_line(line)
+            return lines
 
         def _close_line(self, line):
             x, y = line.get_data()

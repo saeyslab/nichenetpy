@@ -103,7 +103,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.
 
-- Fixed bug in `visualization.create_barcode_plot` where the last ranked element was omitted.
+- Fixed bugs in `visualization.create_barcode_plot`: the last ranked element was omitted, the barcode dropped its last segment and took the color of its first segment from the alphabetically first ligand instead of the top-ranked one.
 
 - Fixed bugs in type checks at runtime.
 
@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Added shape to `lr_sig_mat` construction in `visualization.get_ligand_signaling_path` which fixes an edge case bug.
 
-- Fixed swapped edge colors in `visualization.visualize_ligand_signaling_graph` (the legend now matches the edges); the default values of `sig_color` and `gr_color` were swapped accordingly.
+- Fixed swapped edge and node colors in `visualization.visualize_ligand_signaling_graph` (the legend now matches the edges; as documented and as in NicheNetR, ligand nodes use `sig_color` and target nodes `gr_color`); the default values of `sig_color` and `gr_color` were swapped accordingly.
 
 - Fixed bug in `ann_utils.subset_ann` where subsetting without specifying `layers` failed with newer anndata versions (≥ 0.12), which expose `X` as the layer `None`. This also fixes `metrics.group_metrics` when both `group_oi` and `group_ref` are given, and thereby `wrappers.run_nichenet` with `get_prioritization_table=True` and `case_control=True`.
 
@@ -176,6 +176,20 @@ and this project adheres to [Semantic Versioning][].
 - Fixed `prediction.LigandActivityPredictor` warning about a row-major `numpy.ndarray` for matrices with a single row or column (e.g. a single ligand), which are also column-major.
 
 - Fixed `utils.read_matrix_from_csv` with the default arguments, which only read csv files where all names are quoted (as written by R): unquoted files (e.g. written by pandas) silently gave wrong row names, column names and values. Without custom `extract_row_name` / `extract_col_name` the file is now read with `pandas.read_csv`, and "NA" or empty values become NaN instead of raising an error.
+
+- Fixed `visualization.assign_ligands_to_celltype` for dense layers and sparse arrays (it only worked for sparse matrices). The threshold now uses the sample standard deviation (as `sd()` in NicheNetR), so fewer ligands may be assigned to a cell type than before.
+
+- Fixed `visualization.marker_plot`: the size legend showed wrong values (it now shows the value represented by each marker size), all-zero sizes and a large `max_marker_size` caused a division by zero, an int `max_marker_size` was rejected, and the default colors changed between Python sessions. Marker sizes are now relative to the largest absolute value, so negative values no longer give markers larger than `max_marker_size`.
+
+- Fixed `visualization.create_mushroom_plot` sorting the caller's dataframe and adding a "show" column to it, and failing when `top_n` exceeds the number of rows.
+
+- Fixed `visualization.get_ligand_signaling_path` failing when there are no ligands of interest or a ligand has no regulators, and `minmax_scaling=True` giving NaN weights when all weights are equal (they become 0.75; the weights range from 0.75 to 1.75 as in NicheNetR, not to 1 as documented). It no longer turns off pandas' chained assignment warnings globally.
+
+- Fixed `visualization.reorder_labels` failing on matrices with a constant row or column, and `visualization.heatmap_2d` rejecting a list of lists.
+
+- Fixed `wrappers.create_ligand_activity_hist` failing with fewer than 30 ligands; the dashed line now marks the `top_n`-th ligand (new argument, default 30) and spans the full height of the plot.
+
+- Fixed the circos plots in `wrappers` failing for cell types or genes containing "_" and for `opacity` given as a generator; the genes within a sector are now always in the same order. Corrected the documentation of `wrappers.create_ligand_links_circos_plot` (the receiving genes are read from the column named by `dest_name`).
 
 
 
