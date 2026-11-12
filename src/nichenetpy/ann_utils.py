@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import overload
+from typing import Any, overload
 
 import pandas as pd
 from anndata import AnnData
@@ -106,6 +106,9 @@ def subset_ann[GeneSymbol](
         layers = [key for key in ann.layers.keys() if key is not None]
     elif not isinstance(layers, Iterable):
         raise TypeError(f"layers should be an Iterable of strings, was {type(layers)}")
+    # the selected cells (None if the cells aren't subsetted) and the selected values of val_col
+    cells_oi: pd.DataFrame | None = None
+    selected_vals: set[Any] = set()
     if val is None:
         row_ids = None
     else:
@@ -115,8 +118,10 @@ def subset_ann[GeneSymbol](
             raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")
         elif type(val) is not set:
             val = set(val)
+        selected_vals = val
         try:
-            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]  # pyright: ignore[reportArgumentType] # val has type set[gene_t]
+            # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
+            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)].copy()  # pyright: ignore[reportArgumentType] # val has type set[gene_t]
         except KeyError as error:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
         if len(cells_oi) == 0:
@@ -140,16 +145,17 @@ def subset_ann[GeneSymbol](
     if ann.X is not None:
         new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X  # type: ignore # let subset_matrix return TypeError
     # subset categories if the column is categorical
-    if row_ids is not None and cells_oi[val_col].dtype.name == "category":
-        pd.options.mode.chained_assignment = None  # false positive warning removal
-        cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)  # type: ignore # val has type set[gene_t]
+    if cells_oi is not None and cells_oi[val_col].dtype.name == "category":
+        # keep the selected categories in their original order (val is a set, which has no fixed order)
+        categories = [cat for cat in cells_oi[val_col].cat.categories.tolist() if cat in selected_vals]
+        cells_oi[val_col] = cells_oi[val_col].cat.set_categories(categories)
     if len(new_layers) > 0:
         new_shape = new_layers[next(iter(layers))].shape
     elif ann.X is not None and subset_X:
         new_shape = new_X.shape
     else:
         raise ValueError("if layers=[] then X must be defined and subset_X must be True")
-    output = AnnData(obs=ann.obs if row_ids is None else cells_oi, layers=new_layers, shape=new_shape)  # type: ignore # despite the type warning this behaves as expected
+    output = AnnData(obs=ann.obs if cells_oi is None else cells_oi, layers=new_layers, shape=new_shape)  # type: ignore # despite the type warning this behaves as expected
     if genes is None:
         output.var_names = ann.var_names  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     else:

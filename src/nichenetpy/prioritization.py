@@ -313,12 +313,12 @@ def process_table_to_ic[GeneSymbol](
 
 
 def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None) -> pd.DataFrame:
+    # drop_duplicates returns a new dataframe, so the columns below aren't added to a view of de
     output = de[
         [lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
         if send_rcvr is None
         else [send_rcvr, lig_rec, f"lfc_{lig_rec}", f"pval_{lig_rec}"]
-    ]
-    output.drop_duplicates(inplace=True)
+    ].drop_duplicates()
     temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
     output[f"pval_adapted_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"].apply(lambda x: -1 if x < 0 else 1)
@@ -404,7 +404,6 @@ def generate_prioritization_table[GeneSymbol](
         raise TypeError(f"sender_receiver_de should be of type pandas.DataFrame, was {type(sender_receiver_de)}")
     if lr_condition_de is not None and type(lr_condition_de) is not pd.DataFrame:
         raise TypeError(f"lr_condition_de should be of type pandas.DataFrame, was {type(lr_condition_de)}")
-    pd.options.mode.chained_assignment = None  # false positive warnings removal
     if type(ligand_activities) is dict or type(ligand_activities) is list:
         ligand_activities = ligand_activities_df(ligand_activities)
     elif type(ligand_activities) is not pd.DataFrame:
@@ -448,15 +447,17 @@ def generate_prioritization_table[GeneSymbol](
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
     if "rank" not in ligand_activities.columns:
-        ligand_activities["rank"] = ligand_activities[[target_evaluation_metric]].rank(
-            method="average", na_option="bottom", ascending=False
+        # assign returns a new dataframe, so no "rank" column is added to the caller's ligand_activities
+        ligand_activities = ligand_activities.assign(
+            rank=ligand_activities[target_evaluation_metric].rank(method="average", na_option="bottom", ascending=False)
         )
     sender_ligand_prioritization = _prioritization(sender_receiver_de, "ligand", "sender")
     receiver_receptor_prioritization = _prioritization(sender_receiver_de, "receptor", "receiver")
+    # copies, the in-place operations below would otherwise change a view of the input dataframes
     if "receiver" in ligand_activities.columns:
-        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank", "receiver"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank", "receiver"]].copy()
     else:
-        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank"]]
+        ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank"]].copy()
     ligand_activity_prioritization.index.name = "ligand"
     ligand_activity_prioritization.reset_index(inplace=True)
     ligand_activity_prioritization.rename(columns={target_evaluation_metric: "activity"}, inplace=True)
@@ -465,8 +466,7 @@ def generate_prioritization_table[GeneSymbol](
         ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True
     ).transpose()
     ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
-    ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]]
-    ligand_celltype_specificity_prioritization.drop_duplicates(inplace=True)
+    ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]].drop_duplicates()
     ligand_celltype_specificity_prioritization = df_grouped_apply(
         ligand_celltype_specificity_prioritization,
         groupby="ligand",
@@ -474,8 +474,9 @@ def generate_prioritization_table[GeneSymbol](
         dest="scaled_avg_exprs_ligand",
     )
     ligand_celltype_specificity_prioritization.sort_values(by="scaled_avg_exprs_ligand", ascending=False, inplace=True)
-    receptor_celltype_specificity_prioritization = sender_receiver_info[["receiver", "receptor", "avg_receptor"]]
-    receptor_celltype_specificity_prioritization.drop_duplicates(inplace=True)
+    receptor_celltype_specificity_prioritization = sender_receiver_info[
+        ["receiver", "receptor", "avg_receptor"]
+    ].drop_duplicates()
     receptor_celltype_specificity_prioritization = df_grouped_apply(
         receptor_celltype_specificity_prioritization,
         groupby="receptor",

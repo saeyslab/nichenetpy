@@ -607,6 +607,7 @@ def assess_rf_class_probabilities[GeneSymbol](
     ligands_oi: Iterable[GeneSymbol],
     predictor: LigandActivityPredictor[GeneSymbol],
     ntrees: int = 1000,
+    random_state: int | None = None,
 ) -> pd.DataFrame:
     """
     Assess probability that a target gene belongs to the geneset based on a multi-ligand random forest model (with cross-validation).
@@ -626,6 +627,8 @@ def assess_rf_class_probabilities[GeneSymbol](
         the ligand-activity predictor which contains the ligand-target matrix
     ntrees : int
         the amount of trees in the random forest
+    random_state : int or None
+        seed for the fold splits and the random forests; with the same seed the results are reproducible
 
     Returns
     -------
@@ -643,12 +646,8 @@ def assess_rf_class_probabilities[GeneSymbol](
     """
     if type(folds) is not int:
         raise TypeError(f"folds should have type int, was {type(folds)}")
-    if not isinstance(geneset, set):
-        geneset = set(geneset)
     if not isinstance(geneset, Collection):
         raise TypeError(f"geneset should have type Collection[gene_t], was {type(geneset)}")
-    if not isinstance(background_expressed_genes, set):
-        background_expressed_genes = set(background_expressed_genes)
     if not isinstance(background_expressed_genes, Collection):
         raise TypeError(
             f"background_expressed_genes should have type Collection[gene_t], was {type(background_expressed_genes)}"
@@ -656,14 +655,22 @@ def assess_rf_class_probabilities[GeneSymbol](
     if not isinstance(ligands_oi, Iterable):
         raise TypeError(f"ligands_oi should have type Iterable[gene_t], was {type(ligands_oi)}")
     if not isinstance(predictor, LigandActivityPredictor):
-        raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(LigandActivityPredictor)}")
+        raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(ntrees) is not int:
         raise TypeError(f"ntrees should have type int, was {type(ntrees)}")
-    geneset.intersection_update(predictor.row_names)
-    background_expressed_genes.intersection_update(predictor.row_names)
-    background_expressed_genes = np.array([[e] for e in background_expressed_genes.difference(geneset)])
-    geneset = np.array([[e] for e in geneset])
-    kf = KFold(n_splits=folds, shuffle=True)
+    if random_state is not None and type(random_state) is not int:
+        raise TypeError(f"random_state should have type int or None, was {type(random_state)}")
+    # new sets, so the caller's sets aren't modified (intersection_update used to change them in place)
+    known_genes = set(predictor.row_names)
+    geneset_known = set(geneset) & known_genes
+    background_known = (set(background_expressed_genes) & known_genes) - geneset_known
+    # the ligand columns are the same in every fold (ligands_oi may be a generator, which can only be used once)
+    ligand_ids = [predictor.ligand2index(ligand) for ligand in ligands_oi]
+    # sorted: a set of strings has a different order in every Python session, which would change the folds even with
+    # the same random_state
+    background_expressed_genes = np.array([[e] for e in sorted(background_known, key=str)])
+    geneset = np.array([[e] for e in sorted(geneset_known, key=str)])
+    kf = KFold(n_splits=folds, shuffle=True, random_state=random_state)
     geneset_predictions_all = []
     for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset), strict=True):
         geneset_train, geneset_test = geneset_split
@@ -678,11 +685,11 @@ def assess_rf_class_probabilities[GeneSymbol](
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,
             rows=[predictor.gene2index(gene) for gene in row_names],
-            cols=[predictor.ligand2index(ligand) for ligand in ligands_oi],
+            cols=ligand_ids,
         )
         # random forest trained on some genes
         # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
-        rf = RandomForestClassifier(n_estimators=ntrees)
+        rf = RandomForestClassifier(n_estimators=ntrees, random_state=random_state)
         rf.fit(X=pred_mat, y=res)  # TODO: test this
         row_names, res = zip(
             *chain(
@@ -694,7 +701,7 @@ def assess_rf_class_probabilities[GeneSymbol](
         pred_mat = subset_matrix(
             predictor.ligand_target_matrix,
             rows=[predictor.gene2index(gene) for gene in row_names],
-            cols=[predictor.ligand2index(ligand) for ligand in ligands_oi],
+            cols=ligand_ids,
         )
         # prediction for the remaining genes
         pred = rf.apply(pred_mat)  # TODO: test this

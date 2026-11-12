@@ -191,6 +191,14 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed the circos plots in `wrappers` failing for cell types or genes containing "_" and for `opacity` given as a generator; the genes within a sector are now always in the same order. Corrected the documentation of `wrappers.create_ligand_links_circos_plot` (the receiving genes are read from the column named by `dest_name`).
 
+- Fixed `prediction.assess_rf_class_probabilities` removing the genes that aren't in the model from the caller's `geneset` and `background_expressed_genes` sets, and failing when `ligands_oi` is a generator. Added a `random_state` argument (for the fold splits and the random forests) to make the results reproducible.
+
+- Fixed `prioritization.generate_prioritization_table` adding a "rank" column to the caller's `ligand_activities`.
+
+- Fixed `utils.rank_genes_groups_to_dataframe` replacing scanpy's results in `ann.uns["rank_genes_groups"]` by the returned data frame (after which scanpy's functions on these results and a second call failed); `ann.uns` is no longer changed.
+
+- `prioritization.generate_prioritization_table`, `utils.df_grouped_apply` and `ann_utils.subset_ann` no longer turn off pandas' chained assignment warnings globally. `ann_utils.subset_ann` keeps the categories of a categorical column in their original order (they were in a random order).
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

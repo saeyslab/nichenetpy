@@ -483,11 +483,11 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
-    pd.options.mode.chained_assignment = None  # false positive warnings removal
     vals = sorted(set(df[groupby]))
     groups = []
     for val in vals:
-        group = df[df[groupby] == val]
+        # copy, so the new column is added to a dataframe of its own and not to a view of df
+        group = df[df[groupby] == val].copy()
         group[dest] = func(group)
         groups.append(group)
     return pd.concat(groups)
@@ -572,7 +572,8 @@ def decomplexify(df: pd.DataFrame, from_col: str = "ligand", to_col: str = "rece
 
 def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     """
-    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame.
+    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame (ann.uns["rank_genes_groups"] is not
+    changed).
 
     Parameters
     ----------
@@ -610,7 +611,7 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     output.rename(
         columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"}, inplace=True
     )
-    ann.uns["rank_genes_groups"] = output
+    # ann.uns["rank_genes_groups"] is left as it is (scanpy's own functions, e.g. its plots, need its format)
     return output
 
 
