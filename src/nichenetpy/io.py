@@ -1,9 +1,10 @@
 import struct
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import overload
 
 import numpy as np
-from scipy.sparse import csc_matrix, csr_matrix
+import pandas as pd
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import nichenet_matrix, validate_matrix_type
@@ -27,6 +28,21 @@ def _encode_names(names: Sequence[str]) -> bytes:
     if any("\n" in name for name in names):
         raise ValueError("names can't contain a newline character")
     return "\n".join(names).encode("utf-8")
+
+
+def _name_list(names: object, arg_name: str) -> list[str]:
+    # any ordered sequence of names (list, tuple, numpy array, pandas Index), not a str or an unordered set
+    if isinstance(names, str) or not isinstance(names, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(f"{arg_name} should be a Sequence of strings, had type {type(names)}")
+    return list(names)
+
+
+def _check_names_shape(row_names: list[str], col_names: list[str], shape: tuple[int, ...]):
+    # the shape isn't stored, the readers take it from the names
+    if (len(row_names), len(col_names)) != shape:
+        raise ValueError(
+            f"mat has shape {shape}, but there are {len(row_names)} row names and {len(col_names)} column names"
+        )
 
 
 def _decode_names(names: bytes) -> list[str]:
@@ -87,22 +103,22 @@ def write_ligand_target_matrix(
     TypeError
         if the arguments have the wrong type
     ValueError
+        if the number of row or column names doesn't match the shape of the matrix
         if a name contains a newline character
     """
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
         validate_matrix_type(mat, f"expected a nichenet_matrix for mat, got {type(mat)}")
-        if not isinstance(row_names, list):
-            raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
-        if not isinstance(col_names, list):
-            raise TypeError(f"expected a list of strings for col_names, got {type(col_names)}")
     else:
         if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
+    row_names = _name_list(row_names, "row_names")
+    col_names = _name_list(col_names, "col_names")
+    _check_names_shape(row_names, col_names, mat.shape)  # type: ignore # mat can't be None at this point
     if not isinstance(mat, np.ndarray):
         mat = mat.toarray(order="F" if column_major else "C")  # type: ignore # mat can't be None at this point
     _write_chunks(
@@ -154,7 +170,10 @@ def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple
 
 
 def write_sparse_matrix(
-    filename: str, mat: csc_matrix[np.floating] | csr_matrix[np.floating], row_names: list[str], col_names: list[str]
+    filename: str,
+    mat: csc_matrix[np.floating] | csr_matrix[np.floating] | csc_array[np.floating] | csr_array[np.floating],
+    row_names: Sequence[str],
+    col_names: Sequence[str],
 ):
     """
     Writes a sparse matrix to a file.
@@ -163,11 +182,12 @@ def write_sparse_matrix(
     ----------
     filename : str
         the name of the file to write to
-    mat : csc_matrix or csr_matrix
-        the sparse matrix
-    row_names : list of str
+    mat : csc_matrix or csr_matrix or csc_array or csr_array
+        the sparse matrix (read it back with `read_csc_matrix` or `read_csr_matrix`, which return a csc_matrix or
+        csr_matrix)
+    row_names : Sequence of str
         the names of the rows
-    col_names : list of str
+    col_names : Sequence of str
         the names of the columns
 
     Raises
@@ -181,17 +201,11 @@ def write_sparse_matrix(
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mat) is not csc_matrix and type(mat) is not csr_matrix:
-        raise TypeError(f"mat should have type csc_matrix or csr_matrix, was {type(mat)}")
-    if type(row_names) is not list:
-        raise TypeError(f"row_names should be a list of strings, had type {type(row_names)}")
-    if type(col_names) is not list:
-        raise TypeError(f"col_names should be a list of strings, had type {type(col_names)}")
-    # the shape isn't stored, the reader takes it from the names
-    if (len(row_names), len(col_names)) != mat.shape:
-        raise ValueError(
-            f"mat has shape {mat.shape}, but there are {len(row_names)} row names and {len(col_names)} column names"
-        )
+    if not isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array)):
+        raise TypeError(f"mat should have type csc_matrix, csr_matrix, csc_array or csr_array, was {type(mat)}")
+    row_names = _name_list(row_names, "row_names")
+    col_names = _name_list(col_names, "col_names")
+    _check_names_shape(row_names, col_names, mat.shape)
     # the reader assumes int32 indices and indptr, scipy uses int64 for large matrices (and after some operations)
     int32_max = np.iinfo(np.int32).max
     if max(mat.shape) > int32_max or mat.nnz > int32_max:
@@ -284,7 +298,7 @@ def _id_size(n_names: int) -> int:
     return max(1, ((n_names - 1).bit_length() + 7) // 8)
 
 
-def write_network(filename: str, mapping: list[tuple[str, str]]):
+def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
     """
     Writes a network to a file.
 
@@ -292,8 +306,8 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
     ----------
     filename : str
         the name of the file to write to
-    mapping : list[tuple[str, str]]
-        the network connections
+    mapping : Iterable of tuple[str, str]
+        the network connections (iterated once, so e.g. a generator or zip is fine)
 
     Raises
     ------
@@ -314,8 +328,8 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mapping) is not list:
-        raise TypeError(f"mapping should have type list[tuple[str, str]], was {type(mapping)}")
+    if isinstance(mapping, str) or not isinstance(mapping, Iterable):
+        raise TypeError(f"mapping should be an Iterable of tuple[str, str], was {type(mapping)}")
     grouped_mapping = {}
     name2id = {}
     for fr, to in mapping:
@@ -339,7 +353,7 @@ def write_network(filename: str, mapping: list[tuple[str, str]]):
     )
 
 
-def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]]):
+def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, float]]):
     """
     Writes a weighted network to a file.
 
@@ -347,8 +361,8 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
     ----------
     filename : str
         the name of the file to write to
-    mapping : list[tuple[str, str, float]]
-        the weighted connections of the network
+    mapping : Iterable of tuple[str, str, float]
+        the weighted connections of the network (iterated once, so e.g. a generator or zip is fine)
 
     Raises
     ------
@@ -371,8 +385,8 @@ def write_weighted_network(filename: str, mapping: list[tuple[str, str, float]])
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mapping) is not list:
-        raise TypeError(f"mapping should have type list[tuple[str, str, float]], was {type(mapping)}")
+    if isinstance(mapping, str) or not isinstance(mapping, Iterable):
+        raise TypeError(f"mapping should be an Iterable of tuple[str, str, float], was {type(mapping)}")
     grouped_mapping = {}
     name2id = {}
     for fr, to, w in mapping:
