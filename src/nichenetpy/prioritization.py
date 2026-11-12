@@ -11,7 +11,7 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
-from nichenetpy.typing import target_eval_metric_t
+from nichenetpy.typing import nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
@@ -103,6 +103,11 @@ def calculate_de[GeneSymbol](
         return ann.uns["group_metrics"]
 
 
+def _expm1(mat: nichenet_matrix) -> nichenet_matrix:
+    # undo the log1p of log-normalized data (works for dense and sparse matrices)
+    return np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
+
+
 def get_avg_exp[GeneSymbol](
     ann: AnnData,
     celltype_col: str,
@@ -110,6 +115,7 @@ def get_avg_exp[GeneSymbol](
     condition_col: str | None = None,
     layer: str = "counts",
     features: Iterable[GeneSymbol] | None = None,
+    log_normalized: bool = False,
 ) -> pd.DataFrame:
     """
     Calculate the average gene expression per cell type.
@@ -126,9 +132,14 @@ def get_avg_exp[GeneSymbol](
     condition_col : str or None
         the column in ann.obs which contains the conditions
     layer : str
-        the layer of the AnnData object to use
+        the layer of the AnnData object to use (counts, or log-normalized data if log_normalized is True)
     features : Iterable[gene_t] or None
         the genes to use, if None, use all genes from the AnnData object
+    log_normalized : bool
+        if False, the layer contains counts, which are normalized per cell (divided by the library size and multiplied
+        by 10000) before averaging; if True, the layer contains log-normalized data (log1p of such normalized counts),
+        which is averaged after expm1, as Seurat's AverageExpression does. For log-normalized data computed from the
+        counts this gives the same result.
 
     Returns
     -------
@@ -152,12 +163,15 @@ def get_avg_exp[GeneSymbol](
         raise TypeError(f"layer should have type str, was {type(layer)}")
     if features is not None and not isinstance(features, Iterable):
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
+    if type(log_normalized) is not bool:
+        raise TypeError(f"log_normalized should have type bool, was {type(log_normalized)}")
     if condition_col is not None and condition_oi is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     celltypes = set(ann.obs[celltype_col])
     # normalize on all genes (library sizes must include every gene), select features afterwards
+    norm_f = _expm1 if log_normalized else relative_counts
     avg_celltype: pd.DataFrame = average_expression(
-        ann, celltype_col, keys=celltypes, layer=layer, norm_f=relative_counts # pyright: ignore[reportArgumentType]
+        ann, celltype_col, keys=celltypes, layer=layer, norm_f=norm_f # pyright: ignore[reportArgumentType]
     )
     avg_celltype.index.name = "gene"
     if features is not None:

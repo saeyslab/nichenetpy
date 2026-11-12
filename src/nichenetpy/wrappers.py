@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
@@ -148,6 +149,32 @@ def combine_weighted_ligand_target_links(
     )
 
 
+def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | None:
+    # the sender cell types are used several times, so they're stored in a list (a generator can only be used once);
+    # a single str is one cell type (iterating over it would give its characters)
+    if sender_celltypes is None:
+        return None
+    if isinstance(sender_celltypes, str):
+        return [sender_celltypes]
+    if not isinstance(sender_celltypes, Iterable):
+        raise TypeError(f"sender_celltypes should be an Iterable of str or None, was {type(sender_celltypes)}")
+    return list(sender_celltypes)
+
+
+def _ligands_in_model[T](potential_ligands: set[T], predictor: LigandActivityPredictor[T]) -> set[T]:
+    # ligands of the ligand-receptor network that aren't in the ligand-target matrix can't be scored (predicting their
+    # activity raised a ValueError), they're left out with a warning
+    in_model = potential_ligands & predictor.get_ligands()
+    missing = potential_ligands - in_model
+    if len(missing) > 0:
+        warnings.warn(
+            f"{len(missing)} potential ligands are not in the ligand-target matrix and are left out, "
+            f"e.g. {sorted(missing, key=str)[:5]}",
+            stacklevel=3,
+        )
+    return in_model
+
+
 def run_nichenet(
     ann: AnnData,
     predictor: LigandActivityPredictor[str],
@@ -183,7 +210,8 @@ def run_nichenet(
     predictor : LigandActivityPredictor
         the predictor which contains the ligand-target matrix
     lr_network : LigandReceptorNetwork
-        the ligand-receptor network containing the ligand-receptor interactions
+        the ligand-receptor network containing the ligand-receptor interactions (ligands that aren't in the
+        ligand-target matrix are left out with a warning)
     receiver : str
         the receiver cell type
     condition_col : str
@@ -192,10 +220,10 @@ def run_nichenet(
         the condition of interest
     condition_ref : str
         the reference condition
-    sender_celltypes : Iterable[str] or None
+    sender_celltypes : Iterable[str] or str or None
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
     layer : str
-        the layer in the AnnData object which contains the data matrix
+        the layer in the AnnData object which contains the (log-normalized) data matrix
     celltype_col : str
         the name of the column in obs which contains the celltypes
     max_pval_adj : float
@@ -277,12 +305,18 @@ def run_nichenet(
         if get_prioritization_table is True, additionally
 
             prioritization_table : pandas.DataFrame
+                Data frame of prioritized sender-ligand-receiver-receptor interactions, based on the sender-focused
+                ligand activities (as in NicheNetR)
 
     Raises
     ------
     ValueError
         if get_prioritization_table is True and sender_celltypes is not provided
     """
+    sender_celltypes = _sender_list(sender_celltypes)
+    # checked first, so the analysis doesn't run for nothing
+    if get_prioritization_table and sender_celltypes is None:
+        raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
     output = {}
     expressed_genes_receiver = set(
         get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
@@ -292,9 +326,9 @@ def run_nichenet(
     output["expressed_receptors"] = expressed_receptors
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     output["background_expressed_genes"] = background_expressed_genes
-    potential_ligands = {
-        key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0
-    }
+    potential_ligands = _ligands_in_model(
+        {key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0}, predictor
+    )
     geneset = get_geneset_oi(
         ann,
         receiver=receiver,
@@ -374,31 +408,30 @@ def run_nichenet(
                 )
                 for celltype in sender_celltypes
             ]
-    if get_prioritization_table:
-        if sender_celltypes is None:
-            raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
-        if not isinstance(sender_celltypes, Sequence):
-            sender_celltypes = list(sender_celltypes)
-        lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
-        info_tables = generate_info_tables(
-            ann,
-            celltype_col,
-            sender_celltypes,
-            [receiver],
-            lr_network_filtered,
-            condition_col,
-            condition_oi,
-            condition_ref,
-            case_control,
-            use_scanpy=use_scanpy,
-        )
-        output["prioritization_table"] = generate_prioritization_table(
-            info_tables["sender_receiver_info"],
-            info_tables["sender_receiver_de"],
-            ligand_activities_sorted,  # type: ignore # false positive
-            info_tables["lr_condition_de"] if case_control else None,
-            target_evaluation_metric=target_evaluation_metric,
-        )
+        if get_prioritization_table:
+            lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
+            info_tables = generate_info_tables(
+                ann,
+                celltype_col,
+                sender_celltypes,
+                [receiver],
+                lr_network_filtered,
+                condition_col,
+                condition_oi,
+                condition_ref,
+                case_control,
+                use_scanpy=use_scanpy,
+                layer=layer,
+            )
+            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders;
+            # the scaled activities and ranks used to be computed over all potential ligands)
+            output["prioritization_table"] = generate_prioritization_table(
+                info_tables["sender_receiver_info"],
+                info_tables["sender_receiver_de"],
+                ligand_activities_sorted_focused,  # type: ignore # false positive
+                info_tables["lr_condition_de"] if case_control else None,
+                target_evaluation_metric=target_evaluation_metric,
+            )
     return output
 
 
@@ -435,7 +468,7 @@ def run_nichenet_cluster_de(
         Name of cluster identity/identities of "affected" cells that were presumably affected by intercellular communication with other cells
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
-    sender_celltypes : Iterable[str] or None
+    sender_celltypes : Iterable[str] or str or None
         The sender celltypes or None for all celltypes
     layer : str
         the layer in the AnnData object which contains the data matrix
@@ -494,6 +527,7 @@ def run_nichenet_cluster_de(
         raise TypeError(f"geneset should have type str, was {type(geneset)}")
     elif geneset not in ("DE", "up", "down"):
         raise ValueError(f"geneset should be 'DE', 'up' or 'down', was {geneset}")
+    sender_celltypes = _sender_list(sender_celltypes)
     expressed_genes_receiver_ref = set(
         get_expressed_genes(receiver_reference, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
@@ -543,11 +577,14 @@ def run_nichenet_cluster_de(
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
-    potential_ligands = {
-        key
-        for key, group in lr_network.item_iter()
-        if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
-    }
+    potential_ligands = _ligands_in_model(
+        {
+            key
+            for key, group in lr_network.item_iter()
+            if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
+        },
+        predictor,
+    )
     ligand_activities_dct = predictor.predict_ligand_activities(
         geneset=geneset_oi,
         background_expressed_genes=background_expressed_genes,
@@ -1112,6 +1149,7 @@ def generate_info_tables[GeneSymbol](
     condition_ref: str,
     case_control: bool = False,
     use_scanpy: bool = False,
+    layer: str = "data",
 ) -> dict[str, pd.DataFrame]:
     """
     Calculate differential expression, average expression, and condition specificity of ligands and receptors.
@@ -1138,6 +1176,9 @@ def generate_info_tables[GeneSymbol](
         if True, calculate condition specificity, else only calculate cell type specificity
     use_scanpy : bool
         if true, use scanpy.rank_genes_groups to compute the metrics
+    layer : str
+        the layer with the log-normalized data (as Seurat's data slot), used for the differential expression, the
+        condition specificity and the average expression (averaged after expm1, as Seurat's AverageExpression)
 
     Returns
     -------
@@ -1149,8 +1190,9 @@ def generate_info_tables[GeneSymbol](
 
     Notes
     -----
-    "lr_condition_de" is only present if case_control is True
+    "lr_condition_de" is only present if case_control is True. ann (including ann.uns) is not changed.
     """
+    lr_genes = lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
@@ -1158,7 +1200,8 @@ def generate_info_tables[GeneSymbol](
                 celltype_col,
                 condition_oi,
                 condition_col,
-                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors()),
+                layer=layer,
+                features=lr_genes,
                 use_scanpy=use_scanpy,
             ),
             "celltype_DE",
@@ -1168,15 +1211,27 @@ def generate_info_tables[GeneSymbol](
             celltype_col=celltype_col,
         ),
         "sender_receiver_info": process_table_to_ic(
-            get_avg_exp(ann, celltype_col, condition_oi, condition_col),
+            get_avg_exp(ann, celltype_col, condition_oi, condition_col, layer=layer, log_normalized=True),
             "expression",
             lr_network_filtered,
             celltype_col=celltype_col,
         ),
     }
     if case_control:
-        group_metrics(ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref)
-        res = ann.uns["group_metrics"]
+        # group_metrics stores its result in ann.uns["group_metrics"], the caller's value is restored afterwards; only
+        # the ligands and receptors are tested (the other genes aren't used, pval_adj still accounts for all genes)
+        missing = object()
+        previous = ann.uns.get("group_metrics", missing)
+        try:
+            group_metrics(
+                ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref, layer=layer, features=lr_genes
+            )
+            res = ann.uns["group_metrics"]
+        finally:
+            if previous is missing:
+                ann.uns.pop("group_metrics", None)
+            else:
+                ann.uns["group_metrics"] = previous
         output["lr_condition_de"] = process_table_to_ic(
             res[["gene", "lfc", "pval", "pval_adj"]], "group_DE", lr_network_filtered, celltype_col=celltype_col
         )
