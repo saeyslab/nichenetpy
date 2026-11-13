@@ -41,7 +41,6 @@ dependencies = [
   "pycirclize>=1.9",
   "scanpy>=1.10.4",
   "scikit-learn>=1.5.2",
-  "scikit-network>=0.33.1",
   "scipy>=1.14.1",
 ]
 # https://docs.pypi.org/project_metadata/#project-urls

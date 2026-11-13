@@ -99,6 +99,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `ltf_cutoff` must be smaller than 1 in `model_construction.construct_ligand_tf_matrix`, `construct_ligand_target_matrix` and `construct_model_from_source_weights` (1 set every ligand-tf score to 0); NicheNetR allows 1.
 
+- Personalized PageRank (`algorithm="PPR"`, the default) in `model_construction.construct_ligand_tf_matrix` (and therefore `construct_ligand_target_matrix`, `construct_model_from_source_weights` and the parameter optimization) is now computed as in NicheNetR (igraph's PRPACK solver) instead of with scikit-network: the score that reaches a gene without outgoing links in the ligand-signaling network returns to the ligand, self-loops are followed like other links, and the iteration stops when the scores change by less than 1e-10. The scores match NicheNetR up to about 1e-9, so all PPR ligand-tf and ligand-target matrices change compared to before, more so for a higher `damping_factor` (up to 0.017 at 0.5 and 0.33 at 0.99 on a small test network). Each ligand is computed once, also when it is part of several combinations. `damping_factor` 1 is now refused by nichenetpy itself (it was refused by scikit-network before) and scikit-network is no longer a dependency.
+
 ### Fixed
 
 - Corrected docstrings.

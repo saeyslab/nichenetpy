@@ -6,6 +6,5 @@ pandas
 pyCirclize
 scanpy
 scikit-learn
-scikit-network
 scipy
 adjustText

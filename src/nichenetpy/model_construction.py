@@ -6,9 +6,8 @@ from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_array, csr_array, csr_matrix
+from scipy.sparse import csc_array, csr_array, diags_array
 from scipy.sparse.csgraph import dijkstra
-from sknetwork.ranking import PageRank
 
 from nichenetpy.typing import gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
@@ -148,6 +147,66 @@ def _quantile_clip(mat, cutoff):
         mat[mat <= np.quantile(mat, cutoff, axis=1, keepdims=True)] = 0
 
 
+def _personalized_pagerank(
+    adjacency: csr_array,
+    seeds: list[int],
+    damping: float,
+    tol: float = 1e-10,
+    max_iter: int = 100_000,
+    batch_size: int = 256,
+) -> np.ndarray[Any, np.dtype[np.floating]]:
+    """
+    Personalized PageRank of each seed node, as computed by igraph's PRPACK solver (used by NicheNetR).
+
+    The random walker follows a link with probability `damping` (proportionally to the link weights, self-loops count
+    as links) and returns to the seed with probability 1 - `damping`; from a node without outgoing links it always
+    returns to the seed. The scores of each seed are found by power iteration (all seeds of a batch at once) until the
+    scores change by less than `tol` (L1 norm, as PRPACK).
+
+    Parameters
+    ----------
+    adjacency : scipy.sparse.csr_array
+        the weighted adjacency matrix (from x to)
+    seeds : list of int
+        the seed nodes
+    damping : float
+        the damping factor, at least 0 and smaller than 1
+    tol : float
+        the convergence tolerance
+    max_iter : int
+        the maximal number of iterations
+    batch_size : int
+        the number of seeds computed together (limits the memory use)
+
+    Returns
+    -------
+    numpy.ndarray
+        the scores, one row per seed (each row sums to 1)
+    """
+    n = adjacency.shape[0]
+    out_weight = np.asarray(adjacency.sum(axis=1)).ravel()
+    dangling = out_weight == 0
+    # transition probabilities (rows of nodes with outgoing links sum to 1), transposed so that one step is trans_t @ x
+    inverse_weight = np.divide(1.0, out_weight, out=np.zeros(n), where=~dangling)
+    trans_t = (diags_array(inverse_weight) @ adjacency).T.tocsr()
+    output = np.empty((len(seeds), n))
+    for start in range(0, len(seeds), batch_size):
+        batch = seeds[start : start + batch_size]
+        # one column per seed: the seed vector, and the scores
+        seed_mat = np.zeros((n, len(batch)))
+        seed_mat[batch, np.arange(len(batch))] = 1.0
+        scores = seed_mat.copy()
+        for _ in range(max_iter):
+            # the score of nodes without outgoing links returns to the seed, like the teleport
+            new_scores = (1 - damping) * seed_mat + damping * (trans_t @ scores + seed_mat * scores[dangling].sum(axis=0))
+            converged = np.abs(new_scores - scores).sum(axis=0).max() < tol
+            scores = new_scores
+            if converged:
+                break
+        output[start : start + len(batch)] = scores.T
+    return output
+
+
 @overload
 def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks: dict[str, pd.DataFrame],
@@ -248,6 +307,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (as in NicheNetR).
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
@@ -269,7 +329,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
     TypeError
         if the arguments have the wrong type
     ValueError
-        if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not between 0 and 1
+        if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not at least 0 and smaller than 1
         if a combination contains int gene ids, or two ligands (combinations) get the same name
         if algorithm is not "PPR", "SPL" or "direct"
         if none of the ligands are present in the weighted networks
@@ -280,8 +340,11 @@ def construct_ligand_tf_matrix[GeneSymbol](
     its row is 1 at the ligand (1/k at each member of a combination of k ligands) and 0 elsewhere,
     which is the personalized pagerank result on a network without links.
 
-    `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
-    and `E` the amount of links in the lr_sig weighted matrix
+    `PPR` is computed as in NicheNetR (igraph's PRPACK): the walker follows links proportionally to their weights
+    (self-loops included) and returns to the seed with probability 1 - damping_factor, or always from a gene without
+    outgoing links. Each distinct ligand (also a member of combinations) is computed once, by power iteration until the
+    scores change by less than 1e-10. Time complexity `O(l * k * E)` with `l` the amount of distinct ligands, `k` the
+    amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links in the lr_sig weighted matrix
 
     `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
     and `E` the amount of links in the lr_sig weighted matrix
@@ -305,8 +368,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
     # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
     if not 0 <= ltf_cutoff < 1:
         raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
-        raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    if not 0 <= damping_factor < 1:
+        raise ValueError(f"damping_factor should be at least 0 and smaller than 1, was {damping_factor}")
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if type(split_ppr) is not bool:
@@ -343,7 +406,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     if len(lr_sig) == 0:
         # All ligand-receptor and signaling sources have weight 0, so there are no ligand-signaling links.
-        # PageRank (scikit-network) rejects an empty adjacency matrix, so the result is built directly:
+        # The result is built directly (for every algorithm):
         # without edges the random walker can't leave its seed, so personalized pagerank gives 1 for the ligand
         # itself and 0 elsewhere; the quantile clip keeps that value (it is the row maximum) and combinations
         # are averaged over their members (as in the PPR branch), i.e. 1/k for each of the k members.
@@ -359,31 +422,30 @@ def construct_ligand_tf_matrix[GeneSymbol](
             complete_matrix.append(row)
             mask.append(row > 0)
     elif algorithm == "PPR":
-        # the adjancy matrix (and adjacency graph)
-        # NOTE: sparse matrices are deprecated in favor of sparse arrays but PageRank doesn't accept sparse arrays in the latest release (10-11-26)
-        lr_sig_mat = csr_matrix(
-            (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
+        # the adjacency matrix of the ligand-signaling network
+        lr_sig_mat = csr_array(
+            (
+                lr_sig["weight"].to_numpy(dtype=np.float64),
+                (lr_sig["from"].map(gene2id).to_numpy(), lr_sig["to"].map(gene2id).to_numpy()),
+            ),
             shape=(len(gene2id), len(gene2id)),
         )
-        # preference vector
-        pv = np.zeros(shape=lr_sig_mat.shape[0])
-        pr = PageRank(damping_factor=damping_factor)
+        # personalized pagerank of every ligand (also the members of combinations) at once, as in NicheNetR
+        seeds = sorted({gene2id[ligand] for _ligands in ligands for ligand in _ligands})
+        seed2row = {seed: i for i, seed in enumerate(seeds)}
+        ppr_scores = _personalized_pagerank(lr_sig_mat, seeds, damping_factor)
+        if damping_factor == 0:
+            ltf_cutoff = 0
         complete_matrix = []
         if split_ppr:
             mask = []
         for _ligands in ligands:
-            partial_matrix = []
             if split_ppr:
-                mask.append(np.array([False for _ in range(len(pv))]))
+                mask.append(np.zeros(len(all_genes), dtype=bool))
                 for ligand in _ligands:
                     mask[-1][gene2id[ligand]] = True
-            for ligand in _ligands:
-                pv.fill(0)
-                pv[gene2id[ligand]] = 1
-                partial_matrix.append(pr.fit_predict(lr_sig_mat, weights=pv))
-            ppr_matrix = np.array(partial_matrix).reshape((int(sum(len(x) for x in partial_matrix) / len(pv)), len(pv)))
-            if damping_factor == 0:
-                ltf_cutoff = 0
+            # the scores of the members (a copy, the quantile clip changes it), averaged over the members
+            ppr_matrix = ppr_scores[[seed2row[gene2id[ligand]] for ligand in _ligands]]
             _quantile_clip(ppr_matrix, ltf_cutoff)
             complete_matrix.append(ppr_matrix.mean(axis=0))
     elif algorithm == "SPL":
@@ -717,6 +779,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (as in NicheNetR).
         Default: 0.5
     secondary_targets : bool
         Indicate whether a ligand-target matrix should be returned that explicitly includes putative secondary targets of a ligand
@@ -788,8 +851,8 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
     if not 0 <= ltf_cutoff < 1:
         raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
-        raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    if not 0 <= damping_factor < 1:
+        raise ValueError(f"damping_factor should be at least 0 and smaller than 1, was {damping_factor}")
     if remove_direct_links == "ligand":
         weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(lr_network["from"])
@@ -925,6 +988,7 @@ def construct_model_from_source_weights[GeneSymbol](
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (as in NicheNetR).
     lr_network : pandas.DataFrame
         dataframe which contains ligand-receptor interactions
     gr_network : pandas.DataFrame
