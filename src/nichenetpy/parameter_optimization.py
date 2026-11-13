@@ -399,6 +399,7 @@ def construct_and_evaluate[GeneSymbol](
     return_weighted_networks: bool = True,
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     metric_score_f: MetricScoreFunction | None = None,
@@ -452,6 +453,14 @@ def construct_and_evaluate[GeneSymbol](
     direct_coef : float
         The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
         note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
+    ppr_implementation : str
+        Only relevant when algorithm is PPR. How personalized pagerank is computed:
+        "nichenetr": as in NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links returns to
+        the ligand;
+        "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
+        for a higher damping_factor). Needs scikit-network, which is not installed by default
+        (`pip install nichenetpy[sknetwork]`).
+        Default: "nichenetr"
     ligand_evaluation_metrics : Iterable of string
             the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
@@ -510,6 +519,7 @@ def construct_and_evaluate[GeneSymbol](
         return_weighted_networks=return_weighted_networks,
         split_direct=split_direct,
         direct_coef=direct_coef,
+        ppr_implementation=ppr_implementation,
     )
     # make sure the ligand-target matrix is column-major, this will speed up the nichenet analysis which heavily relies on column indexing
     # the optimization as a whole is also faster despite the copy each trial

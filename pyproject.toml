@@ -43,6 +43,10 @@ dependencies = [
   "scikit-learn>=1.5.2",
   "scipy>=1.14.1",
 ]
+# personalized PageRank as in nichenetpy 1.x (ppr_implementation="scikit-network")
+optional-dependencies.sknetwork = [
+  "scikit-network>=0.33.1",
+]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://nichenetpy.readthedocs.io/"
 urls.Homepage = "https://github.com/saeyslab/nichenetpy"
@@ -91,6 +95,7 @@ envs.default.python = "3.14"
 envs.default.path = ".hatch"
 envs.default.installer = "uv"
 envs.default.dependency-groups = [ "dev" ]
+envs.default.features = [ "sknetwork" ]
 envs.docs.scripts.build = "sphinx-build -M html docs docs/_build -W {args}"
 envs.docs.scripts.clean = "git clean -fdX -- {args:docs}"
 envs.docs.scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
@@ -104,6 +109,7 @@ envs.hatch-check-fmt.scripts.format-check = "echo 'try `hatch check fmt --fix`';
 envs.hatch-check-fmt.scripts.format-fix = "prek run -a --group=format --no-group=typecheck"
 envs.hatch-check-types.scripts.check = [ "mypy" ]
 envs.hatch-check-types.dependency-groups = [ "typecheck", "test" ]
+envs.hatch-check-types.features = [ "sknetwork" ]
 envs.hatch-test.matrix = [
   # Test the lowest and highest supported Python versions with normal deps
   { deps = [ "stable" ], python = [ "3.12", "3.14" ] },
@@ -116,6 +122,7 @@ envs.hatch-test.overrides.matrix.deps.env-vars = [
   { value = "allow", key = "UV_PRERELEASE", if = [ "pre" ] },
 ]
 envs.hatch-test.dependency-groups = [ "dev", "test" ]
+envs.hatch-test.features = [ "sknetwork" ]
 
 [tool.ruff]
 line-length = 120

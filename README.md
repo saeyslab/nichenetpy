@@ -22,6 +22,12 @@ genes](https://www.nature.com/articles/s41592-019-0667-5).
 pip install nichenetpy
 ```
 
+To compute personalized PageRank with scikit-network as in nichenetpy 1.x (`ppr_implementation="scikit-network"`), install the optional extra:
+
+```
+pip install nichenetpy[sknetwork]
+```
+
 ## Overview of NicheNet
 
 ### Background

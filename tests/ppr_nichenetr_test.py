@@ -56,3 +56,20 @@ def test_ppr_split_same_as_nichenetr():
 def test_damping_factor_one_refused():
     with pytest.raises(ValueError):
         construct_ligand_tf_matrix(weighted_networks, ligands, damping_factor=1)
+
+
+def test_ppr_implementation_refused():
+    with pytest.raises(ValueError):
+        construct_ligand_tf_matrix(weighted_networks, ligands, ppr_implementation="igraph")
+
+
+def test_ppr_scikit_network():
+    # the implementation of nichenetpy 1.x, which differs from nichenetr for genes without outgoing links
+    pytest.importorskip("sknetwork")
+    sknetwork, _, _ = construct_ligand_tf_matrix(
+        weighted_networks, ligands, ltf_cutoff=0, damping_factor=0.85, ppr_implementation="scikit-network"
+    )
+    nichenetr, _, _ = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff=0, damping_factor=0.85)
+    assert sknetwork.shape == nichenetr.shape
+    np.testing.assert_allclose(sknetwork.sum(axis=1), 1)
+    assert np.abs(sknetwork - nichenetr).max() > 1e-3
