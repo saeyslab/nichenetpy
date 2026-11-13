@@ -328,15 +328,12 @@ def compute_evaluation_scores[GeneSymbol](
         )
     ]
     ligand_activity_performance_setting_summary.reset_index(inplace=True)
-    # find the best target prediction evaluation metric by comparing the geometric average of each metric
-    best_metric = max(
-        zip(
-            ligand_activity_performance_setting_summary["metric"],
-            ligand_activity_performance_setting_summary["score"],
-            strict=True,
-        ),
-        key=lambda x: x[1],
-    )[0]
+    # find the best target prediction evaluation metric by comparing the geometric average of each metric;
+    # a NaN score (e.g. the log of a negative aupr_corrected) is never the best, unless all scores are NaN
+    scores = ligand_activity_performance_setting_summary["score"].to_numpy(dtype=np.float64)
+    best_metric = ligand_activity_performance_setting_summary["metric"].iloc[
+        0 if np.isnan(scores).all() else int(np.nanargmax(scores))
+    ]
     # only keep the best target prediction evaluation metric
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
@@ -587,11 +584,9 @@ def choose_pareto_optimal_solution(objective_values: Iterable[Sequence[float]], 
         raise TypeError(f"objective_values should be iterable, was {type(objective_values)}")
     if not isinstance(weights, Iterable):
         raise TypeError(f"weights should be iterable, was {type(weights)}")
-    if type(weights) is np.ndarray:
-        weights /= np.sum(weights)
-    else:
-        tw = sum(weights)
-        weights = [weight / tw for weight in weights]
+    # a new array: the caller's weights are not changed (and may be ints or a generator)
+    weights = np.asarray(list(weights), dtype=np.float64)
+    weights = weights / weights.sum()
     fs = [weighted_stress_function(weight) for weight in weights]
     return int(
         np.argmin(

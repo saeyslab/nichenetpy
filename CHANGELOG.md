@@ -239,6 +239,10 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `prioritization.generate_prioritization_table` failing with an `UnboundLocalError` when `lr_condition_de` is None but the `ligand_condition_specificity` or `receptor_condition_specificity` weight is nonzero; it now raises a `ValueError` that explains this, as NicheNetR.
 
+- Fixed `parameter_optimization.compute_evaluation_scores` choosing a ligand importance metric with a NaN score (e.g. a negative mean `aupr_corrected`) as the best metric when it came first; NaN scores are now never chosen unless all scores are NaN. (NicheNetR selects no metric at all in this case, which makes the ligand prediction objectives NA.)
+
+- Fixed `parameter_optimization.choose_pareto_optimal_solution` normalizing a numpy array of weights in place (changing the caller's array) and failing for an int array or a generator of weights.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
