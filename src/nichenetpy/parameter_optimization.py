@@ -403,6 +403,7 @@ def construct_and_evaluate[GeneSymbol](
         Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
     ]
     | None = None,
+    random_state: int | np.random.Generator | None = None,
 ) -> tuple[
     dict[str, Any], dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]
 ]:
@@ -463,6 +464,10 @@ def construct_and_evaluate[GeneSymbol](
         functions that aggregate values of said metric. These functions are used to compute the optimization objectives
         which are aggregated from metric values computed over multiple data sets.
         If None, `objective_fs_dct["NNv2"]` is used.
+    random_state : int or numpy.random.Generator or None
+        seed or generator for the noise that replaces the all-zero columns of the ligand-target matrix before the
+        evaluation (see `LigandActivityPredictor.replace_zero_col_by_noisy_scores`); with the same seed the scores are
+        reproducible. If None, numpy's global random state is used.
 
     Returns
     -------
@@ -516,7 +521,7 @@ def construct_and_evaluate[GeneSymbol](
     if np.sum(ligand2target) == 0:
         return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
-    predictor.replace_zero_col_by_noisy_scores()
+    predictor.replace_zero_col_by_noisy_scores(random_state=random_state)
     scores = compute_evaluation_scores(
         evaluate_model(
             predictor,

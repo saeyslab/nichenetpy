@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `visualization.heatmap_1d` and `visualization.heatmap_2d` now also accept a `matplotlib.colors.Colormap` for `cmap`, in addition to a colormap name.
 
+- Added a `random_state` argument (int, numpy.random.Generator or None) to `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` and `parameter_optimization.construct_and_evaluate`, to make the noise that replaces all-zero columns of the ligand-target matrix (and therefore the evaluation scores) reproducible. The default (None) uses numpy's global random state as before.
+
 ### Changes
 
 - Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
@@ -242,6 +244,8 @@ and this project adheres to [Semantic Versioning][].
 - Fixed `parameter_optimization.compute_evaluation_scores` choosing a ligand importance metric with a NaN score (e.g. a negative mean `aupr_corrected`) as the best metric when it came first; NaN scores are now never chosen unless all scores are NaN. (NicheNetR selects no metric at all in this case, which makes the ligand prediction objectives NA.)
 
 - Fixed `parameter_optimization.choose_pareto_optimal_solution` normalizing a numpy array of weights in place (changing the caller's array) and failing for an int array or a generator of weights.
+
+- Fixed `extraction.get_expressed_genes` raising a `KeyError` instead of a `TypeError` when `layer` is not a str (the layer was looked up before its type was checked).
 
 
 

@@ -29,6 +29,8 @@ def _get_expressed_features(
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if not isinstance(ann.obs, pd.DataFrame):
         raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
+    if layer is not None and type(layer) is not str:
+        raise TypeError(f"layer should be of type str, was {type(layer)}")
     if layer is None:
         validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     else:
@@ -38,8 +40,6 @@ def _get_expressed_features(
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if layer is not None and type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
     if pct > 1 or pct < 0:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
@@ -49,7 +49,7 @@ def _get_expressed_features(
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.X if layer is None else sel_layer
+    mat = ann.X if layer is None else sel_layer  # pyright: ignore[reportPossiblyUnboundVariable] # bound when layer is not None
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])  # type: ignore # sel_layer and ann.X are type checked

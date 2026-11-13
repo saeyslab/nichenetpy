@@ -524,8 +524,30 @@ class LigandActivityPredictor[GeneSymbol]:
                 ],
             }
 
-    def replace_zero_col_by_noisy_scores(self):
-        """Replace zero columns with a very low noisy random score."""
+    def replace_zero_col_by_noisy_scores(self, random_state: int | np.random.Generator | None = None) -> None:
+        """
+        Replace zero columns with a very low noisy random score.
+        The noise is uniform between 0 and the smallest positive score of the matrix (as in NicheNetR).
+
+        Parameters
+        ----------
+        random_state : int or numpy.random.Generator or None
+            seed or generator for the noise; with the same seed the noise is reproducible.
+            If None, numpy's global random state is used (`numpy.random.seed`).
+
+        Raises
+        ------
+        TypeError
+            if random_state has the wrong type
+        """
+        if random_state is not None and (
+            isinstance(random_state, bool) or not isinstance(random_state, (int, np.integer, np.random.Generator))
+        ):
+            raise TypeError(
+                f"random_state should have type int, numpy.random.Generator or None, was {type(random_state)}"
+            )
+        # np.random.uniform draws from the global random state, a Generator has the same uniform method
+        uniform = np.random.uniform if random_state is None else np.random.default_rng(random_state).uniform
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         if isinstance(self.ligand_target_matrix, np.ndarray):
@@ -537,7 +559,7 @@ class LigandActivityPredictor[GeneSymbol]:
             zero_cols = np.flatnonzero(~mat.any(axis=0))
             if zero_cols.size > 0:
                 # in place, keeps the memory order (column-major) of the matrix
-                mat[:, zero_cols] = np.random.uniform(0, m, size=(mat.shape[0], zero_cols.size))
+                mat[:, zero_cols] = uniform(0, m, size=(mat.shape[0], zero_cols.size))
         else:
             if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
                 # column operations are slow on row-major matrices (and the ligand-target matrix should be column-major)
@@ -547,7 +569,7 @@ class LigandActivityPredictor[GeneSymbol]:
                 )
             mat = self.ligand_target_matrix.tocsc()
             # smallest positive score: explicitly stored zeros must not lower the noise range to 0
-            m = mat.data[mat.data > 0].min()
+            m = mat.data[mat.data > 0].min()  # type: ignore # mat is sparse here
             # all-zero columns have no (non-zero) stored values, so they have to be added as new entries;
             # flatnonzero flattens the column sums, which are 2-D (1 x n) for sparse matrices and 1-D for sparse arrays
             zero_cols = np.flatnonzero(abs(mat).sum(axis=0) == 0)
@@ -559,9 +581,9 @@ class LigandActivityPredictor[GeneSymbol]:
                 n_rows = mat.shape[0]
                 rows = np.tile(np.arange(n_rows), zero_cols.size)
                 cols = np.repeat(zero_cols, n_rows)
-                noise = np.random.uniform(0, m, size=rows.size)
+                noise = uniform(0, m, size=rows.size)
                 # the noise matrix only has entries in the zero columns, so the other columns are left unchanged
-                mat = mat + type(mat)((noise, (rows, cols)), shape=mat.shape)
+                mat = mat + type(mat)((noise, (rows, cols)), shape=mat.shape)  # type: ignore # mat is sparse here
             self.ligand_target_matrix = mat
 
     def gene_presence(self, genes: Collection[GeneSymbol]) -> float:
