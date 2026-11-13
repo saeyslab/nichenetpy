@@ -6,27 +6,28 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import lil_matrix
+from scipy.sparse import diags_array
 from scipy.stats import median_abs_deviation
 
 from nichenetpy.typing import nichenet_matrix, validate_matrix_type
 
 
-def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
+def relative_counts(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
     """
     Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale_factor.
+    Cells without counts stay 0 (as in Seurat and scanpy).
 
     Parameters
     ----------
-    data : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr.matrix
-        the data to normalize
+    data : numpy.ndarray or scipy.sparse.csr_matrix or scipy.sparse.csc_matrix or scipy.sparse.csr_array or scipy.sparse.csc_array
+        the data to normalize, cells x features
     scale_factor : float
         the multiplier
 
     Returns
     -------
-    numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
-        the normalized data
+    numpy.ndarray or scipy.sparse.csr_matrix or scipy.sparse.csc_matrix or scipy.sparse.csr_array or scipy.sparse.csc_array
+        the normalized data, of the same type as data
 
     Raises
     ------
@@ -36,10 +37,12 @@ def relative_counts(data: nichenet_matrix, scale_factor: float = 10000):
     validate_matrix_type(data, f"data should have type nichenet_matrix, was {type(data)}")
     if not isinstance(scale_factor, Number):
         raise TypeError(f"scale_factor should have type float, was {type(scale_factor)}")
-    mp = scale_factor / np.array(data.sum(axis=1)).reshape((-1,))
-    mp_mat = lil_matrix((len(mp), len(mp)))
-    mp_mat.setdiag(mp)
-    return mp_mat * data
+    totals = np.asarray(data.sum(axis=1), dtype=np.float64).reshape(-1)
+    # the multiplier of each cell, 0 for cells without counts
+    mp = np.divide(scale_factor, totals, out=np.zeros(len(totals)), where=totals != 0)
+    if isinstance(data, np.ndarray):
+        return data * mp[:, None]
+    return type(data)(diags_array(mp) @ data)  # pyright: ignore[reportCallIssue, reportArgumentType] # same sparse type as data
 
 
 def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichenet_matrix:
@@ -67,16 +70,12 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
 
 
 def _scale_quantile_seq(
-    data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]], cutoff: float = 0.05
+    data: np.ndarray[Any, np.dtype[np.floating]], cutoff: float = 0.05
 ) -> np.ndarray[Any, np.dtype[np.floating]]:
     qs: tuple[float, float] = (np.quantile(data, cutoff), np.quantile(data, 1 - cutoff))
     sub = qs[0]
     div = 1 if qs[0] == qs[1] else qs[1] - qs[0]
-    if isinstance(data, Sequence):
-        output = [(x - sub) / div for x in data]
-    else:
-        output = (data - sub) / div
-    return np.clip(output, 0, 1)
+    return np.clip((data - sub) / div, 0, 1)
 
 
 def scale_quantile(
@@ -115,25 +114,21 @@ def scale_quantile(
     if isinstance(data, pd.Series):
         data = data.to_numpy()
     if isinstance(data, Sequence):
-        if len(data) > 0:
-            if isinstance(data[0], Sequence):
-                if by_row:
-                    return np.concatenate(
-                        [_scale_quantile_seq(row, cutoff=cutoff).reshape(1, -1) for row in data],  # type: ignore # data is type checked
-                        axis=0,
-                    )
-                else:
-                    return np.concatenate(
-                        [_scale_quantile_seq(col, cutoff=cutoff).reshape(-1, 1) for col in zip(*data, strict=True)],
-                        axis=1,
-                    )
-            elif type(data[0]) is float or type(data[0]) is int:
-                return _scale_quantile_seq(data, cutoff=cutoff)  # type: ignore # data is type checked
-            else:
-                raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
-        else:
+        if len(data) == 0:
             raise ValueError("data was empty")
-    elif type(data) is np.ndarray:
+        try:
+            # also accepts numpy numbers and lists of 1-dimensional arrays (rows)
+            data = np.asarray(data)
+        except ValueError as error:  # rows of different lengths
+            raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers") from error
+    if type(data) is np.ndarray:
+        if data.dtype.kind == "O":  # e.g. a pandas Series with a nullable dtype (Float64, Int64)
+            try:
+                data = data.astype(np.float64)
+            except (TypeError, ValueError) as error:
+                raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers") from error
+        if data.dtype.kind not in "iuf":  # bool, complex and str arrays
+            raise ValueError("data should be a 1-dimensional or 2-dimensional array of numbers")
         if len(data.shape) == 2:
             if by_row:
                 return np.concatenate(

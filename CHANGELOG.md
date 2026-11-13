@@ -233,6 +233,10 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `model_construction.construct_weighted_networks` accepting NaN source weights (they were dropped like a weight of 0); they now raise a `ValueError`.
 
+- Fixed `normalization.relative_counts` (and therefore `log_normalize` and `prioritization.get_avg_exp`) turning cells without counts into NaN for dense data (with a divide-by-zero warning for all data); they now stay 0, as in Seurat and scanpy. The result now also has the same type as the input (it was always a `csr_matrix` for sparse input).
+
+- Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) rejecting lists of numpy numbers (e.g. `list(arr)`) and lists of 1-dimensional arrays. Non-numeric data (bool, str, complex) now always raises a `ValueError`.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
