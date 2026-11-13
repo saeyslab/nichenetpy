@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Iterable
 from itertools import chain
 from numbers import Number
@@ -74,14 +75,14 @@ def construct_weighted_networks[GeneSymbol](
         raise TypeError(f"gr_network should have type pandas.DataFrame, was {type(gr_network)}")
     if type(source_weights) is dict:
         for source, weight in source_weights.items():
-            if weight < 0 or weight > 1:
+            if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
         source_weights = pd.DataFrame(
             dict(zip(("source", "weight"), zip(*source_weights.items(), strict=True), strict=True))
         )
     elif type(source_weights) is pd.DataFrame:
-        for source, weight in zip(source_weights["source"], source_weights["weight"], strict=True):
-            if weight < 0 or weight > 1:
+        for source, weight in zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True):
+            if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
     else:
         raise TypeError(
@@ -229,9 +230,12 @@ def construct_ligand_tf_matrix[GeneSymbol](
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
     ligands : Iterable of Iterable of gene_t
-        all ligands and ligand-combinations of which target gene probability scores should be calculated
+        all ligands and ligand-combinations of which target gene probability scores should be calculated; a combination
+        is named after its members joined with "-" (only for gene symbols, str) and uses the members that are in the
+        weighted networks
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     algorithm : str
         Selection of the algorithm to calculate ligand-tf signaling probability scores.
@@ -265,7 +269,8 @@ def construct_ligand_tf_matrix[GeneSymbol](
     TypeError
         if the arguments have the wrong type
     ValueError
-        if ltf_cutoff or damping_factor is not between 0 and 1
+        if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not between 0 and 1
+        if a combination contains int gene ids, or two ligands (combinations) get the same name
         if algorithm is not "PPR", "SPL" or "direct"
         if none of the ligands are present in the weighted networks
 
@@ -297,8 +302,9 @@ def construct_ligand_tf_matrix[GeneSymbol](
         raise TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
-    if ltf_cutoff < 0 or ltf_cutoff > 1:
-        raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
+    # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
+    if not 0 <= ltf_cutoff < 1:
+        raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if type(column_major) is not bool:
@@ -310,11 +316,25 @@ def construct_ligand_tf_matrix[GeneSymbol](
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     all_genes: list[GeneSymbol] = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
-    ligands = [
-        ligand
-        for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
-        if len(ligand) > 0  # ligand is not in the weighted networks, so it can't be in the matrix
+    requested = [tuple(_ligands) for _ligands in ligands]
+    for _ligands in requested:
+        # an int gene id points to a gene name, and a complex has an id of its own, so a combination of ids has no name
+        if len(_ligands) > 1 and not all(isinstance(ligand, str) for ligand in _ligands):
+            raise ValueError(
+                f"combinations of ligands are only supported for gene symbols (str), not {_ligands}; "
+                "use the id of the complex instead"
+            )
+    named_ligands = [
+        ("-".join(_ligands) if len(_ligands) > 1 else _ligands[0], [e for e in _ligands if e in gene2id_keys])
+        for _ligands in requested
+        if len(_ligands) > 0
     ]
+    named_ligands = [(name, members) for name, members in named_ligands if len(members) > 0]
+    row_names: list[GeneSymbol] = [name for name, _ in named_ligands]
+    ligands = [members for _, members in named_ligands]
+    duplicates = sorted((name for name, count in Counter(row_names).items() if count > 1), key=str)
+    if len(duplicates) > 0:
+        raise ValueError(f"several ligands (or combinations) have the same name: {duplicates}")
     if len(ligands) == 0:
         # without ligands, complete_matrix stays empty and np.array([]) has shape (0,) instead of
         # (0, len(all_genes)), which breaks the ligand-tf @ tf-target product further on
@@ -409,10 +429,6 @@ def construct_ligand_tf_matrix[GeneSymbol](
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix, order=("F" if column_major else "C"))
-    row_names: list[GeneSymbol] = [
-        "-".join(_ligands) if type(_ligands[0]) is str else _ligands[0]
-        for _ligands in ligands
-    ]
     col_names = all_genes
     if algorithm == "PPR" and split_ppr:
         mask = np.array(mask)
@@ -534,9 +550,10 @@ def _split_tft_direct(
     """
     tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
     target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-    # direct links: regulatory links that start at a (single) ligand
-    single_ligands = {_ligands[0] for _ligands in ligands if len(_ligands) == 1}
-    direct_links = gr_network[gr_network["from"].isin(single_ligands)]
+    # direct links: regulatory links that start at a ligand, also at the members of a ligand combination (only single
+    # ligands were used, so a combination's own regulatory links were never direct)
+    ligand_genes = {ligand for _ligands in ligands for ligand in _ligands}
+    direct_links = gr_network[gr_network["from"].isin(ligand_genes)]
     mask = csr_array(
         (
             np.ones(len(direct_links), dtype=bool),
@@ -687,7 +704,8 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     ligands : Iterable[gene_t|Iterable[gene_t]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     algorithm : str
         Selection of the algorithm to calculate ligand-tf signaling probability scores.
@@ -767,8 +785,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         raise TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
     if type(remove_direct_links) is not str:
         raise TypeError(f"remove_direct_links should have type str, was {type(remove_direct_links)}")
-    if ltf_cutoff < 0 or ltf_cutoff > 1:
-        raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
+    # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
+    if not 0 <= ltf_cutoff < 1:
+        raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
     if damping_factor < 0 or damping_factor > 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
     if remove_direct_links == "ligand":
@@ -899,7 +918,8 @@ def construct_model_from_source_weights[GeneSymbol](
     gr_hub : float
         a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     damping_factor : float
         Only relevant when algorithm is PPR.

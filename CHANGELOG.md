@@ -97,6 +97,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Faster `extraction.average_expression` (and therefore `prioritization.get_avg_exp`), e.g. ~25-60 times for 20,000 cells, and faster ligand activity prediction: `prediction.LigandActivityPredictor.predict_ligand_activities` ~2 times, `predict_single_cell_ligand_activities` ~2.5 times, and `get_col` on sparse matrices ~9 times. The results are unchanged.
 
+- `ltf_cutoff` must be smaller than 1 in `model_construction.construct_ligand_tf_matrix`, `construct_ligand_target_matrix` and `construct_model_from_source_weights` (1 set every ligand-tf score to 0); NicheNetR allows 1.
+
 ### Fixed
 
 - Corrected docstrings.
@@ -224,6 +226,12 @@ and this project adheres to [Semantic Versioning][].
 - Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
 
 - Fixed `ann_utils.subset_ann` failing with `subset_X=False` (the output now has no X, which saves subsetting it) and when `genes` is a generator.
+
+- Fixed `model_construction.construct_ligand_target_matrix` with `split_direct="tft"` or `"ltf-tft"` ignoring the regulatory links of the members of a ligand combination as direct links (unless the members were also given as single ligands).
+
+- Fixed ligand combinations in `model_construction.construct_ligand_tf_matrix` (and `construct_ligand_target_matrix`) getting the same name as a single ligand: a combination with a member that isn't in the networks was named after the remaining member, and a combination of int gene ids after its first member. Combinations are now named after the requested members ("A-B"), combinations of int gene ids raise a `ValueError` (use the id of the complex), and so do two ligands with the same name.
+
+- Fixed `model_construction.construct_weighted_networks` accepting NaN source weights (they were dropped like a weight of 0); they now raise a `ValueError`.
 
 
 
