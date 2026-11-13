@@ -223,6 +223,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
 
+- Fixed `ann_utils.subset_ann` failing with `subset_X=False` (the output now has no X, which saves subsetting it) and when `genes` is a generator.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

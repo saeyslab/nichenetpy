@@ -80,7 +80,8 @@ def subset_ann[GeneSymbol](
     val_col : str
         the name of the column in obs that contains the values to subset by
     subset_X : bool
-        whether or not to subset X
+        whether or not to subset X; if False, the output has no X (this saves the time and memory of subsetting X when
+        only the layers are needed)
 
     Returns
     -------
@@ -132,8 +133,9 @@ def subset_ann[GeneSymbol](
     if genes is None:
         col_ids = None
     else:
-        if type(genes) is set:
-            genes = sorted(genes)
+        # sets are sorted (they have no fixed order), other iterables are stored in a list: genes is used twice (for
+        # the columns and the var_names) and a generator can only be used once
+        genes = sorted(genes) if type(genes) is set else list(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         try:
             col_ids = [gene2index[gene] for gene in genes]
@@ -142,8 +144,10 @@ def subset_ann[GeneSymbol](
     if row_ids is None and col_ids is None:
         return None
     new_layers = {layer: subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids) for layer in layers}  # type: ignore # let subset_matrix return TypeError
-    if ann.X is not None:
-        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X  # type: ignore # let subset_matrix return TypeError
+    # X is only kept if it's subsetted (the original X doesn't fit the subsetted shape)
+    new_X = None
+    if ann.X is not None and subset_X:
+        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids)  # type: ignore # let subset_matrix return TypeError
     # subset categories if the column is categorical
     if cells_oi is not None and cells_oi[val_col].dtype.name == "category":
         # keep the selected categories in their original order (val is a set, which has no fixed order)
@@ -151,7 +155,7 @@ def subset_ann[GeneSymbol](
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(categories)
     if len(new_layers) > 0:
         new_shape = new_layers[next(iter(layers))].shape
-    elif ann.X is not None and subset_X:
+    elif new_X is not None:
         new_shape = new_X.shape
     else:
         raise ValueError("if layers=[] then X must be defined and subset_X must be True")
@@ -161,7 +165,7 @@ def subset_ann[GeneSymbol](
     else:
         output.var_names = ann.var_names.reindex(genes)[0]  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     output.var_names.name = "gene"
-    if ann.X is not None:
+    if new_X is not None:
         output.X = new_X
     return output
 
