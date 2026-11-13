@@ -411,6 +411,8 @@ def generate_prioritization_table[GeneSymbol](
         if the arguments have the wrong type
     ValueError
         if prioritizing weigths does not contain the correct keys
+        if lr_condition_de is None and the weight of ligand_condition_specificity or receptor_condition_specificity
+        is larger than 0
     """
     if type(sender_receiver_info) is not pd.DataFrame:
         raise TypeError(f"sender_receiver_info should be of type pandas.DataFrame, was {type(sender_receiver_info)}")
@@ -460,6 +462,14 @@ def generate_prioritization_table[GeneSymbol](
         ):
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
+    if lr_condition_de is None and (
+        prioritizing_weights["ligand_condition_specificity"] > 0
+        or prioritizing_weights["receptor_condition_specificity"] > 0
+    ):
+        raise ValueError(
+            "lr_condition_de is None, yet the condition specificity weights are nonzero: either set the weights of"
+            " 'ligand_condition_specificity' and 'receptor_condition_specificity' to 0 or provide lr_condition_de"
+        )
     if "rank" not in ligand_activities.columns:
         # assign returns a new dataframe, so no "rank" column is added to the caller's ligand_activities
         ligand_activities = ligand_activities.assign(
@@ -522,10 +532,17 @@ def generate_prioritization_table[GeneSymbol](
         group_prioritization = group_prioritization.merge(ligand_celltype_specificity_prioritization, how="inner")
     if prioritizing_weights["exprs_receptor"] > 0:
         group_prioritization = group_prioritization.merge(receptor_celltype_specificity_prioritization, how="inner")
+    # the condition tables exist here: nonzero condition weights without lr_condition_de are refused above
     if prioritizing_weights["ligand_condition_specificity"] > 0:
-        group_prioritization = group_prioritization.merge(ligand_condition_prioritization, how="inner")
+        group_prioritization = group_prioritization.merge(
+            ligand_condition_prioritization,  # pyright: ignore[reportPossiblyUnboundVariable]
+            how="inner",
+        )
     if prioritizing_weights["receptor_condition_specificity"] > 0:
-        group_prioritization = group_prioritization.merge(receptor_condition_prioritization, how="inner")
+        group_prioritization = group_prioritization.merge(
+            receptor_condition_prioritization,  # pyright: ignore[reportPossiblyUnboundVariable]
+            how="inner",
+        )
     sum_prioritization_weights = (
         (
             prioritizing_weights["de_ligand"]

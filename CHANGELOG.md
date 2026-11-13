@@ -237,6 +237,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) rejecting lists of numpy numbers (e.g. `list(arr)`) and lists of 1-dimensional arrays. Non-numeric data (bool, str, complex) now always raises a `ValueError`.
 
+- Fixed `prioritization.generate_prioritization_table` failing with an `UnboundLocalError` when `lr_condition_de` is None but the `ligand_condition_specificity` or `receptor_condition_specificity` weight is nonzero; it now raises a `ValueError` that explains this, as NicheNetR.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
