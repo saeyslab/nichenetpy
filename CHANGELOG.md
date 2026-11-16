@@ -227,6 +227,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `wilcoxon.wilcoxon_rank_sum_test` (and `metrics.group_metrics`) ranking explicitly stored zeros of a sparse matrix above the implicit zeros, which gave wrong p-values. Explicit zeros are now removed from a copy of the matrix, with a warning.
 
+- Fixed `gene_symbol.GeneInfo` giving no mouse-to-human conversions when created from a generator, and converting mouse symbols to "NA" (and "NA" to a human symbol) instead of None; missing symbols are now left out in both directions. Reading a gene info file with NA Entrez ids no longer fails, and a wrong argument type now raises the documented `TypeError`.
+
 - Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
 
 - Fixed `network.Network` and `network.WeightedNetwork` giving wrong links when the mapping list wasn't sorted by "from", and changing when the caller changed the list afterwards; they now store a sorted copy of the list (the list no longer needs to be sorted).
