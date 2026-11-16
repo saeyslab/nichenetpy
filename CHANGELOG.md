@@ -101,6 +101,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `ltf_cutoff` must be smaller than 1 in `model_construction.construct_ligand_tf_matrix`, `construct_ligand_target_matrix` and `construct_model_from_source_weights` (1 set every ligand-tf score to 0); NicheNetR allows 1.
 
+- `normalization.scaling_zscore` (and therefore `activity_zscore` in `prioritization.generate_prioritization_table`) now uses the sample standard deviation (ddof=1), as NicheNetR's `scaling_zscore` (R's `sd`). The z-scores are smaller by a factor sqrt((n-1)/n) for n values; the order of the prioritization table and the prioritization scores don't change.
+
 ### Fixed
 
 - Corrected docstrings.

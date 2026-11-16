@@ -209,13 +209,14 @@ def scaling_zscore(
     if type(data) is list:
         if len(data) == 1:
             return [0]
-        sd = np.std(data)
+        # sample standard deviation (ddof=1), as R's sd in NicheNetR
+        sd = np.std(data, ddof=1)
         avg = np.mean(data)
         return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
     elif isinstance(data, (np.ndarray, pd.Series)):
         if len(data) == 1:
             return np.array([0])
-        sd = np.std(data)
+        sd = np.std(data, ddof=1)
         avg = np.mean(data)
         return (data - avg) / sd if sd > 0 else data - avg
     else:
