@@ -134,14 +134,22 @@ def calculate_auroc(
     return -_auc_reverse(fp, tp)
 
 
-def _ranked_response(
+def _tied_ranking(
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
-) -> np.ndarray[Any, np.dtype[np.float64]]:
-    # the response ordered from the highest to the lowest prediction; a stable sort keeps tied predictions in their
-    # input order (as sorted(..., reverse=True))
-    order = np.argsort(-np.asarray(prediction, dtype=np.float64), kind="stable")
-    return np.asarray(response, dtype=np.float64)[order]
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.intp]], np.ndarray[Any, np.dtype[np.intp]]
+]:
+    # the response ordered from the highest to the lowest prediction, the group of tied predictions of every position
+    # and the first position of every group (groups in ranking order)
+    prediction = np.asarray(prediction, dtype=np.float64)
+    order = np.argsort(-prediction, kind="stable")
+    ranked_prediction = prediction[order]
+    new_group = np.empty(len(order), dtype=bool)
+    new_group[:1] = True
+    np.not_equal(ranked_prediction[1:], ranked_prediction[:-1], out=new_group[1:])
+    group = np.cumsum(new_group) - 1
+    return np.asarray(response, dtype=np.float64)[order], group, np.flatnonzero(new_group)
 
 
 def _dcg(gains: np.ndarray[Any, np.dtype[np.float64]]) -> float:
@@ -188,6 +196,8 @@ def average_precision_at_k(
 ) -> float:
     """
     Calculates the average precision at index k in the ranking.
+    Tied predictions don't depend on their input order: the result is the expected value over all their orders
+    (McSherry & Najork, 2008).
 
     Parameters
     ----------
@@ -211,14 +221,34 @@ def average_precision_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranked = _ranked_response(response, prediction)
+    ranked, group, starts = _tied_ranking(response, prediction)
     n = ranked.sum()
     if n == 0:
         return np.nan  # without true targets the average precision is undefined
-    # the precision at every position of the ranking, summed over the positions (up to k) of the true targets
-    precisions = np.cumsum(ranked) / np.arange(1, len(ranked) + 1)
-    hits = ranked[: k + 1] != 0
-    return float(precisions[: k + 1][hits].sum() / n)
+    hits = (ranked != 0).astype(np.float64)
+    positions = np.arange(1, len(ranked) + 1)
+    if len(starts) == len(ranked):
+        # no ties: the precision at every position, summed over the positions (up to k) of the true targets
+        return float((hits * np.cumsum(ranked) / positions)[: k + 1].sum() / n)
+    # expected value over all orders of tied predictions (McSherry & Najork, 2008): at the t-th position of a group
+    # of size n_g, the expected hit x (response up to here) is
+    # hits_g / n_g * before_g + (hits x response)_g / n_g + (t - 1) / (n_g (n_g - 1)) * (hits_g response_g - (hits x response)_g)
+    # with before_g the response of the groups ranked before; without ties this is hit x cumulative response
+    hits_g = np.add.reduceat(hits, starts)
+    response_g = np.add.reduceat(ranked, starts)
+    hit_response_g = np.add.reduceat(hits * ranked, starts)
+    size_g = np.diff(starts, append=len(ranked))
+    before_g = np.cumsum(response_g) - response_g
+    size = size_g[group]
+    t = np.arange(len(ranked)) - starts[group] + 1
+    pair = np.divide(t - 1, size * (size - 1), out=np.zeros(len(ranked)), where=size > 1)
+    expected = (
+        hits_g[group] / size * before_g[group]
+        + hit_response_g[group] / size
+        + pair * (hits_g * response_g - hit_response_g)[group]
+    )
+    # the expected precision at every position, summed over the positions up to k
+    return float((expected / positions)[: k + 1].sum() / n)
 
 
 def dcg_at_k(
@@ -258,6 +288,8 @@ def ndcg_at_k(
 ):
     """
     Calculates the normalized discounted cumulative gain at index k in the ranking.
+    Tied predictions don't depend on their input order: the result is the expected value over all their orders
+    (McSherry & Najork, 2008).
 
     Parameters
     ----------
@@ -281,14 +313,20 @@ def ndcg_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranked = _ranked_response(response, prediction)
+    ranked, group, starts = _tied_ranking(response, prediction)
     n = ranked.sum()
     if n == 0:
         return np.nan  # without true targets the ndcg is undefined
+    # expected value over all orders of tied predictions: every position of a group of ties gets the mean gain of
+    # the group (as scikit-learn's ndcg_score); without ties that is the gain itself
+    if len(starts) == len(ranked):
+        expected = ranked
+    else:
+        expected = (np.add.reduceat(ranked, starts) / np.diff(starts, append=len(ranked)))[group]
     # the ideal ranking
-    ideal = _ranked_response(response, response)
+    ideal = np.sort(ranked)[::-1]
     # if there is 1 true target then ideal dcg@k is 1, so let's take a shortcut
-    return _dcg(ranked[: k + 1]) / (1 if n == 1 else _dcg(ideal[: k + 1]))
+    return _dcg(expected[: k + 1]) / (1 if n == 1 else _dcg(ideal[: k + 1]))
 
 
 _metric_dct: dict[
