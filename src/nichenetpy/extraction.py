@@ -29,11 +29,11 @@ def _get_expressed_features(
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
     if not isinstance(ann.obs, pd.DataFrame):
         raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
-    if layer is not None and type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
     if layer is None:
         validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     else:
+        if type(layer) is not str:
+            raise TypeError(f"layer should be of type str, was {type(layer)}")
         sel_layer = ann.layers[layer]
         validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):

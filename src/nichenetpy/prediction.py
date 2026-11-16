@@ -709,7 +709,7 @@ def assess_rf_class_probabilities[GeneSymbol](
         # random forest trained on some genes
         # predicts if the gene is differentially expressed based on the regulatory potential scores of the ligands of interest
         rf = RandomForestClassifier(n_estimators=ntrees, random_state=random_state)
-        rf.fit(X=pred_mat, y=res)  # TODO: test this
+        rf.fit(X=pred_mat, y=res)  # type: ignore # TODO: test this
         row_names, res = zip(
             *chain(
                 ((geneset[id][0], 1) for id in geneset_test),
@@ -723,7 +723,7 @@ def assess_rf_class_probabilities[GeneSymbol](
             cols=ligand_ids,
         )
         # prediction for the remaining genes
-        pred = rf.apply(pred_mat)  # TODO: test this
+        pred = rf.apply(pred_mat)  # type: ignore # TODO: test this
         # the amount of trees that predict that the gene is differentially expressed (for each gene)
         score = [
             sum(
