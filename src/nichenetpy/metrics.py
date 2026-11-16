@@ -134,6 +134,21 @@ def calculate_auroc(
     return -_auc_reverse(fp, tp)
 
 
+def _ranked_response(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    # the response ordered from the highest to the lowest prediction; a stable sort keeps tied predictions in their
+    # input order (as sorted(..., reverse=True))
+    order = np.argsort(-np.asarray(prediction, dtype=np.float64), kind="stable")
+    return np.asarray(response, dtype=np.float64)[order]
+
+
+def _dcg(gains: np.ndarray[Any, np.dtype[np.float64]]) -> float:
+    # discounted cumulative gain of gains in ranked order: gain / log2(position + 1), positions starting at 1
+    return float((gains / np.log2(np.arange(2, len(gains) + 2))).sum())
+
+
 def precision_at_k(
     ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
@@ -162,7 +177,8 @@ def precision_at_k(
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    return sum(response[e] for e in ranking[: k + 1]) / (k + 1)  # type: ignore # e is float
+    top = np.asarray(ranking[: k + 1], dtype=np.intp)
+    return float(np.asarray(response, dtype=np.float64)[top].sum() / (k + 1))
 
 
 def average_precision_at_k(
@@ -195,14 +211,14 @@ def average_precision_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
-    n = sum(response)
-    if n == 1:
-        i = 0
-        while response[ranking[i]] != 1:
-            i += 1
-        return 1 / (i + 1) if i <= k else 0
-    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k + 1)) / n
+    ranked = _ranked_response(response, prediction)
+    n = ranked.sum()
+    if n == 0:
+        return np.nan  # without true targets the average precision is undefined
+    # the precision at every position of the ranking, summed over the positions (up to k) of the true targets
+    precisions = np.cumsum(ranked) / np.arange(1, len(ranked) + 1)
+    hits = ranked[: k + 1] != 0
+    return float(precisions[: k + 1][hits].sum() / n)
 
 
 def dcg_at_k(
@@ -231,7 +247,8 @@ def dcg_at_k(
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(ranking, (Sequence, np.ndarray)):
         raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
-    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # pyright: ignore[reportArgumentType, reportCallIssue] # e is float
+    top = np.asarray(ranking[: k + 1], dtype=np.intp)
+    return _dcg(np.asarray(response, dtype=np.float64)[top])
 
 
 def ndcg_at_k(
@@ -264,11 +281,14 @@ def ndcg_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
-    n = sum(response)
-    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x: x[1], reverse=True)]
-    # if n is 1 then ideal dcg@k is 1, so let's take a shortcut
-    return dcg_at_k(ranking, response, k) / (1 if n == 1 else dcg_at_k(gs_ranking, response, k))
+    ranked = _ranked_response(response, prediction)
+    n = ranked.sum()
+    if n == 0:
+        return np.nan  # without true targets the ndcg is undefined
+    # the ideal ranking
+    ideal = _ranked_response(response, response)
+    # if there is 1 true target then ideal dcg@k is 1, so let's take a shortcut
+    return _dcg(ranked[: k + 1]) / (1 if n == 1 else _dcg(ideal[: k + 1]))
 
 
 _metric_dct: dict[
