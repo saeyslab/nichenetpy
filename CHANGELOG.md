@@ -103,6 +103,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `normalization.scaling_zscore` (and therefore `activity_zscore` in `prioritization.generate_prioritization_table`) now uses the sample standard deviation (ddof=1), as NicheNetR's `scaling_zscore` (R's `sd`). The z-scores are smaller by a factor sqrt((n-1)/n) for n values; the order of the prioritization table and the prioritization scores don't change.
 
+- `prioritization.generate_prioritization_table` now uses the sign of the log fold change as NicheNetR (`numpy.sign`: 0 for an lfc of 0 and NaN for a NaN lfc, both were treated as positive) to compute `pval_adapted_*`; this only matters for DE tables with an lfc of exactly 0 and a p-value below 1, or a NaN lfc.
+
 ### Fixed
 
 - Corrected docstrings.

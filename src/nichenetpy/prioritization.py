@@ -335,7 +335,7 @@ def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None
     ].drop_duplicates()
     temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
-    output[f"pval_adapted_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"].apply(lambda x: -1 if x < 0 else 1)
+    output[f"pval_adapted_{lig_rec}"] = temp * np.sign(output[f"lfc_{lig_rec}"])
     temp = output[f"lfc_{lig_rec}"].rank(method="average", na_option="top")
     output[f"scaled_lfc_{lig_rec}"] = temp / temp.max()
     temp = output[f"pval_{lig_rec}"].rank(method="average", na_option="top", ascending=False)
