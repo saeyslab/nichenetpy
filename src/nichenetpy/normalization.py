@@ -185,6 +185,15 @@ def scale_quantile_adapted(
     return scale_quantile(data, cutoff=cutoff, by_row=by_row) + pseudo_count
 
 
+def _nan_mean_sd(values: np.ndarray[Any, np.dtype[np.float64]]) -> tuple[float, float]:
+    # mean and sample standard deviation (ddof=1, as R's sd in NicheNetR) of the values that aren't NaN;
+    # the standard deviation is 0 for fewer than 2 such values (and the mean NaN without any), without numpy warnings
+    known = values[~np.isnan(values)]
+    if len(known) == 0:
+        return np.nan, 0.0
+    return float(known.mean()), float(known.std(ddof=1)) if len(known) > 1 else 0.0
+
+
 def scaling_zscore(
     data: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float],
 ) -> Sequence[float] | np.ndarray[Any, np.dtype[np.floating]] | pd.Series[float]:
@@ -205,19 +214,21 @@ def scaling_zscore(
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    NaN values are ignored when computing the mean and standard deviation and stay NaN (as in NicheNetR).
+    With fewer than 2 values that aren't NaN, the values are only centered (NicheNetR raises an error).
     """
     if type(data) is list:
         if len(data) == 1:
             return [0]
-        # sample standard deviation (ddof=1), as R's sd in NicheNetR
-        sd = np.std(data, ddof=1)
-        avg = np.mean(data)
-        return [(x - avg) / sd for x in data] if sd > 0 else [0 for _ in data]
+        avg, sd = _nan_mean_sd(np.asarray(data, dtype=np.float64))
+        return [(x - avg) / sd for x in data] if sd > 0 else [x - avg for x in data]
     elif isinstance(data, (np.ndarray, pd.Series)):
         if len(data) == 1:
             return np.array([0])
-        sd = np.std(data, ddof=1)
-        avg = np.mean(data)
+        avg, sd = _nan_mean_sd(np.asarray(data, dtype=np.float64))
         return (data - avg) / sd if sd > 0 else data - avg
     else:
         raise TypeError(f"data should have type Sequence[float] or numpy.ndarray or pandas.Series, was {type(data)}")

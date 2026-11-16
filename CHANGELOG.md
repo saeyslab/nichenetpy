@@ -249,6 +249,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `extraction.get_expressed_genes` raising a `KeyError` instead of a `TypeError` when `layer` is not a str (the layer was looked up before its type was checked).
 
+- Fixed `normalization.scaling_zscore` with NaN values: a list became all 0 and a numpy array all NaN. NaN values are now ignored when computing the mean and standard deviation and stay NaN, as in NicheNetR (a pandas Series already behaved this way).
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
