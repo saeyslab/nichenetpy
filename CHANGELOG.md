@@ -251,6 +251,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `normalization.scaling_zscore` with NaN values: a list became all 0 and a numpy array all NaN. NaN values are now ignored when computing the mean and standard deviation and stay NaN, as in NicheNetR (a pandas Series already behaved this way).
 
+- Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) returning all NaN when the data contains a NaN value; the quantiles are now computed without the NaN values, which stay NaN, as in NicheNetR. In `prioritization.generate_prioritization_table`, a ligand with a NaN activity (e.g. a NaN pearson correlation) made the scaled activity and prioritization score NaN for every interaction; now only that ligand's interactions are NaN.
+
 
 
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4

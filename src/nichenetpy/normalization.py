@@ -72,7 +72,11 @@ def log_normalize(data: nichenet_matrix, scale_factor: float = 10000) -> nichene
 def _scale_quantile_seq(
     data: np.ndarray[Any, np.dtype[np.floating]], cutoff: float = 0.05
 ) -> np.ndarray[Any, np.dtype[np.floating]]:
-    qs: tuple[float, float] = (np.quantile(data, cutoff), np.quantile(data, 1 - cutoff))
+    # the quantiles of the values that aren't NaN (as NicheNetR, na.rm = TRUE), NaN values stay NaN
+    known = data[~np.isnan(data)]
+    if len(known) == 0:
+        return np.full(data.shape, np.nan)
+    qs: tuple[float, float] = (np.quantile(known, cutoff), np.quantile(known, 1 - cutoff))
     sub = qs[0]
     div = 1 if qs[0] == qs[1] else qs[1] - qs[0]
     return np.clip((data - sub) / div, 0, 1)
@@ -85,6 +89,7 @@ def scale_quantile(
 ) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Cut off outer quantiles and rescale to a [0, 1] range.
+    NaN values are ignored when computing the quantiles and stay NaN (as in NicheNetR).
 
     Parameters
     ----------
