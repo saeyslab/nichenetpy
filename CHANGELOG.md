@@ -225,6 +225,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `wilcoxon.wilcoxon_rank_sum_test_with_correlation` returning the lower and upper tail p-values in swapped order; they are now returned as documented and as limma's `rankSumTestWithCorrelation` ("less", "greater"). The upper tail is computed more precisely, so `metrics.group_metrics` with `wilcoxon_limma=True` matches limma more closely (it doesn't depend on the order).
 
+- Fixed `wilcoxon.wilcoxon_rank_sum_test` (and `metrics.group_metrics`) ranking explicitly stored zeros of a sparse matrix above the implicit zeros, which gave wrong p-values. Explicit zeros are now removed from a copy of the matrix, with a warning.
+
 - Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
 
 - Fixed `network.Network` and `network.WeightedNetwork` giving wrong links when the mapping list wasn't sorted by "from", and changing when the caller changed the list afterwards; they now store a sorted copy of the list (the list no longer needs to be sorted).

@@ -1,5 +1,6 @@
 from __future__ import annotations  # Series[T] typehint can throw an Error at runtime
 
+import warnings
 from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
@@ -24,6 +25,16 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
             mat = csc_array(mat)
         except TypeError as error:
             raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix/array, was {type(mat)}") from error
+    if (mat.data == 0).any():
+        # explicitly stored zeros would be ranked above the implicit zeros, remove them from a copy (the caller's
+        # matrix is not changed)
+        warnings.warn(
+            "the matrix contains explicitly stored zeros, they are removed from a copy of the matrix before ranking "
+            "(call eliminate_zeros() on the matrix beforehand to avoid the copy)",
+            stacklevel=3,
+        )
+        mat = mat.copy()
+        mat.eliminate_zeros()
     output = []
     group_mat = []
     nrows, ncols = mat.shape
