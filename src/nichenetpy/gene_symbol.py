@@ -1,5 +1,6 @@
 import re
 from collections.abc import Iterable
+from typing import overload
 
 from anndata import AnnData
 
@@ -7,7 +8,7 @@ from nichenetpy.network import Network
 
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 _pat_gene_info = re.compile(
-    r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$"
+    r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+|NA)(?:\"|')?,(?:\"|')?(\d+|NA)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$"
 )
 
 
@@ -70,13 +71,19 @@ class GeneAliasInfo:
             if k not in self:
                 self._mapping[k] = v
 
+    @overload
+    def alias_to_symbol(self, obj: Iterable[str]) -> list[str]: ...
+
+    @overload
+    def alias_to_symbol(self, obj: AnnData) -> None: ...
+
     def alias_to_symbol(self, obj: Iterable[str] | AnnData) -> list[str] | None:
         """
         Converts gene aliases to gene symbols.
 
         Parameters
         ----------
-        obj : Iterable or AnnData or None
+        obj : Iterable or AnnData
             an object that contains gene symbols
 
         Returns
@@ -117,6 +124,7 @@ class GeneAliasInfo:
             return self.alias_to_symbol(list(obj))
         else:
             raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
+        return None
 
 
 class GeneInfo:
@@ -135,36 +143,37 @@ class GeneInfo:
     """
 
     def __init__(self, arg: str | Iterable[tuple[str, str]]):
-        if type(arg) is str:
+        if isinstance(arg, str):
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(
                 *([word.strip("\"'") for word in _pat_gene_info.findall(line.rstrip())[0]] for line in lines[1:]),
                 strict=True,
             )
-            self.__init__(list(zip(symbol, symbol_mouse, strict=True)))
+            self.__init__(list(zip(symbol, symbol_mouse, strict=True)))  # type: ignore
         elif isinstance(arg, Iterable):
+            # a list, so a generator is not exhausted after the first mapping; missing symbols ("NA") are left out in
+            # both directions
+            pairs = [(sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"]
             # one to many
-            self._human2mouse = Network(
-                sorted(((sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"), key=lambda x: x[0])
-            )
+            self._human2mouse = Network(pairs)
             # one to one
-            self._mouse2human = {sm: sh for sh, sm in arg}
+            self._mouse2human = {sm: sh for sh, sm in pairs}
         else:
-            raise TypeError(f"arg should have type str or dict, was {type(arg)}")
+            raise TypeError(f"arg should have type str or Iterable[tuple[str, str]], was {type(arg)}")
 
-    def __getitem__(self, key: str) -> tuple[str, str]:
+    def __getitem__(self, key: str) -> set[str] | str:
         if key in self._human2mouse._index:
             return self._human2mouse[key]
-        elif key in self._mouse2human._index:
+        elif key in self._mouse2human:
             return self._mouse2human[key]
         else:
             raise KeyError(f"{key} is not a recognized gene")
 
-    def __contains__(self, item):
-        return item in self._human2mouse._index or item in self._mouse2human._index
+    def __contains__(self, item) -> bool:
+        return item in self._human2mouse._index or item in self._mouse2human.keys()
 
-    def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str]:
+    def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
         """
         Converts human gene symbols to their mouse one-to-one orthologs
 
@@ -176,12 +185,7 @@ class GeneInfo:
         Returns
         -------
         Iterable of str
-            the mouse gene symbols
-
-        Raises
-        ------
-        KeyError
-            if a gene symbol isn't recognized
+            the mouse gene symbols or None for genes that aren't recognized
         """
         # this does the same as the NicheNetR equivalent but it makes no sense to me (Victor)
         for symbol in symbols:
@@ -191,7 +195,7 @@ class GeneInfo:
             else:
                 yield None
 
-    def convert_mouse_to_human_symbols(self, symbols: Iterable[str]) -> Iterable[str]:
+    def convert_mouse_to_human_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
         """
         Converts mouse gene symbols to their human one-to-one orthologs
 

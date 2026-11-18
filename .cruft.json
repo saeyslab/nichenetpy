@@ -1,0 +1,44 @@
+{
+  "template": "/home/runner/work/cookiecutter-scverse/cookiecutter-scverse",
+  "commit": "a58efecf92402221b81e4563d8e236ee808679b7",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "nichenetpy",
+      "package_name": "nichenetpy",
+      "project_description": "nichenetpy: the python implementation of the NicheNet method",
+      "author_full_name": "Victor Medaerts",
+      "author_email": "victor.medaerts@ugent.be",
+      "github_user": "vmedaert",
+      "github_repo": "nichenetpy",
+      "license": "BSD 3-Clause License",
+      "ide_integration": true,
+      "issue_categorization": "labels",
+      "_copy_without_render": [
+        ".github/workflows/build.yaml",
+        ".github/workflows/test.yaml",
+        "docs/_templates/autosummary/**.rst"
+      ],
+      "_exclude_on_template_update": [
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "docs/api.md",
+        "docs/index.md",
+        "docs/notebooks/example.ipynb",
+        "docs/references.bib",
+        "docs/references.md",
+        "src/**",
+        "tests/**"
+      ],
+      "_render_devdocs": true,
+      "_jinja2_env_vars": {
+        "lstrip_blocks": true,
+        "trim_blocks": true
+      },
+      "_template": "/home/runner/work/cookiecutter-scverse/cookiecutter-scverse",
+      "_commit": "a58efecf92402221b81e4563d8e236ee808679b7"
+    }
+  },
+  "directory": null
+}

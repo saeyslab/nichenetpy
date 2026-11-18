@@ -1,20 +1,17 @@
-'''
-Here we test some of the processing functions from nichenetpy.visualization
-'''
+# type: ignore
 
-from nichenetpy.visualization import (
-    _construct_ligand_signaling_df,
-    get_ligand_signaling_path
-)
+"""
+Here we test some of the processing functions from nichenetpy.visualization
+"""
 
 import pandas as pd
-
 from common import (
     equals_iter,
-    get_model_pickle,
     get_ltf_matrix,
+    get_model_pickle,
 )
 
+from nichenetpy.visualization import _construct_ligand_signaling_df, get_ligand_signaling_path
 
 ligand_signaling_df_0 = [
     ("IL1B", 0.2114539724, "IL1B", "TNFRSF11B", 1.3534754, 0.2861977536),
@@ -28,7 +25,7 @@ ligand_signaling_df_0 = [
     ("IL1B", 0.2114539724, "IL1B", "NFKB2", 1.2431144, 0.2628614787),
     ("RELA", 0.0017290112, "IL1B", "NFKB2", 1.8179507, 0.0031432571),
     ("NFKB1", 0.0019036851, "IL1B", "NFKB2", 0.7991353, 0.0015213020),
-    ("JUN", 0.0010959084, "IL1B", "NFKB2", 1.2643184, 0.0013855770)
+    ("JUN", 0.0010959084, "IL1B", "NFKB2", 1.2643184, 0.0013855770),
 ]
 
 tf_regulatory_0 = [
@@ -89,6 +86,7 @@ tf_signaling_0 = [
     ("STAT1", "RELA", 1.1152577),
 ]
 
+
 def construct_ligand_signaling_df_template(ligands_oi, targets_oi, res):
     model = get_model_pickle("human")
     gr = pd.DataFrame(model["gr"]._mapping, columns=["from", "to", "weight"])
@@ -96,26 +94,13 @@ def construct_ligand_signaling_df_template(ligands_oi, targets_oi, res):
     row_names = ltf_matrix["row_names"]
     col_names = ltf_matrix["col_names"]
     ltf_matrix = ltf_matrix["mat"]
-    combined_df = _construct_ligand_signaling_df(
-        ligands_oi,
-        targets_oi,
-        row_names,
-        col_names,
-        gr,
-        ltf_matrix,
-        4
-    )
-    assert equals_iter(
-        combined_df.to_numpy(),
-        res
-    )
+    combined_df = _construct_ligand_signaling_df(ligands_oi, targets_oi, row_names, col_names, gr, ltf_matrix, 4)
+    assert equals_iter(combined_df.to_numpy(), res)
+
 
 def test_construct_ligand_signaling_df_0():
-    construct_ligand_signaling_df_template(
-        ["IL1B"],
-        ["TNFRSF11B", "CSF1", "NFKB2"],
-        ligand_signaling_df_0
-    )
+    construct_ligand_signaling_df_template(["IL1B"], ["TNFRSF11B", "CSF1", "NFKB2"], ligand_signaling_df_0)
+
 
 def get_ligand_signaling_path_template(ligands_oi, targets_oi, exp_tf_signaling, exp_tf_regulatory):
     model = get_model_pickle("human")
@@ -126,28 +111,11 @@ def get_ligand_signaling_path_template(ligands_oi, targets_oi, exp_tf_signaling,
     col_names = ltf_matrix["col_names"]
     ltf_matrix = ltf_matrix["mat"]
     tf_signaling, tf_regulatory = get_ligand_signaling_path(
-        ltf_matrix,
-        ligands_oi,
-        targets_oi,
-        row_names,
-        col_names,
-        lr_sig,
-        gr,
-        minmax_scaling=True
+        ltf_matrix, ligands_oi, targets_oi, row_names, col_names, lr_sig, gr, minmax_scaling=True
     )
-    assert equals_iter(
-        tf_signaling.to_numpy(),
-        exp_tf_signaling
-    )
-    assert equals_iter(
-        tf_regulatory.to_numpy(),
-        exp_tf_regulatory
-    )
+    assert equals_iter(tf_signaling.to_numpy(), exp_tf_signaling)
+    assert equals_iter(tf_regulatory.to_numpy(), exp_tf_regulatory)
 
-def test_construct_ligand_signaling_df_0():
-    get_ligand_signaling_path_template(
-        ["IL1B"],
-        ["TNFRSF11B", "CSF1", "NFKB2"],
-        tf_signaling_0,
-        tf_regulatory_0
-    )
+
+def test_get_ligand_signaling_path_0():
+    get_ligand_signaling_path_template(["IL1B"], ["TNFRSF11B", "CSF1", "NFKB2"], tf_signaling_0, tf_regulatory_0)
