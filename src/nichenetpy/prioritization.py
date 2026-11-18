@@ -171,7 +171,11 @@ def get_avg_exp(
     # normalize on all genes (library sizes must include every gene), select features afterwards
     norm_f = _expm1 if log_normalized else relative_counts
     avg_celltype: pd.DataFrame = average_expression(
-        ann, celltype_col, keys=celltypes, layer=layer, norm_f=norm_f # pyright: ignore[reportArgumentType]
+        ann,
+        celltype_col,
+        keys=celltypes,
+        layer=layer,
+        norm_f=norm_f,  # pyright: ignore[reportArgumentType]
     )
     avg_celltype.index.name = "gene"
     if features is not None:
@@ -490,7 +494,9 @@ def generate_prioritization_table(
         ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True
     ).transpose()
     ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
-    ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]].drop_duplicates()
+    ligand_celltype_specificity_prioritization = sender_receiver_info[
+        ["sender", "ligand", "avg_ligand"]
+    ].drop_duplicates()
     ligand_celltype_specificity_prioritization = df_grouped_apply(
         ligand_celltype_specificity_prioritization,
         groupby="ligand",

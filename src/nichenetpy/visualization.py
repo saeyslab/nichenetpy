@@ -536,7 +536,9 @@ def get_ligand_signaling_path(
         shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
-    tfs = set().union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
+    tfs = set().union(
+        *(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi)
+    )
     tfs = {all_genes[e] for e in tfs}
     # ligand-tf or tf-tf
     tf_signaling = lr_sig[
@@ -549,7 +551,10 @@ def get_ligand_signaling_path(
     combined_df_tf = set(combined_df["TF"])
     # incoming edges of target nodes
     tf_regulatory = gr[
-        [fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"].tolist(), gr["to"].tolist(), strict=True)]
+        [
+            fr in combined_df_tf and to in targets_oi
+            for fr, to in zip(gr["from"].tolist(), gr["to"].tolist(), strict=True)
+        ]
     ]
     if minmax_scaling:
         tf_signaling = _minmax_scaling(tf_signaling)
