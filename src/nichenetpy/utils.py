@@ -9,7 +9,7 @@ import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
@@ -46,7 +46,7 @@ def read_matrix_from_csv(
     filename: str,
     extract_row_name: Callable[[str], tuple[str, str]] | Pattern[str] | None = None,
     extract_col_name: Callable[[str], list[str]] | Pattern[str] | None = None,
-) -> tuple[np.ndarray[Any, np.dtype[np.float64]], list[str], list[str]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[str], list[str]]:
     """
     Reads a matrix from a csv file.
 
@@ -54,9 +54,11 @@ def read_matrix_from_csv(
     ----------
     filename : str
         the name of the csv file to read from
-    extract_row_name : Callable or re.Pattern
-        function which extracts the row name and the rest of the string from a line or a search pattern
-    extract_col_name : Callable or re.Pattern
+    extract_row_name : Callable or re.Pattern or None
+        function which extracts the row name and the rest of the string from a line or a search pattern; if both
+        extract_row_name and extract_col_name are None the file is read with pandas.read_csv (quoted or unquoted csv,
+        "NA" and empty values become NaN)
+    extract_col_name : Callable or re.Pattern or None
         function which extracts the col names from the first line or a search pattern
 
     Returns
@@ -75,6 +77,14 @@ def read_matrix_from_csv(
     """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
+    if extract_row_name is None and extract_col_name is None:
+        # pandas handles quoted and unquoted fields, commas in quoted names, a header without a cell for the row names
+        # and Windows line endings; everything is read as str so that names stay as they are (e.g. a gene "NA" or "1")
+        df = pd.read_csv(filename, index_col=0, dtype=str, keep_default_na=False)
+        values = df.to_numpy()
+        # missing values (NA in R, empty cells) become NaN
+        values = np.where(np.isin(values, ("NA", "")), "nan", values).astype(np.float64)
+        return (values, df.index.tolist(), df.columns.tolist())
     if extract_row_name is None:
         extract_row_name = _default_row_name_pattern
     if isinstance(extract_row_name, Pattern):
@@ -187,34 +197,44 @@ def read_network_file(filename: str):
         raise ValueError(f"filename should have csv, pkl or pickle extension, was {file_ext}")
 
 
+def _index_array(
+    idx: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]],
+) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
+    # integer indices, from indices or a boolean mask (an empty list gives an empty integer array)
+    arr = np.asarray(idx)
+    if arr.dtype == np.bool_:
+        return np.flatnonzero(arr)
+    return arr.astype(np.intp, copy=False).reshape(-1)
+
+
 @overload
 def subset_matrix(
     mat: np.ndarray,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> np.ndarray: ...
 
 
 @overload
 def subset_matrix(
-    mat: csr_matrix[np.float64] | csc_matrix[np.float64],
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-) -> csr_matrix[np.float64] | csc_matrix[np.float64]: ...
+    mat: csr_matrix[np.floating] | csc_matrix[np.floating],
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+) -> csr_matrix[np.floating] | csc_matrix[np.floating]: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_array | csc_array,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> csr_array | csc_array: ...
 
 
 def subset_matrix(
     mat: nichenet_matrix,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.float64] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
 ) -> nichenet_matrix:
     """
     Subsets a matrix.
@@ -249,32 +269,27 @@ def subset_matrix(
         raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
     if rows is None and cols is None:
         return mat
-    if rows is not None and (type(rows[0]) is bool or type(rows[0]) is np.bool):
-        rows = [i for i, e in enumerate(rows) if e]
-    if cols is not None and (type(cols[0]) is bool or type(cols[0]) is np.bool):
-        cols = [i for i, e in enumerate(cols) if e]
+    if rows is not None:
+        rows = _index_array(rows)
+    if cols is not None:
+        cols = _index_array(cols)
     if isinstance(mat, np.ndarray):
         if rows is None:
-            if cols is None:
-                output = mat
-            else:
-                output = mat[:, cols]  # type: ignore # cols are bools
+            output = mat[:, cols]
         else:
-            output = mat[
-                [[row] for row in rows], [col for col in (list(range(mat.shape[1])) if cols is None else cols)]
-            ]
+            output = mat[np.ix_(rows, np.arange(mat.shape[1]) if cols is None else cols)]
     elif isinstance(mat, (csc_matrix, csc_array, csr_matrix, csr_array)):
         output = mat
         if rows is not None:
-            output = output[rows, :]  # type: ignore
+            output = output[rows, :]
         if cols is not None:
-            output = output[:, cols]  # type: ignore
+            output = output[:, cols]
     else:
         raise TypeError(f"mat needs to be of type nichenet_matrix, not {type(mat)}")
     return output
 
 
-def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.float64]]) -> np.ndarray[Any, np.dtype[np.float64]]:
+def remove_zero_rows_cols(mat: np.ndarray[Any, np.dtype[np.floating]]) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Remove all 0-rows and 0-columns from a matrix.
 
@@ -406,7 +421,7 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 
 
-def ligand_activities_df[GeneSymbol](
+def ligand_activities_df(
     ligand_activities: dict[GeneSymbol, dict[str, float]] | Iterable[tuple[GeneSymbol, dict[str, float]]],
 ) -> pd.DataFrame:
     """
@@ -473,11 +488,11 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
-    pd.options.mode.chained_assignment = None  # false positive warnings removal
     vals = sorted(set(df[groupby]))
     groups = []
     for val in vals:
-        group = df[df[groupby] == val]
+        # copy, so the new column is added to a dataframe of its own and not to a view of df
+        group = df[df[groupby] == val].copy()
         group[dest] = func(group)
         groups.append(group)
     return pd.concat(groups)
@@ -508,7 +523,7 @@ def ncycle(it: Iterable, n: int) -> Iterable:
     if not isinstance(it, Iterable):
         raise TypeError(f"it should have type Iterable, was {it}")
     if type(n) is not int:
-        TypeError(f"n should have type int, was {n}")
+        raise TypeError(f"n should have type int, was {type(n)}")
     for _ in range(n):
         yield from it
 
@@ -562,7 +577,8 @@ def decomplexify(df: pd.DataFrame, from_col: str = "ligand", to_col: str = "rece
 
 def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     """
-    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame.
+    Converts the output of scanpy.tl.rank_genes_groups to a pandas data frame (ann.uns["rank_genes_groups"] is not
+    changed).
 
     Parameters
     ----------
@@ -600,7 +616,7 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     output.rename(
         columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"}, inplace=True
     )
-    ann.uns["rank_genes_groups"] = output
+    # ann.uns["rank_genes_groups"] is left as it is (scanpy's own functions, e.g. its plots, need its format)
     return output
 
 
@@ -655,7 +671,7 @@ def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     """
     return [
         test_ligand == true_ligand
-        if isinstance(true_ligand, gene_t.__value__)
+        if isinstance(true_ligand, str) or not isinstance(true_ligand, Iterable)
         else test_ligand in true_ligand or (type(test_ligand) is str and test_ligand == "-".join(map(str, true_ligand)))
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]

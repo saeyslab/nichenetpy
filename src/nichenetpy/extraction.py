@@ -9,7 +9,7 @@ from anndata import AnnData
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -32,14 +32,14 @@ def _get_expressed_features(
     if layer is None:
         validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     else:
+        if type(layer) is not str:
+            raise TypeError(f"layer should be of type str, was {type(layer)}")
         sel_layer = ann.layers[layer]
         validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if layer is not None and type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
     if pct > 1 or pct < 0:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
@@ -49,7 +49,7 @@ def _get_expressed_features(
     if len(cells_oi) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.X if layer is None else sel_layer
+    mat = ann.X if layer is None else sel_layer  # pyright: ignore[reportPossiblyUnboundVariable] # bound when layer is not None
     # select rows corresponding to cells of interest
     row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])  # type: ignore # sel_layer and ann.X are type checked
@@ -96,7 +96,7 @@ def get_expressed_genes(
     return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 
-def get_weighted_ligand_receptor_links[GeneSymbol](
+def get_weighted_ligand_receptor_links(
     best_upstream_ligands: Iterable[GeneSymbol],
     expressed_receptors: Iterable[GeneSymbol],
     lr_network: LigandReceptorNetwork[GeneSymbol],
@@ -144,7 +144,7 @@ def get_weighted_ligand_receptor_links[GeneSymbol](
     return lr_sig.subset_sep(best_upstream_ligands.intersection({e[0] for e in lr_network}), best_upstream_receptors)
 
 
-def get_lfc_celltype[GeneSymbol](
+def get_lfc_celltype(
     ann: AnnData,
     celltype: str,
     condition_col: str,
@@ -302,17 +302,16 @@ def average_expression(
             raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
     elif not isinstance(keys, Iterable):
         raise TypeError(f"keys should be an Iterable of strings, was {type(keys)}")
-    cell2id = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
+    groups = ann.obs[groupby].to_numpy()
     # make sure all keys are in ann.obs
-    keys = set(ann.obs[groupby]).intersection(keys)
+    keys = set(groups.tolist()).intersection(keys)
+    # the rows of each group are found with one comparison per group (instead of looking up each cell's group with
+    # ann.obs.loc for every group); np.asarray(...).ravel() works for dense and sparse means
     col_names, cols = zip(
-        *(
-            (key, data[[cell2id[cell] for cell in ann.obs.index if ann.obs.loc[cell][groupby] == key], :].mean(axis=0))
-            for key in keys
-        ),
+        *((key, np.asarray(data[np.flatnonzero(groups == key), :].mean(axis=0)).ravel()) for key in keys),
         strict=True,
     )
-    df = pd.DataFrame(np.column_stack([col.T for col in cols]))
+    df = pd.DataFrame(np.column_stack(cols))
     df.index = ann.var_names
     df.columns = col_names
     return df

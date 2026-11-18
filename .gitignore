@@ -15,7 +15,12 @@ __pycache__/
 /dist/
 
 # Tests and coverage
-tests/data/
+# data downloaded by the tests (tests/common.py, tests/ligand_activity_predictor_test.py);
+# tutorial_files/ in the repository root is already ignored under "local"
+tests/data/tutorial_files/
+tests/data/TGFB1/
+# temporary file written by tests/io_test.py (left behind if the test fails)
+/temp.bin
 /node_modules/
 /.coverage*
 

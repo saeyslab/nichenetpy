@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
@@ -44,7 +45,7 @@ def get_geneset_oi(
     scanpy_corr_method: Literal["bonferroni"] | Literal["benjamini-hochberg"] = "benjamini-hochberg",
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -64,9 +65,10 @@ def get_geneset_oi(
     max_pval_adj : float
         the upper bound for pval_adj
     min_abs_lfc : float
-        the lower bound for lfc,
+        the lower bound for the absolute log fold change
     min_pct : float
-        the lower bound for the pct
+        genes are only considered if they're expressed in at least this fraction of the cells of the condition of
+        interest or of the other conditions (with use_scanpy: of the condition of interest)
     use_scanpy : bool
         if true, use scanpy.tl.rank_genes_groups to compute the metrics
     scanpy_corr_method : str
@@ -147,6 +149,34 @@ def combine_weighted_ligand_target_links(
     )
 
 
+def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | None:
+    # the sender cell types are used several times, so they're stored in a list (a generator can only be used once);
+    # a single str is one cell type (iterating over it would give its characters)
+    if sender_celltypes is None:
+        return None
+    if isinstance(sender_celltypes, str):
+        return [sender_celltypes]
+    if not isinstance(sender_celltypes, Iterable):
+        raise TypeError(f"sender_celltypes should be an Iterable of str or None, was {type(sender_celltypes)}")
+    return list(sender_celltypes)
+
+
+def _ligands_in_model(
+    potential_ligands: set[GeneSymbol], predictor: LigandActivityPredictor[GeneSymbol]
+) -> set[GeneSymbol]:
+    # ligands of the ligand-receptor network that aren't in the ligand-target matrix can't be scored (predicting their
+    # activity raised a ValueError), they're left out with a warning
+    in_model = potential_ligands & predictor.get_ligands()
+    missing = potential_ligands - in_model
+    if len(missing) > 0:
+        warnings.warn(
+            f"{len(missing)} potential ligands are not in the ligand-target matrix and are left out, "
+            f"e.g. {sorted(missing, key=str)[:5]}",
+            stacklevel=3,
+        )
+    return in_model
+
+
 def run_nichenet(
     ann: AnnData,
     predictor: LigandActivityPredictor[str],
@@ -169,7 +199,7 @@ def run_nichenet(
     get_prioritization_table: bool = False,
     case_control: bool = True,
     use_scanpy: bool = False,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
     """
@@ -182,7 +212,8 @@ def run_nichenet(
     predictor : LigandActivityPredictor
         the predictor which contains the ligand-target matrix
     lr_network : LigandReceptorNetwork
-        the ligand-receptor network containing the ligand-receptor interactions
+        the ligand-receptor network containing the ligand-receptor interactions (ligands that aren't in the
+        ligand-target matrix are left out with a warning)
     receiver : str
         the receiver cell type
     condition_col : str
@@ -191,18 +222,20 @@ def run_nichenet(
         the condition of interest
     condition_ref : str
         the reference condition
-    sender_celltypes : Iterable[str] or None
+    sender_celltypes : Iterable[str] or str or None
         the sender cell types for the sender-focused approach, if None only the sender-agnostic analysis is performed
     layer : str
-        the layer in the AnnData object which contains the data matrix
+        the layer in the AnnData object which contains the (log-normalized) data matrix
     celltype_col : str
         the name of the column in obs which contains the celltypes
     max_pval_adj : float
         the upper bound for pval_adj
     min_abs_lfc : float
-        the lower bound for lfc
+        the lower bound for the absolute log fold change of the genes of interest
     expression_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+        the minimum fraction of the cells of a cell type that must express a gene for it to be considered expressed
+        (receiver and sender genes); also used as `min_pct` for the differential expression: genes are only tested if
+        they're expressed in at least this fraction of the cells of one of the compared groups
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -234,8 +267,9 @@ def run_nichenet(
 
             best_upstream_ligands : list of gene_t
                 the top scoring ligands in the sender-agnostic approach
-            ligand_activities_sorted : dict
-                the computed metrics for each ligand in the sender-agnostic approach
+            ligand_activities_sorted : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-agnostic approach, sorted from the most to the least active ligand
             active_ligand_target_links : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target
                 links in the sender-agnostic approach
@@ -256,8 +290,9 @@ def run_nichenet(
 
             best_upstream_ligands_focused : list of gene_t
                 the top scoring ligands in the sender-focused approach
-            ligand_activities_sorted_focused : dict
-                the computed metrics for each ligand in the sender-focused approach
+            ligand_activities_sorted_focused : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-focused approach, sorted from the most to the least active ligand
             active_ligand_target_links_focused : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target links
                 in the sender-focused approach
@@ -274,12 +309,18 @@ def run_nichenet(
         if get_prioritization_table is True, additionally
 
             prioritization_table : pandas.DataFrame
+                Data frame of prioritized sender-ligand-receiver-receptor interactions, based on the sender-focused
+                ligand activities (as in NicheNetR)
 
     Raises
     ------
     ValueError
         if get_prioritization_table is True and sender_celltypes is not provided
     """
+    sender_celltypes = _sender_list(sender_celltypes)
+    # checked first, so the analysis doesn't run for nothing
+    if get_prioritization_table and sender_celltypes is None:
+        raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
     output = {}
     expressed_genes_receiver = set(
         get_expressed_genes(receiver, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
@@ -289,9 +330,9 @@ def run_nichenet(
     output["expressed_receptors"] = expressed_receptors
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     output["background_expressed_genes"] = background_expressed_genes
-    potential_ligands = {
-        key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0
-    }
+    potential_ligands = _ligands_in_model(
+        {key for key, group in lr_network.item_iter() if len(group.intersection(expressed_receptors)) > 0}, predictor
+    )
     geneset = get_geneset_oi(
         ann,
         receiver=receiver,
@@ -371,31 +412,29 @@ def run_nichenet(
                 )
                 for celltype in sender_celltypes
             ]
-    if get_prioritization_table:
-        if sender_celltypes is None:
-            raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
-        if not isinstance(sender_celltypes, Sequence):
-            sender_celltypes = list(sender_celltypes)
-        lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
-        info_tables = generate_info_tables(
-            ann,
-            celltype_col,
-            sender_celltypes,
-            [receiver],
-            lr_network_filtered,
-            condition_col,
-            condition_oi,
-            condition_ref,
-            case_control,
-            use_scanpy=use_scanpy,
-        )
-        output["prioritization_table"] = generate_prioritization_table(
-            info_tables["sender_receiver_info"],
-            info_tables["sender_receiver_de"],
-            ligand_activities_sorted,  # type: ignore # false positive
-            info_tables["lr_condition_de"] if case_control else None,
-            target_evaluation_metric=target_evaluation_metric,
-        )
+        if get_prioritization_table:
+            lr_network_filtered = lr_network.subset_sep(expressed_ligands, expressed_receptors)
+            info_tables = generate_info_tables(
+                ann,
+                celltype_col,
+                sender_celltypes,
+                [receiver],
+                lr_network_filtered,
+                condition_col,
+                condition_oi,
+                condition_ref,
+                case_control,
+                use_scanpy=use_scanpy,
+                layer=layer,
+            )
+            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders)
+            output["prioritization_table"] = generate_prioritization_table(
+                info_tables["sender_receiver_info"],
+                info_tables["sender_receiver_de"],
+                ligand_activities_sorted_focused,  # type: ignore # false positive
+                info_tables["lr_condition_de"] if case_control else None,
+                target_evaluation_metric=target_evaluation_metric,
+            )
     return output
 
 
@@ -413,7 +452,7 @@ def run_nichenet_cluster_de(
     expression_pct: float = 0.1,
     ligands_top_n: int | None = 30,
     targets_top_n: int = 200,
-    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # type: ignore # this works fine
+    lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
     geneset: Literal["DE"] | Literal["up"] | Literal["down"] = "DE",
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> dict[str, Any]:
@@ -432,7 +471,7 @@ def run_nichenet_cluster_de(
         Name of cluster identity/identities of "affected" cells that were presumably affected by intercellular communication with other cells
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
-    sender_celltypes : Iterable[str] or None
+    sender_celltypes : Iterable[str] or str or None
         The sender celltypes or None for all celltypes
     layer : str
         the layer in the AnnData object which contains the data matrix
@@ -443,7 +482,9 @@ def run_nichenet_cluster_de(
     lfc_cutoff: float
         the cutoff for the logfold change
     expression_pct : float
-        the minimum percent difference between the percent of cells expressing the gene in the cluster and the percent of cells
+        the minimum fraction of the cells of a cell type that must express a gene for it to be considered expressed
+        (receiver and sender genes); also used as `min_pct` for the differential expression: genes are only tested if
+        they're expressed in at least this fraction of the cells of one of the compared groups
     ligands_top_n : int
         the amount of ligands that are considered to be the best upstream ligands
     targets_top_n : int
@@ -489,6 +530,7 @@ def run_nichenet_cluster_de(
         raise TypeError(f"geneset should have type str, was {type(geneset)}")
     elif geneset not in ("DE", "up", "down"):
         raise ValueError(f"geneset should be 'DE', 'up' or 'down', was {geneset}")
+    sender_celltypes = _sender_list(sender_celltypes)
     expressed_genes_receiver_ref = set(
         get_expressed_genes(receiver_reference, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
@@ -497,7 +539,7 @@ def run_nichenet_cluster_de(
     )
     expressed_genes_receiver = expressed_genes_receiver_ref.union(expressed_genes_receiver_aff)
     if sender_celltypes is None:
-        expressed_genes_sender = set(ann.var_names).union(predictor.row_names, predictor.col_names)
+        expressed_genes_sender = set(ann.var_names).union(predictor.get_genes(), predictor.get_ligands())
     else:
         expressed_genes_sender = {
             gene
@@ -534,15 +576,18 @@ def run_nichenet_cluster_de(
                 & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= -lfc_cutoff))
             ]["gene"]
         )
-    geneset_oi.intersection_update(predictor.row_names)
+    geneset_oi.intersection_update(predictor.get_genes())
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
-    potential_ligands = {
-        key
-        for key, group in lr_network.item_iter()
-        if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
-    }
+    potential_ligands = _ligands_in_model(
+        {
+            key
+            for key, group in lr_network.item_iter()
+            if key in expressed_ligands and len(group.intersection(expressed_receptors)) > 0
+        },
+        predictor,
+    )
     ligand_activities_dct = predictor.predict_ligand_activities(
         geneset=geneset_oi,
         background_expressed_genes=background_expressed_genes,
@@ -570,19 +615,21 @@ def run_nichenet_cluster_de(
 
 
 def create_ligand_activity_hist(
-    ligand_activities_sorted: Iterable[tuple],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     xtitle: str = "ligand activity",
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
+    top_n: int = 30,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a ligand activity histogram.
+    Creates a ligand activity histogram with a dashed line at the activity of the top_n-th ligand.
 
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     xtitle : str
         the title of the x-axis
     ytitle : str
@@ -591,6 +638,8 @@ def create_ligand_activity_hist(
         the size of the figure
     target_evaluation_metric : string
         the target prediction evaluation metric to use
+    top_n : int
+        the dashed line marks the activity of the top_n-th ligand (the last ligand if there are fewer)
 
     Returns
     -------
@@ -598,18 +647,32 @@ def create_ligand_activity_hist(
         the figure
     Axes
         the axes
+
+    Raises
+    ------
+    TypeError
+        if the arguments have the wrong type
+    ValueError
+        if there are no ligands or top_n is smaller than 1
     """
-    fig, ax = plt.subplots(figsize=figsize)
+    if type(top_n) is not int:
+        raise TypeError(f"top_n should have type int, was {type(top_n)}")
+    if top_n < 1:
+        raise ValueError(f"top_n should be at least 1, was {top_n}")
     vals = [e[1][target_evaluation_metric] for e in ligand_activities_sorted]
-    plt.hist(vals, bins=40, edgecolor="black")
-    plt.vlines(x=vals[29], ymin=0, ymax=120, color="red", linestyles="dashed")
-    plt.xlabel(xtitle)
-    plt.ylabel(ytitle)
+    if len(vals) == 0:
+        raise ValueError("ligand_activities_sorted is empty")
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.hist(vals, bins=40, edgecolor="black")
+    # axvline spans the full height of the plot
+    ax.axvline(x=vals[min(top_n, len(vals)) - 1], color="red", linestyle="dashed")
+    ax.set_xlabel(xtitle)
+    ax.set_ylabel(ytitle)
     return (fig, ax)
 
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted: Iterable[tuple[str, str]],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     title: str = "ligand activity",
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
@@ -622,7 +685,8 @@ def create_ligand_activity_heatmap(
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     title : str
         the title of the plot
     cbar_label : str
@@ -833,54 +897,51 @@ def _create_circos_plot(
     separate_sender_receiver: bool = True,
     sender_receiver_space: float = 0,
 ) -> tuple[Figure, Axes]:
-    link_count_in = {}
-    link_count_out = {}
+    circos_links = list(circos_links)
+    # opacity is used twice (its maximum and the value of each link), so it's stored in a list (it may be a generator)
+    weights = [1.0] * len(circos_links) if opacity is None else list(opacity)
+    if len(weights) != len(circos_links):
+        raise ValueError(f"opacity should have a value for each of the {len(circos_links)} links, had {len(weights)}")
+    max_weight = max(weights, default=1.0)
+
+    # Each rectangle is identified by (role, group, gene) and each sector by (role, group), with role "send" or "rec"
+    # (or "" if senders and receivers aren't separated). The names are kept as tuples, so groups and genes can contain
+    # any character.
+    def sector_name(role: str, group: str) -> str:
+        return f"{role}_{group}" if role else group
+
+    send_role, rec_role = ("send", "rec") if separate_sender_receiver else ("", "")
+    link_count_out: dict[tuple[str, str, str], int] = {}
+    link_count_in: dict[tuple[str, str, str], int] = {}
     links = []
-    if not isinstance(circos_links, Sequence):
-        circos_links = tuple(circos_links)
-    max_weight = 1 if opacity is None else max(opacity)
-    # define unique identifiers for each rectangle and create a list of links between rectangles
-    # the opacity and start/end positions of the links are also specified
-    for link in circos_links if opacity is None else zip(circos_links, opacity, strict=True):
-        sender_tup: tuple[str, str]
-        receiver_tup: tuple[str, str]
-        sender_tup, receiver_tup = link if opacity is None else link[0]  # type: ignore # correct due to conditional
-        weight: float = 1 if opacity is None else link[1]  # type: ignore # correct due to conditional
-        sender_group, sender = sender_tup
-        receiver_group, receiver = receiver_tup
-        key_out = f"{'send_' if separate_sender_receiver else ''}{sender_group}_{sender}"
-        if key_out in link_count_out:
-            link_count_out[key_out] += 1
-        else:
-            link_count_out[key_out] = 1
-        key_in = f"{'rec_' if separate_sender_receiver else ''}{receiver_group}_{receiver}"
-        if key_in in link_count_in:
-            link_count_in[key_in] += 1
-        else:
-            link_count_in[key_in] = 1
+    # count the links of each rectangle; the n-th link of a rectangle starts at position n - 1 within the rectangle
+    for ((sender_group, sender), (receiver_group, receiver)), weight in zip(circos_links, weights, strict=True):
+        key_out = (send_role, sender_group, sender)
+        key_in = (rec_role, receiver_group, receiver)
+        link_count_out[key_out] = link_count_out.get(key_out, 0) + 1
+        link_count_in[key_in] = link_count_in.get(key_in, 0) + 1
         links.append((key_out, key_in, weight / max_weight, link_count_out[key_out], link_count_in[key_in]))
-    groups = {}
-    group_sizes = {}
-    # group the rectangles into sectors and keep track of the size of each group
-    for key, count in chain(link_count_in.items(), link_count_out.items()):
-        if separate_sender_receiver:
-            role, group, elem = key.split("_")
-            group = f"{role}_{group}"
+    # the genes of each sector (in order of appearance, a set had a different order in every Python session) and the
+    # size of each sector (its links + the space between its genes)
+    sector2group: dict[str, str] = {}
+    sector_genes: dict[str, list[str]] = {}
+    group_sizes: dict[str, float] = {}
+    for (role, group, gene), count in chain(link_count_in.items(), link_count_out.items()):
+        name = sector_name(role, group)
+        sector2group[name] = group
+        if name in group_sizes:
+            sector_genes[name].append(gene)
+            group_sizes[name] += count + intra_space
         else:
-            group, elem = key.split("_")
-        if group in groups:
-            groups[group].add(elem)
-        else:
-            groups[group] = {elem}
-        if group in group_sizes:
-            group_sizes[group] += count + intra_space
-        else:
-            group_sizes[group] = count
-    # this is not good code but pycirclize doesn't let you properly order the sectors, so here you go...
-    rec_sector_count = len({key.split("_")[1] for key in link_count_in.keys()})
+            sector_genes[name] = [gene]
+            group_sizes[name] = count
     if separate_sender_receiver:
+        # pycirclize doesn't let you order the sectors, they're drawn in the order of group_sizes:
+        # the receiver sectors ("rec_...") first, then the sender sectors ("send_...")
         group_sizes = dict(sorted(group_sizes.items(), key=lambda x: x[0]))
         if sender_receiver_space > 0:
+            # extra space at the start of the first receiver sector and the end of the last receiver sector
+            rec_sector_count = len({group for _, group, _ in link_count_in})
             keys = list(group_sizes.keys())
             for i in (0, rec_sector_count - 1):
                 group_sizes[keys[i]] += sender_receiver_space
@@ -891,43 +952,40 @@ def _create_circos_plot(
             * (360 / (sum(group_sizes.values()) + (len(group_sizes) - 1) * inter_space + 2 * sender_receiver_space))
         ),
     )
-    link_count = dict(chain(link_count_in.items(), link_count_out.items()))
-    rects = {}
+    link_count = {
+        (sector_name(role, group), gene): count
+        for (role, group, gene), count in chain(link_count_in.items(), link_count_out.items())
+    }
+    rects: dict[str, dict[str, float]] = {}
     # create a track for each sector and add the rectangles
     start = sender_receiver_space if separate_sender_receiver else 0
     for sector in circos.sectors:
-        group = sector.name
-        sub_rects = {}
-        rects[group] = sub_rects
+        name = sector.name
+        sub_rects: dict[str, float] = {}
+        rects[name] = sub_rects
         track = sector.add_track((95, 100))
-        for elem in groups[group]:
-            end = start + link_count[f"{group}_{elem}"]
-            track.rect(start, end, fc=colors[group.split("_")[1] if separate_sender_receiver else group])
-            sub_rects[elem] = start
+        for gene in sector_genes[name]:
+            end = start + link_count[(name, gene)]
+            track.rect(start, end, fc=colors[sector2group[name]])
+            sub_rects[gene] = start
             track.text(
-                elem, (end + start) / 2, r=track.r_center + track.r_size + len(elem) + 4, size=6, orientation="vertical"
+                gene, (end + start) / 2, r=track.r_center + track.r_size + len(gene) + 4, size=6, orientation="vertical"
             )
             start = end + intra_space
         start = 0
     # link the rectangles
-    for sender, receiver, weight, send_pos, rec_pos in links:
-        if separate_sender_receiver:
-            _, sender_group, sender = sender.split("_")
-            _, receiver_group, receiver_gene = receiver.split("_")
-            sender_group = f"send_{sender_group}"
-            receiver_group = f"rec_{receiver_group}"
-        else:
-            sender_group, sender = sender.split("_")
-            receiver_group, receiver_gene = receiver.split("_")
+    for (s_role, s_group, sender), (r_role, r_group, receiver), weight, send_pos, rec_pos in links:
+        sender_sector = sector_name(s_role, s_group)
+        receiver_sector = sector_name(r_role, r_group)
         circos.link(
-            (sender_group, rects[sender_group][sender] + send_pos - 1, rects[sender_group][sender] + send_pos),
+            (sender_sector, rects[sender_sector][sender] + send_pos - 1, rects[sender_sector][sender] + send_pos),
             (
-                receiver_group,
-                rects[receiver_group][receiver_gene] + rec_pos - 1,
-                rects[receiver_group][receiver_gene] + rec_pos,
+                receiver_sector,
+                rects[receiver_sector][receiver] + rec_pos - 1,
+                rects[receiver_sector][receiver] + rec_pos,
             ),
             direction=1,
-            color=colors[sender_group.split("_")[1] if separate_sender_receiver else sender_group],
+            color=colors[s_group],
             alpha=weight,
         )
     # add a legend to the plot
@@ -1024,22 +1082,24 @@ def create_ligand_links_circos_plot(
     sender_receiver_space: float = 0,
 ) -> tuple[Figure, Axes]:
     """
-    Creates a circos plot showing the links between ligands and targets.
+    Creates a circos plot showing the links between ligands and their targets or receptors.
 
     Parameters
     ----------
     circos_links : pandas.DataFrame
-        dataframe with columns 'ligand', 'target', 'weight' and 'ligand_type'
+        dataframe with one row per link and the columns 'ligand', 'ligand_type' (the cell type the ligand is assigned
+        to, e.g. by visualization.assign_ligands_to_celltype) and `dest_name` (the receiving genes)
     colors : dict
-        color mapping for the ligands, should include a 'General' and 'target' mapping as well
+        color mapping for the ligand types and `dest_name`, e.g. {'General': ..., 'NK': ..., 'target': ...}
     dest_name : str
-        name of the receiving type
+        the column with the receiving genes, also used as the name (and color key) of the receiving sector, e.g.
+        'target' or 'receptor'
     inter_space : float
         space between celltypes
     intra_space : float
         space between genes
     opacity : Iterable of float or None
-        the opacity of each link
+        the opacity of each link (relative to the largest value), e.g. circos_links['weight']
     sender_receiver_space : float
         the extra space between sender and receiver sector groups
 
@@ -1047,11 +1107,15 @@ def create_ligand_links_circos_plot(
     -------
     matplotlib.Figure
         the plotted figure
+    matplotlib.Axes
+        the axes
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if opacity doesn't have one value per link
     """
     if type(circos_links) is not pd.DataFrame:
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
@@ -1079,7 +1143,7 @@ def create_ligand_links_circos_plot(
     )
 
 
-def generate_info_tables[GeneSymbol](
+def generate_info_tables(
     ann: AnnData,
     celltype_col: str,
     senders_oi: Sequence[str],
@@ -1090,6 +1154,7 @@ def generate_info_tables[GeneSymbol](
     condition_ref: str,
     case_control: bool = False,
     use_scanpy: bool = False,
+    layer: str = "data",
 ) -> dict[str, pd.DataFrame]:
     """
     Calculate differential expression, average expression, and condition specificity of ligands and receptors.
@@ -1116,6 +1181,9 @@ def generate_info_tables[GeneSymbol](
         if True, calculate condition specificity, else only calculate cell type specificity
     use_scanpy : bool
         if true, use scanpy.rank_genes_groups to compute the metrics
+    layer : str
+        the layer with the log-normalized data (as Seurat's data slot), used for the differential expression, the
+        condition specificity and the average expression (averaged after expm1, as Seurat's AverageExpression)
 
     Returns
     -------
@@ -1127,8 +1195,9 @@ def generate_info_tables[GeneSymbol](
 
     Notes
     -----
-    "lr_condition_de" is only present if case_control is True
+    "lr_condition_de" is only present if case_control is True. ann (including ann.uns) is not changed.
     """
+    lr_genes = lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors())
     output = {
         "sender_receiver_de": process_table_to_ic(
             calculate_de(
@@ -1136,7 +1205,8 @@ def generate_info_tables[GeneSymbol](
                 celltype_col,
                 condition_oi,
                 condition_col,
-                features=lr_network_filtered.get_ligands().union(lr_network_filtered.get_receptors()),
+                layer=layer,
+                features=lr_genes,
                 use_scanpy=use_scanpy,
             ),
             "celltype_DE",
@@ -1146,15 +1216,27 @@ def generate_info_tables[GeneSymbol](
             celltype_col=celltype_col,
         ),
         "sender_receiver_info": process_table_to_ic(
-            get_avg_exp(ann, celltype_col, condition_oi, condition_col),
+            get_avg_exp(ann, celltype_col, condition_oi, condition_col, layer=layer, log_normalized=True),
             "expression",
             lr_network_filtered,
             celltype_col=celltype_col,
         ),
     }
     if case_control:
-        group_metrics(ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref)
-        res = ann.uns["group_metrics"]
+        # group_metrics stores its result in ann.uns["group_metrics"], the caller's value is restored afterwards; only
+        # the ligands and receptors are tested (the other genes aren't used, pval_adj still accounts for all genes)
+        missing = object()
+        previous = ann.uns.get("group_metrics", missing)
+        try:
+            group_metrics(
+                ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref, layer=layer, features=lr_genes
+            )
+            res = ann.uns["group_metrics"]
+        finally:
+            if previous is missing:
+                ann.uns.pop("group_metrics", None)
+            else:
+                ann.uns["group_metrics"] = previous
         output["lr_condition_de"] = process_table_to_ic(
             res[["gene", "lfc", "pval", "pval_adj"]], "group_DE", lr_network_filtered, celltype_col=celltype_col
         )

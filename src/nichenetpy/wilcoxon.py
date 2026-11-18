@@ -1,5 +1,6 @@
 from __future__ import annotations  # Series[T] typehint can throw an Error at runtime
 
+import warnings
 from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
@@ -24,8 +25,16 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
             mat = csc_array(mat)
         except TypeError as error:
             raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix/array, was {type(mat)}") from error
-    if type(mat.shape) is None:
-        raise ValueError("mat has shape None")
+    if (mat.data == 0).any():
+        # explicitly stored zeros would be ranked above the implicit zeros, remove them from a copy (the caller's
+        # matrix is not changed)
+        warnings.warn(
+            "the matrix contains explicitly stored zeros, they are removed from a copy of the matrix before ranking "
+            "(call eliminate_zeros() on the matrix beforehand to avoid the copy)",
+            stacklevel=3,
+        )
+        mat = mat.copy()
+        mat.eliminate_zeros()
     output = []
     group_mat = []
     nrows, ncols = mat.shape
@@ -90,7 +99,18 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
+    ann: AnnData,
+    groupby: str,
+    as_dataframe: Literal[False] = False,
+    tie_correction: bool = True,
+    layer: str | None = "data",
+    genes: Sequence[GeneSymbol] | None = None,
+) -> dict[str, list[float]]: ...
+
+
+@overload
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: Literal[True],
@@ -101,24 +121,24 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
-    ann: AnnData,
-    groupby: str,
-    as_dataframe: Literal[False],
-    tie_correction: bool = True,
-    layer: str | None = "data",
-    genes: Sequence[GeneSymbol] | None = None,
-) -> dict[str, GeneSymbol]: ...
-
-
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
     genes: Sequence[GeneSymbol] | None = None,
-) -> pd.DataFrame | dict[str, GeneSymbol]:
+) -> pd.DataFrame | dict[str, list[float]]: ...
+
+
+def wilcoxon_rank_sum_test(
+    ann: AnnData,
+    groupby: str,
+    as_dataframe: bool = False,
+    tie_correction: bool = True,
+    layer: str | None = "data",
+    genes: Sequence[GeneSymbol] | None = None,
+) -> pd.DataFrame | dict[str, list[float]]:
     """
     Perform the wilcoxon rank sum test and return the p-values
 
@@ -140,7 +160,8 @@ def wilcoxon_rank_sum_test[GeneSymbol](
     Returns
     -------
     pandas.DataFrame or dict
-        the p-value for each gene
+        the p-value for each gene (rows) and group (columns), or a dict with for each group the list of p-values (in
+        the order of the genes)
 
     Raises
     ------
@@ -180,7 +201,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
         mat = ann.layers[layer]
         validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
     if genes is None:
-        genes = ann.var_names  # type: ignore # this works fine
+        genes = ann.var_names
     else:
         if type(genes) is not list and type(genes) is not tuple:
             raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
@@ -217,13 +238,16 @@ def wilcoxon_rank_sum_test[GeneSymbol](
             else:
                 pvals[group] = [pval]
     if as_dataframe:
-        pvals = pd.DataFrame(pvals, index=genes)  # type: ignore # this behaves as expected
+        pvals = pd.DataFrame(pvals, index=genes)  # pyright: ignore[reportArgumentType] # this behaves as expected
         pvals.index.name = "gene"  # type: ignore
     return pvals  # type: ignore
 
 
 def wilcoxon_rank_sum_test_with_correlation(
-    index: Iterable[int] | Iterable[bool], statistics: Sequence[float], correlation: float = 0, df: float = np.inf
+    index: Iterable[int] | Iterable[bool],
+    statistics: Sequence[float] | np.ndarray[tuple[int], np.dtype[np.floating]],
+    correlation: float = 0,
+    df: float = np.inf,
 ) -> tuple[float, float]:
     """
     Rank sum test as for two-sample Wilcoxon-Mann-Whitney test, but allowing for correlation between members of test set.
@@ -232,7 +256,7 @@ def wilcoxon_rank_sum_test_with_correlation(
     ----------
     index : Iterable of int or Iterable of bool
         indices or mask of the test group
-    statistics : Iterable[float]
+    statistics : Sequence of float or 1-D numpy.ndarray of float
         the values of the test statistic
     correlation : float
         The average correlation between cases in the test group.
@@ -243,9 +267,9 @@ def wilcoxon_rank_sum_test_with_correlation(
     Returns
     -------
     float
-        lower tail p-value
+        lower tail p-value (alternative: the statistics of the test group are smaller), "less" in limma
     float
-        upper tail p-value
+        upper tail p-value (alternative: the statistics of the test group are larger), "greater" in limma
 
     Raises
     ------
@@ -288,4 +312,6 @@ def wilcoxon_rank_sum_test_with_correlation(
         sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
     zuppertail = (u - 0.5 - mu) / sqrt(sigma2)
-    return (t.cdf(zlowertail, df), 1 - t.cdf(zuppertail, df))
+    # as limma: less = pt(zuppertail, lower.tail = FALSE), greater = pt(zlowertail) (the two were returned swapped);
+    # t.sf is 1 - t.cdf without the loss of precision for small p-values
+    return (t.sf(zuppertail, df), t.cdf(zlowertail, df))

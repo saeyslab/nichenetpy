@@ -1,28 +1,28 @@
 from collections.abc import Iterable
-from typing import overload
+from typing import Any, overload
 
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _as_gene, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
-def _subset_layer[GeneSymbol](
+def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
-) -> tuple[nichenet_matrix, Iterable[GeneSymbol]]:
+) -> tuple[nichenet_matrix, list[GeneSymbol]]:
     sel_layer = ann.layers[layer]
     validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
-    if type(features) is set:
-        features = sorted(features)
+    # sets are sorted (they have no fixed order), other iterables are stored in a list (a generator can only be used once)
+    features = sorted(features) if type(features) is set else list(features)
     ids = [gene2index[gene] for gene in features]
     return (subset_matrix(sel_layer, cols=ids), features)  # type: ignore # sel_layer is type checked
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str],
     genes: Iterable[GeneSymbol] | None = None,
@@ -33,7 +33,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     *,
@@ -45,7 +45,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be this overload
+def subset_ann(  # if val and genes are not provided, it should be this overload
     ann: AnnData,
     val: None = None,
     genes: None = None,
@@ -55,7 +55,7 @@ def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be t
 ) -> None: ...
 
 
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     genes: Iterable[GeneSymbol] | None = None,
@@ -80,7 +80,8 @@ def subset_ann[GeneSymbol](
     val_col : str
         the name of the column in obs that contains the values to subset by
     subset_X : bool
-        whether or not to subset X
+        whether or not to subset X; if False, the output has no X (this saves the time and memory of subsetting X when
+        only the layers are needed)
 
     Returns
     -------
@@ -106,17 +107,20 @@ def subset_ann[GeneSymbol](
         layers = [key for key in ann.layers.keys() if key is not None]
     elif not isinstance(layers, Iterable):
         raise TypeError(f"layers should be an Iterable of strings, was {type(layers)}")
+    # the selected cells (None if the cells aren't subsetted) and the selected values of val_col
+    cells_oi: pd.DataFrame | None = None
+    selected_vals: set[Any] = set()
     if val is None:
         row_ids = None
     else:
-        if isinstance(val, gene_t.__value__):
-            val = {val}  # type: ignore # val has type set[gene_t] which satisfies Iterable[gene_t]
-        elif not isinstance(val, Iterable):
-            raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")
-        elif type(val) is not set:
-            val = set(val)
+        # a single value or an Iterable of values
+        if isinstance(val, str) or not isinstance(val, Iterable):
+            selected_vals = {_as_gene(val, "val")}
+        else:
+            selected_vals = set(val)
         try:
-            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)]  # type: ignore # val has type set[gene_t]
+            # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
+            cells_oi = ann.obs.loc[ann.obs[val_col].isin(selected_vals)].copy()
         except KeyError as error:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
         if len(cells_oi) == 0:
@@ -127,8 +131,9 @@ def subset_ann[GeneSymbol](
     if genes is None:
         col_ids = None
     else:
-        if type(genes) is set:
-            genes = sorted(genes)
+        # sets are sorted (they have no fixed order), other iterables are stored in a list: genes is used twice (for
+        # the columns and the var_names) and a generator can only be used once
+        genes = sorted(genes) if type(genes) is set else list(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         try:
             col_ids = [gene2index[gene] for gene in genes]
@@ -137,25 +142,28 @@ def subset_ann[GeneSymbol](
     if row_ids is None and col_ids is None:
         return None
     new_layers = {layer: subset_matrix(ann.layers[layer], rows=row_ids, cols=col_ids) for layer in layers}  # type: ignore # let subset_matrix return TypeError
-    if ann.X is not None:
-        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids) if subset_X else ann.X  # type: ignore # let subset_matrix return TypeError
+    # X is only kept if it's subsetted (the original X doesn't fit the subsetted shape)
+    new_X = None
+    if ann.X is not None and subset_X:
+        new_X = subset_matrix(ann.X, rows=row_ids, cols=col_ids)  # type: ignore # let subset_matrix return TypeError
     # subset categories if the column is categorical
-    if row_ids is not None and cells_oi[val_col].dtype.name == "category":
-        pd.options.mode.chained_assignment = None  # false positive warning removal
-        cells_oi[val_col] = cells_oi[val_col].cat.set_categories(val)  # type: ignore # val has type set[gene_t]
+    if cells_oi is not None and cells_oi[val_col].dtype.name == "category":
+        # keep the selected categories in their original order (val is a set, which has no fixed order)
+        categories = [cat for cat in cells_oi[val_col].cat.categories.tolist() if cat in selected_vals]
+        cells_oi[val_col] = cells_oi[val_col].cat.set_categories(categories)
     if len(new_layers) > 0:
         new_shape = new_layers[next(iter(layers))].shape
-    elif ann.X is not None and subset_X:
+    elif new_X is not None:
         new_shape = new_X.shape
     else:
         raise ValueError("if layers=[] then X must be defined and subset_X must be True")
-    output = AnnData(obs=ann.obs if row_ids is None else cells_oi, layers=new_layers, shape=new_shape)  # type: ignore # despite the type warning this behaves as expected
+    output = AnnData(obs=ann.obs if cells_oi is None else cells_oi, layers=new_layers, shape=new_shape)  # type: ignore # despite the type warning this behaves as expected
     if genes is None:
-        output.var_names = ann.var_names  # type: ignore # despite the type warning this behaves as expected
+        output.var_names = ann.var_names  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     else:
-        output.var_names = ann.var_names.reindex(genes)[0]  # type: ignore # despite the type warning this behaves as expected
+        output.var_names = ann.var_names.reindex(genes)[0]  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
     output.var_names.name = "gene"
-    if ann.X is not None:
+    if new_X is not None:
         output.X = new_X
     return output
 
@@ -181,7 +189,7 @@ def prepare_ann(ann: AnnData):
     if ann.var_names is None:
         # nichenetpy expects the gene names to be stored here
         if "gene" in ann.var:
-            ann.var_names = ann.var["gene"]  # type: ignore # despite the type warning this behaves as expected
+            ann.var_names = ann.var["gene"]  # pyright: ignore[reportAttributeAccessIssue] # despite the type warning this behaves as expected
         else:
             raise ValueError("var_names and var['gene'] are both missing from the AnnData object")
     elif "gene" not in ann.var:
