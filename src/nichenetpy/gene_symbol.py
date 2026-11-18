@@ -143,7 +143,7 @@ class GeneInfo:
     """
 
     def __init__(self, arg: str | Iterable[tuple[str, str]]):
-        if type(arg) is str:
+        if isinstance(arg, str):
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(

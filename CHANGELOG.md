@@ -229,6 +229,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `gene_symbol.GeneInfo` giving no mouse-to-human conversions when created from a generator, and converting mouse symbols to "NA" (and "NA" to a human symbol) instead of None; missing symbols are now left out in both directions. Reading a gene info file with NA Entrez ids no longer fails, and a wrong argument type now raises the documented `TypeError`.
 
+- Fixed `prediction.LigandActivityPredictor` rejecting row and column names given as a `pandas.Index` (e.g. `ann.var_names`) or a `numpy.ndarray`, and accepting a string as names. It now raises a `ValueError` when the number of names doesn't match the shape of the ligand-target matrix or when the names contain duplicates (before, the extra or duplicate names silently pointed to wrong or missing rows/columns).
+
 - Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
 
 - Fixed `network.Network` and `network.WeightedNetwork` giving wrong links when the mapping list wasn't sorted by "from", and changing when the caller changed the list afterwards; they now store a sorted copy of the list (the list no longer needs to be sorted).

@@ -1,3 +1,5 @@
+from __future__ import annotations  # Index[T] typehint can throw an Error at runtime
+
 import warnings
 from collections.abc import Collection, Iterable, Sequence
 from itertools import chain, repeat
@@ -24,24 +26,26 @@ class LigandActivityPredictor[GeneSymbol]:
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : Sequence of gene_t
-        Sequence of names of the rows/genes
-    col_names : Sequence of gene_t
-        Sequence of names of the columns/ligands
+    row_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+        names of the rows/genes
+    col_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+        names of the columns/ligands
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the number of row or column names doesn't match the shape of the matrix, or if the names contain duplicates
 
     Attributes
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : Sequence of gene_t
-        Sequence of names of the rows/genes
-    col_names : Sequence of gene_t
-        Sequence of names of the columns/ligands
+    row_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+        names of the rows/genes
+    col_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+        names of the columns/ligands
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -55,8 +59,8 @@ class LigandActivityPredictor[GeneSymbol]:
     def __init__(
         self,
         ligand_target_matrix: nichenet_matrix,
-        row_names: Sequence[GeneSymbol],
-        col_names: Sequence[GeneSymbol],
+        row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str],
+        col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str],
     ) -> None:
         self.ligand_target_matrix: nichenet_matrix = ligand_target_matrix
         if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
@@ -84,14 +88,25 @@ class LigandActivityPredictor[GeneSymbol]:
                 )
         else:
             raise TypeError(f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}")
-        if not isinstance(row_names, Sequence):
+        # any ordered sequence of names (list, tuple, numpy array, pandas Index), not a str (one name per character)
+        if isinstance(row_names, str) or not isinstance(row_names, (Sequence, np.ndarray, pd.Index)):
             raise TypeError(f"row_names should have type Sequence[gene_t], was {type(row_names)}")
-        if not isinstance(col_names, Sequence):
+        if isinstance(col_names, str) or not isinstance(col_names, (Sequence, np.ndarray, pd.Index)):
             raise TypeError(f"col_names should have type Sequence[gene_t], was {type(col_names)}")
-        self.row_names: Sequence[GeneSymbol] = row_names
-        self.col_names: Sequence[GeneSymbol] = col_names
+        if (len(row_names), len(col_names)) != self.ligand_target_matrix.shape:
+            raise ValueError(
+                f"ligand_target_matrix has shape {self.ligand_target_matrix.shape}, but there are {len(row_names)} "
+                f"row names and {len(col_names)} column names"
+            )
+        self.row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str] = row_names
+        self.col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
         self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
+        # a duplicate name would make all but its last row/column unreachable
+        if len(self._gene2index) != len(self.row_names):
+            raise ValueError("row_names contains duplicates")
+        if len(self._ligand2index) != len(self.col_names):
+            raise ValueError("col_names contains duplicates")
 
     def matrix_density(self) -> float:
         """
