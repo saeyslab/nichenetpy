@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
 
+- `prediction.LigandActivityPredictor` stores a copy of the row and column names as `_row_names` and `_col_names` (the `row_names` and `col_names` attributes are removed), so changing the names that were passed no longer makes the predictor inconsistent. Use `get_genes()` and `get_ligands()` to get the names.
+
 - `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
 
 - Faster quantile clipping and conversion of shortest path lengths to scores (SPL algorithm) during ligand-tf matrix construction; shortest paths are now computed with `scipy.sparse.csgraph.dijkstra` (~20x faster SPL ligand-tf matrices).

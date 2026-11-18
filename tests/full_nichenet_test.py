@@ -982,10 +982,11 @@ def test_steps_prioritization() -> None:
         ligand_activities["receiver"] = [receiver for _ in range(len(ligand_activities.index))]
         res["ligand_activities"] = ligand_activities
         nichenet_output[receiver] = res
+    model_genes = predictor.get_genes()
     for receiver, res in nichenet_output.items():
         lr_network_filtered = lr_network.subset_sep(
             res["ligand_activities"].index,
-            [gene for gene in res["expressed_genes_receiver"] if gene in predictor.row_names],
+            [gene for gene in res["expressed_genes_receiver"] if gene in model_genes],
         )
         res["info_tables"] = generate_info_tables(
             ann,
@@ -1172,7 +1173,7 @@ def test_ligand_activity_single_cell() -> None:
         ligand for ligand, receptor in lr_network if ligand in expressed_ligands and receptor in expressed_receptors
     }
     assert len(potential_ligands) == 203
-    background_expressed_genes = expressed_genes_malignant.intersection(predictor.row_names)
+    background_expressed_genes = expressed_genes_malignant.intersection(predictor.get_genes())
     assert len(background_expressed_genes) == 5891
     row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows)), strict=True))
     col2id = dict(zip(exp_mat_cols, range(len(exp_mat_cols)), strict=True))

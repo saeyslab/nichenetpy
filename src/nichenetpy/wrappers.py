@@ -538,7 +538,7 @@ def run_nichenet_cluster_de(
     )
     expressed_genes_receiver = expressed_genes_receiver_ref.union(expressed_genes_receiver_aff)
     if sender_celltypes is None:
-        expressed_genes_sender = set(ann.var_names).union(predictor.row_names, predictor.col_names)
+        expressed_genes_sender = set(ann.var_names).union(predictor.get_genes(), predictor.get_ligands())
     else:
         expressed_genes_sender = {
             gene
@@ -575,7 +575,7 @@ def run_nichenet_cluster_de(
                 & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= -lfc_cutoff))
             ]["gene"]
         )
-    geneset_oi.intersection_update(predictor.row_names)
+    geneset_oi.intersection_update(predictor.get_genes())
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)

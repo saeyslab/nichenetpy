@@ -42,10 +42,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
-        names of the rows/genes
-    col_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
-        names of the columns/ligands
+    _row_names : list of gene_t
+        a copy of the names of the rows/genes (changing it makes the predictor inconsistent, use `get_genes`)
+    _col_names : list of gene_t
+        a copy of the names of the columns/ligands (changing it makes the predictor inconsistent, use `get_ligands`)
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -98,14 +98,20 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
                 f"ligand_target_matrix has shape {self.ligand_target_matrix.shape}, but there are {len(row_names)} "
                 f"row names and {len(col_names)} column names"
             )
-        self.row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol] = row_names
-        self.col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol] = col_names
-        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
-        self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
+        # copies (with Python str/int names for an array or Index), so changing the caller's object afterwards doesn't
+        # make the names and the name -> index mappings inconsistent
+        self._row_names: list[GeneSymbol] = (
+            row_names.tolist() if isinstance(row_names, (np.ndarray, pd.Index)) else list(row_names)
+        )
+        self._col_names: list[GeneSymbol] = (
+            col_names.tolist() if isinstance(col_names, (np.ndarray, pd.Index)) else list(col_names)
+        )
+        self._ligand2index = dict(zip(self._col_names, range(len(self._col_names)), strict=True))
+        self._gene2index = dict(zip(self._row_names, range(len(self._row_names)), strict=True))
         # a duplicate name would make all but its last row/column unreachable
-        if len(self._gene2index) != len(self.row_names):
+        if len(self._gene2index) != len(self._row_names):
             raise ValueError("row_names contains duplicates")
-        if len(self._ligand2index) != len(self.col_names):
+        if len(self._ligand2index) != len(self._col_names):
             raise ValueError("col_names contains duplicates")
 
     def matrix_density(self) -> float:
@@ -522,11 +528,11 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             k = self.ligand_target_matrix.shape[0] - n
             top_n_score = np.partition(slc, k)[k]
             targets = sorted(
-                {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self._row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         else:
             targets = sorted(
-                {e[0] for e in zip(self.row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self._row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
@@ -695,7 +701,7 @@ def assess_rf_class_probabilities(
     if random_state is not None and type(random_state) is not int:
         raise TypeError(f"random_state should have type int or None, was {type(random_state)}")
     # new sets, so the caller's sets aren't modified (intersection_update used to change them in place)
-    known_genes = set(predictor.row_names)
+    known_genes = predictor.get_genes()
     geneset_known = set(geneset) & known_genes
     background_known = (set(background_expressed_genes) & known_genes) - geneset_known
     # the ligand columns are the same in every fold (ligands_oi may be a generator, which can only be used once)
