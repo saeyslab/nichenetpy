@@ -87,6 +87,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `prediction.LigandActivityPredictor` stores a copy of the row and column names as `_row_names` and `_col_names` (the `row_names` and `col_names` attributes are removed), so changing the names that were passed no longer makes the predictor inconsistent. Use `get_genes()` and `get_ligands()` to get the names.
 
+- `parameter_optimization.evaluate_model` and `construct_and_evaluate` no longer depend on the iteration order of sets: the rows of `performances_ligand_prediction` follow the order of the evaluation data, and the ligands are sorted, so results (including the noise of `replace_zero_col_by_noisy_scores` with a fixed `random_state`) are identical across Python processes.
+
 - `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
 
 - Faster quantile clipping and conversion of shortest path lengths to scores (SPL algorithm) during ligand-tf matrix construction; shortest paths are now computed with `scipy.sparse.csgraph.dijkstra` (~20x faster SPL ligand-tf matrices).

@@ -176,7 +176,8 @@ def evaluate_model(
         ).items():
             performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
-    all_ligands = evaluation_data.get_ligands(combination=False)
+    # sorted, so the rows and the results don't depend on the iteration order of a set
+    all_ligands = sorted(evaluation_data.get_ligands(combination=False), key=str)
     ligand_importances = {"setting": [], "test_ligand": [], "true_ligand": []}
     for met in target_evaluation_metrics:
         ligand_importances[met] = []
@@ -199,7 +200,7 @@ def evaluate_model(
                 ligand_evaluation_metrics=ligand_evaluation_metrics,
                 target_evaluation_metrics=target_evaluation_metrics,
             )
-            for setting_id in set(ligand_importances["setting"])
+            for setting_id in evaluation_data.keys()
         )
         if e is not None
     ]
@@ -509,7 +510,9 @@ def construct_and_evaluate(
         lr_network,
         gr_network,
         sig_network,
-        ligands=evaluation_data.get_ligands(),
+        # sorted, so the column order of the model (and the noise of replace_zero_col_by_noisy_scores) doesn't depend
+        # on the iteration order of a set
+        ligands=sorted(evaluation_data.get_ligands(), key=str),
         return_all_matrices=return_all_matrices,
         return_weighted_networks=return_weighted_networks,
         split_direct=split_direct,
@@ -531,7 +534,7 @@ def construct_and_evaluate(
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         ),
-        evaluation_data.get_ligands(combination=True),
+        sorted(evaluation_data.get_ligands(combination=True), key=str),
         metric_score_f=metric_score_f,
         objective_fs=objective_fs,
     )
