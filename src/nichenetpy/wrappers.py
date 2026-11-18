@@ -267,8 +267,9 @@ def run_nichenet(
 
             best_upstream_ligands : list of gene_t
                 the top scoring ligands in the sender-agnostic approach
-            ligand_activities_sorted : dict
-                the computed metrics for each ligand in the sender-agnostic approach
+            ligand_activities_sorted : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-agnostic approach, sorted from the most to the least active ligand
             active_ligand_target_links : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target
                 links in the sender-agnostic approach
@@ -289,8 +290,9 @@ def run_nichenet(
 
             best_upstream_ligands_focused : list of gene_t
                 the top scoring ligands in the sender-focused approach
-            ligand_activities_sorted_focused : dict
-                the computed metrics for each ligand in the sender-focused approach
+            ligand_activities_sorted_focused : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-focused approach, sorted from the most to the least active ligand
             active_ligand_target_links_focused : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target links
                 in the sender-focused approach
@@ -613,7 +615,7 @@ def run_nichenet_cluster_de(
 
 
 def create_ligand_activity_hist(
-    ligand_activities_sorted: Iterable[tuple],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     xtitle: str = "ligand activity",
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
@@ -626,7 +628,8 @@ def create_ligand_activity_hist(
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand, sorted from the most to the least active ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     xtitle : str
         the title of the x-axis
     ytitle : str
@@ -669,7 +672,7 @@ def create_ligand_activity_hist(
 
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted: Iterable[tuple[str, str]],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     title: str = "ligand activity",
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
@@ -682,7 +685,8 @@ def create_ligand_activity_heatmap(
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     title : str
         the title of the plot
     cbar_label : str
