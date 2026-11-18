@@ -89,6 +89,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `parameter_optimization.evaluate_model` and `construct_and_evaluate` no longer depend on the iteration order of sets: the rows of `performances_ligand_prediction` follow the order of the evaluation data, and the ligands are sorted, so results (including the noise of `replace_zero_col_by_noisy_scores` with a fixed `random_state`) are identical across Python processes.
 
+- `split_direct="tft"` and `"ltf-tft"` (`model_construction.construct_ligand_target_matrix`, `construct_model_from_source_weights`, `parameter_optimization.construct_and_evaluate`): the direct regulatory links are those that start at any ligand of the ligand-receptor network, instead of only at the requested ligands, so a ligand's row no longer depends on which other ligands are requested (e.g. the evaluation ligands during parameter optimization vs all ligands in the final model).
+
 - `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
 
 - Faster quantile clipping and conversion of shortest path lengths to scores (SPL algorithm) during ligand-tf matrix construction; shortest paths are now computed with `scipy.sparse.csgraph.dijkstra` (~20x faster SPL ligand-tf matrices).

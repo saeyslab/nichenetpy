@@ -446,8 +446,9 @@ def construct_and_evaluate(
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix: the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices;
         Default: "no"
     direct_coef : float

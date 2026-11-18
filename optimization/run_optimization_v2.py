@@ -342,7 +342,7 @@ if __name__ == "__main__":
     def evaluation_data_sym2id(eval):
         for dct in eval.values():
             ligand = dct[eval._ligand_name]
-            dct[eval._ligand_name] = sym2id[ligand] if isinstance(ligand, gene_t) else tuple(sym2id[e] for e in ligand)
+            dct[eval._ligand_name] = sym2id[ligand] if isinstance(ligand, gene_t.__value__) else tuple(sym2id[e] for e in ligand)
             dct[eval._de_genes_name] = {sym2id[k]: v for k, v in dct[eval._de_genes_name].items()}
 
     network_sym2id(lr_network)

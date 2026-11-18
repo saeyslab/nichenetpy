@@ -525,7 +525,7 @@ def _set_min(mat):
 
 def _split_tft_direct(
     gr_network: pd.DataFrame,
-    ligands: list[tuple],
+    direct_regulators: set,
     tft_matrix: csr_array,
     grn_rows: list,
     grn_cols: list,
@@ -537,8 +537,8 @@ def _split_tft_direct(
     ----------
     gr_network : pandas.DataFrame
         the (weighted) gene regulatory network, contains the same links as the tf-target matrix
-    ligands : list of tuple
-        the ligands (combinations) as tuples
+    direct_regulators : set
+        the genes whose regulatory links are direct
     tft_matrix : scipy.sparse.csr_array
         the tf-target matrix
     grn_rows : list
@@ -555,9 +555,7 @@ def _split_tft_direct(
     """
     tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
     target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-    # direct links: regulatory links that start at a ligand, also at the members of a ligand combination
-    ligand_genes = {ligand for _ligands in ligands for ligand in _ligands}
-    direct_links = gr_network[gr_network["from"].isin(ligand_genes)]
+    direct_links = gr_network[gr_network["from"].isin(direct_regulators)]
     mask = csr_array(
         (
             np.ones(len(direct_links), dtype=bool),
@@ -740,8 +738,9 @@ def construct_ligand_target_matrix(  # type: ignore
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix (only valid with 'PPR' algorithm);
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix (only valid with 'PPR' algorithm): the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices (only valid with 'PPR' algorithm);
         Default: "no"
     direct_coef : float
@@ -823,6 +822,10 @@ def construct_ligand_target_matrix(  # type: ignore
         _ligands if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
         for _ligands in ligands
     ]
+    # the direct regulatory links start at any ligand of the ligand-receptor network, so a ligand's row doesn't depend
+    # on which other ligands are requested; the requested ligands (and the members of combinations) are added, so a
+    # ligand's own regulatory links are always direct
+    direct_regulators = set(lr_network["from"].tolist()).union(*ligands)
     if split_direct == "no":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
@@ -853,7 +856,9 @@ def construct_ligand_target_matrix(  # type: ignore
             weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
         rp_direct: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
         rp_indirect: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -864,7 +869,9 @@ def construct_ligand_target_matrix(  # type: ignore
         ltf_direct = ltf_matrix[0]
         ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
         # the same as rp_direct with split_direct == "ltf": ltf_direct only has scores at the ligand's own nodes, whose
         # regulatory links are all direct
         rp_direct = ltf_direct @ tft_direct
@@ -949,8 +956,9 @@ def construct_model_from_source_weights(
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix: the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices;
         Default: "no"
     direct_coef : float
