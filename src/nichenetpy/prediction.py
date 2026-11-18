@@ -26,9 +26,9 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+    row_names : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         names of the rows/genes
-    col_names : Sequence of gene_t, numpy.ndarray of str or pandas.Index of str
+    col_names : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         names of the columns/ligands
 
     Raises
@@ -59,8 +59,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     def __init__(
         self,
         ligand_target_matrix: nichenet_matrix,
-        row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol],
-        col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol],
+        row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
+        col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
     ) -> None:
         self.ligand_target_matrix: nichenet_matrix = ligand_target_matrix
         if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
@@ -90,9 +90,13 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise TypeError(f"ligand_target_matrix should have type nichenet_matrix, was {type(ligand_target_matrix)}")
         # any ordered sequence of names (list, tuple, numpy array, pandas Index), not a str (one name per character)
         if isinstance(row_names, str) or not isinstance(row_names, (Sequence, np.ndarray, pd.Index)):
-            raise TypeError(f"row_names should have type Sequence[gene_t], was {type(row_names)}")
+            raise TypeError(
+                f"row_names should be a Sequence, numpy.ndarray or pandas.Index of gene_t (not a str), was {type(row_names)}"
+            )
         if isinstance(col_names, str) or not isinstance(col_names, (Sequence, np.ndarray, pd.Index)):
-            raise TypeError(f"col_names should have type Sequence[gene_t], was {type(col_names)}")
+            raise TypeError(
+                f"col_names should be a Sequence, numpy.ndarray or pandas.Index of gene_t (not a str), was {type(col_names)}"
+            )
         if (len(row_names), len(col_names)) != self.ligand_target_matrix.shape:
             raise ValueError(
                 f"ligand_target_matrix has shape {self.ligand_target_matrix.shape}, but there are {len(row_names)} "
