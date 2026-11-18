@@ -425,8 +425,7 @@ def run_nichenet(
                 use_scanpy=use_scanpy,
                 layer=layer,
             )
-            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders;
-            # the scaled activities and ranks used to be computed over all potential ligands)
+            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders)
             output["prioritization_table"] = generate_prioritization_table(
                 info_tables["sender_receiver_info"],
                 info_tables["sender_receiver_de"],
@@ -662,7 +661,7 @@ def create_ligand_activity_hist(
         raise ValueError("ligand_activities_sorted is empty")
     fig, ax = plt.subplots(figsize=figsize)
     ax.hist(vals, bins=40, edgecolor="black")
-    # axvline spans the full height of the plot (the line used to stop at a fixed count of 120)
+    # axvline spans the full height of the plot
     ax.axvline(x=vals[min(top_n, len(vals)) - 1], color="red", linestyle="dashed")
     ax.set_xlabel(xtitle)
     ax.set_ylabel(ytitle)
@@ -903,7 +902,7 @@ def _create_circos_plot(
 
     # Each rectangle is identified by (role, group, gene) and each sector by (role, group), with role "send" or "rec"
     # (or "" if senders and receivers aren't separated). The names are kept as tuples, so groups and genes can contain
-    # any character (they used to be joined with "_" and split again, which failed for names containing "_").
+    # any character.
     def sector_name(role: str, group: str) -> str:
         return f"{role}_{group}" if role else group
 

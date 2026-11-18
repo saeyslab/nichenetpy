@@ -6,7 +6,7 @@ import pandas as pd
 
 from nichenetpy.metrics import calculate_evaluation_metrics
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, gene_t, ligand_eval_metric_t, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, _as_gene, ligand_eval_metric_t, target_eval_metric_t
 from nichenetpy.utils import is_ligand_active
 
 
@@ -147,13 +147,16 @@ class EvaluationData(Generic[GeneSymbol]):
             raise ValueError(f"'{self._key_name}' does not map to a string")
         if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if not isinstance(item[self._ligand_name], gene_t.__value__) and type(item[self._ligand_name]) is not list:
-            raise ValueError(f"'{self._ligand_name}' does not map to a gene symbol or list")
+        # a single gene or a list of genes, stored as Python str/int (numpy integers are converted)
+        ligand = item[self._ligand_name]
+        name = f"'{self._ligand_name}'"
+        ligand = [_as_gene(e, name) for e in ligand] if type(ligand) is list else _as_gene(ligand, name)
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
         if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
-        self._data[item[self._key_name]] = item
+        # a shallow copy with the converted ligand(s)
+        self._data[item[self._key_name]] = {**item, self._ligand_name: ligand}
 
     def add_all(self, items: Iterable[dict[str, Any]]):
         """
@@ -254,9 +257,10 @@ class EvaluationData(Generic[GeneSymbol]):
             raise TypeError(f"combination should have type bool, was {type(combination)}")
         output = set()
         for setting in self.values():
-            # the ligand field set by ligand_name (it was always read from "from")
+            # the ligand field set by ligand_name
             ligand = setting[self._ligand_name]
-            if isinstance(ligand, gene_t.__value__):
+            # a single gene or a list of genes (see add)
+            if type(ligand) is not list:
                 output.add(ligand)
             else:
                 if combination:
@@ -308,8 +312,10 @@ class EvaluationData(Generic[GeneSymbol]):
         pred_genes = predictor.get_genes()
         for k, gs in self._data.items():
             ligand = gs[self._ligand_name]
-            if type(ligand) is list or type(ligand) is tuple:
-                ligand = ("-".join(ligand) if type(ligand[0]) is str else ligand) if combination else None
+            if type(ligand) is list:
+                # a combination is named by joining its gene symbols, a combination of int gene ids has no name (see
+                # model_construction.construct_ligand_tf_matrix), so it can't be in the model
+                ligand = "-".join(ligand) if combination and all(type(e) is str for e in ligand) else None
             if ligand is not None and ligand in ligands:
                 res = iter(gs[self._de_genes_name].items())
                 is_app = False

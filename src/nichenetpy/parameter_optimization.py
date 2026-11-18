@@ -15,7 +15,6 @@ from nichenetpy.typing import (
     MetricScoreFunction,
     ObjectiveFunction,
     eval_metric_t,
-    gene_t,
     ligand_eval_metric_t,
     target_eval_metric_t,
 )
@@ -83,7 +82,9 @@ def _average_performances(
                 ligand in true_ligand
                 if isinstance(true_ligand, Sequence) and type(true_ligand) is not str
                 else ligand == true_ligand
-                for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t.__value__) else ligand_oi)  # type: ignore # is correct due to conditional
+                for ligand in (
+                    ligand_oi if isinstance(ligand_oi, Iterable) and not isinstance(ligand_oi, str) else (ligand_oi,)
+                )  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]
         ]
@@ -153,7 +154,7 @@ def evaluate_model(
     performances_target_prediction = {"setting": [], "ligand": []}
     for met in target_evaluation_metrics:
         performances_target_prediction[met] = []
-    # the field names of the evaluation data (they used to be "from" and "response", whatever the data used)
+    # the field names of the evaluation data
     ligand_name, de_genes_name = evaluation_data.ligand_name, evaluation_data.de_genes_name
     evaluation_data = EvaluationData(
         (e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor)),
@@ -167,7 +168,7 @@ def evaluate_model(
         for k, v in predictor.evaluate_target_prediction(
             (
                 setting[ligand_name]  # type: ignore
-                if isinstance(setting[ligand_name], gene_t.__value__)  # potential BUG when using integers
+                if type(setting[ligand_name]) is not list
                 else "-".join(setting[ligand_name])
             ),
             setting[de_genes_name],

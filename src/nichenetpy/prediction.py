@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, _as_gene, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import subset_matrix
 
 
@@ -292,8 +292,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         ValueError
             if the arguments are invalid
         """
-        if not isinstance(ligand, gene_t.__value__):
-            raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
+        ligand = _as_gene(ligand, "ligand")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
         genes, rows = self._shared_genes(response.keys())
@@ -368,8 +367,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         genes, rows = self._shared_genes(response.keys())
         resp = np.array([response[gene] for gene in genes])
         for ligand in potential_ligands:
-            if not isinstance(ligand, gene_t.__value__):
-                raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
+            ligand = _as_gene(ligand, "ligand")
             output[ligand] = calculate_evaluation_metrics(
                 self.get_col(ligand, is_index=False)[rows], resp, target_evaluation_metrics
             )
@@ -517,8 +515,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         ValueError
             if the arguments are invalid
         """
-        if not isinstance(ligand, gene_t.__value__):
-            raise TypeError(f"ligand should have type gene_t, was {type(ligand)}")
+        ligand = _as_gene(ligand, "ligand")
         if not isinstance(geneset, Iterable):
             raise TypeError(f"geneset should have type Iterable, was {type(geneset)}")
         if type(n) is not int:
@@ -704,7 +701,7 @@ def assess_rf_class_probabilities(
         raise TypeError(f"ntrees should have type int, was {type(ntrees)}")
     if random_state is not None and type(random_state) is not int:
         raise TypeError(f"random_state should have type int or None, was {type(random_state)}")
-    # new sets, so the caller's sets aren't modified (intersection_update used to change them in place)
+    # new sets, so the caller's sets aren't modified
     known_genes = predictor.get_genes()
     geneset_known = set(geneset) & known_genes
     background_known = (set(background_expressed_genes) & known_genes) - geneset_known

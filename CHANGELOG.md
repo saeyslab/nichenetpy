@@ -233,6 +233,12 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `prediction.LigandActivityPredictor` rejecting row and column names given as a `pandas.Index` (e.g. `ann.var_names`) or a `numpy.ndarray`, and accepting a string as names. It now raises a `ValueError` when the number of names doesn't match the shape of the ligand-target matrix or when the names contain duplicates (before, the extra or duplicate names silently pointed to wrong or missing rows/columns).
 
+- Single genes (ligands, the ligand of evaluation data, `val` of `ann_utils.subset_ann`) now accept numpy integers (e.g. from a numpy array or DataFrame column), which are converted to `int`, and reject booleans (which were silently used as the gene ids 1 and 0). `evaluation.EvaluationData` raises a `TypeError` (instead of a `ValueError`) for a ligand that isn't a gene or a list of genes.
+
+- Fixed `evaluation.EvaluationData.get_applicable_evaluation_datasets` (and `parameter_optimization.evaluate_model`) failing on a combination of int gene ids; such a combination has no name in the model, so it's not applicable.
+
+- `model_construction.construct_ligand_tf_matrix` now raises a `TypeError` when a ligand isn't an Iterable of genes; a string was split into its characters.
+
 - Fixed `utils.ncycle` not raising a `TypeError` when `n` isn't an int.
 
 - Fixed `network.Network` and `network.WeightedNetwork` giving wrong links when the mapping list wasn't sorted by "from", and changing when the caller changed the list afterwards; they now store a sorted copy of the list (the list no longer needs to be sorted).

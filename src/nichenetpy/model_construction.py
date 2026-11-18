@@ -10,7 +10,7 @@ from scipy.sparse import csc_array, csr_array, csr_matrix
 from scipy.sparse.csgraph import dijkstra
 from sknetwork.ranking import PageRank
 
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, _as_gene, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -316,7 +316,12 @@ def construct_ligand_tf_matrix(
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     all_genes: list[GeneSymbol] = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
-    requested = [tuple(_ligands) for _ligands in ligands]
+    requested = []
+    for _ligands in ligands:
+        # a ligand or combination is an Iterable of genes, a str would be split into its characters
+        if isinstance(_ligands, str) or not isinstance(_ligands, Iterable):
+            raise TypeError(f"ligands should have type Iterable[Iterable[gene_t]], contained {_ligands!r}")
+        requested.append(tuple(_as_gene(ligand, "ligand") for ligand in _ligands))
     for _ligands in requested:
         # an int gene id points to a gene name, and a complex has an id of its own, so a combination of ids has no name
         if len(_ligands) > 1 and not all(isinstance(ligand, str) for ligand in _ligands):
@@ -814,7 +819,11 @@ def construct_ligand_target_matrix(  # type: ignore
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
     elif direct_coef < 0 or direct_coef > 1:
         raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
-    ligands = [(_ligands,) if isinstance(_ligands, gene_t.__value__) else _ligands for _ligands in ligands]
+    # a single ligand or a combination (an Iterable of ligands)
+    ligands = [
+        _ligands if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
+        for _ligands in ligands
+    ]
     if split_direct == "no":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
