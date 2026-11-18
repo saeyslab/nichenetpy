@@ -555,8 +555,7 @@ def _split_tft_direct(
     """
     tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
     target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-    # direct links: regulatory links that start at a ligand, also at the members of a ligand combination (only single
-    # ligands were used, so a combination's own regulatory links were never direct)
+    # direct links: regulatory links that start at a ligand, also at the members of a ligand combination
     ligand_genes = {ligand for _ligands in ligands for ligand in _ligands}
     direct_links = gr_network[gr_network["from"].isin(ligand_genes)]
     mask = csr_array(
