@@ -9,7 +9,7 @@ import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
@@ -422,7 +422,7 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 
 
-def ligand_activities_df[GeneSymbol](
+def ligand_activities_df(
     ligand_activities: dict[GeneSymbol, dict[str, float]] | Iterable[tuple[GeneSymbol, dict[str, float]]],
 ) -> pd.DataFrame:
     """

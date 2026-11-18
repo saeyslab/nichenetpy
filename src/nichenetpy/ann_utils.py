@@ -4,11 +4,11 @@ from typing import Any, overload
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
-def _subset_layer[GeneSymbol](
+def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
 ) -> tuple[nichenet_matrix, list[GeneSymbol]]:
     sel_layer = ann.layers[layer]
@@ -22,7 +22,7 @@ def _subset_layer[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str],
     genes: Iterable[GeneSymbol] | None = None,
@@ -33,7 +33,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     *,
@@ -45,7 +45,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be this overload
+def subset_ann(  # if val and genes are not provided, it should be this overload
     ann: AnnData,
     val: None = None,
     genes: None = None,
@@ -55,7 +55,7 @@ def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be t
 ) -> None: ...
 
 
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     genes: Iterable[GeneSymbol] | None = None,

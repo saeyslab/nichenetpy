@@ -11,6 +11,7 @@ from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_li
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import (
+    GeneSymbol,
     MetricScoreFunction,
     ObjectiveFunction,
     eval_metric_t,
@@ -70,7 +71,7 @@ metric_score_f_dct = {
 }
 
 
-def _average_performances[GeneSymbol](
+def _average_performances(
     ligand_oi: GeneSymbol | Sequence[GeneSymbol],
     performances: pd.DataFrame,
     metrics: Iterable[eval_metric_t] = ("auroc", "aupr_corrected"),
@@ -109,7 +110,7 @@ def _evaluate_single_importances_ligand_prediction(
         return None
 
 
-def evaluate_model[GeneSymbol](
+def evaluate_model(
     predictor: LigandActivityPredictor[GeneSymbol],
     evaluation_data: EvaluationData[GeneSymbol],
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
@@ -211,7 +212,7 @@ def evaluate_model[GeneSymbol](
     }
 
 
-def compute_evaluation_scores[GeneSymbol](
+def compute_evaluation_scores(
     eval_res: dict[str, pd.DataFrame | None],
     ligands: Iterable[GeneSymbol | Sequence[GeneSymbol]],
     metric_score_f: MetricScoreFunction | None = None,
@@ -382,7 +383,7 @@ def _empty_solution(
     )
 
 
-def construct_and_evaluate[GeneSymbol](
+def construct_and_evaluate(
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,

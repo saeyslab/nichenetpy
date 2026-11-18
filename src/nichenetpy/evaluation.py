@@ -1,16 +1,16 @@
 from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import chain
-from typing import Any, Literal, overload
+from typing import Any, Generic, Literal, overload
 
 import pandas as pd
 
 from nichenetpy.metrics import calculate_evaluation_metrics
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t, ligand_eval_metric_t, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, gene_t, ligand_eval_metric_t, target_eval_metric_t
 from nichenetpy.utils import is_ligand_active
 
 
-class EvaluationData[GeneSymbol]:
+class EvaluationData(Generic[GeneSymbol]):
     """
     Data which can be used for model evaluation. Each item needs to contain
 
@@ -323,7 +323,7 @@ class EvaluationData[GeneSymbol]:
                     yield (k, gs)
 
 
-def get_single_ligand_importances[GeneSymbol](
+def get_single_ligand_importances(
     predictor: LigandActivityPredictor[GeneSymbol],
     evaluation_data: Iterable[dict[str, Any]],
     all_ligands: Iterable[GeneSymbol],

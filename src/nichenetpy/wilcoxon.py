@@ -99,7 +99,7 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: Literal[False] = False,
@@ -110,7 +110,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: Literal[True],
@@ -121,7 +121,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: bool = False,
@@ -131,7 +131,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
 ) -> pd.DataFrame | dict[str, list[float]]: ...
 
 
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: bool = False,

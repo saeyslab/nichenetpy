@@ -161,7 +161,9 @@ def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | No
     return list(sender_celltypes)
 
 
-def _ligands_in_model[T](potential_ligands: set[T], predictor: LigandActivityPredictor[T]) -> set[T]:
+def _ligands_in_model(
+    potential_ligands: set[GeneSymbol], predictor: LigandActivityPredictor[GeneSymbol]
+) -> set[GeneSymbol]:
     # ligands of the ligand-receptor network that aren't in the ligand-target matrix can't be scored (predicting their
     # activity raised a ValueError), they're left out with a warning
     in_model = potential_ligands & predictor.get_ligands()
@@ -1138,7 +1140,7 @@ def create_ligand_links_circos_plot(
     )
 
 
-def generate_info_tables[GeneSymbol](
+def generate_info_tables(
     ann: AnnData,
     celltype_col: str,
     senders_oi: Sequence[str],

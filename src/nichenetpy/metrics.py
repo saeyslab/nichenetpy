@@ -12,7 +12,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import eval_metric_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import EvalMetric, GeneSymbol, eval_metric_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -348,7 +348,7 @@ _metric_dct: dict[
 }
 
 
-def calculate_evaluation_metrics[EvalMetric](
+def calculate_evaluation_metrics(
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     metrics: Iterable[EvalMetric],
@@ -395,7 +395,7 @@ def calculate_evaluation_metrics[EvalMetric](
         warnings.simplefilter("ignore")
         for metric in metrics:
             try:
-                output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
+                output[metric] = _metric_dct[metric](response, prediction)
             except ValueError as ex:
                 if allow_nan:
                     output[metric] = np.nan
@@ -565,7 +565,7 @@ def _single_group_metrics(
     )
 
 
-def group_metrics[GeneSymbol](
+def group_metrics(
     ann: AnnData,
     groupby: str,
     group_oi: str | None = None,

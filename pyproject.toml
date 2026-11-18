@@ -153,6 +153,8 @@ lint.ignore = [
   "E501",   # line too long -> we accept long comment lines; formatter gets rid of long code lines
   "E731",   # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
   "E741",   # allow I, O, l as variable names -> I is the identity matrix
+  "UP046",  # generic classes use the shared constrained TypeVars of nichenetpy.typing (Generic[...]) instead of type parameters
+  "UP047",  # generic functions use the shared constrained TypeVars of nichenetpy.typing instead of type parameters
 ]
 lint.per-file-ignores."!src/**.py" = [ "D101", "D102", "D103" ]
 lint.per-file-ignores."*/__init__.py" = [ "D205", "F401" ]

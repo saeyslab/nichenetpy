@@ -36,7 +36,7 @@ from scipy.sparse.csgraph import dijkstra
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -54,7 +54,7 @@ def _cluster_order(mat: np.ndarray, rowvar: bool) -> np.ndarray:
     return sc.cluster.hierarchy.leaves_list(clust)
 
 
-def reorder_labels[GeneSymbol](
+def reorder_labels(
     mat: np.ndarray, row_labels: list[GeneSymbol], col_labels: list[GeneSymbol]
 ) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
@@ -99,7 +99,7 @@ def reorder_labels[GeneSymbol](
     return (mat, row_labels, col_labels)
 
 
-def prepare_ligand_target_visualization[GeneSymbol](
+def prepare_ligand_target_visualization(
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
     cutoff: float = 0.25,
@@ -169,7 +169,7 @@ def prepare_ligand_target_visualization[GeneSymbol](
     return reorder_labels(ligand_target_vis, targets, ligands)  # type: ignore
 
 
-def prepare_ligand_receptor_visualization[GeneSymbol](
+def prepare_ligand_receptor_visualization(
     ligand_receptor_links: WeightedNetwork[GeneSymbol],
 ) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]:
     """
@@ -390,7 +390,7 @@ def heatmap_2d(
     return (fig, ax)
 
 
-def _construct_ligand_signaling_df[GeneSymbol](
+def _construct_ligand_signaling_df(
     ligands_oi: Collection[GeneSymbol],
     targets_oi: Collection[GeneSymbol],
     all_ligands: Collection[GeneSymbol],
@@ -422,7 +422,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
     return pd.concat(dfs)
 
 
-def _get_shortest_path_signaling[GeneSymbol](
+def _get_shortest_path_signaling(
     ligand_oi: GeneSymbol,
     signaling_df: pd.DataFrame,
     lr_sig_mat: csr_array[np.floating],

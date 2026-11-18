@@ -9,7 +9,7 @@ from anndata import AnnData
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -96,7 +96,7 @@ def get_expressed_genes(
     return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 
-def get_weighted_ligand_receptor_links[GeneSymbol](
+def get_weighted_ligand_receptor_links(
     best_upstream_ligands: Iterable[GeneSymbol],
     expressed_receptors: Iterable[GeneSymbol],
     lr_network: LigandReceptorNetwork[GeneSymbol],
@@ -144,7 +144,7 @@ def get_weighted_ligand_receptor_links[GeneSymbol](
     return lr_sig.subset_sep(best_upstream_ligands.intersection({e[0] for e in lr_network}), best_upstream_receptors)
 
 
-def get_lfc_celltype[GeneSymbol](
+def get_lfc_celltype(
     ann: AnnData,
     celltype: str,
     condition_col: str,

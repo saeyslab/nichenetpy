@@ -4,7 +4,7 @@ import warnings
 from collections.abc import Collection, Iterable, Sequence
 from itertools import chain, repeat
 from numbers import Number
-from typing import Any, Literal, overload
+from typing import Any, Generic, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -14,11 +14,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
-from nichenetpy.typing import gene_t, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import subset_matrix
 
 
-class LigandActivityPredictor[GeneSymbol]:
+class LigandActivityPredictor(Generic[GeneSymbol]):
     """
     LigandActivityPredictor facilitates the computation of ligand activities using a ligand-target matrix.
 
@@ -59,8 +59,8 @@ class LigandActivityPredictor[GeneSymbol]:
     def __init__(
         self,
         ligand_target_matrix: nichenet_matrix,
-        row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str],
-        col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str],
+        row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol],
+        col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol],
     ) -> None:
         self.ligand_target_matrix: nichenet_matrix = ligand_target_matrix
         if isinstance(self.ligand_target_matrix, (csr_matrix, csr_array)):
@@ -98,8 +98,8 @@ class LigandActivityPredictor[GeneSymbol]:
                 f"ligand_target_matrix has shape {self.ligand_target_matrix.shape}, but there are {len(row_names)} "
                 f"row names and {len(col_names)} column names"
             )
-        self.row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str] = row_names
-        self.col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[str] = col_names
+        self.row_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol] = row_names
+        self.col_names: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_]] | pd.Index[GeneSymbol] = col_names
         self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
         self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
         # a duplicate name would make all but its last row/column unreachable
@@ -634,7 +634,7 @@ class LigandActivityPredictor[GeneSymbol]:
         return len(self.get_ligands().intersection(ligands)) / len(ligands)
 
 
-def assess_rf_class_probabilities[GeneSymbol](
+def assess_rf_class_probabilities(
     folds: int,
     geneset: Collection[GeneSymbol],
     background_expressed_genes: Collection[GeneSymbol],

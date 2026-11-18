@@ -10,7 +10,7 @@ from scipy.sparse import csc_array, csr_array, csr_matrix
 from scipy.sparse.csgraph import dijkstra
 from sknetwork.ranking import PageRank
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -23,7 +23,7 @@ def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
     )
 
 
-def construct_weighted_networks[GeneSymbol](
+def construct_weighted_networks(
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
@@ -149,7 +149,7 @@ def _quantile_clip(mat, cutoff):
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -161,7 +161,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -178,7 +178,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -191,7 +191,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -207,7 +207,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
 ]: ...
 
 
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -566,7 +566,7 @@ def _split_tft_direct(
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -583,7 +583,7 @@ def construct_ligand_target_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -605,7 +605,7 @@ def construct_ligand_target_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -623,7 +623,7 @@ def construct_ligand_target_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -645,7 +645,7 @@ def construct_ligand_target_matrix[GeneSymbol](
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -670,7 +670,7 @@ def construct_ligand_target_matrix[GeneSymbol](
 ): ...
 
 
-def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
+def construct_ligand_target_matrix(  # type: ignore
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -889,7 +889,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
 
-def construct_model_from_source_weights[GeneSymbol](
+def construct_model_from_source_weights(
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,

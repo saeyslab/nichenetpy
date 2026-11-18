@@ -11,11 +11,11 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
-from nichenetpy.typing import nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
-def calculate_de[GeneSymbol](
+def calculate_de(
     ann: AnnData,
     celltype_col: str,
     condition_oi: str,
@@ -108,7 +108,7 @@ def _expm1(mat: nichenet_matrix) -> nichenet_matrix:
     return np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
 
 
-def get_avg_exp[GeneSymbol](
+def get_avg_exp(
     ann: AnnData,
     celltype_col: str,
     condition_oi: str | None = None,
@@ -182,7 +182,7 @@ def get_avg_exp[GeneSymbol](
     )
 
 
-def process_table_to_ic[GeneSymbol](
+def process_table_to_ic(
     tab: pd.DataFrame,
     table_type: str,
     lr_network: LigandReceptorNetwork[GeneSymbol],
@@ -348,7 +348,7 @@ def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None
     return output
 
 
-def generate_prioritization_table[GeneSymbol](
+def generate_prioritization_table(
     sender_receiver_info: pd.DataFrame,
     sender_receiver_de: pd.DataFrame,
     ligand_activities: pd.DataFrame | dict[GeneSymbol, dict[str, float]] | list[tuple[GeneSymbol, dict[str, float]]],
