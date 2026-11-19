@@ -117,6 +117,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Corrected docstrings.
 
+- `visualization.reorder_labels`, `wilcoxon.wilcoxon_rank_sum_test` (`genes`) and `utils.subset_matrix` (`rows`, `cols`) accept a numpy array and a `pandas.Index` (e.g. `ann.var_names`), and reject a string. `reorder_labels` raises a `ValueError` when the number of labels doesn't match the shape of the matrix (too many labels were silently cut off) and always returns lists.
+
 - Fixed bug in `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` where sparse matrices were not supported (all-zero columns of a sparse matrix were never filled). The method is also faster (~15x for a dense and ~3x for a sparse 25,000 x 1,300 matrix); the noise is now drawn with `numpy.random`.
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.

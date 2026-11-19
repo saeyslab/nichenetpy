@@ -198,7 +198,10 @@ def read_network_file(filename: str):
 
 
 def _index_array(
-    idx: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]],
+    idx: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool],
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
     # integer indices, from indices or a boolean mask (an empty list gives an empty integer array)
     arr = np.asarray(idx)
@@ -210,31 +213,63 @@ def _index_array(
 @overload
 def subset_matrix(
     mat: np.ndarray,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> np.ndarray: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_matrix[np.floating] | csc_matrix[np.floating],
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> csr_matrix[np.floating] | csc_matrix[np.floating]: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_array | csc_array,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> csr_array | csc_array: ...
 
 
 def subset_matrix(
     mat: nichenet_matrix,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> nichenet_matrix:
     """
     Subsets a matrix.
@@ -243,10 +278,10 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the matrix to subset
-    rows : None or list or tuple of int or bool
-        list of row indices to keep or list of booleans indicating which rows to keep
-    cols : None or list or tuple of int or bool
-        list of column indices to keep or list of booleans indicating which columns to keep
+    rows : None or Sequence, numpy.ndarray or pandas.Index of int or bool
+        row indices to keep or booleans indicating which rows to keep
+    cols : None or Sequence, numpy.ndarray or pandas.Index of int or bool
+        column indices to keep or booleans indicating which columns to keep
 
     Returns
     -------
@@ -263,10 +298,10 @@ def subset_matrix(
     if the rows of a numpy.ndarray are subsetted, the output is row-major
     if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
     """
-    if rows is not None and not isinstance(rows, Sequence) and type(rows) is not np.ndarray:
-        raise TypeError(f"rows should be of type Sequence or numpy.ndarray, was {type(rows)}")
-    if cols is not None and not isinstance(cols, Sequence) and type(cols) is not np.ndarray:
-        raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
+    if rows is not None and (isinstance(rows, str) or not isinstance(rows, (Sequence, np.ndarray, pd.Index))):
+        raise TypeError(f"rows should be of type Sequence, numpy.ndarray or pandas.Index, was {type(rows)}")
+    if cols is not None and (isinstance(cols, str) or not isinstance(cols, (Sequence, np.ndarray, pd.Index))):
+        raise TypeError(f"cols should be of type Sequence, numpy.ndarray or pandas.Index, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None:

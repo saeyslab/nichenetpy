@@ -55,7 +55,9 @@ def _cluster_order(mat: np.ndarray, rowvar: bool) -> np.ndarray:
 
 
 def reorder_labels(
-    mat: np.ndarray, row_labels: list[GeneSymbol], col_labels: list[GeneSymbol]
+    mat: np.ndarray,
+    row_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
+    col_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
 ) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering.
@@ -64,9 +66,9 @@ def reorder_labels(
     ----------
     mat : numpy.ndarray
         the matrix to reorder
-    row_labels : list or tuple of str
+    row_labels : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         the row labels
-    col_labels : list or tuple of str
+    col_labels : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         the column labels
 
     Returns
@@ -82,13 +84,26 @@ def reorder_labels(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the number of labels doesn't match the shape of the matrix
     """
     if type(mat) is not np.ndarray:
         raise TypeError(f"mat should have type numpy.ndarray, was {type(mat)}")
-    if type(row_labels) is not list and type(row_labels) is not tuple:
-        raise TypeError(f"row_labels should have type list[str] or tuple[str], was {type(row_labels)}")
-    if type(col_labels) is not list and type(col_labels) is not tuple:
-        raise TypeError(f"col_labels should have type list[str] or tuple[str], was {type(col_labels)}")
+    # any ordered sequence of labels (list, tuple, numpy array, pandas Index), not a str (one label per character)
+    if isinstance(row_labels, str) or not isinstance(row_labels, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(
+            f"row_labels should be a Sequence, numpy.ndarray or pandas.Index of gene_t, was {type(row_labels)}"
+        )
+    if isinstance(col_labels, str) or not isinstance(col_labels, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(
+            f"col_labels should be a Sequence, numpy.ndarray or pandas.Index of gene_t, was {type(col_labels)}"
+        )
+    row_labels = row_labels.tolist() if isinstance(row_labels, (np.ndarray, pd.Index)) else list(row_labels)
+    col_labels = col_labels.tolist() if isinstance(col_labels, (np.ndarray, pd.Index)) else list(col_labels)
+    if (len(row_labels), len(col_labels)) != mat.shape:
+        raise ValueError(
+            f"mat has shape {mat.shape}, but there are {len(row_labels)} row labels and {len(col_labels)} column labels"
+        )
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
         order_cols = _cluster_order(mat, rowvar=False)
@@ -96,7 +111,7 @@ def reorder_labels(
         mat = subset_matrix(mat, order_rows, order_cols)
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
-    return (mat, row_labels, col_labels)
+    return (mat, row_labels, col_labels)  # type: ignore # the labels were converted to lists
 
 
 def prepare_ligand_target_visualization(
