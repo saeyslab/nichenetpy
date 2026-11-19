@@ -42,10 +42,12 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    _row_names : list of gene_t
-        a copy of the names of the rows/genes (changing it makes the predictor inconsistent, use `get_genes`)
-    _col_names : list of gene_t
-        a copy of the names of the columns/ligands (changing it makes the predictor inconsistent, use `get_ligands`)
+    row_names : list of gene_t
+        a copy of the names of the rows/genes, don't modify it: the mapping of names to indices isn't updated, so the
+        predictor would become inconsistent
+    col_names : list of gene_t
+        a copy of the names of the columns/ligands, don't modify it: the mapping of names to indices isn't updated, so
+        the predictor would become inconsistent
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -104,18 +106,18 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             )
         # copies (with Python str/int names for an array or Index), so changing the caller's object afterwards doesn't
         # make the names and the name -> index mappings inconsistent
-        self._row_names: list[GeneSymbol] = (
+        self.row_names: list[GeneSymbol] = (
             row_names.tolist() if isinstance(row_names, (np.ndarray, pd.Index)) else list(row_names)
         )
-        self._col_names: list[GeneSymbol] = (
+        self.col_names: list[GeneSymbol] = (
             col_names.tolist() if isinstance(col_names, (np.ndarray, pd.Index)) else list(col_names)
         )
-        self._ligand2index = dict(zip(self._col_names, range(len(self._col_names)), strict=True))
-        self._gene2index = dict(zip(self._row_names, range(len(self._row_names)), strict=True))
+        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
+        self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
         # a duplicate name would make all but its last row/column unreachable
-        if len(self._gene2index) != len(self._row_names):
+        if len(self._gene2index) != len(self.row_names):
             raise ValueError("row_names contains duplicates")
-        if len(self._ligand2index) != len(self._col_names):
+        if len(self._ligand2index) != len(self.col_names):
             raise ValueError("col_names contains duplicates")
 
     def matrix_density(self) -> float:
@@ -529,11 +531,11 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             k = self.ligand_target_matrix.shape[0] - n
             top_n_score = np.partition(slc, k)[k]
             targets = sorted(
-                {e[0] for e in zip(self._row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         else:
             targets = sorted(
-                {e[0] for e in zip(self._row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self.row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}

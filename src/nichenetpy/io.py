@@ -150,8 +150,8 @@ def write_ligand_target_matrix(
         if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
-        row_names = predictor._row_names
-        col_names = predictor._col_names
+        row_names = predictor.row_names
+        col_names = predictor.col_names
     row_names = _name_list(row_names, "row_names")
     col_names = _name_list(col_names, "col_names")
     _check_names_shape(row_names, col_names, mat.shape)  # type: ignore # mat can't be None at this point
