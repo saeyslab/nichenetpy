@@ -48,6 +48,12 @@ def _write_chunks(filename: str, *chunks: bytes | bytearray | np.ndarray, header
 
 
 def _encode_names(names: Sequence[str]) -> bytes:
+    # the file formats store gene symbols, a model or network with int gene ids (or combinations of them) can't be written
+    for name in names:
+        if not isinstance(name, str):
+            raise TypeError(
+                f"only gene symbols (str) can be written, got a name of type {type(name).__name__}: {name!r}"
+            )
     # the names are separated by newlines, so a name can't contain one
     if any("\n" in name for name in names):
         raise ValueError("names can't contain a newline character")
@@ -138,6 +144,7 @@ def write_ligand_target_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+        if a name isn't a gene symbol (str), e.g. an int gene id
     ValueError
         if the number of row or column names doesn't match the shape of the matrix
         if a name contains a newline character
@@ -231,6 +238,7 @@ def write_sparse_matrix(
     ------
     TypeError
         if the arguments have the wrong type
+        if a name isn't a gene symbol (str), e.g. an int gene id
     ValueError
         if the number of row or column names doesn't match the shape of mat
         if mat is too large for the file format (more than 2^31 - 1 rows, columns or nonzero values)
@@ -402,6 +410,7 @@ def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
     ------
     TypeError
         if the arguments have the wrong type
+        if a gene name isn't a gene symbol (str), e.g. an int gene id
     ValueError
         if a gene name contains a newline character
 
@@ -457,6 +466,7 @@ def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, floa
     ------
     TypeError
         if the arguments have the wrong type
+        if a gene name isn't a gene symbol (str), e.g. an int gene id
     ValueError
         if a gene name contains a newline character
 
