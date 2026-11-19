@@ -105,6 +105,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Removed the `graph` module (`graph.dijkstra_spl` and `graph.get_reachable_nodes`), use `scipy.sparse.csgraph` instead. As a result, `visualization.visualize_ligand_signaling_graph` may show a different path when several shortest paths have the same length.
 
+- Sparse matrix files written by `io.write_sparse_matrix` start with a header that stores whether the matrix is CSC or CSR, and `io.read_csc_matrix` / `read_csr_matrix` raise a `ValueError` for a file in the other format (a square matrix read with the wrong reader was silently transposed). Files without a header (written by nichenetpy 1.x) can still be read, but nichenetpy 1.x can't read the new files.
+
 - `io.read_csc_matrix` and `io.read_csr_matrix` now return a `scipy.sparse.csc_array` / `csr_array` by default, as scipy expects to deprecate the sparse matrix interface. Use `sparse_array=False` to get a `csc_matrix` / `csr_matrix` as before.
 
 - `io.write_ligand_target_matrix` and `io.write_sparse_matrix` are 2-2.5 times faster and no longer use twice the size of the matrix in extra memory while writing; the files are unchanged.
