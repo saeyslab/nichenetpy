@@ -117,15 +117,18 @@ def _as_gene(obj: object, name: str = "gene") -> gene_t:
             return str(obj)  # a Python str for a numpy str
         if isinstance(obj, (int, integer)):
             return int(obj)
-    raise TypeError(f"{name} should have type gene_t, was {type(obj)}") # this is a weird placement but otherwise typechecker complains
+    raise TypeError(
+        f"{name} should have type gene_t, was {type(obj)}"
+    )  # this is a weird placement but otherwise typechecker complains
 
 
 def _as_ligand(
     obj: GeneSymbol | GeneCombination[GeneSymbol], name: str = "ligand"
 ) -> GeneSymbol | GeneCombination[GeneSymbol]:
     """
-    Return the name of a ligand in a model: a single gene (see `_as_gene`) or a tuple of int gene ids (the name of a
-    combination of int gene ids, see `_combination_name`).
+    Return the name of a ligand in a model: a single gene (see `_as_gene`), or the name of a combination given as a
+    tuple of genes (see `_combination_name`: "A-B" for gene symbols, the tuple for int gene ids, the gene itself for a
+    tuple of one gene).
 
     Parameters
     ----------
@@ -142,10 +145,13 @@ def _as_ligand(
     Raises
     ------
     TypeError
-        if obj isn't a single gene or a tuple of genes
+        if obj isn't a single gene or a non-empty tuple of genes
     """
     if isinstance(obj, tuple):
-        return tuple(_as_gene(e, name) for e in obj)
+        members = tuple(_as_gene(e, name) for e in obj)
+        if len(members) == 0:
+            raise TypeError(f"{name} should be a gene or a non-empty tuple of genes, was an empty tuple")
+        return members[0] if len(members) == 1 else _combination_name(members)
     return _as_gene(obj, name)
 
 

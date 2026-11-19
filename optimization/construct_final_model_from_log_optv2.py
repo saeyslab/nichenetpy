@@ -6,6 +6,11 @@ from operator import and_
 
 import numpy as np
 import pandas as pd
+from optuna.storages import JournalStorage
+from optuna.storages.journal import JournalFileBackend, JournalFileOpenLock
+from pareto import Pareto, ParetoSet
+from scipy.sparse import csr_matrix
+
 from nichenetpy.model_construction import (
     apply_hub_correction,
     construct_ligand_target_matrix,
@@ -15,10 +20,6 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.parameter_optimization import choose_pareto_optimal_solution_normalized
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.utils import read_csv_cols, read_csv_rows, read_network_file
-from optuna.storages import JournalStorage
-from optuna.storages.journal import JournalFileBackend, JournalFileOpenLock
-from pareto import Pareto, ParetoSet
-from scipy.sparse import csr_matrix
 
 HYPERPARAMETERS = ("lr_sig_hub", "gr_hub", "ltf_cutoff", "damping_factor")
 

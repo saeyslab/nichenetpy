@@ -817,9 +817,9 @@ def construct_ligand_target_matrix(  # type: ignore
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
     elif direct_coef < 0 or direct_coef > 1:
         raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
-    # a single ligand or a combination (an Iterable of ligands)
+    # a single ligand or a combination (an Iterable of ligands, as a tuple: the ligands are used more than once below)
     ligands = [
-        _ligands if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
+        tuple(_ligands) if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
         for _ligands in ligands
     ]
     # the direct regulatory links start at any ligand of the ligand-receptor network, so a ligand's row doesn't depend

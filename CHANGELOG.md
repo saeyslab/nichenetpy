@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Support for scipy sparse arrays.
 
-- Combinations of int gene ids are supported: a combination is named by the tuple of its ids (`typing.GeneCombination`), a combination of gene symbols keeps its name (e.g. "TNF-LTB"). The ligand names of a `prediction.LigandActivityPredictor` can therefore be genes or tuples of genes.
+- Combinations of int gene ids are supported: a combination is named by the tuple of its ids (`typing.GeneCombination`), a combination of gene symbols keeps its name (e.g. "TNF-LTB"). The ligand names of a `prediction.LigandActivityPredictor` can therefore be genes or tuples of genes. A combination can also be passed to the predictor as a tuple of genes, e.g. `("TNF", "LTB")` for "TNF-LTB".
 
 - Added `exception.NotInModelError`, raised by `prediction.LigandActivityPredictor` when a gene or ligand isn't in the ligand-target matrix. It's a `KeyError` and, as before, a `ValueError`.
 

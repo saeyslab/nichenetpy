@@ -1242,7 +1242,12 @@ def generate_info_tables(
         previous = ann.uns.get("group_metrics", missing)
         try:
             group_metrics(
-                ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref, layer=layer, features=lr_genes
+                ann,
+                groupby=condition_col,
+                group_oi=condition_oi,
+                group_ref=condition_ref,
+                layer=layer,
+                features=lr_genes,
             )
             res = ann.uns["group_metrics"]
         finally:

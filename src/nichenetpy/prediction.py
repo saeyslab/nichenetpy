@@ -188,8 +188,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
 
         Parameters
         ----------
-        ligand : gene_t
-            the ligand
+        ligand : gene_t or gene_combination_t
+            the ligand, or a combination of ligands as a tuple
 
         Returns
         -------
@@ -198,9 +198,12 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
 
         Raises
         ------
+        TypeError
+            if the ligand isn't a gene or a non-empty tuple of genes
         nichenetpy.exception.NotInModelError
             if the ligand is not present in the ligand-target matrix
         """
+        ligand = _as_ligand(ligand, "ligand")
         if ligand not in self._ligand2index:
             raise NotInModelError(f"{ligand} not in ligand_target_matrix")
         return self._ligand2index[ligand]

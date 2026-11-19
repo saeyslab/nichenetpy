@@ -719,9 +719,7 @@ def group_metrics(
     output = output.merge(pct_df, on=["gene", groupby], how="inner")
     # prefilter as in Seurat's FindMarkers: a gene is tested in a comparison if it's expressed in at least min_pct of
     # the cells of either group and its absolute log fold change is at least min_abs_lfc
-    output = output[
-        (np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)
-    ]
+    output = output[(np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]
     if len(output) == 0:
         # no gene passes the filters in any comparison, so there is nothing to test
         ann.uns["group_metrics"] = output.assign(pval=pd.Series(dtype=float), pval_adj=pd.Series(dtype=float))

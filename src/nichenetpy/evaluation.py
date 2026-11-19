@@ -393,7 +393,9 @@ def get_single_ligand_importances(
     for setting in settings:
         for ligand in all_ligands:
             metrics = predictor.evaluate_target_prediction(ligand, setting[de_genes_name], target_evaluation_metrics)
-            rows.append([metrics[m] for m in target_evaluation_metrics] + [setting[key_name], ligand, setting[ligand_name]])
+            rows.append(
+                [metrics[m] for m in target_evaluation_metrics] + [setting[key_name], ligand, setting[ligand_name]]
+            )
     return pd.DataFrame(rows, columns=[*target_evaluation_metrics, "setting", "test_ligand", "true_ligand"])
 
 

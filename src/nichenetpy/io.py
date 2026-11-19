@@ -446,9 +446,7 @@ def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
         data.extend(len(tos).to_bytes(length=_INT_SIZE))
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
-    _write_chunks(
-        filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE)
-    )
+    _write_chunks(filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE))
 
 
 def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, float]]):
@@ -505,9 +503,7 @@ def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, floa
         for to, w in group:
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
-    _write_chunks(
-        filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE)
-    )
+    _write_chunks(filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE))
 
 
 def read_network(filename: str) -> list[tuple[str, str]]:
