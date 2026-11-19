@@ -708,7 +708,16 @@ def create_ligand_activity_heatmap(
         the figure
     Axes
         the axes
+
+    Raises
+    ------
+    ValueError
+        if there are no ligands
     """
+    # a list, so an empty generator is noticed as well
+    ligand_activities_sorted = list(ligand_activities_sorted)
+    if len(ligand_activities_sorted) == 0:
+        raise ValueError("ligand_activities_sorted is empty")
     ligands, metrics = zip(*ligand_activities_sorted, strict=True)
     fig, ax = heatmap_1d(
         [e[target_evaluation_metric] for e in metrics],
