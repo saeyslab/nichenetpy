@@ -42,12 +42,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : list of gene_t
-        a copy of the names of the rows/genes, don't modify it: the mapping of names to indices isn't updated, so the
-        predictor would become inconsistent
-    col_names : list of gene_t or gene_combination_t
-        a copy of the names of the columns/ligands, don't modify it: the mapping of names to indices isn't updated, so
-        the predictor would become inconsistent
+    row_names : tuple of gene_t
+        the names of the rows/genes (read-only)
+    col_names : tuple of gene_t or gene_combination_t
+        the names of the columns/ligands (read-only)
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -108,19 +106,52 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             )
         # copies (with Python str/int names for an array or Index), so changing the caller's object afterwards doesn't
         # make the names and the name -> index mappings inconsistent
-        self.row_names: list[GeneSymbol] = (
+        self._row_names: list[GeneSymbol] = (
             row_names.tolist() if isinstance(row_names, (np.ndarray, pd.Index)) else list(row_names)
         )
-        self.col_names: list[GeneSymbol | GeneCombination[GeneSymbol]] = list(
+        self._col_names: list[GeneSymbol | GeneCombination[GeneSymbol]] = list(
             col_names.tolist() if isinstance(col_names, (np.ndarray, pd.Index)) else col_names
         )
-        self._ligand2index = dict(zip(self.col_names, range(len(self.col_names)), strict=True))
-        self._gene2index = dict(zip(self.row_names, range(len(self.row_names)), strict=True))
+        self._ligand2index = dict(zip(self._col_names, range(len(self._col_names)), strict=True))
+        self._gene2index = dict(zip(self._row_names, range(len(self._row_names)), strict=True))
         # a duplicate name would make all but its last row/column unreachable
-        if len(self._gene2index) != len(self.row_names):
+        if len(self._gene2index) != len(self._row_names):
             raise ValueError("row_names contains duplicates")
-        if len(self._ligand2index) != len(self.col_names):
+        if len(self._ligand2index) != len(self._col_names):
             raise ValueError("col_names contains duplicates")
+
+    @property
+    def row_names(self) -> tuple[GeneSymbol, ...]:
+        """
+        The names of the rows/genes (read-only, the mapping of names to indices is built when the predictor is created).
+
+        Returns
+        -------
+        tuple of gene_t
+            the names of the rows/genes
+        """
+        return tuple(self._row_names)
+
+    @property
+    def col_names(self) -> tuple[GeneSymbol | GeneCombination[GeneSymbol], ...]:
+        """
+        The names of the columns/ligands (read-only, the mapping of names to indices is built when the predictor is
+        created).
+
+        Returns
+        -------
+        tuple of gene_t or gene_combination_t
+            the names of the columns/ligands
+        """
+        return tuple(self._col_names)
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        # predictors pickled before row_names and col_names became properties store them as attributes
+        for name in ("row_names", "col_names"):
+            if name in state:
+                names = state.pop(name)
+                state[f"_{name}"] = names.tolist() if isinstance(names, (np.ndarray, pd.Index)) else list(names)
+        self.__dict__.update(state)
 
     def matrix_density(self) -> float:
         """
@@ -539,11 +570,11 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             k = self.ligand_target_matrix.shape[0] - n
             top_n_score = np.partition(slc, k)[k]
             targets = sorted(
-                {e[0] for e in zip(self.row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self._row_names, slc, strict=True) if e[1] >= top_n_score}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         else:
             targets = sorted(
-                {e[0] for e in zip(self.row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
+                {e[0] for e in zip(self._row_names, slc, strict=True)}.intersection(geneset)  # type: ignore # sorted false positive type complaint
             )
         if len(targets) == 0:
             return {"ligand": ligand, "target": None, "weight": None}
