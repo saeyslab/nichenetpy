@@ -46,6 +46,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         the names of the rows/genes (read-only)
     col_names : tuple of gene_t or gene_combination_t
         the names of the columns/ligands (read-only)
+    gene_names : tuple of gene_t
+        alias of row_names
+    ligand_names : tuple of gene_t or gene_combination_t
+        alias of col_names
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
@@ -144,6 +148,9 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             the names of the columns/ligands
         """
         return tuple(self._col_names)
+
+    gene_names = row_names
+    ligand_names = col_names
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         # predictors pickled before row_names and col_names became properties store them as attributes

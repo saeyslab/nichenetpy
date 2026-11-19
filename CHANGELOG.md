@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
 
-- `prediction.LigandActivityPredictor` stores a copy of the row and column names, so changing the names that were passed no longer makes the predictor inconsistent. `row_names` and `col_names` are read-only properties that return a tuple (predictors pickled with older versions are converted when they're loaded).
+- `prediction.LigandActivityPredictor` stores a copy of the row and column names, so changing the names that were passed no longer makes the predictor inconsistent. `row_names` and `col_names` are read-only properties that return a tuple, also available as `gene_names` and `ligand_names` (predictors pickled with older versions are converted when they're loaded).
 
 - `parameter_optimization.evaluate_model` and `construct_and_evaluate` no longer depend on the iteration order of sets: the rows of `performances_ligand_prediction` follow the order of the evaluation data, and the ligands are sorted, so results (including the noise of `replace_zero_col_by_noisy_scores` with a fixed `random_state`) are identical across Python processes.
 
