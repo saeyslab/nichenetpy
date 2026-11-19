@@ -106,16 +106,21 @@ class EvaluationData(Generic[GeneSymbol]):
             raise TypeError(f"key should have type str, was {type(key)}")
         if type(val) is not dict:
             raise TypeError(f"val should have type dict, was {type(val)}")
-        if self._ligand_name not in val:
+        self._data[key] = self._validated(val, key)
+
+    def _validated(self, item: dict[str, Any], key: str) -> dict[str, Any]:
+        # a shallow copy of the data element with its key and the ligand(s) as Python str/int: a single gene or a
+        # combination (a list or tuple of genes, stored as a list), numpy integers are converted
+        if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if type(val[self._ligand_name]) is not str and type(val[self._ligand_name]) is not list:
-            raise ValueError(f"'{self._ligand_name}' does not map to a string or list of strings")
-        if self._de_genes_name not in val:
+        ligand = item[self._ligand_name]
+        name = f"'{self._ligand_name}'"
+        ligand = [_as_gene(e, name) for e in ligand] if isinstance(ligand, (list, tuple)) else _as_gene(ligand, name)
+        if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
-        if type(val[self._de_genes_name]) is not dict:
+        if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
-        val[self._key_name] = key
-        self._data[key] = val
+        return {**item, self._key_name: key, self._ligand_name: ligand}
 
     def add(self, item: dict[str, Any]):
         """
@@ -145,19 +150,7 @@ class EvaluationData(Generic[GeneSymbol]):
             raise ValueError(f"item should have a '{self._key_name}' key")
         if type(item[self._key_name]) is not str:
             raise ValueError(f"'{self._key_name}' does not map to a string")
-        if self._ligand_name not in item:
-            raise ValueError(f"item should have a '{self._ligand_name}' key")
-        # a single gene or a combination (a list or tuple of genes, stored as a list), as Python str/int (numpy
-        # integers are converted)
-        ligand = item[self._ligand_name]
-        name = f"'{self._ligand_name}'"
-        ligand = [_as_gene(e, name) for e in ligand] if isinstance(ligand, (list, tuple)) else _as_gene(ligand, name)
-        if self._de_genes_name not in item:
-            raise ValueError(f"item should have a '{self._de_genes_name}' key")
-        if type(item[self._de_genes_name]) is not dict:
-            raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
-        # a shallow copy with the converted ligand(s)
-        self._data[item[self._key_name]] = {**item, self._ligand_name: ligand}
+        self._data[item[self._key_name]] = self._validated(item, item[self._key_name])
 
     def add_all(self, items: Iterable[dict[str, Any]]):
         """

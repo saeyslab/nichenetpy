@@ -123,6 +123,8 @@ and this project adheres to [Semantic Versioning][].
 
 - The writers in `io` (`write_ligand_target_matrix`, `write_sparse_matrix`, `write_network`, `write_weighted_network`) raise a clear `TypeError` when a name isn't a gene symbol (e.g. an int gene id), instead of an unrelated error.
 
+- Fixed `evaluation.EvaluationData` created from a dict or `pandas.DataFrame` (or with `data[key] = ...`) rejecting int gene ids, numpy integers and combinations given as a tuple, accepting invalid members of a combination (e.g. booleans) and adding the key to the caller's dict. These are now checked and converted as in `add`, and an invalid ligand raises a `TypeError` (was a `ValueError`).
+
 - Fixed bug in `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` where sparse matrices were not supported (all-zero columns of a sparse matrix were never filled). The method is also faster (~15x for a dense and ~3x for a sparse 25,000 x 1,300 matrix); the noise is now drawn with `numpy.random`.
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.
