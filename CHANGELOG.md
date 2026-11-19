@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning][].
 
 ### Changes
 
+- The `inplace` argument of pandas methods (deprecated in pandas 3.1) is no longer used.
+
 - Type signatures have been altered and static type checking has been enabled for the package. This is not considered backwards compatible!
 
 - `prediction.LigandActivityPredictor` stores a copy of the row and column names, so changing the names that were passed no longer makes the predictor inconsistent. `row_names` and `col_names` are read-only properties that return a tuple, also available as `gene_names` and `ligand_names` (predictors pickled with older versions are converted when they're loaded).

@@ -150,9 +150,9 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
         settings_CV = json.loads(file.read())
     evaluation_data = EvaluationData(settings_CV["settings"])
     # database column is no longer required so remove to save memory
-    lr_network.drop("database", axis=1, inplace=True)
-    gr_network.drop("database", axis=1, inplace=True)
-    sig_network.drop("database", axis=1, inplace=True)
+    lr_network = lr_network.drop("database", axis=1)
+    gr_network = gr_network.drop("database", axis=1)
+    sig_network = sig_network.drop("database", axis=1)
     # map strings to integers to save a lot of memory in the subprocesses
     syms = sorted(
         set(

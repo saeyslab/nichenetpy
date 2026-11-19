@@ -419,7 +419,7 @@ def _construct_ligand_signaling_df(
     for ligand in ligands_oi:
         ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)  # type: ignore # behaves as expected
         ltf_vis.index.name = "TF"
-        ltf_vis.reset_index(inplace=True)
+        ltf_vis = ltf_vis.reset_index()
         # assign returns a new DataFrame, so the column isn't added to a view of ltf_vis
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0].assign(ligand=ligand)  # pyright: ignore[reportArgumentType] # a gene (str or int) is a valid value
         for target in targets_oi:
@@ -427,7 +427,7 @@ def _construct_ligand_signaling_df(
             combined_df = ltf_vis.merge(gr_filtered, on="TF")
             # ltf weight multiplied with gr weight
             combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
-            combined_df.sort_values(by="total_weight", ascending=False, inplace=True)
+            combined_df = combined_df.sort_values(by="total_weight", ascending=False)
             # select top k
             combined_df = combined_df.iloc[0 : min(k, len(combined_df))]
             dfs.append(combined_df)

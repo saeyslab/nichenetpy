@@ -1339,14 +1339,14 @@ def calculate_fraction_top_predicted(
         .count()
     )
     predicted_positive.index.name = "true_target"
-    predicted_positive.reset_index(inplace=True)
+    predicted_positive = predicted_positive.reset_index()
     all = (
         affected_gene_predictions[["response", "prediction"]]
         .rename(columns={"response": "true_target", "prediction": "n"})
         .groupby("true_target")
         .count()
     )
-    all.reset_index(inplace=True)
+    all = all.reset_index()
     all = all.merge(predicted_positive, on="true_target", how="inner")
     all["fraction_positive_predicted"] = all["positive_prediction"] / all["n"]
     return all
@@ -1388,14 +1388,14 @@ def calculate_fraction_top_predicted_fisher(affected_gene_predictions: pd.DataFr
         .groupby("response")
         .count()
     )
-    predicted_positive.reset_index(inplace=True)
+    predicted_positive = predicted_positive.reset_index()
     all = (
         affected_gene_predictions[["response", "prediction"]]
         .rename(columns={"prediction": "n"})
         .groupby("response")
         .count()
     )
-    all.reset_index(inplace=True)
+    all = all.reset_index()
     df = all.merge(predicted_positive, on="response", how="left")
     df["positive_prediction"] = np.nan_to_num(df["positive_prediction"])
     true_res = df[df["response"] == 1]
@@ -1440,7 +1440,7 @@ def get_top_predicted_genes(affected_gene_predictions: pd.DataFrame, quantile_cu
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions.copy()
     predicted_positive["predicted_top_target"] = prediction >= np.quantile(prediction, quantile_cutoff)
-    predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
+    predicted_positive = predicted_positive.rename(columns={"response": "true_target"})
     return predicted_positive[["gene", "true_target", "predicted_top_target"]]
 
 

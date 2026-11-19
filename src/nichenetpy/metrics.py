@@ -704,7 +704,7 @@ def group_metrics(
         ignore_index=False,
     )
     output.index.name = "gene"
-    output.reset_index(inplace=True)
+    output = output.reset_index()
     # pct: fraction of expressing cells in the group of interest, pct_ref: in the reference cells (the other groups or
     # group_ref); both are needed for the prefilter, otherwise genes lost in the group of interest
     # (low pct, high pct_ref) would never be tested
@@ -750,7 +750,7 @@ def group_metrics(
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     if pval_thresh is not None:
         pvals = pvals[pvals["pval"] < pval_thresh]
-    pvals.reset_index(inplace=True)
+    pvals = pvals.reset_index()
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)

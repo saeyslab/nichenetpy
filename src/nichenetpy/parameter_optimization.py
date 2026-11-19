@@ -331,7 +331,7 @@ def compute_evaluation_scores(
             *(ligand_activity_performance_setting_summary[met] for met in ligand_evaluation_metrics), strict=True
         )
     ]
-    ligand_activity_performance_setting_summary.reset_index(inplace=True)
+    ligand_activity_performance_setting_summary = ligand_activity_performance_setting_summary.reset_index()
     # find the best target prediction evaluation metric by comparing the geometric average of each metric;
     # a NaN score (e.g. the log of a negative aupr_corrected) is never the best, unless all scores are NaN
     scores = ligand_activity_performance_setting_summary["score"].to_numpy(dtype=np.float64)

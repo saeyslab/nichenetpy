@@ -309,9 +309,9 @@ if __name__ == "__main__":
                 source_names_fixed = set(df[bool_v]["source"])
                 source_names_var = set(df[~bool_v]["source"])
     # database column is no longer required so remove to save memory
-    lr_network.drop("database", axis=1, inplace=True)
-    _gr_network.drop("database", axis=1, inplace=True)
-    sig_network.drop("database", axis=1, inplace=True)
+    lr_network = lr_network.drop("database", axis=1)
+    _gr_network = _gr_network.drop("database", axis=1)
+    sig_network = sig_network.drop("database", axis=1)
     # map strings to integers to save a lot of memory in the subprocesses
     syms = sorted(
         set(

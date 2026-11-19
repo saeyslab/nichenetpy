@@ -135,11 +135,11 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
     if hub == 0:
         return df.copy()
     to_count = df[["to", "weight"]].groupby("to").aggregate("count")
-    to_count.rename(columns={"weight": "n"}, inplace=True)
-    to_count.reset_index(inplace=True)
+    to_count = to_count.rename(columns={"weight": "n"})
+    to_count = to_count.reset_index()
     df = df.merge(to_count, on="to", how="inner")
     df["weight"] = df["weight"] / (df["n"] ** hub)
-    df.drop(columns="n", inplace=True)
+    df = df.drop(columns="n")
     return df
 
 
@@ -418,7 +418,7 @@ def construct_ligand_tf_matrix(
             .groupby("from", as_index=False)
             .max()
         )
-        lig_lig.drop_duplicates(inplace=True)
+        lig_lig = lig_lig.drop_duplicates()
         all_ligands_lst = list(all_ligands)
         lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
         lr_sig = pd.concat((lr_sig, lig_lig))

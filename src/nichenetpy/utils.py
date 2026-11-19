@@ -642,15 +642,13 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     output = pd.melt(pd.DataFrame(res["names"]), var_name=groupby, value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:
         temp = pd.melt(pd.DataFrame(res[col]), var_name=groupby, value_name=col)
-        temp.drop(columns={groupby}, inplace=True)
+        temp = temp.drop(columns={groupby})
         output = output.join(temp, how="inner")
     temp = pd.melt(res["pts"], var_name=groupby, value_name="pts", ignore_index=False)
     temp.index.name = "gene"
-    temp.reset_index(inplace=True)
+    temp = temp.reset_index()
     output = output.merge(temp, on=["gene", groupby], how="inner")
-    output.rename(
-        columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"}, inplace=True
-    )
+    output = output.rename(columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"})
     # ann.uns["rank_genes_groups"] is left as it is (scanpy's own functions, e.g. its plots, need its format)
     return output
 
