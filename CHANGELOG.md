@@ -61,6 +61,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Support for scipy sparse arrays.
 
+- Combinations of int gene ids are supported: a combination is named by the tuple of its ids (`typing.GeneCombination`), a combination of gene symbols keeps its name (e.g. "TNF-LTB"). The ligand names of a `prediction.LigandActivityPredictor` can therefore be genes or tuples of genes.
+
 - Added function `metrics.precision_at_k`
 
 - Added function `metrics.average_precision_at_k`
@@ -253,7 +255,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `model_construction.construct_ligand_target_matrix` with `split_direct="tft"` or `"ltf-tft"` ignoring the regulatory links of the members of a ligand combination as direct links (unless the members were also given as single ligands).
 
-- Fixed ligand combinations in `model_construction.construct_ligand_tf_matrix` (and `construct_ligand_target_matrix`) getting the same name as a single ligand: a combination with a member that isn't in the networks was named after the remaining member, and a combination of int gene ids after its first member. Combinations are now named after the requested members ("A-B"), combinations of int gene ids raise a `ValueError` (use the id of the complex), and so do two ligands with the same name.
+- Fixed ligand combinations in `model_construction.construct_ligand_tf_matrix` (and `construct_ligand_target_matrix`) getting the same name as a single ligand: a combination with a member that isn't in the networks was named after the remaining member, and a combination of int gene ids after its first member. Combinations are now named after the requested members ("A-B"), two ligands with the same name raise a `ValueError`.
 
 - Fixed `model_construction.construct_weighted_networks` accepting NaN source weights (they were dropped like a weight of 0); they now raise a `ValueError`.
 

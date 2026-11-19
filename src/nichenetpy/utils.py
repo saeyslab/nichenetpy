@@ -9,7 +9,7 @@ import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
-from nichenetpy.typing import GeneSymbol, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, _combination_name, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
@@ -672,7 +672,7 @@ def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     return [
         test_ligand == true_ligand
         if isinstance(true_ligand, str) or not isinstance(true_ligand, Iterable)
-        else test_ligand in true_ligand or (type(test_ligand) is str and test_ligand == "-".join(map(str, true_ligand)))
+        else test_ligand in true_ligand or test_ligand == _combination_name(true_ligand)
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]
 

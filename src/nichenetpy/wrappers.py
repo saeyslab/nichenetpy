@@ -365,8 +365,12 @@ def run_nichenet(
             for ligand in best_upstream_ligands
         )
     if lr_sig is not None:
+        # a combination of ligands isn't in the ligand-receptor network
         output["ligand_receptor_links"] = get_weighted_ligand_receptor_links(
-            best_upstream_ligands, expressed_receptors, lr_network, lr_sig
+            [ligand for ligand in best_upstream_ligands if not isinstance(ligand, tuple)],
+            expressed_receptors,
+            lr_network,
+            lr_sig,
         )
     if sender_celltypes is not None:
         expressed_genes_sender = {

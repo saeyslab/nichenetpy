@@ -14,6 +14,7 @@ from nichenetpy.typing import (
     GeneSymbol,
     MetricScoreFunction,
     ObjectiveFunction,
+    _combination_name,
     eval_metric_t,
     ligand_eval_metric_t,
     target_eval_metric_t,
@@ -168,8 +169,8 @@ def evaluate_model(
         for k, v in predictor.evaluate_target_prediction(
             (
                 setting[ligand_name]  # type: ignore
-                if type(setting[ligand_name]) is not list
-                else "-".join(setting[ligand_name])
+                if not isinstance(setting[ligand_name], (list, tuple))
+                else _combination_name(setting[ligand_name])
             ),
             setting[de_genes_name],
             target_evaluation_metrics,
