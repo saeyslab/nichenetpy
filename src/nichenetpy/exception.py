@@ -8,3 +8,11 @@ class NicheNetError(RuntimeError):
     """raised when something goes wrong during a NicheNet analysis"""
 
     pass
+
+
+class NotInModelError(KeyError, ValueError):
+    """raised when a gene or ligand is not in the ligand-target matrix (a KeyError, and a ValueError for code that catches ValueError)"""
+
+    def __str__(self) -> str:
+        # a KeyError shows its argument as a repr (in quotes), the message is shown as is
+        return str(self.args[0]) if len(self.args) == 1 else super().__str__()

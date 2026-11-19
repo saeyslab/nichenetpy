@@ -63,6 +63,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Combinations of int gene ids are supported: a combination is named by the tuple of its ids (`typing.GeneCombination`), a combination of gene symbols keeps its name (e.g. "TNF-LTB"). The ligand names of a `prediction.LigandActivityPredictor` can therefore be genes or tuples of genes.
 
+- Added `exception.NotInModelError`, raised by `prediction.LigandActivityPredictor` when a gene or ligand isn't in the ligand-target matrix. It's a `KeyError` and, as before, a `ValueError`.
+
 - Added function `metrics.precision_at_k`
 
 - Added function `metrics.average_precision_at_k`

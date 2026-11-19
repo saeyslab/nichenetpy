@@ -13,6 +13,7 @@ from scipy.stats import pearsonr
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 
+from nichenetpy.exception import NotInModelError
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
 from nichenetpy.typing import GeneCombination, GeneSymbol, _as_ligand, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import subset_matrix
@@ -197,11 +198,11 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
 
         Raises
         ------
-        ValueError
+        nichenetpy.exception.NotInModelError
             if the ligand is not present in the ligand-target matrix
         """
         if ligand not in self._ligand2index:
-            raise ValueError(f"{ligand} not in ligand_target_matrix")
+            raise NotInModelError(f"{ligand} not in ligand_target_matrix")
         return self._ligand2index[ligand]
 
     def gene2index(self, gene: GeneSymbol):
@@ -215,11 +216,11 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
 
         Raises
         ------
-        ValueError
+        nichenetpy.exception.NotInModelError
             if the gene is not present in the ligand-target matrix
         """
         if gene not in self._gene2index:
-            raise ValueError(f"{gene} not in ligand_target_matrix")
+            raise NotInModelError(f"{gene} not in ligand_target_matrix")
         return self._gene2index[gene]
 
     def get_ligands(self) -> set[GeneSymbol | GeneCombination[GeneSymbol]]:
@@ -282,8 +283,9 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         IndexError
             if the index is out of bounds
         ValueError
-            if the gene symbol is not a ligand (column) of the ligand-target matrix
             if the shape of the ligand-target matrix is None
+        nichenetpy.exception.NotInModelError
+            if the gene symbol is not a ligand (column) of the ligand-target matrix
         """
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
@@ -339,6 +341,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
+        nichenetpy.exception.NotInModelError
+            if a ligand is not in the ligand-target matrix
         """
         ligand = _as_ligand(ligand, "ligand")
         if type(response) is not dict:
@@ -387,6 +391,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
+        nichenetpy.exception.NotInModelError
+            if a ligand is not in the ligand-target matrix
         """
         if not isinstance(geneset, Collection):
             raise TypeError(f"geneset should have type Collection, was {type(geneset)}")
@@ -471,6 +477,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
+        nichenetpy.exception.NotInModelError
+            if a ligand is not in the ligand-target matrix
         """
         if not isinstance(cells, Collection):
             raise TypeError(f"cells should have type Collection[str], was {type(cells)}")
@@ -562,6 +570,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             if the arguments have the wrong type
         ValueError
             if the arguments are invalid
+        nichenetpy.exception.NotInModelError
+            if a ligand is not in the ligand-target matrix
         """
         ligand = _as_ligand(ligand, "ligand")
         if not isinstance(geneset, Iterable):
@@ -732,6 +742,8 @@ def assess_rf_class_probabilities(
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
+    nichenetpy.exception.NotInModelError
+        if a ligand is not in the ligand-target matrix
     """
     if type(folds) is not int:
         raise TypeError(f"folds should have type int, was {type(folds)}")
