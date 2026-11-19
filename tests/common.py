@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import string
+import time
 from collections.abc import Iterable
 from numbers import Number
 
@@ -15,16 +16,49 @@ ann_path = os.path.join(root_path, "AnnData")
 hnscc_path = os.path.join(root_path, "hnscc")
 network_path = os.path.join(root_path, "model_construction")
 eval_path = os.path.join(root_path, "model_evaluation")
-train_path = os.path.normpath("./tutorial_files/model_optimization")
+train_path = os.path.join(root_path, "model_optimization")
 
 
-def download(url, max_tries=5):
-    for i in range(max_tries):
+def fetch(record, filename, directory, max_tries=5, timeout=60):
+    """
+    Download a file of a Zenodo record to directory, unless it's already there, and return its path.
+
+    The file is downloaded to a temporary file that is renamed once it's complete, so a failed or interrupted download
+    never leaves a file behind. Timeouts, connection errors and HTTP errors are retried with an increasing pause (Zenodo
+    is sometimes briefly unavailable), after max_tries attempts a RuntimeError is raised.
+    """
+    os.makedirs(directory, exist_ok=True)
+    file_path = os.path.join(directory, filename)
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+        return file_path
+    url = f"https://zenodo.org/records/{record}/files/{filename}"
+    part_path = file_path + ".part"
+    errors = []
+    for attempt in range(max_tries):
+        if attempt > 0:
+            time.sleep(5 * 2 ** (attempt - 1))
         try:
-            return requests.get(url)
-        except requests.exceptions.ChunkedEncodingError as err:
-            if i == max_tries - 1:
-                raise err
+            with requests.get(url, stream=True, timeout=timeout) as res:
+                res.raise_for_status()
+                size = 0
+                with open(part_path, "wb") as file:
+                    for chunk in res.iter_content(chunk_size=1 << 20):
+                        file.write(chunk)
+                        size += len(chunk)
+                expected = res.headers.get("Content-Length")
+                if size == 0 or (expected is not None and size != int(expected)):
+                    raise requests.exceptions.ContentDecodingError(
+                        f"incomplete download: {size} bytes, expected {expected}"
+                    )
+            os.replace(part_path, file_path)
+            return file_path
+        except requests.exceptions.RequestException as err:
+            errors.append(f"attempt {attempt + 1}: {err}")
+            if os.path.exists(part_path):
+                os.remove(part_path)
+    raise RuntimeError(
+        f"could not download {filename} from Zenodo record {record} after {max_tries} attempts:\n" + "\n".join(errors)
+    )
 
 
 def equals(x, y, err_bound=1e-2, zero_bound=1e-100):
@@ -61,53 +95,29 @@ def df2dict(df, key_cols, val_col):
 
 
 def get_model_pickle(type="mouse"):
-    os.makedirs(root_path, exist_ok=True)
-    filename = f"nichenet_{type}.pkl"
-    file_path = os.path.join(root_path, filename)
-    if not os.path.exists(file_path):
-        res = download(f"https://zenodo.org/records/17061000/files/{filename}")
-        with open(file_path, "wb") as file:
-            file.write(res.content)
-    with open(os.path.join(root_path, filename), "rb") as file:
+    file_path = fetch(17061000, f"nichenet_{type}.pkl", root_path)
+    with open(file_path, "rb") as file:
         model = pickle.loads(file.read())
     return model
 
 
 def get_ltf_matrix(type="mouse"):
-    os.makedirs(root_path, exist_ok=True)
-    filename = f"ltf_matrix_{type}.pkl"
-    file_path = os.path.join(root_path, filename)
-    if not os.path.exists(file_path):
-        res = download(f"https://zenodo.org/records/17061000/files/{filename}")
-        with open(file_path, "wb") as file:
-            file.write(res.content)
-    with open(os.path.join(root_path, filename), "rb") as file:
+    file_path = fetch(17061000, f"ltf_matrix_{type}.pkl", root_path)
+    with open(file_path, "rb") as file:
         model = pickle.loads(file.read())
     return model
 
 
 def get_anndata_file(filename):
-    os.makedirs(ann_path, exist_ok=True)
-    file_path = os.path.join(ann_path, filename)
-    if not os.path.exists(file_path):
-        res = download(f"https://zenodo.org/records/15574665/files/{filename}")
-        with open(file_path, "wb") as file:
-            file.write(res.content)
-    return anndata.io.read_h5ad(file_path)
+    return anndata.io.read_h5ad(fetch(15574665, filename, ann_path))
 
 
 def get_hnscc_file():
-    os.makedirs(hnscc_path, exist_ok=True)
     for filename in ("expressed_genes.csv", "hnscc_expression.bin", "pemt_signature.txt", "sample_info.csv"):
-        file_path = os.path.join(hnscc_path, filename)
-        if not os.path.exists(file_path):
-            res = download(f"https://zenodo.org/records/14859451/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
+        fetch(14859451, filename, hnscc_path)
 
 
 def get_network_files():
-    os.makedirs(network_path, exist_ok=True)
     for filename in (
         "gr_human.csv",
         "lr_network_human.csv",
@@ -122,28 +132,18 @@ def get_network_files():
         "geneinfo_alias_human.csv",
         "geneinfo_alias_mouse.csv",
     ):
-        file_path = os.path.join(network_path, filename)
-        if not os.path.exists(file_path):
-            res = download(f"https://zenodo.org/records/20395877/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
+        fetch(20395877, filename, network_path)
 
 
 def get_evaluation_files():
-    os.makedirs(eval_path, exist_ok=True)
     for filename in (
         # "cytosig_settings.json",
         "expression_settings_validation.json",
     ):
-        file_path = os.path.join(eval_path, filename)
-        if not os.path.exists(file_path):
-            res = download(f"https://zenodo.org/records/15228527/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
+        fetch(15228527, filename, eval_path)
 
 
 def get_optimization_files():
-    os.makedirs(train_path, exist_ok=True)
     for filename in (
         "settings_training_f1234.json",
         "settings_training_f1235.json",
@@ -151,11 +151,7 @@ def get_optimization_files():
         "settings_training_f1345.json",
         "settings_training_f2345.json",
     ):
-        file_path = os.path.join(train_path, filename)
-        if not os.path.exists(file_path):
-            res = download(f"https://zenodo.org/records/15799578/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
+        fetch(15799578, filename, train_path)
 
 
 _random_char_choices = string.ascii_lowercase + string.digits
