@@ -622,6 +622,12 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         ------
         TypeError
             if random_state has the wrong type
+
+        Notes
+        -----
+        A dense ligand-target matrix (numpy.ndarray) is changed in place: the predictor doesn't copy the matrix it was
+        created with, so the zero columns of the caller's array are filled as well. A sparse matrix is replaced by a
+        new matrix, the caller's matrix is left unchanged.
         """
         if random_state is not None and (
             isinstance(random_state, bool) or not isinstance(random_state, (int, np.integer, np.random.Generator))

@@ -476,7 +476,10 @@ def run_nichenet_cluster_de(
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
     sender_celltypes : Iterable[str] or str or None
-        The sender celltypes or None for all celltypes
+        the sender cell types: the potential ligands are those expressed by at least one of them. If None, the ligands
+        aren't filtered on their expression by senders (all genes of the data and the model count as expressed by the
+        senders, as sender = "undefined" in NicheNetR, e.g. when the sender cells aren't profiled). Note that NicheNetR's
+        default is sender = "all"; to get that, pass all cell types (e.g. ann.obs[celltype_col].unique()).
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str

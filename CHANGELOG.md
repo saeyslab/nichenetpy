@@ -121,6 +121,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Corrected docstrings.
 
+- Corrected the documentation of `sender_celltypes` in `wrappers.run_nichenet_cluster_de`: None doesn't filter ligands on sender expression (NicheNetR's sender = "undefined"); for NicheNetR's default sender = "all", pass all cell types.
+
 - `visualization.reorder_labels`, `wilcoxon.wilcoxon_rank_sum_test` (`genes`) and `utils.subset_matrix` (`rows`, `cols`) accept a numpy array and a `pandas.Index` (e.g. `ann.var_names`), and reject a string. `reorder_labels` raises a `ValueError` when the number of labels doesn't match the shape of the matrix (too many labels were silently cut off) and always returns lists.
 
 - The writers in `io` (`write_ligand_target_matrix`, `write_sparse_matrix`, `write_network`, `write_weighted_network`) raise a clear `TypeError` when a name isn't a gene symbol (e.g. an int gene id), instead of an unrelated error.
