@@ -373,15 +373,18 @@ def compute_evaluation_scores(
 
 
 def _empty_solution(
-    ligand_evaluation_metrics: Iterable[ligand_eval_metric_t], target_evaluation_metrics: Iterable[target_eval_metric_t]
+    objective_fs: dict[
+        Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
+    ],
 ) -> tuple[
     dict[str, None], dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]
 ]:
+    # the scores have the keys of the objective functions, as those of compute_evaluation_scores
     return (
         {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None},
         {
-            "target_prediction": dict.fromkeys(target_evaluation_metrics, 0),
-            "ligand_prediction": dict.fromkeys(ligand_evaluation_metrics, 0),
+            "target_prediction": dict.fromkeys(objective_fs["target_prediction"], 0),
+            "ligand_prediction": dict.fromkeys(objective_fs["ligand_prediction"], 0),
         },
     )
 
@@ -500,9 +503,11 @@ def construct_and_evaluate(
     # can't propagate signals from ligands to transcription factors, so it is scored as an empty model instead of
     # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
     # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
+    if objective_fs is None:
+        objective_fs = objective_fs_dct["NNv2"]
     lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
     if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):
-        return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
+        return _empty_solution(objective_fs)
     model = construct_model_from_source_weights(
         source_weights,
         lr_sig_hub,
@@ -526,7 +531,7 @@ def construct_and_evaluate(
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
     if np.sum(ligand2target) == 0:
-        return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
+        return _empty_solution(objective_fs)
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
     predictor.replace_zero_col_by_noisy_scores(random_state=random_state)
     scores = compute_evaluation_scores(
