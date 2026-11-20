@@ -50,14 +50,6 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     ----------
     ligand_target_matrix : nichenet_matrix
         a (ngenes X nligands) matrix describing the potential that a ligand may regulate a target gene
-    row_names : tuple of gene_t
-        the names of the rows/genes (read-only)
-    col_names : tuple of gene_t or gene_combination_t
-        the names of the columns/ligands (read-only)
-    gene_names : tuple of gene_t
-        alias of row_names
-    ligand_names : tuple of gene_t or gene_combination_t
-        alias of col_names
     _ligand2index : dict
         mapping of ligand names to indices
     _gene2index : dict
