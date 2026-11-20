@@ -202,12 +202,21 @@ def _index_array(
     | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
     | pd.Index[int]
     | pd.Index[bool],
+    size: int,
+    name: str,
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
-    # integer indices, from indices or a boolean mask (an empty list gives an empty integer array)
-    arr = np.asarray(idx)
+    # integer indices, from indices or a boolean mask of the axis (of length size)
+    arr = np.asarray(idx).reshape(-1)
+    if arr.size == 0:
+        # np.asarray([]) has a float dtype
+        return np.empty(0, dtype=np.intp)
     if arr.dtype == np.bool_:
+        if arr.size != size:
+            raise IndexError(f"{name} is a boolean mask of length {arr.size}, the axis has length {size}")
         return np.flatnonzero(arr)
-    return arr.astype(np.intp, copy=False).reshape(-1)
+    if not np.issubdtype(arr.dtype, np.integer):
+        raise TypeError(f"{name} should be integer indices or a boolean mask, had dtype {arr.dtype}")
+    return arr.astype(np.intp, copy=False)
 
 
 @overload
@@ -291,7 +300,9 @@ def subset_matrix(
     Raises
     ------
     TypeError
-        if the arguments have the wrong type
+        if the arguments have the wrong type, or the indices aren't integers or booleans
+    IndexError
+        if a boolean mask doesn't have the length of its axis
 
     Note
     ----
@@ -305,9 +316,9 @@ def subset_matrix(
     if rows is None and cols is None:
         return mat
     if rows is not None:
-        rows = _index_array(rows)
+        rows = _index_array(rows, mat.shape[0], "rows")
     if cols is not None:
-        cols = _index_array(cols)
+        cols = _index_array(cols, mat.shape[1], "cols")
     if isinstance(mat, np.ndarray):
         if rows is None:
             output = mat[:, cols]

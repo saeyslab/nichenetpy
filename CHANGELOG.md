@@ -251,7 +251,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `wrappers.generate_info_tables` (and therefore `wrappers.run_nichenet` with `get_prioritization_table=True`) always using the "data" and "counts" layers and overwriting `ann.uns["group_metrics"]`. It now has a `layer` argument (passed on by `wrappers.run_nichenet`) with the log-normalized data, from which the average expression is also computed (after expm1, as Seurat's `AverageExpression`; `prioritization.get_avg_exp` has a new `log_normalized` argument for this), so no counts layer is needed; `ann.uns` is no longer changed.
 
-- Fixed `utils.subset_matrix` failing on an empty list of rows or columns.
+- Fixed `utils.subset_matrix` failing on an empty list of rows or columns. It raises an `IndexError` for a boolean mask that doesn't have the length of its axis (it was silently used for the given rows only) and a `TypeError` for indices that aren't integers or booleans (floats were truncated).
 
 - Fixed `evaluation.EvaluationData` with a custom `ligand_name` (`get_ligands` and `get_applicable_evaluation_datasets` always read the ligand from "from"), and `parameter_optimization.evaluate_model` and `evaluation.get_single_ligand_importances` with evaluation data that uses custom field names (they used the default names "name", "from" and "response"). `EvaluationData` has new read-only properties `key_name`, `ligand_name` and `de_genes_name`.
 
