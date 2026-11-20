@@ -137,6 +137,8 @@ and this project adheres to [Semantic Versioning][].
 
 - The `ligand_evaluation_metrics` and `target_evaluation_metrics` arguments (`prediction.LigandActivityPredictor.evaluate_target_prediction` and `predict_ligand_activities`, `evaluation.get_single_ligand_importances` and `evaluate_single_importances_ligand_prediction`, `parameter_optimization.evaluate_model` and `construct_and_evaluate`) accept any Iterable: a generator was only used for the first ligand or setting (or failed), and a set gave ligand prediction scores of 0. A set is used in sorted order; a single str raises a `TypeError`.
 
+- Fixed `ann_utils.subset_ann`, `extraction.get_expressed_genes`, `extraction.get_lfc_celltype` and `metrics.group_metrics` selecting the wrong cells when a cell name occurs more than once (e.g. after concatenating datasets); cells are selected by position.
+
 - NaN is no longer accepted for `damping_factor` and `direct_coef` (`model_construction.construct_ligand_tf_matrix` / `construct_ligand_target_matrix`), `hub` (`apply_hub_correction`) and `pct` (`extraction.get_expressed_genes`); it gave NaN scores or no expressed genes. `damping_factor=1` raises a clear `ValueError` for the PPR algorithm (scikit-network's PageRank requires a value smaller than 1).
 
 - `parameter_optimization.evaluate_model` only leaves out the settings whose ligand prediction can't be evaluated (no active ligand, `NoTrueSamplesError`); every other error was also turned into a warning, which hid bugs (e.g. an unknown metric gave ligand prediction scores of 0).

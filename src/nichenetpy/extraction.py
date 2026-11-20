@@ -43,16 +43,16 @@ def _get_expressed_features(
     if not 0 <= pct <= 1:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
-        cells_oi = list(ann.obs.loc[ann.obs[celltype_col].isin(celltype)].index)
+        # the positions of the cells of the cell types (by position, a cell name can occur more than once)
+        rows = np.flatnonzero(ann.obs[celltype_col].isin(celltype).to_numpy())
     except KeyError as error:
         raise ValueError(f"There is no column '{celltype_col}' in the AnnData object") from error
-    if len(cells_oi) == 0:
+    if len(rows) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
     mat = ann.X if layer is None else sel_layer  # pyright: ignore[reportPossiblyUnboundVariable] # bound when layer is not None
     # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
-    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])  # type: ignore # sel_layer and ann.X are type checked
+    exprs_m = subset_matrix(mat, rows=rows)  # type: ignore # sel_layer and ann.X are type checked
     exps = exp_func(exprs_m)
     return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
 
@@ -233,12 +233,11 @@ def get_lfc_celltype(
         mat = ann_sender.layers[layer]
         genes = ann_sender.var_names.tolist()
         validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
-        row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
-        cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
-        cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
+        # the positions of the cells of both conditions (by position, a cell name can occur more than once)
+        conditions = ann_sender.obs[condition_col].to_numpy()
         lfc = log_fold_change(
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
+            subset_matrix(mat, rows=np.flatnonzero(conditions == condition_oi)),  # type: ignore # mat is type checked
+            subset_matrix(mat, rows=np.flatnonzero(conditions == condition_ref)),  # type: ignore # mat is type checked
         )
         return (genes, lfc.tolist())
 

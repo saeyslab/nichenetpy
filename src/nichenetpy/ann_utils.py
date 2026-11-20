@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from typing import Any, overload
 
+import numpy as np
 import pandas as pd
 from anndata import AnnData
 
@@ -119,15 +120,14 @@ def subset_ann(
         else:
             selected_vals = set(val)
         try:
-            # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
-            cells_oi = ann.obs.loc[ann.obs[val_col].isin(selected_vals)].copy()
+            # the positions of the selected cells (by position, a cell name can occur more than once)
+            row_ids = np.flatnonzero(ann.obs[val_col].isin(selected_vals).to_numpy())
         except KeyError as error:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
-        if len(cells_oi) == 0:
+        if len(row_ids) == 0:
             raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
-        else:
-            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
-            row_ids = [row2index[name] for name in cells_oi.index]
+        # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
+        cells_oi = ann.obs.iloc[row_ids].copy()
     if genes is None:
         col_ids = None
     else:

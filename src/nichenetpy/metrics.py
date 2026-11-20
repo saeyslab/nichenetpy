@@ -539,25 +539,27 @@ def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
 def _single_group_metrics(
     ann: AnnData,
     mat: nichenet_matrix,
-    row2index: dict[str, int],
+    cell_groups: np.ndarray,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None,
     lfc_pseudocount: float,
     groupby: str,
     group_oi: str,
     group_ref: str | None = None,
 ):
-    cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
+    # the positions of the cells (by position, a cell name can occur more than once), cell_groups has the group of
+    # each cell
+    cells_oi = np.flatnonzero(cell_groups == group_oi)
     if group_ref is None:
         # reference cells are all cells that are not cells of interest
-        cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
+        cells_ref = np.flatnonzero(cell_groups != group_oi)
     else:
-        cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
+        cells_ref = np.flatnonzero(cell_groups == group_ref)
     if len(cells_oi) == 0:
         raise NicheNetError("There are no cells in the group of interest")
     if len(cells_ref) == 0:
         raise NicheNetError("There are no cells in the reference group")
-    mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
-    mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
+    mat1 = subset_matrix(mat, rows=cells_oi)
+    mat2 = subset_matrix(mat, rows=cells_ref)
     return (
         log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount),
         gene_expression_pct(mat1),
@@ -667,11 +669,11 @@ def group_metrics(
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
     validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
     except KeyError as error:
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
+    cell_groups = ann.obs[groupby].to_numpy()
     if group_oi is not None and group_oi == group_ref:
         raise ValueError(f"group_oi and group_ref should be different, both were {group_oi}")
     # the groups that are compared with the reference cells (the other groups or group_ref)
@@ -687,7 +689,7 @@ def group_metrics(
         x, y, z = _single_group_metrics(
             ann,
             mat,  # type: ignore # mat is type checked
-            row2index,
+            cell_groups,
             lfc_denormalize,
             lfc_pseudocount,
             groupby,
