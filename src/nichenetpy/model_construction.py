@@ -601,7 +601,12 @@ def construct_ligand_target_matrix(
     direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]],
-    tuple[nichenet_matrix, list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+    ],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
 
@@ -641,7 +646,12 @@ def construct_ligand_target_matrix(
     direct_coef: float = 0,
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
-    tuple[nichenet_matrix, list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+        list[GeneSymbol],
+    ],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
 
@@ -666,7 +676,18 @@ def construct_ligand_target_matrix(
     | tuple[
         tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]
         | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
-        tuple[nichenet_matrix, list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
 ): ...
@@ -689,7 +710,18 @@ def construct_ligand_target_matrix(  # type: ignore
     tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]]
     | tuple[
         tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]],
-        tuple[nichenet_matrix, list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
 ):
