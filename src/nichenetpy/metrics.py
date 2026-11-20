@@ -615,7 +615,8 @@ def group_metrics(
         a gene is only tested (and reported) in a comparison if it's expressed in at least this fraction of the cells of
         the group or of the reference cells (as min.pct in Seurat's FindMarkers)
     pval_thresh : float or None
-        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+        upper bound for the p-values: only genes with a p-value smaller than this threshold are kept (as Seurat's
+        return.thresh), None keeps all genes
     wilcoxon_limma : bool
         use wilcoxon-limma (reproduces results from seuratv4)
     lfc_denormalize : Callable or None

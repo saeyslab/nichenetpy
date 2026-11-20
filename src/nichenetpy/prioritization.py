@@ -52,7 +52,8 @@ def calculate_de(
         a gene is only tested in a comparison if it's expressed in at least this fraction of the cells of the cell type
         or of the other cells (see `metrics.group_metrics`), not used if use_scanpy is True
     pval_thresh : float
-        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+        upper bound for the p-values: only genes with a p-value smaller than this threshold are kept (as Seurat's
+        return.thresh), not used if use_scanpy is True
     use_scanpy : bool
         if True, use scanpy.rank_genes_groups
 
