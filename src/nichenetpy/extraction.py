@@ -6,7 +6,7 @@ import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
-from nichenetpy.ann_utils import _subset_layer, subset_ann
+from nichenetpy.ann_utils import subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
@@ -207,8 +207,8 @@ def get_lfc_celltype(
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should be an Iterable of gene_t, was {type(features)}")
+    if features is not None and (isinstance(features, str) or not isinstance(features, Iterable)):
+        raise TypeError(f"features should be an Iterable of gene_t (not a str), was {type(features)}")
     if type(scanpy_lfc) is not bool:
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
     # select celltype of interest
@@ -228,13 +228,10 @@ def get_lfc_celltype(
         res = ann_sender.uns["rank_genes_groups"]
         return ([e[0] for e in res["names"]], [e[0] for e in res["logfoldchanges"]])
     else:
-        # compute lfc through custom function which returns the same output as seurat v3
-        if features is None:
-            mat = ann_sender.layers[layer]
-            genes = ann_sender.var_names
-        else:
-            # filter genes in specified layer
-            mat, genes = _subset_layer(ann_sender, layer, features)
+        # compute lfc through custom function which returns the same output as seurat v3; ann_sender only has the
+        # genes of features (in the order of features)
+        mat = ann_sender.layers[layer]
+        genes = ann_sender.var_names.tolist()
         validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
         row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
         cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
@@ -243,7 +240,7 @@ def get_lfc_celltype(
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
             subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
         )
-        return (genes if type(genes) is list else list(genes), lfc.tolist())
+        return (genes, lfc.tolist())
 
 
 def average_expression(

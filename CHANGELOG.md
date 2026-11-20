@@ -197,7 +197,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed the `min_pct` / `min_abs_lfc` prefilter of `metrics.group_metrics` (and therefore `prioritization.calculate_de`, `wrappers.get_geneset_oi`, `wrappers.run_nichenet` and `wrappers.run_nichenet_cluster_de`): it only used the fraction of expressing cells in the group of interest, so genes lost in that group (e.g. strongly downregulated genes for `geneset="down"`) were never tested, and in one-vs-rest comparisons a gene passing the filter for one group was also reported for all other groups. The filter is now applied per comparison as in Seurat's `FindMarkers` (expressed in at least `min_pct` of the cells of either group and an absolute log fold change of at least `min_abs_lfc`); results are verified against Seurat. The output has a new column `pct_ref` (fraction of expressing cells in the reference cells).
 
-- Fixed `metrics.group_metrics` and `extraction.get_lfc_celltype` when `features` is a generator (the gene names came back empty).
+- Fixed `metrics.group_metrics` and `extraction.get_lfc_celltype` when `features` is a generator (the gene names came back empty); `get_lfc_celltype` raises a `TypeError` for a single str (it was split into its characters).
 
 - Fixed `io.write_sparse_matrix` and `io.write_ligand_target_matrix` for matrices with a float type other than float64 (e.g. float32): the readers assume float64, so reading such a file raised a `ValueError` or returned wrong values. The data is now converted to float64 when it is written.
 
