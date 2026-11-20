@@ -275,7 +275,7 @@ def construct_ligand_tf_matrix(
         if the arguments have the wrong type
     ValueError
         if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not between 0 and 1
-        if a combination contains int gene ids, or two ligands (combinations) get the same name
+        if two ligands (combinations) get the same name
         if algorithm is not "PPR", "SPL" or "direct"
         if none of the ligands are present in the weighted networks
 
@@ -846,7 +846,9 @@ def construct_ligand_target_matrix(  # type: ignore
             weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
         ]
     elif remove_direct_links != "no":
-        raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
+        raise ValueError(
+            f"remove_direct_links should be in ['no', 'ligand', 'ligand_receptor'], was {remove_direct_links}"
+        )
     if type(split_direct) is not str:
         raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):

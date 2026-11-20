@@ -296,9 +296,9 @@ def ndcg_at_k(
     response : Sequence or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
     prediction : Sequence or numpy.ndarray of float
-        the ranking of response indices from best to worst
-    k : int
-        the index at which to compute the ndcg
+        vector which contains probability scores for each target gene (for one particular ligand)
+    k : int or None
+        the index at which to compute the ndcg or None to compute the ndcg over everything
 
     Returns
     -------

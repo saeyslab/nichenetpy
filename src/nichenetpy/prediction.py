@@ -268,10 +268,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
 
         Parameters
         ----------
-        index : int or gene_t
-            the index or gene symbol
+        index : int, gene_t or gene_combination_t
+            the index, gene symbol or combination of gene symbols
         is_index : bool
-            whether index is an index or gene symbol
+            whether index is an index or gene symbol, not used if index is a str or a tuple (a combination)
 
         Returns
         -------
@@ -291,7 +291,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         """
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
-        if type(index) is str:
+        if isinstance(index, (str, tuple)):
             is_index = False
         if not is_index:
             # raises a ValueError for an unknown gene symbol

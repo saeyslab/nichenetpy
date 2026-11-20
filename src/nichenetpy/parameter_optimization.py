@@ -464,9 +464,9 @@ def construct_and_evaluate(
         The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
         note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     ligand_evaluation_metrics : Iterable of string
-            the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+        the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson")
     metric_score_f : Callable or None
         Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
         prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function.
