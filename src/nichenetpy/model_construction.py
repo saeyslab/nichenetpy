@@ -285,6 +285,9 @@ def construct_ligand_tf_matrix(
     its row is 1 at the ligand (1/k at each member of a combination of k ligands) and 0 elsewhere,
     which is the personalized pagerank result on a network without links.
 
+    With algorithm "direct", the max score is added to a link of a ligand to itself that is already in the
+    ligand-signaling network (as in NicheNetR).
+
     `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
     and `E` the amount of links in the lr_sig weighted matrix
 
@@ -425,6 +428,7 @@ def construct_ligand_tf_matrix(
         lig_lig = lig_lig.drop_duplicates()
         all_ligands_lst = list(all_ligands)
         lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
+        # a self-link that is already in lr_sig is kept, the sparse matrix sums it with the added one (as in NicheNetR)
         lr_sig = pd.concat((lr_sig, lig_lig))
         lr_sig_mat = csr_array(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),

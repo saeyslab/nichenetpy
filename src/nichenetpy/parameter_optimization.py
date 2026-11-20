@@ -77,7 +77,8 @@ def _average_performances(
     performances: pd.DataFrame,
     metrics: Iterable[eval_metric_t] = ("auroc", "aupr_corrected"),
 ) -> Iterable[float]:
-    # true ligand must match with ligand(s) of interest
+    # the settings whose true ligand, or a member of the true combination, is (one of) the ligand(s) of interest (as
+    # in NicheNetR, which also uses the settings of the combinations that contain the ligand)
     performances_oi = performances[
         [
             any(

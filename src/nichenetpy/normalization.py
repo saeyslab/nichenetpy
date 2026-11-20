@@ -224,6 +224,7 @@ def scaling_zscore(
     -----
     NaN values are ignored when computing the mean and standard deviation and stay NaN (as in NicheNetR).
     With fewer than 2 values that aren't NaN, the values are only centered (NicheNetR raises an error).
+    A single value gives 0, also if it's NaN (as in NicheNetR).
     """
     if type(data) is list:
         if len(data) == 1:
@@ -263,6 +264,11 @@ def scaling_modified_zscore(
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    A NaN value makes all values NaN: the check for a median absolute deviation of 0 ignores NaN values, but the
+    median and median absolute deviation used in the computation don't (as in NicheNetR).
     """
     if isinstance(data, Sequence):
         md = np.median(data)
