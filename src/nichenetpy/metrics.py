@@ -11,7 +11,7 @@ from scipy.stats import pearsonr
 from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
-from nichenetpy.exception import NicheNetError
+from nichenetpy.exception import NicheNetError, NoTrueSamplesError
 from nichenetpy.typing import EvalMetric, GeneSymbol, eval_metric_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
@@ -377,15 +377,15 @@ def calculate_evaluation_metrics(
     ------
     TypeError
         if the arguments have the wrong type
-    ValueError
-        if response doesn't contain any true samples
+    nichenetpy.exception.NoTrueSamplesError
+        if response doesn't contain any true samples (a ValueError)
     """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        raise ValueError(
+        raise NoTrueSamplesError(
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
         )
     output: dict[EvalMetric, float] = {}

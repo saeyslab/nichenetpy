@@ -10,6 +10,12 @@ class NicheNetError(RuntimeError):
     pass
 
 
+class NoTrueSamplesError(ValueError):
+    """raised when an evaluation has no true samples (e.g. no active ligand), so the evaluation metrics are undefined"""
+
+    pass
+
+
 class NotInModelError(KeyError, ValueError):
     """raised when a gene or ligand is not in the ligand-target matrix (a KeyError, and a ValueError for code that catches ValueError)"""
 

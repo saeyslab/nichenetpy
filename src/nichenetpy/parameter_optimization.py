@@ -1,13 +1,13 @@
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
-from traceback import format_exc
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
 from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_ligand_prediction
+from nichenetpy.exception import NoTrueSamplesError
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import (
@@ -100,6 +100,7 @@ def _evaluate_single_importances_ligand_prediction(
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
 ) -> pd.DataFrame | None:
+    # a setting without an active ligand can't be evaluated, it's left out; other errors aren't caught
     try:
         return evaluate_single_importances_ligand_prediction(
             ligand_importances,
@@ -108,8 +109,8 @@ def _evaluate_single_importances_ligand_prediction(
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         )
-    except Exception as ex:
-        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}", stacklevel=2)
+    except NoTrueSamplesError as ex:
+        warnings.warn(f"Could not evaluate ligand importance scores for {group}: {ex}", stacklevel=2)
         return None
 
 
