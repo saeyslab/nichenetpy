@@ -15,7 +15,14 @@ from sklearn.model_selection import KFold
 
 from nichenetpy.exception import NotInModelError
 from nichenetpy.metrics import calculate_aupr, calculate_auroc, calculate_evaluation_metrics
-from nichenetpy.typing import GeneCombination, GeneSymbol, _as_ligand, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import (
+    GeneCombination,
+    GeneSymbol,
+    _as_ligand,
+    _as_metrics,
+    nichenet_matrix,
+    target_eval_metric_t,
+)
 from nichenetpy.utils import subset_matrix
 
 
@@ -347,6 +354,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         nichenetpy.exception.NotInModelError
             if a ligand is not in the ligand-target matrix
         """
+        # a tuple: the metrics are used more than once
+        target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
         ligand = _as_ligand(ligand, "ligand")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
@@ -397,6 +406,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         nichenetpy.exception.NotInModelError
             if a ligand is not in the ligand-target matrix
         """
+        # a tuple: the metrics are used more than once
+        target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
         if not isinstance(geneset, Collection):
             raise TypeError(f"geneset should have type Collection, was {type(geneset)}")
         if not isinstance(background_expressed_genes, Collection):

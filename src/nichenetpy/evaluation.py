@@ -6,7 +6,14 @@ import pandas as pd
 
 from nichenetpy.metrics import calculate_evaluation_metrics
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, _as_gene, _combination_name, ligand_eval_metric_t, target_eval_metric_t
+from nichenetpy.typing import (
+    GeneSymbol,
+    _as_gene,
+    _as_metrics,
+    _combination_name,
+    ligand_eval_metric_t,
+    target_eval_metric_t,
+)
 from nichenetpy.utils import is_ligand_active
 
 
@@ -365,6 +372,8 @@ def get_single_ligand_importances(
     TypeError
         if the arguments have the wrong type
     """
+    # a tuple: the metrics are used more than once
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
@@ -437,6 +446,9 @@ def evaluate_single_importances_ligand_prediction(
     TypeError
         if the arguments have the wrong type
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if type(importances) is not pd.DataFrame:
         raise TypeError(f"importances should have type pandas.DataFrame, was {type(importances)}")
     if type(group) is not str:

@@ -133,6 +133,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `wrappers.create_ligand_activity_heatmap` raises a clear `ValueError` when there are no ligands, as `create_ligand_activity_hist` does.
 
+- The `ligand_evaluation_metrics` and `target_evaluation_metrics` arguments (`prediction.LigandActivityPredictor.evaluate_target_prediction` and `predict_ligand_activities`, `evaluation.get_single_ligand_importances` and `evaluate_single_importances_ligand_prediction`, `parameter_optimization.evaluate_model` and `construct_and_evaluate`) accept any Iterable: a generator was only used for the first ligand or setting (or failed), and a set gave ligand prediction scores of 0. A set is used in sorted order; a single str raises a `TypeError`.
+
 - Fixed bug in `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` where sparse matrices were not supported (all-zero columns of a sparse matrix were never filled). The method is also faster (~15x for a dense and ~3x for a sparse 25,000 x 1,300 matrix); the noise is now drawn with `numpy.random`.
 
 - Fixed bug in `io.write_ligand_target_matrix` where sparse matrices were not supported.

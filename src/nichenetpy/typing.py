@@ -155,6 +155,34 @@ def _as_ligand(
     return _as_gene(obj, name)
 
 
+def _as_metrics(metrics: Iterable[EvalMetric], name: str) -> tuple[EvalMetric, ...]:
+    """
+    Return evaluation metrics as a tuple, so they can be used more than once (e.g. when given as a generator).
+
+    Parameters
+    ----------
+    metrics : Iterable of str
+        the evaluation metrics
+    name : str
+        the name of the argument, used in the error message
+
+    Returns
+    -------
+    tuple of str
+        the metrics in the given order, a set in sorted order (the order of a set changes between Python processes)
+
+    Raises
+    ------
+    TypeError
+        if metrics is a str (a single metric would be split into its characters) or isn't an Iterable
+    """
+    if isinstance(metrics, str) or not isinstance(metrics, Iterable):
+        raise TypeError(f"{name} should be an Iterable of metric names (not a str), was {type(metrics)}")
+    if isinstance(metrics, (set, frozenset)):
+        return tuple(sorted(metrics))
+    return tuple(metrics)
+
+
 def validate_matrix_type(obj: object, err_msg: str) -> None:
     """
     Check if the object is an ungeneric nichenet_matrix and raise a TypeError if it isn't.

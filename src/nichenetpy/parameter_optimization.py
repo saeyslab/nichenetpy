@@ -14,6 +14,7 @@ from nichenetpy.typing import (
     GeneSymbol,
     MetricScoreFunction,
     ObjectiveFunction,
+    _as_metrics,
     _combination_name,
     eval_metric_t,
     ligand_eval_metric_t,
@@ -148,6 +149,9 @@ def evaluate_model(
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
     GS set are genes that aren't expressed then the model can't be evaluated on this GS set.
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(evaluation_data) is not EvaluationData:
@@ -494,6 +498,9 @@ def construct_and_evaluate(
     If all source weights are 0, or all ligand-receptor and signaling sources have weight 0 (no ligand-signaling
     network), no model is constructed and all prediction scores are 0.
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     weights = (
         source_weights
         if type(source_weights) is dict
