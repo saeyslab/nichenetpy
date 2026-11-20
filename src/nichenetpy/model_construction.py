@@ -130,7 +130,7 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
         raise TypeError(f"df should haver type pandas.DataFrame, was {type(df)}")
     if not isinstance(hub, Number):
         raise TypeError(f"hub should have type float, was {type(hub)}")
-    if hub < 0 or hub > 1:
+    if not 0 <= hub <= 1:
         raise ValueError(f"hub should be in the interval [0, 1], was {hub}")
     if hub == 0:
         return df.copy()
@@ -252,6 +252,7 @@ def construct_ligand_tf_matrix(
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        Between 0 and 1, and smaller than 1 for the PPR algorithm.
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
@@ -309,8 +310,11 @@ def construct_ligand_tf_matrix(
     # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
     if not 0 <= ltf_cutoff < 1:
         raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
+    if not 0 <= damping_factor <= 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    # scikit-network's PageRank needs a damping factor smaller than 1
+    if algorithm == "PPR" and damping_factor == 1:
+        raise ValueError("damping_factor should be smaller than 1 for the PPR algorithm")
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if type(split_ppr) is not bool:
@@ -751,6 +755,7 @@ def construct_ligand_target_matrix(  # type: ignore
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        Between 0 and 1, and smaller than 1 for the PPR algorithm.
         Default: 0.5
     secondary_targets : bool
         Indicate whether a ligand-target matrix should be returned that explicitly includes putative secondary targets of a ligand
@@ -823,8 +828,11 @@ def construct_ligand_target_matrix(  # type: ignore
     # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
     if not 0 <= ltf_cutoff < 1:
         raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
+    if not 0 <= damping_factor <= 1:
         raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    # scikit-network's PageRank needs a damping factor smaller than 1
+    if algorithm == "PPR" and damping_factor == 1:
+        raise ValueError("damping_factor should be smaller than 1 for the PPR algorithm")
     if remove_direct_links == "ligand":
         weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(lr_network["from"])
@@ -847,7 +855,7 @@ def construct_ligand_target_matrix(  # type: ignore
         raise ValueError("When split_direct is 'ltf' or 'ltf-tft' algorithm must be 'PPR'")
     if not isinstance(direct_coef, Number):
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
-    elif direct_coef < 0 or direct_coef > 1:
+    elif not 0 <= direct_coef <= 1:
         raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
     # a single ligand or a combination (an Iterable of ligands, as a tuple: the ligands are used more than once below)
     ligands = [
@@ -973,6 +981,7 @@ def construct_model_from_source_weights(
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        Between 0 and 1, and smaller than 1 for the PPR algorithm.
     lr_network : pandas.DataFrame
         dataframe which contains ligand-receptor interactions
     gr_network : pandas.DataFrame

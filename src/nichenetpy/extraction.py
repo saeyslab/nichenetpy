@@ -40,7 +40,7 @@ def _get_expressed_features(
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if pct > 1 or pct < 0:
+    if not 0 <= pct <= 1:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
         cells_oi = list(ann.obs.loc[ann.obs[celltype_col].isin(celltype)].index)
