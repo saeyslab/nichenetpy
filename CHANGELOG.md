@@ -183,9 +183,9 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed an `IndexError` in `visualization.get_ligand_signaling_path` when a gene sorts after every gene with outgoing ligand-signaling links.
 
-- Fixed swapped edge and node colors in `visualization.visualize_ligand_signaling_graph` (the legend now matches the edges; as documented and as in NicheNetR, ligand nodes use `sig_color` and target nodes `gr_color`); the default values of `sig_color` and `gr_color` were swapped accordingly.
+- Fixed swapped edge and node colors in `visualization.visualize_ligand_signaling_graph` (the legend now matches the edges; as documented and as in NicheNetR, ligand nodes use `sig_color` and target nodes `gr_color`); the default values of `sig_color` and `gr_color` were swapped accordingly, so with the default colors the graph looks the same and only the legend changes.
 
-- Fixed bug in `ann_utils.subset_ann` where subsetting without specifying `layers` failed with newer anndata versions (≥ 0.12), which expose `X` as the layer `None`. This also fixes `metrics.group_metrics` when both `group_oi` and `group_ref` are given, and thereby `wrappers.run_nichenet` with `get_prioritization_table=True` and `case_control=True`.
+- Fixed bug in `ann_utils.subset_ann` where subsetting without specifying `layers` failed with newer anndata versions (≥ 0.12), which expose `X` as the layer `None`. This also fixes `metrics.group_metrics` when both `group_oi` and `group_ref` are given, and thereby `wrappers.generate_info_tables` with `case_control=True` and `wrappers.run_nichenet` with `get_prioritization_table=True` and `case_control=True`.
 
 - Fixed support for dense (`numpy.ndarray`) layers: `metrics.group_metrics` crashed and `extraction.get_lfc_celltype` returned a single value instead of a list of log fold changes. `utils.subset_matrix` is now faster for sparse inputs, and `metrics.gene_expression_pct` no longer modifies its input matrix or counts explicitly stored zeros as expressed.
 
@@ -229,7 +229,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `visualization.assign_ligands_to_celltype` for dense layers and sparse arrays (it only worked for sparse matrices). The threshold now uses the sample standard deviation (as `sd()` in NicheNetR), so fewer ligands may be assigned to a cell type than before.
 
-- Fixed `visualization.marker_plot`: the size legend showed wrong values (it now shows the value represented by each marker size), all-zero sizes and a large `max_marker_size` caused a division by zero, an int `max_marker_size` was rejected, and the default colors changed between Python sessions. Marker sizes are now relative to the largest absolute value, so negative values no longer give markers larger than `max_marker_size`.
+- Fixed `visualization.marker_plot`: the size legend showed wrong values (it now shows the value represented by each marker size), all-zero sizes gave markers of size NaN (a division by zero), a large `max_marker_size` raised a `ZeroDivisionError` when `clabel` was given, an int `max_marker_size` was rejected, and the default colors changed between Python sessions. Marker sizes are now relative to the largest absolute value, so negative values no longer give markers larger than `max_marker_size`.
 
 - Fixed `visualization.create_mushroom_plot` sorting the caller's dataframe and adding a "show" column to it, and failing when `top_n` exceeds the number of rows.
 
@@ -279,7 +279,7 @@ and this project adheres to [Semantic Versioning][].
 
 - `utils.ncycle` rejects an `n` that isn't an int with a clear `TypeError` (a bool was used as 0 or 1).
 
-- Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
+- Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` of `network.Network` and `network.WeightedNetwork` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
 
 - Fixed `ann_utils.subset_ann` failing with `subset_X=False` (the output now has no X, which saves subsetting it) and when `genes` is a generator.
 
@@ -308,4 +308,5 @@ and this project adheres to [Semantic Versioning][].
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/saeyslab/nichenetpy/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/saeyslab/nichenetpy/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/saeyslab/nichenetpy/releases/tag/v1.0.0
 [@vmedaert]: https://github.com/vmedaert
