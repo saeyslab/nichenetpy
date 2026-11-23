@@ -163,12 +163,15 @@ def _personalized_pagerank(
     batch_size: int = 256,
 ) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
-    Personalized PageRank of each seed node, as computed by igraph's PRPACK solver (used by NicheNetR).
+    Personalized PageRank of each seed node, with the model of igraph's PRPACK solver (used by NicheNetR).
 
     The random walker follows a link with probability `damping` (proportionally to the link weights, self-loops count
     as links) and returns to the seed with probability 1 - `damping`; from a node without outgoing links it always
-    returns to the seed. The scores of each seed are found by power iteration (all seeds of a batch at once) until the
-    scores change by less than `tol` (L1 norm, as PRPACK).
+    returns to the seed. The scores of each seed are found by power iteration (the seeds of a batch together) until
+    its scores change by less than `tol` (L1 norm). Each seed stops at its own convergence, so its scores are the
+    same as when it's computed alone. PRPACK solves the same linear system directly (fewer than 128 nodes) or by
+    Gauss-Seidel per strongly connected component, with a residual as stopping criterion; the scores agree up to
+    about 1e-9.
 
     Parameters
     ----------
@@ -199,18 +202,31 @@ def _personalized_pagerank(
     output = np.empty((len(seeds), n))
     for start in range(0, len(seeds), batch_size):
         batch = seeds[start : start + batch_size]
-        # one column per seed: the seed vector, and the scores
-        seed_mat = np.zeros((n, len(batch)))
-        seed_mat[batch, np.arange(len(batch))] = 1.0
-        scores = seed_mat.copy()
+        # the columns that haven't converged yet: their position in the batch, their seed and their scores; a seed
+        # stops at its own convergence, so its scores are the same as when it's computed alone
+        active = np.arange(len(batch))
+        active_seeds = np.array(batch)
+        scores = np.zeros((n, len(batch)))
+        scores[active_seeds, active] = 1.0
         for _ in range(max_iter):
+            columns = np.arange(len(active))
+            # the sums per seed are taken over the contiguous rows of the transpose, so they're summed in the same
+            # order for any number of seeds (numpy sums a single column pairwise, several columns row by row)
             # the score of nodes without outgoing links returns to the seed, like the teleport
-            new_scores = (1 - damping) * seed_mat + damping * (trans_t @ scores + seed_mat * scores[dangling].sum(axis=0))
-            converged = np.abs(new_scores - scores).sum(axis=0).max() < tol
+            step = trans_t @ scores
+            step[active_seeds, columns] += np.ascontiguousarray(scores[dangling].T).sum(axis=1)
+            new_scores = damping * step
+            new_scores[active_seeds, columns] += 1 - damping
+            change = np.ascontiguousarray(np.abs(new_scores - scores).T).sum(axis=1)
             scores = new_scores
-            if converged:
-                break
-        output[start : start + len(batch)] = scores.T
+            converged = change < tol
+            if converged.any():
+                output[start + active[converged]] = scores[:, converged].T
+                if converged.all():
+                    break
+                active, active_seeds, scores = active[~converged], active_seeds[~converged], scores[:, ~converged]
+        else:
+            output[start + active] = scores.T
     return output
 
 
@@ -228,7 +244,7 @@ def _personalized_pagerank_sknetwork(
     except ImportError as error:
         raise ImportError(
             "ppr_implementation='scikit-network' needs scikit-network, which is not installed by default (since "
-            "nichenetpy 2.0.0 personalized PageRank is computed as in NicheNetR). Install it with "
+            "nichenetpy 2.0.0 personalized PageRank uses the model of NicheNetR). Install it with "
             "`pip install nichenetpy[sknetwork]` or `pip install scikit-network`, or use ppr_implementation='nichenetr'."
         ) from error
     # scikit-network doesn't accept sparse arrays, only sparse matrices
@@ -361,8 +377,8 @@ def construct_ligand_tf_matrix(
         if true a tuple of matrices is returned, the first contains the reflexive scores and the second one the non-reflexive scores
     ppr_implementation : str
         Only relevant when algorithm is PPR. How personalized pagerank is computed:
-        "nichenetr": as in NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links returns to
-        the ligand;
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
         for a higher damping_factor). Needs scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
@@ -399,12 +415,14 @@ def construct_ligand_tf_matrix(
     With algorithm "direct", the max score is added to a link of a ligand to itself that is already in the
     ligand-signaling network (as in NicheNetR).
 
-    `PPR` is computed as in NicheNetR (igraph's PRPACK) by default (ppr_implementation="nichenetr"): the walker
-    follows links proportionally to their weights
-    (self-loops included) and returns to the seed with probability 1 - damping_factor, or always from a gene without
-    outgoing links. Each distinct ligand (also a member of combinations) is computed once, by power iteration until the
-    scores change by less than 1e-10. Time complexity `O(l * k * E)` with `l` the amount of distinct ligands, `k` the
-    amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links in the lr_sig weighted matrix
+    `PPR` uses the model of NicheNetR (igraph's PRPACK) by default (ppr_implementation="nichenetr"): the walker
+    follows links proportionally to their weights (self-loops included) and returns to the seed with probability
+    1 - damping_factor, or always from a gene without outgoing links. Each distinct ligand (also a member of
+    combinations) is computed once, by power iteration until its scores change by less than 1e-10, so its scores
+    don't depend on the other ligands. PRPACK solves the same system by Gauss-Seidel (or directly for fewer than 128
+    genes); the scores agree up to about 1e-9. Time complexity `O(l * k * E)` with `l` the amount of distinct
+    ligands, `k` the amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links in the
+    lr_sig weighted matrix
 
     `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
     and `E` the amount of links in the lr_sig weighted matrix
@@ -910,8 +928,8 @@ def construct_ligand_target_matrix(  # type: ignore
         note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     ppr_implementation : str
         Only relevant when algorithm is PPR. How personalized pagerank is computed:
-        "nichenetr": as in NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links returns to
-        the ligand;
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
         for a higher damping_factor). Needs scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
@@ -1149,8 +1167,8 @@ def construct_model_from_source_weights(
         note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
     ppr_implementation : str
         Only relevant when algorithm is PPR. How personalized pagerank is computed:
-        "nichenetr": as in NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links returns to
-        the ligand;
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
         for a higher damping_factor). Needs scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
