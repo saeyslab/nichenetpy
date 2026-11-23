@@ -6,10 +6,10 @@ import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 
-from nichenetpy.ann_utils import _subset_layer, subset_ann
+from nichenetpy.ann_utils import subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -32,27 +32,27 @@ def _get_expressed_features(
     if layer is None:
         validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
     else:
+        if type(layer) is not str:
+            raise TypeError(f"layer should be of type str, was {type(layer)}")
         sel_layer = ann.layers[layer]
         validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if not isinstance(pct, Number):
         raise TypeError(f"pct should be of type float, was {type(pct)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if layer is not None and type(layer) is not str:
-        raise TypeError(f"layer should be of type str, was {type(layer)}")
-    if pct > 1 or pct < 0:
+    if not 0 <= pct <= 1:
         raise ValueError(f"pct should be between 0 and 1, was {pct}")
     try:
-        cells_oi = list(ann.obs.loc[ann.obs[celltype_col].isin(celltype)].index)
+        # the positions of the cells of the cell types (by position, a cell name can occur more than once)
+        rows = np.flatnonzero(ann.obs[celltype_col].isin(celltype).to_numpy())
     except KeyError as error:
         raise ValueError(f"There is no column '{celltype_col}' in the AnnData object") from error
-    if len(cells_oi) == 0:
+    if len(rows) == 0:
         raise ValueError(f"There are no cells of types {celltype} in the AnnData object")
     # ncells x ngenes
-    mat = ann.X if layer is None else sel_layer
+    mat = ann.X if layer is None else sel_layer  # pyright: ignore[reportPossiblyUnboundVariable] # bound when layer is not None
     # select rows corresponding to cells of interest
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
-    exprs_m = subset_matrix(mat, rows=[row2index[name] for name in cells_oi])  # type: ignore # sel_layer and ann.X are type checked
+    exprs_m = subset_matrix(mat, rows=rows)  # type: ignore # sel_layer and ann.X are type checked
     exps = exp_func(exprs_m)
     return [ann.var_names[gene] for gene, val in enumerate(exps) if val >= pct]
 
@@ -96,7 +96,7 @@ def get_expressed_genes(
     return _get_expressed_features(celltype, ann, pct, celltype_col, layer, gene_expression_pct)
 
 
-def get_weighted_ligand_receptor_links[GeneSymbol](
+def get_weighted_ligand_receptor_links(
     best_upstream_ligands: Iterable[GeneSymbol],
     expressed_receptors: Iterable[GeneSymbol],
     lr_network: LigandReceptorNetwork[GeneSymbol],
@@ -144,7 +144,7 @@ def get_weighted_ligand_receptor_links[GeneSymbol](
     return lr_sig.subset_sep(best_upstream_ligands.intersection({e[0] for e in lr_network}), best_upstream_receptors)
 
 
-def get_lfc_celltype[GeneSymbol](
+def get_lfc_celltype(
     ann: AnnData,
     celltype: str,
     condition_col: str,
@@ -207,8 +207,8 @@ def get_lfc_celltype[GeneSymbol](
         raise TypeError(f"layer should be of type str, was {type(layer)}")
     if type(celltype_col) is not str:
         raise TypeError(f"celltype_col should be of type str, was {type(celltype_col)}")
-    if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should be an Iterable of gene_t, was {type(features)}")
+    if features is not None and (isinstance(features, str) or not isinstance(features, Iterable)):
+        raise TypeError(f"features should be an Iterable of gene_t (not a str), was {type(features)}")
     if type(scanpy_lfc) is not bool:
         raise TypeError(f"scanpy_lfc should have type bool, was {type(scanpy_lfc)}")
     # select celltype of interest
@@ -228,22 +228,18 @@ def get_lfc_celltype[GeneSymbol](
         res = ann_sender.uns["rank_genes_groups"]
         return ([e[0] for e in res["names"]], [e[0] for e in res["logfoldchanges"]])
     else:
-        # compute lfc through custom function which returns the same output as seurat v3
-        if features is None:
-            mat = ann_sender.layers[layer]
-            genes = ann_sender.var_names
-        else:
-            # filter genes in specified layer
-            mat, genes = _subset_layer(ann_sender, layer, features)
+        # compute lfc through custom function which returns the same output as seurat v3; ann_sender only has the
+        # genes of features (in the order of features)
+        mat = ann_sender.layers[layer]
+        genes = ann_sender.var_names.tolist()
         validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
-        row2index = dict(zip(ann_sender.obs.index, range(len(ann_sender.obs.index)), strict=True))
-        cells_oi = ann_sender.obs[ann_sender.obs[condition_col] == condition_oi].index
-        cells_ref = ann_sender.obs[ann_sender.obs[condition_col] == condition_ref].index
+        # the positions of the cells of both conditions (by position, a cell name can occur more than once)
+        conditions = ann_sender.obs[condition_col].to_numpy()
         lfc = log_fold_change(
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi]),  # type: ignore # mat is type checked
-            subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref]),  # type: ignore # mat is type checked
+            subset_matrix(mat, rows=np.flatnonzero(conditions == condition_oi)),  # type: ignore # mat is type checked
+            subset_matrix(mat, rows=np.flatnonzero(conditions == condition_ref)),  # type: ignore # mat is type checked
         )
-        return (genes if type(genes) is list else list(genes), lfc.tolist())
+        return (genes, lfc.tolist())
 
 
 def average_expression(

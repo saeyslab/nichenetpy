@@ -8,7 +8,7 @@ from nichenetpy.network import Network
 
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 _pat_gene_info = re.compile(
-    r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$"
+    r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+|NA)(?:\"|')?,(?:\"|')?(\d+|NA)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$"
 )
 
 
@@ -143,7 +143,7 @@ class GeneInfo:
     """
 
     def __init__(self, arg: str | Iterable[tuple[str, str]]):
-        if type(arg) is str:
+        if isinstance(arg, str):
             with open(arg) as file:
                 lines = file.readlines()
             symbol, _, _, symbol_mouse = zip(
@@ -151,15 +151,16 @@ class GeneInfo:
                 strict=True,
             )
             self.__init__(list(zip(symbol, symbol_mouse, strict=True)))  # type: ignore
-        elif not isinstance(arg, str):
+        elif isinstance(arg, Iterable):
+            # a list, so a generator is not exhausted after the first mapping; missing symbols ("NA") are left out in
+            # both directions
+            pairs = [(sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"]
             # one to many
-            self._human2mouse = Network(
-                sorted(((sh, sm) for sh, sm in arg if sh != "NA" and sm != "NA"), key=lambda x: x[0])
-            )
+            self._human2mouse = Network(pairs)
             # one to one
-            self._mouse2human = {sm: sh for sh, sm in arg}
+            self._mouse2human = {sm: sh for sh, sm in pairs}
         else:
-            raise TypeError(f"arg should have type str or dict, was {type(arg)}")
+            raise TypeError(f"arg should have type str or Iterable[tuple[str, str]], was {type(arg)}")
 
     def __getitem__(self, key: str) -> set[str] | str:
         if key in self._human2mouse._index:

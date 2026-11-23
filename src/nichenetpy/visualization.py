@@ -36,7 +36,7 @@ from scipy.sparse.csgraph import dijkstra
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import target_eval_metric_t, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -54,8 +54,10 @@ def _cluster_order(mat: np.ndarray, rowvar: bool) -> np.ndarray:
     return sc.cluster.hierarchy.leaves_list(clust)
 
 
-def reorder_labels[GeneSymbol](
-    mat: np.ndarray, row_labels: list[GeneSymbol], col_labels: list[GeneSymbol]
+def reorder_labels(
+    mat: np.ndarray,
+    row_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
+    col_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
 ) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
     """
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering.
@@ -64,9 +66,9 @@ def reorder_labels[GeneSymbol](
     ----------
     mat : numpy.ndarray
         the matrix to reorder
-    row_labels : list or tuple of str
+    row_labels : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         the row labels
-    col_labels : list or tuple of str
+    col_labels : Sequence of gene_t, numpy.ndarray of gene_t or pandas.Index of gene_t
         the column labels
 
     Returns
@@ -82,13 +84,26 @@ def reorder_labels[GeneSymbol](
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the number of labels doesn't match the shape of the matrix
     """
     if type(mat) is not np.ndarray:
         raise TypeError(f"mat should have type numpy.ndarray, was {type(mat)}")
-    if type(row_labels) is not list and type(row_labels) is not tuple:
-        raise TypeError(f"row_labels should have type list[str] or tuple[str], was {type(row_labels)}")
-    if type(col_labels) is not list and type(col_labels) is not tuple:
-        raise TypeError(f"col_labels should have type list[str] or tuple[str], was {type(col_labels)}")
+    # any ordered sequence of labels (list, tuple, numpy array, pandas Index), not a str (one label per character)
+    if isinstance(row_labels, str) or not isinstance(row_labels, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(
+            f"row_labels should be a Sequence, numpy.ndarray or pandas.Index of gene_t, was {type(row_labels)}"
+        )
+    if isinstance(col_labels, str) or not isinstance(col_labels, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(
+            f"col_labels should be a Sequence, numpy.ndarray or pandas.Index of gene_t, was {type(col_labels)}"
+        )
+    row_labels = row_labels.tolist() if isinstance(row_labels, (np.ndarray, pd.Index)) else list(row_labels)
+    col_labels = col_labels.tolist() if isinstance(col_labels, (np.ndarray, pd.Index)) else list(col_labels)
+    if (len(row_labels), len(col_labels)) != mat.shape:
+        raise ValueError(
+            f"mat has shape {mat.shape}, but there are {len(row_labels)} row labels and {len(col_labels)} column labels"
+        )
     nrows, ncols = mat.shape
     if nrows > 1 and ncols > 1:
         order_cols = _cluster_order(mat, rowvar=False)
@@ -96,10 +111,10 @@ def reorder_labels[GeneSymbol](
         mat = subset_matrix(mat, order_rows, order_cols)
         row_labels = [row_labels[i] for i in order_rows]
         col_labels = [col_labels[i] for i in order_cols]
-    return (mat, row_labels, col_labels)
+    return (mat, row_labels, col_labels)  # type: ignore # the labels were converted to lists
 
 
-def prepare_ligand_target_visualization[GeneSymbol](
+def prepare_ligand_target_visualization(
     predictor: LigandActivityPredictor[GeneSymbol],
     ligand_target_links: Iterable[tuple[GeneSymbol, GeneSymbol, float]],
     cutoff: float = 0.25,
@@ -169,7 +184,7 @@ def prepare_ligand_target_visualization[GeneSymbol](
     return reorder_labels(ligand_target_vis, targets, ligands)  # type: ignore
 
 
-def prepare_ligand_receptor_visualization[GeneSymbol](
+def prepare_ligand_receptor_visualization(
     ligand_receptor_links: WeightedNetwork[GeneSymbol],
 ) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]:
     """
@@ -390,7 +405,7 @@ def heatmap_2d(
     return (fig, ax)
 
 
-def _construct_ligand_signaling_df[GeneSymbol](
+def _construct_ligand_signaling_df(
     ligands_oi: Collection[GeneSymbol],
     targets_oi: Collection[GeneSymbol],
     all_ligands: Collection[GeneSymbol],
@@ -404,7 +419,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
     for ligand in ligands_oi:
         ltf_vis = pd.DataFrame(data=ltf_matrix[:, target2id[ligand]].toarray(), columns=["weight"], index=all_ligands)  # type: ignore # behaves as expected
         ltf_vis.index.name = "TF"
-        ltf_vis.reset_index(inplace=True)
+        ltf_vis = ltf_vis.reset_index()
         # assign returns a new DataFrame, so the column isn't added to a view of ltf_vis
         ltf_vis = ltf_vis[ltf_vis["weight"] > 0].assign(ligand=ligand)  # pyright: ignore[reportArgumentType] # a gene (str or int) is a valid value
         for target in targets_oi:
@@ -412,7 +427,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
             combined_df = ltf_vis.merge(gr_filtered, on="TF")
             # ltf weight multiplied with gr weight
             combined_df["total_weight"] = combined_df["weight"] * combined_df["weight_grn"]
-            combined_df.sort_values(by="total_weight", ascending=False, inplace=True)
+            combined_df = combined_df.sort_values(by="total_weight", ascending=False)
             # select top k
             combined_df = combined_df.iloc[0 : min(k, len(combined_df))]
             dfs.append(combined_df)
@@ -422,7 +437,7 @@ def _construct_ligand_signaling_df[GeneSymbol](
     return pd.concat(dfs)
 
 
-def _get_shortest_path_signaling[GeneSymbol](
+def _get_shortest_path_signaling(
     ligand_oi: GeneSymbol,
     signaling_df: pd.DataFrame,
     lr_sig_mat: csr_array[np.floating],
@@ -536,7 +551,9 @@ def get_ligand_signaling_path(
         shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
-    tfs = set().union(*(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi))
+    tfs = set().union(
+        *(_get_shortest_path_signaling(ligand, combined_df, lr_sig_mat, gene2id) for ligand in ligands_oi)
+    )
     tfs = {all_genes[e] for e in tfs}
     # ligand-tf or tf-tf
     tf_signaling = lr_sig[
@@ -549,7 +566,10 @@ def get_ligand_signaling_path(
     combined_df_tf = set(combined_df["TF"])
     # incoming edges of target nodes
     tf_regulatory = gr[
-        [fr in combined_df_tf and to in targets_oi for fr, to in zip(gr["from"].tolist(), gr["to"].tolist(), strict=True)]
+        [
+            fr in combined_df_tf and to in targets_oi
+            for fr, to in zip(gr["from"].tolist(), gr["to"].tolist(), strict=True)
+        ]
     ]
     if minmax_scaling:
         tf_signaling = _minmax_scaling(tf_signaling)

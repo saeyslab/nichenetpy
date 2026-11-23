@@ -11,11 +11,11 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
-from nichenetpy.typing import nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
-def calculate_de[GeneSymbol](
+def calculate_de(
     ann: AnnData,
     celltype_col: str,
     condition_oi: str,
@@ -52,7 +52,8 @@ def calculate_de[GeneSymbol](
         a gene is only tested in a comparison if it's expressed in at least this fraction of the cells of the cell type
         or of the other cells (see `metrics.group_metrics`), not used if use_scanpy is True
     pval_thresh : float
-        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+        upper bound for the p-values: only genes with a p-value smaller than this threshold are kept (as Seurat's
+        return.thresh), not used if use_scanpy is True
     use_scanpy : bool
         if True, use scanpy.rank_genes_groups
 
@@ -108,7 +109,7 @@ def _expm1(mat: nichenet_matrix) -> nichenet_matrix:
     return np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
 
 
-def get_avg_exp[GeneSymbol](
+def get_avg_exp(
     ann: AnnData,
     celltype_col: str,
     condition_oi: str | None = None,
@@ -171,18 +172,22 @@ def get_avg_exp[GeneSymbol](
     # normalize on all genes (library sizes must include every gene), select features afterwards
     norm_f = _expm1 if log_normalized else relative_counts
     avg_celltype: pd.DataFrame = average_expression(
-        ann, celltype_col, keys=celltypes, layer=layer, norm_f=norm_f # pyright: ignore[reportArgumentType]
+        ann,
+        celltype_col,
+        keys=celltypes,
+        layer=layer,
+        norm_f=norm_f,  # pyright: ignore[reportArgumentType]
     )
     avg_celltype.index.name = "gene"
     if features is not None:
         avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
-    avg_celltype.reset_index(inplace=True)
+    avg_celltype = avg_celltype.reset_index()
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"
     )
 
 
-def process_table_to_ic[GeneSymbol](
+def process_table_to_ic(
     tab: pd.DataFrame,
     table_type: str,
     lr_network: LigandReceptorNetwork[GeneSymbol],
@@ -317,12 +322,12 @@ def process_table_to_ic[GeneSymbol](
         sender_receiver_table["ligand_receptor_prod"] = (
             sender_receiver_table["avg_ligand"] * sender_receiver_table["avg_receptor"]
         )
-        sender_receiver_table.sort_values(by="ligand_receptor_prod", ascending=False, inplace=True)
+        sender_receiver_table = sender_receiver_table.sort_values(by="ligand_receptor_prod", ascending=False)
     else:
         sender_receiver_table["ligand_receptor_lfc_avg"] = (
             sender_receiver_table["lfc_ligand"] + sender_receiver_table["lfc_receptor"]
         ) / 2
-        sender_receiver_table.sort_values(by="ligand_receptor_lfc_avg", ascending=False, inplace=True)
+        sender_receiver_table = sender_receiver_table.sort_values(by="ligand_receptor_lfc_avg", ascending=False)
     return sender_receiver_table[columns_reorder]
 
 
@@ -335,7 +340,7 @@ def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None
     ].drop_duplicates()
     temp = -np.log10(output[f"pval_{lig_rec}"])
     output[f"lfc_pval_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"]
-    output[f"pval_adapted_{lig_rec}"] = temp * output[f"lfc_{lig_rec}"].apply(lambda x: -1 if x < 0 else 1)
+    output[f"pval_adapted_{lig_rec}"] = temp * np.sign(output[f"lfc_{lig_rec}"])
     temp = output[f"lfc_{lig_rec}"].rank(method="average", na_option="top")
     output[f"scaled_lfc_{lig_rec}"] = temp / temp.max()
     temp = output[f"pval_{lig_rec}"].rank(method="average", na_option="top", ascending=False)
@@ -344,11 +349,11 @@ def _prioritization(de: pd.DataFrame, lig_rec: str, send_rcvr: str | None = None
     output[f"scaled_lfc_pval_{lig_rec}"] = temp / temp.max()
     temp = output[f"pval_adapted_{lig_rec}"].rank(method="average", na_option="top")
     output[f"scaled_pval_adapted_{lig_rec}"] = temp / temp.max()
-    output.sort_values(by=f"lfc_pval_{lig_rec}", ascending=False, inplace=True)
+    output = output.sort_values(by=f"lfc_pval_{lig_rec}", ascending=False)
     return output
 
 
-def generate_prioritization_table[GeneSymbol](
+def generate_prioritization_table(
     sender_receiver_info: pd.DataFrame,
     sender_receiver_de: pd.DataFrame,
     ligand_activities: pd.DataFrame | dict[GeneSymbol, dict[str, float]] | list[tuple[GeneSymbol, dict[str, float]]],
@@ -411,6 +416,8 @@ def generate_prioritization_table[GeneSymbol](
         if the arguments have the wrong type
     ValueError
         if prioritizing weigths does not contain the correct keys
+        if lr_condition_de is None and the weight of ligand_condition_specificity or receptor_condition_specificity
+        is larger than 0
     """
     if type(sender_receiver_info) is not pd.DataFrame:
         raise TypeError(f"sender_receiver_info should be of type pandas.DataFrame, was {type(sender_receiver_info)}")
@@ -460,6 +467,14 @@ def generate_prioritization_table[GeneSymbol](
         ):
             if key not in prioritizing_weights:
                 raise ValueError(f"{key} key missing in prioritizing_weights")
+    if lr_condition_de is None and (
+        prioritizing_weights["ligand_condition_specificity"] > 0
+        or prioritizing_weights["receptor_condition_specificity"] > 0
+    ):
+        raise ValueError(
+            "lr_condition_de is None, yet the condition specificity weights are nonzero: either set the weights of"
+            " 'ligand_condition_specificity' and 'receptor_condition_specificity' to 0 or provide lr_condition_de"
+        )
     if "rank" not in ligand_activities.columns:
         # assign returns a new dataframe, so no "rank" column is added to the caller's ligand_activities
         ligand_activities = ligand_activities.assign(
@@ -473,21 +488,27 @@ def generate_prioritization_table[GeneSymbol](
     else:
         ligand_activity_prioritization = ligand_activities[[target_evaluation_metric, "rank"]].copy()
     ligand_activity_prioritization.index.name = "ligand"
-    ligand_activity_prioritization.reset_index(inplace=True)
-    ligand_activity_prioritization.rename(columns={target_evaluation_metric: "activity"}, inplace=True)
+    ligand_activity_prioritization = ligand_activity_prioritization.reset_index()
+    ligand_activity_prioritization = ligand_activity_prioritization.rename(
+        columns={target_evaluation_metric: "activity"}
+    )
     ligand_activity_prioritization["activity_zscore"] = scaling_zscore(ligand_activity_prioritization["activity"])
     ligand_activity_prioritization["scaled_activity"] = scale_quantile_adapted(
         ligand_activity_prioritization["activity"].transpose(), cutoff=0.01, by_row=True
     ).transpose()
-    ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False, inplace=True)
-    ligand_celltype_specificity_prioritization = sender_receiver_info[["sender", "ligand", "avg_ligand"]].drop_duplicates()
+    ligand_activity_prioritization = ligand_activity_prioritization.sort_values(by="activity_zscore", ascending=False)
+    ligand_celltype_specificity_prioritization = sender_receiver_info[
+        ["sender", "ligand", "avg_ligand"]
+    ].drop_duplicates()
     ligand_celltype_specificity_prioritization = df_grouped_apply(
         ligand_celltype_specificity_prioritization,
         groupby="ligand",
         func=lambda group: scale_quantile_adapted(group["avg_ligand"], by_row=True),
         dest="scaled_avg_exprs_ligand",
     )
-    ligand_celltype_specificity_prioritization.sort_values(by="scaled_avg_exprs_ligand", ascending=False, inplace=True)
+    ligand_celltype_specificity_prioritization = ligand_celltype_specificity_prioritization.sort_values(
+        by="scaled_avg_exprs_ligand", ascending=False
+    )
     receptor_celltype_specificity_prioritization = sender_receiver_info[
         ["receiver", "receptor", "avg_receptor"]
     ].drop_duplicates()
@@ -497,20 +518,20 @@ def generate_prioritization_table[GeneSymbol](
         func=lambda group: scale_quantile_adapted(group["avg_receptor"], by_row=True),
         dest="scaled_avg_exprs_receptor",
     )
-    receptor_celltype_specificity_prioritization.sort_values(
-        by="scaled_avg_exprs_receptor", ascending=False, inplace=True
+    receptor_celltype_specificity_prioritization = receptor_celltype_specificity_prioritization.sort_values(
+        by="scaled_avg_exprs_receptor", ascending=False
     )
     if lr_condition_de is not None:
         ligand_condition_prioritization = _prioritization(lr_condition_de, "ligand")
         ligand_condition_prioritization.index = ligand_condition_prioritization["ligand"]
-        ligand_condition_prioritization.drop(columns=["ligand"], inplace=True)
-        ligand_condition_prioritization.rename(columns=lambda x: f"{x}_group", inplace=True)
-        ligand_condition_prioritization.reset_index(inplace=True)
+        ligand_condition_prioritization = ligand_condition_prioritization.drop(columns=["ligand"])
+        ligand_condition_prioritization = ligand_condition_prioritization.rename(columns=lambda x: f"{x}_group")
+        ligand_condition_prioritization = ligand_condition_prioritization.reset_index()
         receptor_condition_prioritization = _prioritization(lr_condition_de, "receptor")
         receptor_condition_prioritization.index = receptor_condition_prioritization["receptor"]
-        receptor_condition_prioritization.drop(columns=["receptor"], inplace=True)
-        receptor_condition_prioritization.rename(columns=lambda x: f"{x}_group", inplace=True)
-        receptor_condition_prioritization.reset_index(inplace=True)
+        receptor_condition_prioritization = receptor_condition_prioritization.drop(columns=["receptor"])
+        receptor_condition_prioritization = receptor_condition_prioritization.rename(columns=lambda x: f"{x}_group")
+        receptor_condition_prioritization = receptor_condition_prioritization.reset_index()
     group_prioritization = sender_receiver_de.merge(sender_receiver_info, how="inner")
     if prioritizing_weights["de_ligand"] > 0:
         group_prioritization = group_prioritization.merge(sender_ligand_prioritization, how="inner")
@@ -522,10 +543,17 @@ def generate_prioritization_table[GeneSymbol](
         group_prioritization = group_prioritization.merge(ligand_celltype_specificity_prioritization, how="inner")
     if prioritizing_weights["exprs_receptor"] > 0:
         group_prioritization = group_prioritization.merge(receptor_celltype_specificity_prioritization, how="inner")
+    # the condition tables exist here: nonzero condition weights without lr_condition_de are refused above
     if prioritizing_weights["ligand_condition_specificity"] > 0:
-        group_prioritization = group_prioritization.merge(ligand_condition_prioritization, how="inner")
+        group_prioritization = group_prioritization.merge(
+            ligand_condition_prioritization,  # pyright: ignore[reportPossiblyUnboundVariable]
+            how="inner",
+        )
     if prioritizing_weights["receptor_condition_specificity"] > 0:
-        group_prioritization = group_prioritization.merge(receptor_condition_prioritization, how="inner")
+        group_prioritization = group_prioritization.merge(
+            receptor_condition_prioritization,  # pyright: ignore[reportPossiblyUnboundVariable]
+            how="inner",
+        )
     sum_prioritization_weights = (
         (
             prioritizing_weights["de_ligand"]
@@ -561,7 +589,7 @@ def generate_prioritization_table[GeneSymbol](
         )
     score /= sum_prioritization_weights
     group_prioritization["prioritization_score"] = score
-    group_prioritization.sort_values(by="prioritization_score", ascending=False, inplace=True)
+    group_prioritization = group_prioritization.sort_values(by="prioritization_score", ascending=False)
     group_prioritization["prioritization_rank"] = group_prioritization[["prioritization_score"]].rank(
         method="average", na_option="bottom", ascending=False
     )

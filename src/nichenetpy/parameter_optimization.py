@@ -1,20 +1,22 @@
 import warnings
 from collections.abc import Callable, Iterable, Sequence
 from itertools import chain
-from traceback import format_exc
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
 from nichenetpy.evaluation import EvaluationData, evaluate_single_importances_ligand_prediction
+from nichenetpy.exception import NoTrueSamplesError
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.typing import (
+    GeneSymbol,
     MetricScoreFunction,
     ObjectiveFunction,
+    _as_metrics,
+    _combination_name,
     eval_metric_t,
-    gene_t,
     ligand_eval_metric_t,
     target_eval_metric_t,
 )
@@ -70,19 +72,22 @@ metric_score_f_dct = {
 }
 
 
-def _average_performances[GeneSymbol](
+def _average_performances(
     ligand_oi: GeneSymbol | Sequence[GeneSymbol],
     performances: pd.DataFrame,
     metrics: Iterable[eval_metric_t] = ("auroc", "aupr_corrected"),
 ) -> Iterable[float]:
-    # true ligand must match with ligand(s) of interest
+    # the settings whose true ligand, or a member of the true combination, is (one of) the ligand(s) of interest (as
+    # in NicheNetR, which also uses the settings of the combinations that contain the ligand)
     performances_oi = performances[
         [
             any(
                 ligand in true_ligand
                 if isinstance(true_ligand, Sequence) and type(true_ligand) is not str
                 else ligand == true_ligand
-                for ligand in ((ligand_oi,) if isinstance(ligand_oi, gene_t.__value__) else ligand_oi)  # type: ignore # is correct due to conditional
+                for ligand in (
+                    ligand_oi if isinstance(ligand_oi, Iterable) and not isinstance(ligand_oi, str) else (ligand_oi,)
+                )  # type: ignore # is correct due to conditional
             )
             for true_ligand in performances["ligand"]
         ]
@@ -96,6 +101,7 @@ def _evaluate_single_importances_ligand_prediction(
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
     target_evaluation_metrics: Iterable[target_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
 ) -> pd.DataFrame | None:
+    # a setting without an active ligand can't be evaluated, it's left out; other errors aren't caught
     try:
         return evaluate_single_importances_ligand_prediction(
             ligand_importances,
@@ -104,12 +110,12 @@ def _evaluate_single_importances_ligand_prediction(
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         )
-    except Exception as ex:
-        warnings.warn(f"Could not evaluate ligand importance scores for {group}:\n{ex}\n{format_exc()}", stacklevel=2)
+    except NoTrueSamplesError as ex:
+        warnings.warn(f"Could not evaluate ligand importance scores for {group}: {ex}", stacklevel=2)
         return None
 
 
-def evaluate_model[GeneSymbol](
+def evaluate_model(
     predictor: LigandActivityPredictor[GeneSymbol],
     evaluation_data: EvaluationData[GeneSymbol],
     ligand_evaluation_metrics: Iterable[ligand_eval_metric_t] = ("aupr", "aupr_corrected", "auroc", "pearson"),
@@ -145,6 +151,9 @@ def evaluate_model[GeneSymbol](
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
     GS set are genes that aren't expressed then the model can't be evaluated on this GS set.
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(evaluation_data) is not EvaluationData:
@@ -152,7 +161,7 @@ def evaluate_model[GeneSymbol](
     performances_target_prediction = {"setting": [], "ligand": []}
     for met in target_evaluation_metrics:
         performances_target_prediction[met] = []
-    # the field names of the evaluation data (they used to be "from" and "response", whatever the data used)
+    # the field names of the evaluation data
     ligand_name, de_genes_name = evaluation_data.ligand_name, evaluation_data.de_genes_name
     evaluation_data = EvaluationData(
         (e[1] for e in evaluation_data.get_applicable_evaluation_datasets(predictor)),
@@ -166,15 +175,16 @@ def evaluate_model[GeneSymbol](
         for k, v in predictor.evaluate_target_prediction(
             (
                 setting[ligand_name]  # type: ignore
-                if isinstance(setting[ligand_name], gene_t.__value__)  # potential BUG when using integers
-                else "-".join(setting[ligand_name])
+                if not isinstance(setting[ligand_name], (list, tuple))
+                else _combination_name(setting[ligand_name])
             ),
             setting[de_genes_name],
             target_evaluation_metrics,
         ).items():
             performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
-    all_ligands = evaluation_data.get_ligands(combination=False)
+    # sorted, so the rows and the results don't depend on the iteration order of a set
+    all_ligands = sorted(evaluation_data.get_ligands(combination=False), key=str)
     ligand_importances = {"setting": [], "test_ligand": [], "true_ligand": []}
     for met in target_evaluation_metrics:
         ligand_importances[met] = []
@@ -197,7 +207,7 @@ def evaluate_model[GeneSymbol](
                 ligand_evaluation_metrics=ligand_evaluation_metrics,
                 target_evaluation_metrics=target_evaluation_metrics,
             )
-            for setting_id in set(ligand_importances["setting"])
+            for setting_id in evaluation_data.keys()
         )
         if e is not None
     ]
@@ -211,7 +221,7 @@ def evaluate_model[GeneSymbol](
     }
 
 
-def compute_evaluation_scores[GeneSymbol](
+def compute_evaluation_scores(
     eval_res: dict[str, pd.DataFrame | None],
     ligands: Iterable[GeneSymbol | Sequence[GeneSymbol]],
     metric_score_f: MetricScoreFunction | None = None,
@@ -327,16 +337,13 @@ def compute_evaluation_scores[GeneSymbol](
             *(ligand_activity_performance_setting_summary[met] for met in ligand_evaluation_metrics), strict=True
         )
     ]
-    ligand_activity_performance_setting_summary.reset_index(inplace=True)
-    # find the best target prediction evaluation metric by comparing the geometric average of each metric
-    best_metric = max(
-        zip(
-            ligand_activity_performance_setting_summary["metric"],
-            ligand_activity_performance_setting_summary["score"],
-            strict=True,
-        ),
-        key=lambda x: x[1],
-    )[0]
+    ligand_activity_performance_setting_summary = ligand_activity_performance_setting_summary.reset_index()
+    # find the best target prediction evaluation metric by comparing the geometric average of each metric;
+    # a NaN score (e.g. the log of a negative aupr_corrected) is never the best, unless all scores are NaN
+    scores = ligand_activity_performance_setting_summary["score"].to_numpy(dtype=np.float64)
+    best_metric = ligand_activity_performance_setting_summary["metric"].iloc[
+        0 if np.isnan(scores).all() else int(np.nanargmax(scores))
+    ]
     # only keep the best target prediction evaluation metric
     performances_ligand_prediction_summary = eval_res["performances_ligand_prediction"][
         eval_res["performances_ligand_prediction"]["metric"] == best_metric
@@ -372,20 +379,23 @@ def compute_evaluation_scores[GeneSymbol](
 
 
 def _empty_solution(
-    ligand_evaluation_metrics: Iterable[ligand_eval_metric_t], target_evaluation_metrics: Iterable[target_eval_metric_t]
+    objective_fs: dict[
+        Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
+    ],
 ) -> tuple[
     dict[str, None], dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]
 ]:
+    # the scores have the keys of the objective functions, as those of compute_evaluation_scores
     return (
         {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None},
         {
-            "target_prediction": dict.fromkeys(target_evaluation_metrics, 0),
-            "ligand_prediction": dict.fromkeys(ligand_evaluation_metrics, 0),
+            "target_prediction": dict.fromkeys(objective_fs["target_prediction"], 0),
+            "ligand_prediction": dict.fromkeys(objective_fs["ligand_prediction"], 0),
         },
     )
 
 
-def construct_and_evaluate[GeneSymbol](
+def construct_and_evaluate(
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
@@ -407,6 +417,7 @@ def construct_and_evaluate[GeneSymbol](
         Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, ObjectiveFunction]
     ]
     | None = None,
+    random_state: int | np.random.Generator | None = None,
 ) -> tuple[
     dict[str, Any], dict[Literal["target_prediction"] | Literal["ligand_prediction"], dict[eval_metric_t, float]]
 ]:
@@ -446,8 +457,9 @@ def construct_and_evaluate[GeneSymbol](
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix: the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices;
         Default: "no"
     direct_coef : float
@@ -462,9 +474,9 @@ def construct_and_evaluate[GeneSymbol](
         (`pip install nichenetpy[sknetwork]`).
         Default: "nichenetr"
     ligand_evaluation_metrics : Iterable of string
-            the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+        the ligand prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
     target_evaluation_metrics : Iterable of string
-        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson", "map", "ndcg")
+        the target prediction evaluation metrics to compute, must be a subset of ("aupr", "aupr_corrected", "auroc", "pearson")
     metric_score_f : Callable or None
         Function that takes ligand prediction evaluation metrics as input and returns a score that can be used to rank target
         prediction evaluation metrics. Note that all possible metrics are passed as arguments to the function.
@@ -475,6 +487,10 @@ def construct_and_evaluate[GeneSymbol](
         functions that aggregate values of said metric. These functions are used to compute the optimization objectives
         which are aggregated from metric values computed over multiple data sets.
         If None, `objective_fs_dct["NNv2"]` is used.
+    random_state : int or numpy.random.Generator or None
+        seed or generator for the noise that replaces the all-zero columns of the ligand-target matrix before the
+        evaluation (see `LigandActivityPredictor.replace_zero_col_by_noisy_scores`); with the same seed the scores are
+        reproducible. If None, numpy's global random state is used.
 
     Returns
     -------
@@ -493,6 +509,9 @@ def construct_and_evaluate[GeneSymbol](
     If all source weights are 0, or all ligand-receptor and signaling sources have weight 0 (no ligand-signaling
     network), no model is constructed and all prediction scores are 0.
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     weights = (
         source_weights
         if type(source_weights) is dict
@@ -502,9 +521,11 @@ def construct_and_evaluate[GeneSymbol](
     # can't propagate signals from ligands to transcription factors, so it is scored as an empty model instead of
     # being evaluated. Besides saving the evaluation, this avoids the ValueError from construct_ligand_tf_matrix
     # when none of the evaluation ligands are present in the remaining (gene regulatory) network.
+    if objective_fs is None:
+        objective_fs = objective_fs_dct["NNv2"]
     lr_sig_sources = set(lr_network["source"].unique()).union(sig_network["source"].unique())
     if sum(weights.values()) == 0 or all(weights.get(source, 0) == 0 for source in lr_sig_sources):
-        return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
+        return _empty_solution(objective_fs)
     model = construct_model_from_source_weights(
         source_weights,
         lr_sig_hub,
@@ -514,7 +535,9 @@ def construct_and_evaluate[GeneSymbol](
         lr_network,
         gr_network,
         sig_network,
-        ligands=evaluation_data.get_ligands(),
+        # sorted, so the column order of the model (and the noise of replace_zero_col_by_noisy_scores) doesn't depend
+        # on the iteration order of a set
+        ligands=sorted(evaluation_data.get_ligands(), key=str),
         return_all_matrices=return_all_matrices,
         return_weighted_networks=return_weighted_networks,
         split_direct=split_direct,
@@ -527,9 +550,9 @@ def construct_and_evaluate[GeneSymbol](
     if ligand2target.flags.c_contiguous:
         ligand2target = np.array(ligand2target, order="F")
     if np.sum(ligand2target) == 0:
-        return _empty_solution(ligand_evaluation_metrics, target_evaluation_metrics)
+        return _empty_solution(objective_fs)
     predictor = LigandActivityPredictor(ligand2target, row_names, col_names)
-    predictor.replace_zero_col_by_noisy_scores()
+    predictor.replace_zero_col_by_noisy_scores(random_state=random_state)
     scores = compute_evaluation_scores(
         evaluate_model(
             predictor,
@@ -537,7 +560,7 @@ def construct_and_evaluate[GeneSymbol](
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         ),
-        evaluation_data.get_ligands(combination=True),
+        sorted(evaluation_data.get_ligands(combination=True), key=str),
         metric_score_f=metric_score_f,
         objective_fs=objective_fs,
     )
@@ -597,11 +620,9 @@ def choose_pareto_optimal_solution(objective_values: Iterable[Sequence[float]], 
         raise TypeError(f"objective_values should be iterable, was {type(objective_values)}")
     if not isinstance(weights, Iterable):
         raise TypeError(f"weights should be iterable, was {type(weights)}")
-    if type(weights) is np.ndarray:
-        weights /= np.sum(weights)
-    else:
-        tw = sum(weights)
-        weights = [weight / tw for weight in weights]
+    # a new array: the caller's weights are not changed (and may be ints or a generator)
+    weights = np.asarray(list(weights), dtype=np.float64)
+    weights = weights / weights.sum()
     fs = [weighted_stress_function(weight) for weight in weights]
     return int(
         np.argmin(

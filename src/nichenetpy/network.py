@@ -1,12 +1,13 @@
 from collections.abc import Collection, Iterator
-from typing import overload
+from typing import Generic, overload
 
 import pandas as pd
 
 from nichenetpy.io import read_network, read_weighted_network
+from nichenetpy.typing import GeneSymbol
 
 
-class Network[GeneSymbol]:
+class Network(Generic[GeneSymbol]):
     """
     A network with links. This is in essence a one to many mapping.
 
@@ -193,9 +194,7 @@ class Network[GeneSymbol]:
         if to is not None and not isinstance(to, Collection):
             raise TypeError(f"to should be a Collection of gene_t, was {type(to)}")
         return type(self)(
-            mapping=[
-                tup for tup in self._mapping if (fr is None or tup[0] in fr) and (to is None or tup[1] in to)
-            ]
+            mapping=[tup for tup in self._mapping if (fr is None or tup[0] in fr) and (to is None or tup[1] in to)]
         )
 
     def to_dataframe(self) -> pd.DataFrame:
@@ -211,7 +210,7 @@ class Network[GeneSymbol]:
         return pd.DataFrame(self._mapping, columns=["from", "to"]).drop_duplicates(ignore_index=True)
 
 
-class LigandReceptorNetwork[GeneSymbol](Network):
+class LigandReceptorNetwork(Network[GeneSymbol]):
     """
     A ligand-receptor network without weights. This is in essence a one to many mapping.
 
@@ -264,7 +263,7 @@ class LigandReceptorNetwork[GeneSymbol](Network):
         return {receptor for _, receptor in self._mapping}
 
 
-class WeightedNetwork[GeneSymbol](Network):
+class WeightedNetwork(Network[GeneSymbol]):
     """
     A ligand-receptor network with weighted links. This is in essence a one to many mapping.
 

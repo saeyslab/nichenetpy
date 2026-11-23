@@ -641,7 +641,7 @@ def test_steps() -> None:
         )
     )
     df = pd.DataFrame(data=lfcs)
-    df.rename(index=dict(enumerate(sender_celltypes)), inplace=True)
+    df = df.rename(index=dict(enumerate(sender_celltypes)))
     assert equals(df["Il27"]["CD4 T"], 1.3103791)
     assert equals(df["Ebi3"]["Treg"], 4.22547764)
     assert equals(df["Tnf"]["Mono"], 1.24955145)
@@ -714,7 +714,7 @@ def test_wrapper() -> None:
         BASIC_top_10_ligand_receptor_links_focused,
     )
     df = pd.DataFrame(data=combine_by_key(*lfcs))
-    df.rename(index=dict(enumerate(sender_celltypes)), inplace=True)
+    df = df.rename(index=dict(enumerate(sender_celltypes)))
     assert equals(df["Il27"]["CD4 T"], 1.3103791)
     assert equals(df["Ebi3"]["Treg"], 4.22547764)
     assert equals(df["Tnf"]["Mono"], 1.24955145)
@@ -797,11 +797,11 @@ def test_ligand_activity_geneset() -> None:
     )
     exp_df_caf = pd.DataFrame(exp_mat_caf, index=CAF_cells, columns=best_upstream_ligands)
     exp_df_caf.index.name = "cell"
-    exp_df_caf.reset_index(inplace=True)
+    exp_df_caf = exp_df_caf.reset_index()
     sample_info = pd.DataFrame(sample_info, columns=sample_info_col_names)
     exp_df_caf = exp_df_caf.merge(sample_info[["cell", "tumor"]], on="cell", how="inner")
     agg_exp_caf = exp_df_caf[exp_df_caf.columns.difference(["cell"])].groupby("tumor").mean()
-    agg_exp_caf.reset_index(inplace=True)
+    agg_exp_caf = agg_exp_caf.reset_index()
     tumors = list(agg_exp_caf["tumor"])
     agg_exp_caf = agg_exp_caf[agg_exp_caf.columns.difference(["tumor"])]
     agg_exp_caf = agg_exp_caf.transpose()
@@ -823,10 +823,10 @@ def test_ligand_activity_geneset() -> None:
     )
     exp_df_target = pd.DataFrame(exp_mat_target, index=malignant_cells, columns=list(geneset))
     exp_df_target.index.name = "cell"
-    exp_df_target.reset_index(inplace=True)
+    exp_df_target = exp_df_target.reset_index()
     exp_df_target = exp_df_target.merge(sample_info[["cell", "tumor"]], on="cell", how="inner")
     agg_exp_target = exp_df_target[exp_df_target.columns.difference(["cell"])].groupby("tumor").mean()
-    agg_exp_target.reset_index(inplace=True)
+    agg_exp_target = agg_exp_target.reset_index()
     tumors = list(agg_exp_target["tumor"])
     agg_exp_target = agg_exp_target[agg_exp_target.columns.difference(["tumor"])]
     agg_exp_target = agg_exp_target.transpose()
@@ -982,10 +982,11 @@ def test_steps_prioritization() -> None:
         ligand_activities["receiver"] = [receiver for _ in range(len(ligand_activities.index))]
         res["ligand_activities"] = ligand_activities
         nichenet_output[receiver] = res
+    model_genes = predictor.get_genes()
     for receiver, res in nichenet_output.items():
         lr_network_filtered = lr_network.subset_sep(
             res["ligand_activities"].index,
-            [gene for gene in res["expressed_genes_receiver"] if gene in predictor.row_names],
+            [gene for gene in res["expressed_genes_receiver"] if gene in model_genes],
         )
         res["info_tables"] = generate_info_tables(
             ann,
@@ -1002,8 +1003,8 @@ def test_steps_prioritization() -> None:
         key: pd.concat(res["info_tables"][key] for res in nichenet_output.values())
         for key in ["sender_receiver_de", "sender_receiver_info", "lr_condition_de"]
     }
-    info_tables_combined["sender_receiver_info"].drop_duplicates(inplace=True)
-    info_tables_combined["lr_condition_de"].drop_duplicates(inplace=True)
+    info_tables_combined["sender_receiver_info"] = info_tables_combined["sender_receiver_info"].drop_duplicates()
+    info_tables_combined["lr_condition_de"] = info_tables_combined["lr_condition_de"].drop_duplicates()
     df = info_tables_combined["sender_receiver_de"]
     row = df[
         (df["sender"] == "DC") & (df["receiver"] == "CD8 T") & (df["ligand"] == "H2-M2") & (df["receptor"] == "Cd8a")
@@ -1172,7 +1173,7 @@ def test_ligand_activity_single_cell() -> None:
         ligand for ligand, receptor in lr_network if ligand in expressed_ligands and receptor in expressed_receptors
     }
     assert len(potential_ligands) == 203
-    background_expressed_genes = expressed_genes_malignant.intersection(predictor.row_names)
+    background_expressed_genes = expressed_genes_malignant.intersection(predictor.get_genes())
     assert len(background_expressed_genes) == 5891
     row2id = dict(zip(exp_mat_rows, range(len(exp_mat_rows)), strict=True))
     col2id = dict(zip(exp_mat_cols, range(len(exp_mat_cols)), strict=True))
@@ -1209,7 +1210,7 @@ def test_ligand_activity_single_cell() -> None:
     assert len(cell_scores) == 10
     assert equals_iter(cell_scores.sort_values(by="score", ascending=False).to_numpy(), LASC_cell_scores)
     normalized_ligand_activities = normalize_single_cell_ligand_activities(ligand_activities)
-    normalized_ligand_activities.reset_index(inplace=True)
+    normalized_ligand_activities = normalized_ligand_activities.reset_index()
     normalized_ligand_activities.columns.name = None
     assert normalized_ligand_activities.shape[1] == 204
     assert equals(
@@ -1433,7 +1434,7 @@ def test_target_prediction_evaluation_geneset() -> None:
         met = calculate_prediction_evaluation_metrics(list(df["prediction"]), list(df["response"]))
         target_prediction_performances.append(pd.DataFrame([list(met.values())], columns=met.keys()))
     target_prediction_performances = pd.concat(target_prediction_performances)
-    target_prediction_performances.reset_index(drop=True, inplace=True)
+    target_prediction_performances = target_prediction_performances.reset_index(drop=True)
     tpp_mean = target_prediction_performances.mean()
     assert equals(tpp_mean["auroc"], 0.8025248, err_bound=non_deterministic_err_bound)
     assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)

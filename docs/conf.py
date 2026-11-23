@@ -11,7 +11,9 @@ import re
 from datetime import datetime
 from importlib.metadata import metadata
 from pathlib import Path
+from typing import ForwardRef
 
+from sphinx.util.inspect import TypeAliasForwardRef
 from sphinxcontrib import katex
 
 HERE = Path(__file__).parent
@@ -175,3 +177,21 @@ autodoc_type_aliases = {
     "numpy.bool": "bool",
     "np.bool": "bool",
 }
+
+# Sphinx replaces an alias by its name only at the top level of an annotation, nested (tuple[GeneSymbol, ...]) it shows
+# the repr of its placeholder
+TypeAliasForwardRef.__repr__ = lambda self: self.name
+
+
+def _escape_unresolved_annotation(annotation, config):
+    # annotations that can't be evaluated at runtime (pd.Index[...] is only subscriptable in the type stubs) are
+    # rendered as their source text, which is parsed as rST: a name with a trailing underscore (np.str_, np.bool_)
+    # would be read as a link reference; the backslash is doubled because the role that renders it unescapes twice
+    if isinstance(annotation, ForwardRef):
+        annotation = annotation.__forward_arg__
+    if isinstance(annotation, str):
+        return re.sub(r"(?<=\w)_\b", r"\\\\_", annotation)
+    return None
+
+
+typehints_formatter = _escape_unresolved_annotation

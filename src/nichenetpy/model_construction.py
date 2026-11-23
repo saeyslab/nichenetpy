@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.sparse import csc_array, csr_array, csr_matrix, diags_array
 from scipy.sparse.csgraph import dijkstra
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import GeneCombination, GeneSymbol, _as_gene, _combination_name, gene_t, nichenet_matrix
 from nichenetpy.utils import subset_matrix
 
 
@@ -22,7 +22,7 @@ def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
     )
 
 
-def construct_weighted_networks[GeneSymbol](
+def construct_weighted_networks(
     lr_network: pd.DataFrame,
     sig_network: pd.DataFrame,
     gr_network: pd.DataFrame,
@@ -129,16 +129,16 @@ def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
         raise TypeError(f"df should haver type pandas.DataFrame, was {type(df)}")
     if not isinstance(hub, Number):
         raise TypeError(f"hub should have type float, was {type(hub)}")
-    if hub < 0 or hub > 1:
+    if not 0 <= hub <= 1:
         raise ValueError(f"hub should be in the interval [0, 1], was {hub}")
     if hub == 0:
         return df.copy()
     to_count = df[["to", "weight"]].groupby("to").aggregate("count")
-    to_count.rename(columns={"weight": "n"}, inplace=True)
-    to_count.reset_index(inplace=True)
+    to_count = to_count.rename(columns={"weight": "n"})
+    to_count = to_count.reset_index()
     df = df.merge(to_count, on="to", how="inner")
     df["weight"] = df["weight"] / (df["n"] ** hub)
-    df.drop(columns="n", inplace=True)
+    df = df.drop(columns="n")
     return df
 
 
@@ -244,7 +244,7 @@ def _personalized_pagerank_sknetwork(
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -253,11 +253,13 @@ def construct_ligand_tf_matrix[GeneSymbol](
     column_major: bool = False,
     split_ppr: Literal[False] = False,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
-) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]: ...
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]
+]: ...
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -269,13 +271,13 @@ def construct_ligand_tf_matrix[GeneSymbol](
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
 ) -> tuple[
     tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
-    list[GeneSymbol],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
     list[GeneSymbol],
 ]: ...
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -285,11 +287,13 @@ def construct_ligand_tf_matrix[GeneSymbol](
     column_major: bool = False,
     split_ppr: Literal[True],
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
-) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]: ...
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]
+]: ...
 
 
 @overload
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -301,12 +305,12 @@ def construct_ligand_tf_matrix[GeneSymbol](
 ) -> tuple[
     np.ndarray[Any, np.dtype[np.floating]]
     | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
-    list[GeneSymbol],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
     list[GeneSymbol],
 ]: ...
 
 
-def construct_ligand_tf_matrix[GeneSymbol](
+def construct_ligand_tf_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     ligands: Iterable[Iterable[GeneSymbol]],
     ltf_cutoff: float = 0.99,
@@ -318,7 +322,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
 ) -> tuple[
     np.ndarray[Any, np.dtype[np.floating]]
     | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
-    list[GeneSymbol],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
     list[GeneSymbol],
 ]:
     """
@@ -348,7 +352,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
-        At least 0 and smaller than 1 (as in NicheNetR).
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
@@ -381,7 +385,7 @@ def construct_ligand_tf_matrix[GeneSymbol](
         if ppr_implementation is "scikit-network" and scikit-network is not installed
     ValueError
         if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not at least 0 and smaller than 1
-        if a combination contains int gene ids, or two ligands (combinations) get the same name
+        if two ligands (combinations) get the same name
         if algorithm is not "PPR", "SPL" or "direct"
         if ppr_implementation is not "nichenetr" or "scikit-network"
         if none of the ligands are present in the weighted networks
@@ -391,6 +395,9 @@ def construct_ligand_tf_matrix[GeneSymbol](
     If the ligand-signaling network (weighted_networks["lr_sig"]) is empty, each ligand only reaches itself:
     its row is 1 at the ligand (1/k at each member of a combination of k ligands) and 0 elsewhere,
     which is the personalized pagerank result on a network without links.
+
+    With algorithm "direct", the max score is added to a link of a ligand to itself that is already in the
+    ligand-signaling network (as in NicheNetR).
 
     `PPR` is computed as in NicheNetR (igraph's PRPACK) by default (ppr_implementation="nichenetr"): the walker
     follows links proportionally to their weights
@@ -433,21 +440,22 @@ def construct_ligand_tf_matrix[GeneSymbol](
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
     all_genes: list[GeneSymbol] = sorted(gene2id_keys)
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
-    requested = [tuple(_ligands) for _ligands in ligands]
-    for _ligands in requested:
-        # an int gene id points to a gene name, and a complex has an id of its own, so a combination of ids has no name
-        if len(_ligands) > 1 and not all(isinstance(ligand, str) for ligand in _ligands):
-            raise ValueError(
-                f"combinations of ligands are only supported for gene symbols (str), not {_ligands}; "
-                "use the id of the complex instead"
-            )
+    requested = []
+    for _ligands in ligands:
+        # a ligand or combination is an Iterable of genes, a str would be split into its characters
+        if isinstance(_ligands, str) or not isinstance(_ligands, Iterable):
+            raise TypeError(f"ligands should have type Iterable[Iterable[gene_t]], contained {_ligands!r}")
+        requested.append(tuple(_as_gene(ligand, "ligand") for ligand in _ligands))
     named_ligands = [
-        ("-".join(_ligands) if len(_ligands) > 1 else _ligands[0], [e for e in _ligands if e in gene2id_keys])
+        (
+            _combination_name(_ligands) if len(_ligands) > 1 else _ligands[0],
+            [e for e in _ligands if e in gene2id_keys],
+        )
         for _ligands in requested
         if len(_ligands) > 0
     ]
     named_ligands = [(name, members) for name, members in named_ligands if len(members) > 0]
-    row_names: list[GeneSymbol] = [name for name, _ in named_ligands]
+    row_names: list[GeneSymbol | GeneCombination[GeneSymbol]] = [name for name, _ in named_ligands]
     ligands = [members for _, members in named_ligands]
     duplicates = sorted((name for name, count in Counter(row_names).items() if count > 1), key=str)
     if len(duplicates) > 0:
@@ -532,9 +540,10 @@ def construct_ligand_tf_matrix[GeneSymbol](
             .groupby("from", as_index=False)
             .max()
         )
-        lig_lig.drop_duplicates(inplace=True)
+        lig_lig = lig_lig.drop_duplicates()
         all_ligands_lst = list(all_ligands)
         lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
+        # a self-link that is already in lr_sig is kept, the sparse matrix sums it with the added one (as in NicheNetR)
         lr_sig = pd.concat((lr_sig, lig_lig))
         lr_sig_mat = csr_array(
             (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
@@ -639,7 +648,7 @@ def _set_min(mat):
 
 def _split_tft_direct(
     gr_network: pd.DataFrame,
-    ligands: list[tuple],
+    direct_regulators: set,
     tft_matrix: csr_array,
     grn_rows: list,
     grn_cols: list,
@@ -651,8 +660,8 @@ def _split_tft_direct(
     ----------
     gr_network : pandas.DataFrame
         the (weighted) gene regulatory network, contains the same links as the tf-target matrix
-    ligands : list of tuple
-        the ligands (combinations) as tuples
+    direct_regulators : set
+        the genes whose regulatory links are direct
     tft_matrix : scipy.sparse.csr_array
         the tf-target matrix
     grn_rows : list
@@ -669,10 +678,7 @@ def _split_tft_direct(
     """
     tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
     target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
-    # direct links: regulatory links that start at a ligand, also at the members of a ligand combination (only single
-    # ligands were used, so a combination's own regulatory links were never direct)
-    ligand_genes = {ligand for _ligands in ligands for ligand in _ligands}
-    direct_links = gr_network[gr_network["from"].isin(ligand_genes)]
+    direct_links = gr_network[gr_network["from"].isin(direct_regulators)]
     mask = csr_array(
         (
             np.ones(len(direct_links), dtype=bool),
@@ -685,7 +691,7 @@ def _split_tft_direct(
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -699,11 +705,11 @@ def construct_ligand_target_matrix[GeneSymbol](
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
-) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]: ...
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -719,14 +725,19 @@ def construct_ligand_target_matrix[GeneSymbol](
     direct_coef: float = 0,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
 ) -> tuple[
-    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]],
-    tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+    ],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -741,11 +752,11 @@ def construct_ligand_target_matrix[GeneSymbol](
     split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
     direct_coef: float = 0,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
-) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]]: ...
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]]: ...
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -761,14 +772,19 @@ def construct_ligand_target_matrix[GeneSymbol](
     direct_coef: float = 0,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
 ) -> tuple[
-    tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]],
-    tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+        list[GeneSymbol],
+    ],
     tuple[nichenet_matrix, list[gene_t], list[gene_t]],
 ]: ...
 
 
 @overload
-def construct_ligand_target_matrix[GeneSymbol](
+def construct_ligand_target_matrix(
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -783,18 +799,29 @@ def construct_ligand_target_matrix[GeneSymbol](
     direct_coef: float = 0,
     ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
 ) -> (
-    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]]
-    | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]]
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]
+    | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]]
     | tuple[
-        tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol]]
-        | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[gene_t]],
-        tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+        tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
 ): ...
 
 
-def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
+def construct_ligand_target_matrix(  # type: ignore
     weighted_networks: dict[str, pd.DataFrame],
     lr_network: pd.DataFrame,
     ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
@@ -812,7 +839,18 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]]
     | tuple[
         tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]],
-        tuple[nichenet_matrix, list[GeneSymbol], list[GeneSymbol]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
         tuple[nichenet_matrix, list[gene_t], list[gene_t]],
     ]
 ):
@@ -842,7 +880,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
-        At least 0 and smaller than 1 (as in NicheNetR).
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
         Default: 0.5
     secondary_targets : bool
         Indicate whether a ligand-target matrix should be returned that explicitly includes putative secondary targets of a ligand
@@ -862,8 +900,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix (only valid with 'PPR' algorithm);
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix (only valid with 'PPR' algorithm): the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices (only valid with 'PPR' algorithm);
         Default: "no"
     direct_coef : float
@@ -937,7 +976,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
         ]
     elif remove_direct_links != "no":
-        raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
+        raise ValueError(
+            f"remove_direct_links should be in ['no', 'ligand', 'ligand_receptor'], was {remove_direct_links}"
+        )
     if type(split_direct) is not str:
         raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
     elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
@@ -946,10 +987,18 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         raise ValueError("When split_direct is 'ltf' or 'ltf-tft' algorithm must be 'PPR'")
     if not isinstance(direct_coef, Number):
         raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
-    elif direct_coef < 0 or direct_coef > 1:
+    elif not 0 <= direct_coef <= 1:
         raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
     _check_ppr_implementation(ppr_implementation)
-    ligands = [(_ligands,) if isinstance(_ligands, gene_t.__value__) else _ligands for _ligands in ligands]
+    # a single ligand or a combination (an Iterable of ligands, as a tuple: the ligands are used more than once below)
+    ligands = [
+        tuple(_ligands) if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
+        for _ligands in ligands
+    ]
+    # the direct regulatory links start at any ligand of the ligand-receptor network, so a ligand's row doesn't depend
+    # on which other ligands are requested; the requested ligands (and the members of combinations) are added, so a
+    # ligand's own regulatory links are always direct
+    direct_regulators = set(lr_network["from"].tolist()).union(*ligands)
     if split_direct == "no":
         ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
             weighted_networks,
@@ -982,7 +1031,9 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
             weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor, ppr_implementation=ppr_implementation
         )
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
         rp_direct: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
         rp_indirect: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -999,10 +1050,13 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
         ltf_direct = ltf_matrix[0]
         ltf_indirect = ltf_matrix[1]
         tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-        tft_direct, tft_indirect = _split_tft_direct(weighted_networks["gr"], ligands, tft_matrix, grn_rows, grn_cols)
-        # same as rp_direct when split_direct == "ltf"?
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
+        # the same as rp_direct with split_direct == "ltf": ltf_direct only has scores at the ligand's own nodes, whose
+        # regulatory links are all direct
         rp_direct = ltf_direct @ tft_direct
-        # same as rp_indirect when split_direct == "tft"?
+        # the same as rp_indirect with split_direct == "tft": the ligand's own nodes have no indirect regulatory links
         rp_indirect = ltf_indirect @ tft_indirect
         # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
         ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
@@ -1032,7 +1086,7 @@ def construct_ligand_target_matrix[GeneSymbol](  # type: ignore
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
 
-def construct_model_from_source_weights[GeneSymbol](
+def construct_model_from_source_weights(
     source_weights: dict[GeneSymbol, float] | pd.DataFrame,
     lr_sig_hub: float,
     gr_hub: float,
@@ -1069,7 +1123,7 @@ def construct_model_from_source_weights[GeneSymbol](
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
-        At least 0 and smaller than 1 (as in NicheNetR).
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
     lr_network : pandas.DataFrame
         dataframe which contains ligand-receptor interactions
     gr_network : pandas.DataFrame
@@ -1085,8 +1139,9 @@ def construct_model_from_source_weights[GeneSymbol](
     split_direct : str
         Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
         "no": don't split;
-        "ltf": split the ltf matrix;
-        "tft": split the tft matrix;
+        "ltf": split the ltf matrix: the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
         "ltf-tft": split both the ltf and tft matrices;
         Default: "no"
     direct_coef : float

@@ -11,8 +11,8 @@ from scipy.stats import pearsonr
 from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
-from nichenetpy.exception import NicheNetError
-from nichenetpy.typing import eval_metric_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.exception import NicheNetError, NoTrueSamplesError
+from nichenetpy.typing import EvalMetric, GeneSymbol, eval_metric_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -134,6 +134,29 @@ def calculate_auroc(
     return -_auc_reverse(fp, tp)
 
 
+def _tied_ranking(
+    response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+    prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.intp]], np.ndarray[Any, np.dtype[np.intp]]
+]:
+    # the response ordered from the highest to the lowest prediction, the group of tied predictions of every position
+    # and the first position of every group (groups in ranking order)
+    prediction = np.asarray(prediction, dtype=np.float64)
+    order = np.argsort(-prediction, kind="stable")
+    ranked_prediction = prediction[order]
+    new_group = np.empty(len(order), dtype=bool)
+    new_group[:1] = True
+    np.not_equal(ranked_prediction[1:], ranked_prediction[:-1], out=new_group[1:])
+    group = np.cumsum(new_group) - 1
+    return np.asarray(response, dtype=np.float64)[order], group, np.flatnonzero(new_group)
+
+
+def _dcg(gains: np.ndarray[Any, np.dtype[np.float64]]) -> float:
+    # discounted cumulative gain of gains in ranked order: gain / log2(position + 1), positions starting at 1
+    return float((gains / np.log2(np.arange(2, len(gains) + 2))).sum())
+
+
 def precision_at_k(
     ranking: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
@@ -162,7 +185,8 @@ def precision_at_k(
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    return sum(response[e] for e in ranking[: k + 1]) / (k + 1)  # type: ignore # e is float
+    top = np.asarray(ranking[: k + 1], dtype=np.intp)
+    return float(np.asarray(response, dtype=np.float64)[top].sum() / (k + 1))
 
 
 def average_precision_at_k(
@@ -172,6 +196,8 @@ def average_precision_at_k(
 ) -> float:
     """
     Calculates the average precision at index k in the ranking.
+    Tied predictions don't depend on their input order: the result is the expected value over all their orders
+    (McSherry & Najork, 2008).
 
     Parameters
     ----------
@@ -195,14 +221,34 @@ def average_precision_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
-    n = sum(response)
-    if n == 1:
-        i = 0
-        while response[ranking[i]] != 1:
-            i += 1
-        return 1 / (i + 1) if i <= k else 0
-    return sum(precision_at_k(ranking, response, i) if response[ranking[i]] else 0 for i in range(k + 1)) / n
+    ranked, group, starts = _tied_ranking(response, prediction)
+    n = ranked.sum()
+    if n == 0:
+        return np.nan  # without true targets the average precision is undefined
+    hits = (ranked != 0).astype(np.float64)
+    positions = np.arange(1, len(ranked) + 1)
+    if len(starts) == len(ranked):
+        # no ties: the precision at every position, summed over the positions (up to k) of the true targets
+        return float((hits * np.cumsum(ranked) / positions)[: k + 1].sum() / n)
+    # expected value over all orders of tied predictions (McSherry & Najork, 2008): at the t-th position of a group
+    # of size n_g, the expected hit x (response up to here) is
+    # hits_g / n_g * before_g + (hits x response)_g / n_g + (t - 1) / (n_g (n_g - 1)) * (hits_g response_g - (hits x response)_g)
+    # with before_g the response of the groups ranked before; without ties this is hit x cumulative response
+    hits_g = np.add.reduceat(hits, starts)
+    response_g = np.add.reduceat(ranked, starts)
+    hit_response_g = np.add.reduceat(hits * ranked, starts)
+    size_g = np.diff(starts, append=len(ranked))
+    before_g = np.cumsum(response_g) - response_g
+    size = size_g[group]
+    t = np.arange(len(ranked)) - starts[group] + 1
+    pair = np.divide(t - 1, size * (size - 1), out=np.zeros(len(ranked)), where=size > 1)
+    expected = (
+        hits_g[group] / size * before_g[group]
+        + hit_response_g[group] / size
+        + pair * (hits_g * response_g - hit_response_g)[group]
+    )
+    # the expected precision at every position, summed over the positions up to k
+    return float((expected / positions)[: k + 1].sum() / n)
 
 
 def dcg_at_k(
@@ -231,7 +277,8 @@ def dcg_at_k(
         raise TypeError(f"response should be a Sequence or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(ranking, (Sequence, np.ndarray)):
         raise TypeError(f"ranking should be a Sequence or numpy.ndarray of floats, had type {type(ranking)}")
-    return sum(response[e] / np.log2(i + 2) for i, e in enumerate(ranking[: k + 1]))  # pyright: ignore[reportArgumentType, reportCallIssue] # e is float
+    top = np.asarray(ranking[: k + 1], dtype=np.intp)
+    return _dcg(np.asarray(response, dtype=np.float64)[top])
 
 
 def ndcg_at_k(
@@ -241,15 +288,17 @@ def ndcg_at_k(
 ):
     """
     Calculates the normalized discounted cumulative gain at index k in the ranking.
+    Tied predictions don't depend on their input order: the result is the expected value over all their orders
+    (McSherry & Najork, 2008).
 
     Parameters
     ----------
     response : Sequence or numpy.ndarray of float
         vector indicating whether a target is a True (1) target of the possibly active ligand(s) or a False (0)
     prediction : Sequence or numpy.ndarray of float
-        the ranking of response indices from best to worst
-    k : int
-        the index at which to compute the ndcg
+        vector which contains probability scores for each target gene (for one particular ligand)
+    k : int or None
+        the index at which to compute the ndcg or None to compute the ndcg over everything
 
     Returns
     -------
@@ -264,11 +313,20 @@ def ndcg_at_k(
         k = len(response) - 1
     elif type(k) is not int:
         raise TypeError(f"k should be of type int, had type {type(k)}")
-    ranking = [e[0] for e in sorted(enumerate(prediction), key=lambda x: x[1], reverse=True)]
-    n = sum(response)
-    gs_ranking = [e[0] for e in sorted(enumerate(response), key=lambda x: x[1], reverse=True)]
-    # if n is 1 then ideal dcg@k is 1, so let's take a shortcut
-    return dcg_at_k(ranking, response, k) / (1 if n == 1 else dcg_at_k(gs_ranking, response, k))
+    ranked, group, starts = _tied_ranking(response, prediction)
+    n = ranked.sum()
+    if n == 0:
+        return np.nan  # without true targets the ndcg is undefined
+    # expected value over all orders of tied predictions: every position of a group of ties gets the mean gain of
+    # the group (as scikit-learn's ndcg_score); without ties that is the gain itself
+    if len(starts) == len(ranked):
+        expected = ranked
+    else:
+        expected = (np.add.reduceat(ranked, starts) / np.diff(starts, append=len(ranked)))[group]
+    # the ideal ranking
+    ideal = np.sort(ranked)[::-1]
+    # if there is 1 true target then ideal dcg@k is 1, so let's take a shortcut
+    return _dcg(expected[: k + 1]) / (1 if n == 1 else _dcg(ideal[: k + 1]))
 
 
 _metric_dct: dict[
@@ -290,7 +348,7 @@ _metric_dct: dict[
 }
 
 
-def calculate_evaluation_metrics[EvalMetric](
+def calculate_evaluation_metrics(
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     metrics: Iterable[EvalMetric],
@@ -319,15 +377,15 @@ def calculate_evaluation_metrics[EvalMetric](
     ------
     TypeError
         if the arguments have the wrong type
-    ValueError
-        if response doesn't contain any true samples
+    nichenetpy.exception.NoTrueSamplesError
+        if response doesn't contain any true samples (a ValueError)
     """
     if not isinstance(response, (Sequence, np.ndarray)):
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
     if sum(response) == 0:
-        raise ValueError(
+        raise NoTrueSamplesError(
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
         )
     output: dict[EvalMetric, float] = {}
@@ -337,7 +395,7 @@ def calculate_evaluation_metrics[EvalMetric](
         warnings.simplefilter("ignore")
         for metric in metrics:
             try:
-                output[metric] = _metric_dct[metric](response, prediction)  # type: ignore # EvalMetric is always of type eval_metric_t
+                output[metric] = _metric_dct[metric](response, prediction)
             except ValueError as ex:
                 if allow_nan:
                     output[metric] = np.nan
@@ -481,25 +539,27 @@ def gene_expression_pct(mat: nichenet_matrix) -> list[float]:
 def _single_group_metrics(
     ann: AnnData,
     mat: nichenet_matrix,
-    row2index: dict[str, int],
+    cell_groups: np.ndarray,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None,
     lfc_pseudocount: float,
     groupby: str,
     group_oi: str,
     group_ref: str | None = None,
 ):
-    cells_oi = ann.obs[ann.obs[groupby] == group_oi].index
+    # the positions of the cells (by position, a cell name can occur more than once), cell_groups has the group of
+    # each cell
+    cells_oi = np.flatnonzero(cell_groups == group_oi)
     if group_ref is None:
         # reference cells are all cells that are not cells of interest
-        cells_ref = ann.obs[ann.obs[groupby] != group_oi].index
+        cells_ref = np.flatnonzero(cell_groups != group_oi)
     else:
-        cells_ref = ann.obs[ann.obs[groupby] == group_ref].index
+        cells_ref = np.flatnonzero(cell_groups == group_ref)
     if len(cells_oi) == 0:
         raise NicheNetError("There are no cells in the group of interest")
     if len(cells_ref) == 0:
         raise NicheNetError("There are no cells in the reference group")
-    mat1 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_oi])
-    mat2 = subset_matrix(mat, rows=[row2index[cell] for cell in cells_ref])
+    mat1 = subset_matrix(mat, rows=cells_oi)
+    mat2 = subset_matrix(mat, rows=cells_ref)
     return (
         log_fold_change(mat1, mat2, lfc_denormalize, lfc_pseudocount),
         gene_expression_pct(mat1),
@@ -507,7 +567,7 @@ def _single_group_metrics(
     )
 
 
-def group_metrics[GeneSymbol](
+def group_metrics(
     ann: AnnData,
     groupby: str,
     group_oi: str | None = None,
@@ -555,7 +615,8 @@ def group_metrics[GeneSymbol](
         a gene is only tested (and reported) in a comparison if it's expressed in at least this fraction of the cells of
         the group or of the reference cells (as min.pct in Seurat's FindMarkers)
     pval_thresh : float or None
-        upper bound for the p-values (if p_values for a gene is smaller than this threshold, it is excluded)
+        upper bound for the p-values: only genes with a p-value smaller than this threshold are kept (as Seurat's
+        return.thresh), None keeps all genes
     wilcoxon_limma : bool
         use wilcoxon-limma (reproduces results from seuratv4)
     lfc_denormalize : Callable or None
@@ -609,11 +670,11 @@ def group_metrics[GeneSymbol](
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
     validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
-    row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
     try:
         groups = sorted(set(ann.obs[groupby]))
     except KeyError as error:
         raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
+    cell_groups = ann.obs[groupby].to_numpy()
     if group_oi is not None and group_oi == group_ref:
         raise ValueError(f"group_oi and group_ref should be different, both were {group_oi}")
     # the groups that are compared with the reference cells (the other groups or group_ref)
@@ -629,7 +690,7 @@ def group_metrics[GeneSymbol](
         x, y, z = _single_group_metrics(
             ann,
             mat,  # type: ignore # mat is type checked
-            row2index,
+            cell_groups,
             lfc_denormalize,
             lfc_pseudocount,
             groupby,
@@ -646,7 +707,7 @@ def group_metrics[GeneSymbol](
         ignore_index=False,
     )
     output.index.name = "gene"
-    output.reset_index(inplace=True)
+    output = output.reset_index()
     # pct: fraction of expressing cells in the group of interest, pct_ref: in the reference cells (the other groups or
     # group_ref); both are needed for the prefilter, otherwise genes lost in the group of interest
     # (low pct, high pct_ref) would never be tested
@@ -661,9 +722,7 @@ def group_metrics[GeneSymbol](
     output = output.merge(pct_df, on=["gene", groupby], how="inner")
     # prefilter as in Seurat's FindMarkers: a gene is tested in a comparison if it's expressed in at least min_pct of
     # the cells of either group and its absolute log fold change is at least min_abs_lfc
-    output = output[
-        (np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)
-    ]
+    output = output[(np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]
     if len(output) == 0:
         # no gene passes the filters in any comparison, so there is nothing to test
         ann.uns["group_metrics"] = output.assign(pval=pd.Series(dtype=float), pval_adj=pd.Series(dtype=float))
@@ -692,7 +751,7 @@ def group_metrics[GeneSymbol](
     pvals = pd.melt(pvals, var_name=groupby, value_name="pval", ignore_index=False)
     if pval_thresh is not None:
         pvals = pvals[pvals["pval"] < pval_thresh]
-    pvals.reset_index(inplace=True)
+    pvals = pvals.reset_index()
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)

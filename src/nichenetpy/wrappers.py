@@ -161,7 +161,9 @@ def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | No
     return list(sender_celltypes)
 
 
-def _ligands_in_model[T](potential_ligands: set[T], predictor: LigandActivityPredictor[T]) -> set[T]:
+def _ligands_in_model(
+    potential_ligands: set[GeneSymbol], predictor: LigandActivityPredictor[GeneSymbol]
+) -> set[GeneSymbol]:
     # ligands of the ligand-receptor network that aren't in the ligand-target matrix can't be scored (predicting their
     # activity raised a ValueError), they're left out with a warning
     in_model = potential_ligands & predictor.get_ligands()
@@ -183,7 +185,7 @@ def run_nichenet(
     condition_col: str,
     condition_oi: str,
     condition_ref: str,
-    sender_celltypes: Iterable[str] | None = None,
+    sender_celltypes: Iterable[str] | str | None = None,
     layer: str = "data",
     celltype_col: str = "celltype",
     max_pval_adj: float = 0.05,
@@ -265,8 +267,9 @@ def run_nichenet(
 
             best_upstream_ligands : list of gene_t
                 the top scoring ligands in the sender-agnostic approach
-            ligand_activities_sorted : dict
-                the computed metrics for each ligand in the sender-agnostic approach
+            ligand_activities_sorted : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-agnostic approach, sorted from the most to the least active ligand
             active_ligand_target_links : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target
                 links in the sender-agnostic approach
@@ -287,8 +290,9 @@ def run_nichenet(
 
             best_upstream_ligands_focused : list of gene_t
                 the top scoring ligands in the sender-focused approach
-            ligand_activities_sorted_focused : dict
-                the computed metrics for each ligand in the sender-focused approach
+            ligand_activities_sorted_focused : list of tuple
+                (ligand, dict of metric -> value) tuples with the computed metrics for each ligand in the
+                sender-focused approach, sorted from the most to the least active ligand
             active_ligand_target_links_focused : list of tuple
                 list of (ligand, target, weight) tuples representing the ligand-target links
                 in the sender-focused approach
@@ -361,8 +365,12 @@ def run_nichenet(
             for ligand in best_upstream_ligands
         )
     if lr_sig is not None:
+        # a combination of ligands isn't in the ligand-receptor network
         output["ligand_receptor_links"] = get_weighted_ligand_receptor_links(
-            best_upstream_ligands, expressed_receptors, lr_network, lr_sig
+            [ligand for ligand in best_upstream_ligands if not isinstance(ligand, tuple)],
+            expressed_receptors,
+            lr_network,
+            lr_sig,
         )
     if sender_celltypes is not None:
         expressed_genes_sender = {
@@ -423,8 +431,7 @@ def run_nichenet(
                 use_scanpy=use_scanpy,
                 layer=layer,
             )
-            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders;
-            # the scaled activities and ranks used to be computed over all potential ligands)
+            # the sender-focused activities, as in NicheNetR (the activities of the ligands expressed by the senders)
             output["prioritization_table"] = generate_prioritization_table(
                 info_tables["sender_receiver_info"],
                 info_tables["sender_receiver_de"],
@@ -441,7 +448,7 @@ def run_nichenet_cluster_de(
     lr_network: LigandReceptorNetwork[str],
     receiver_affected: str,
     receiver_reference: str,
-    sender_celltypes: Iterable[str] | None = None,
+    sender_celltypes: Iterable[str] | str | None = None,
     layer: str = "data",
     celltype_col: str = "celltype",
     max_pval_adj: float = 0.05,
@@ -469,7 +476,10 @@ def run_nichenet_cluster_de(
     receiver_reference : str
         Name of cluster identity/identities of "steady-state" cells, before they are affected by intercellular communication with other cells
     sender_celltypes : Iterable[str] or str or None
-        The sender celltypes or None for all celltypes
+        the sender cell types: the potential ligands are those expressed by at least one of them. If None, the ligands
+        aren't filtered on their expression by senders (all genes of the data and the model count as expressed by the
+        senders, as sender = "undefined" in NicheNetR, e.g. when the sender cells aren't profiled). Note that NicheNetR's
+        default is sender = "all"; to get that, pass all cell types (e.g. ann.obs[celltype_col].unique()).
     layer : str
         the layer in the AnnData object which contains the data matrix
     celltype_col : str
@@ -536,7 +546,7 @@ def run_nichenet_cluster_de(
     )
     expressed_genes_receiver = expressed_genes_receiver_ref.union(expressed_genes_receiver_aff)
     if sender_celltypes is None:
-        expressed_genes_sender = set(ann.var_names).union(predictor.row_names, predictor.col_names)
+        expressed_genes_sender = set(ann.var_names).union(predictor.get_genes(), predictor.get_ligands())
     else:
         expressed_genes_sender = {
             gene
@@ -573,7 +583,7 @@ def run_nichenet_cluster_de(
                 & ((DE_table["lfc"] >= lfc_cutoff) if geneset == "up" else (DE_table["lfc"] <= -lfc_cutoff))
             ]["gene"]
         )
-    geneset_oi.intersection_update(predictor.row_names)
+    geneset_oi.intersection_update(predictor.get_genes())
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
     expressed_ligands = lr_network.get_ligands().intersection(expressed_genes_sender)
     expressed_receptors = lr_network.get_receptors().intersection(expressed_genes_receiver)
@@ -612,7 +622,7 @@ def run_nichenet_cluster_de(
 
 
 def create_ligand_activity_hist(
-    ligand_activities_sorted: Iterable[tuple],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     xtitle: str = "ligand activity",
     ytitle: str = "# ligands",
     figsize: tuple[float, float] = (6, 6),
@@ -625,7 +635,8 @@ def create_ligand_activity_hist(
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand, sorted from the most to the least active ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     xtitle : str
         the title of the x-axis
     ytitle : str
@@ -660,7 +671,7 @@ def create_ligand_activity_hist(
         raise ValueError("ligand_activities_sorted is empty")
     fig, ax = plt.subplots(figsize=figsize)
     ax.hist(vals, bins=40, edgecolor="black")
-    # axvline spans the full height of the plot (the line used to stop at a fixed count of 120)
+    # axvline spans the full height of the plot
     ax.axvline(x=vals[min(top_n, len(vals)) - 1], color="red", linestyle="dashed")
     ax.set_xlabel(xtitle)
     ax.set_ylabel(ytitle)
@@ -668,7 +679,7 @@ def create_ligand_activity_hist(
 
 
 def create_ligand_activity_heatmap(
-    ligand_activities_sorted: Iterable[tuple[str, str]],
+    ligand_activities_sorted: Iterable[tuple[GeneSymbol, dict[target_eval_metric_t, float]]],
     title: str = "ligand activity",
     cbar_label: str = "AUPR",
     cmap: str = "YlOrRd",
@@ -681,7 +692,8 @@ def create_ligand_activity_heatmap(
     Parameters
     ----------
     ligand_activities_sorted : Iterable of tuple
-        the computed metrics for each ligand
+        (ligand, dict of metric -> value) tuples with the computed metrics for each ligand, sorted from the most to
+        the least active ligand (e.g. "ligand_activities_sorted" in the output of `run_nichenet`)
     title : str
         the title of the plot
     cbar_label : str
@@ -699,7 +711,16 @@ def create_ligand_activity_heatmap(
         the figure
     Axes
         the axes
+
+    Raises
+    ------
+    ValueError
+        if there are no ligands
     """
+    # a list, so an empty generator is noticed as well
+    ligand_activities_sorted = list(ligand_activities_sorted)
+    if len(ligand_activities_sorted) == 0:
+        raise ValueError("ligand_activities_sorted is empty")
     ligands, metrics = zip(*ligand_activities_sorted, strict=True)
     fig, ax = heatmap_1d(
         [e[target_evaluation_metric] for e in metrics],
@@ -901,7 +922,7 @@ def _create_circos_plot(
 
     # Each rectangle is identified by (role, group, gene) and each sector by (role, group), with role "send" or "rec"
     # (or "" if senders and receivers aren't separated). The names are kept as tuples, so groups and genes can contain
-    # any character (they used to be joined with "_" and split again, which failed for names containing "_").
+    # any character.
     def sector_name(role: str, group: str) -> str:
         return f"{role}_{group}" if role else group
 
@@ -1138,7 +1159,7 @@ def create_ligand_links_circos_plot(
     )
 
 
-def generate_info_tables[GeneSymbol](
+def generate_info_tables(
     ann: AnnData,
     celltype_col: str,
     senders_oi: Sequence[str],
@@ -1224,7 +1245,12 @@ def generate_info_tables[GeneSymbol](
         previous = ann.uns.get("group_metrics", missing)
         try:
             group_metrics(
-                ann, groupby=condition_col, group_oi=condition_oi, group_ref=condition_ref, layer=layer, features=lr_genes
+                ann,
+                groupby=condition_col,
+                group_oi=condition_oi,
+                group_ref=condition_ref,
+                layer=layer,
+                features=lr_genes,
             )
             res = ann.uns["group_metrics"]
         finally:
@@ -1330,14 +1356,14 @@ def calculate_fraction_top_predicted(
         .count()
     )
     predicted_positive.index.name = "true_target"
-    predicted_positive.reset_index(inplace=True)
+    predicted_positive = predicted_positive.reset_index()
     all = (
         affected_gene_predictions[["response", "prediction"]]
         .rename(columns={"response": "true_target", "prediction": "n"})
         .groupby("true_target")
         .count()
     )
-    all.reset_index(inplace=True)
+    all = all.reset_index()
     all = all.merge(predicted_positive, on="true_target", how="inner")
     all["fraction_positive_predicted"] = all["positive_prediction"] / all["n"]
     return all
@@ -1379,14 +1405,14 @@ def calculate_fraction_top_predicted_fisher(affected_gene_predictions: pd.DataFr
         .groupby("response")
         .count()
     )
-    predicted_positive.reset_index(inplace=True)
+    predicted_positive = predicted_positive.reset_index()
     all = (
         affected_gene_predictions[["response", "prediction"]]
         .rename(columns={"prediction": "n"})
         .groupby("response")
         .count()
     )
-    all.reset_index(inplace=True)
+    all = all.reset_index()
     df = all.merge(predicted_positive, on="response", how="left")
     df["positive_prediction"] = np.nan_to_num(df["positive_prediction"])
     true_res = df[df["response"] == 1]
@@ -1431,7 +1457,7 @@ def get_top_predicted_genes(affected_gene_predictions: pd.DataFrame, quantile_cu
     prediction = affected_gene_predictions["prediction"]
     predicted_positive = affected_gene_predictions.copy()
     predicted_positive["predicted_top_target"] = prediction >= np.quantile(prediction, quantile_cutoff)
-    predicted_positive.rename(columns={"response": "true_target"}, inplace=True)
+    predicted_positive = predicted_positive.rename(columns={"response": "true_target"})
     return predicted_positive[["gene", "true_target", "predicted_top_target"]]
 
 

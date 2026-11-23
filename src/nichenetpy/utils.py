@@ -9,7 +9,7 @@ import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
-from nichenetpy.typing import gene_t, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, _combination_name, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
@@ -198,44 +198,87 @@ def read_network_file(filename: str):
 
 
 def _index_array(
-    idx: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]],
+    idx: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool],
+    size: int,
+    name: str,
 ) -> np.ndarray[tuple[int], np.dtype[np.intp]]:
-    # integer indices, from indices or a boolean mask (an empty list gives an empty integer array; the type of the first
-    # element was used to tell masks from indices, which failed for an empty list)
-    arr = np.asarray(idx)
+    # integer indices, from indices or a boolean mask of the axis (of length size)
+    arr = np.asarray(idx).reshape(-1)
+    if arr.size == 0:
+        # np.asarray([]) has a float dtype
+        return np.empty(0, dtype=np.intp)
     if arr.dtype == np.bool_:
+        if arr.size != size:
+            raise IndexError(f"{name} is a boolean mask of length {arr.size}, the axis has length {size}")
         return np.flatnonzero(arr)
-    return arr.astype(np.intp, copy=False).reshape(-1)
+    if not np.issubdtype(arr.dtype, np.integer):
+        raise TypeError(f"{name} should be integer indices or a boolean mask, had dtype {arr.dtype}")
+    return arr.astype(np.intp, copy=False)
 
 
 @overload
 def subset_matrix(
     mat: np.ndarray,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> np.ndarray: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_matrix[np.floating] | csc_matrix[np.floating],
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> csr_matrix[np.floating] | csc_matrix[np.floating]: ...
 
 
 @overload
 def subset_matrix(
     mat: csr_array | csc_array,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> csr_array | csc_array: ...
 
 
 def subset_matrix(
     mat: nichenet_matrix,
-    rows: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
-    cols: Sequence[int | bool] | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]] | None = None,
+    rows: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
+    cols: Sequence[int | bool]
+    | np.ndarray[Any, np.dtype[np.integer] | np.dtype[np.bool_]]
+    | pd.Index[int]
+    | pd.Index[bool]
+    | None = None,
 ) -> nichenet_matrix:
     """
     Subsets a matrix.
@@ -244,10 +287,10 @@ def subset_matrix(
     ----------
     mat : numpy.ndarray or scipy.sparse.csc_matrix or scipy.sparse.csr_matrix
         the matrix to subset
-    rows : None or list or tuple of int or bool
-        list of row indices to keep or list of booleans indicating which rows to keep
-    cols : None or list or tuple of int or bool
-        list of column indices to keep or list of booleans indicating which columns to keep
+    rows : None or Sequence, numpy.ndarray or pandas.Index of int or bool
+        row indices to keep or booleans indicating which rows to keep
+    cols : None or Sequence, numpy.ndarray or pandas.Index of int or bool
+        column indices to keep or booleans indicating which columns to keep
 
     Returns
     -------
@@ -257,23 +300,25 @@ def subset_matrix(
     Raises
     ------
     TypeError
-        if the arguments have the wrong type
+        if the arguments have the wrong type, or the indices aren't integers or booleans
+    IndexError
+        if a boolean mask doesn't have the length of its axis
 
     Note
     ----
     if the rows of a numpy.ndarray are subsetted, the output is row-major
     if the columns of a numpy.ndarray are subsetted and the rows are not being subsetted, the output is column-major
     """
-    if rows is not None and not isinstance(rows, Sequence) and type(rows) is not np.ndarray:
-        raise TypeError(f"rows should be of type Sequence or numpy.ndarray, was {type(rows)}")
-    if cols is not None and not isinstance(cols, Sequence) and type(cols) is not np.ndarray:
-        raise TypeError(f"cols should be of type Sequence or numpy.ndarray, was {type(cols)}")
+    if rows is not None and (isinstance(rows, str) or not isinstance(rows, (Sequence, np.ndarray, pd.Index))):
+        raise TypeError(f"rows should be of type Sequence, numpy.ndarray or pandas.Index, was {type(rows)}")
+    if cols is not None and (isinstance(cols, str) or not isinstance(cols, (Sequence, np.ndarray, pd.Index))):
+        raise TypeError(f"cols should be of type Sequence, numpy.ndarray or pandas.Index, was {type(cols)}")
     if rows is None and cols is None:
         return mat
     if rows is not None:
-        rows = _index_array(rows)
+        rows = _index_array(rows, mat.shape[0], "rows")
     if cols is not None:
-        cols = _index_array(cols)
+        cols = _index_array(cols, mat.shape[1], "cols")
     if isinstance(mat, np.ndarray):
         if rows is None:
             output = mat[:, cols]
@@ -422,7 +467,7 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 
 
-def ligand_activities_df[GeneSymbol](
+def ligand_activities_df(
     ligand_activities: dict[GeneSymbol, dict[str, float]] | Iterable[tuple[GeneSymbol, dict[str, float]]],
 ) -> pd.DataFrame:
     """
@@ -608,15 +653,13 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     output = pd.melt(pd.DataFrame(res["names"]), var_name=groupby, value_name="gene")
     for col in ["pvals", "pvals_adj", "logfoldchanges"]:
         temp = pd.melt(pd.DataFrame(res[col]), var_name=groupby, value_name=col)
-        temp.drop(columns={groupby}, inplace=True)
+        temp = temp.drop(columns={groupby})
         output = output.join(temp, how="inner")
     temp = pd.melt(res["pts"], var_name=groupby, value_name="pts", ignore_index=False)
     temp.index.name = "gene"
-    temp.reset_index(inplace=True)
+    temp = temp.reset_index()
     output = output.merge(temp, on=["gene", groupby], how="inner")
-    output.rename(
-        columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"}, inplace=True
-    )
+    output = output.rename(columns={"logfoldchanges": "lfc", "pvals": "pval", "pvals_adj": "pval_adj", "pts": "pct"})
     # ann.uns["rank_genes_groups"] is left as it is (scanpy's own functions, e.g. its plots, need its format)
     return output
 
@@ -672,8 +715,8 @@ def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     """
     return [
         test_ligand == true_ligand
-        if isinstance(true_ligand, gene_t.__value__)
-        else test_ligand in true_ligand or (type(test_ligand) is str and test_ligand == "-".join(map(str, true_ligand)))
+        if isinstance(true_ligand, str) or not isinstance(true_ligand, Iterable)
+        else test_ligand in true_ligand or test_ligand == _combination_name(true_ligand)
         for test_ligand, true_ligand in zip(importances["test_ligand"], importances["true_ligand"], strict=True)
     ]
 

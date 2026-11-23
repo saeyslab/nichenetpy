@@ -1,9 +1,10 @@
 from __future__ import annotations  # Series[T] typehint can throw an Error at runtime
 
+import warnings
 from collections.abc import Iterable, Sequence
 from math import erfc, sqrt
 from numbers import Number
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,16 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
             mat = csc_array(mat)
         except TypeError as error:
             raise TypeError(f"mat should be a 2-D np.ndarray or a sparse matrix/array, was {type(mat)}") from error
+    if (mat.data == 0).any():
+        # explicitly stored zeros would be ranked above the implicit zeros, remove them from a copy (the caller's
+        # matrix is not changed)
+        warnings.warn(
+            "the matrix contains explicitly stored zeros, they are removed from a copy of the matrix before ranking "
+            "(call eliminate_zeros() on the matrix beforehand to avoid the copy)",
+            stacklevel=3,
+        )
+        mat = mat.copy()
+        mat.eliminate_zeros()
     output = []
     group_mat = []
     nrows, ncols = mat.shape
@@ -88,45 +99,45 @@ def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: Literal[False] = False,
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: Sequence[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol] | None = None,
 ) -> dict[str, list[float]]: ...
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: Literal[True],
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: Sequence[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol] | None = None,
 ) -> pd.DataFrame: ...
 
 
 @overload
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: Sequence[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol] | None = None,
 ) -> pd.DataFrame | dict[str, list[float]]: ...
 
 
-def wilcoxon_rank_sum_test[GeneSymbol](
+def wilcoxon_rank_sum_test(
     ann: AnnData,
     groupby: str,
     as_dataframe: bool = False,
     tie_correction: bool = True,
     layer: str | None = "data",
-    genes: Sequence[GeneSymbol] | None = None,
+    genes: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol] | None = None,
 ) -> pd.DataFrame | dict[str, list[float]]:
     """
     Perform the wilcoxon rank sum test and return the p-values
@@ -143,7 +154,7 @@ def wilcoxon_rank_sum_test[GeneSymbol](
         if True, tie correction is performed
     layer : str or None
         the layer of the AnnData object to use
-    genes : list of gene_t or tuple of gene_t or None
+    genes : Sequence of gene_t, numpy.ndarray of gene_t, pandas.Index of gene_t or None
         if provided, only consider these genes
 
     Returns
@@ -192,8 +203,10 @@ def wilcoxon_rank_sum_test[GeneSymbol](
     if genes is None:
         genes = ann.var_names
     else:
-        if type(genes) is not list and type(genes) is not tuple:
-            raise TypeError(f"genes should be of type list or tuple, was {type(genes)}")
+        # any ordered sequence of genes (list, tuple, numpy array, pandas Index), not a str (one gene per character)
+        if isinstance(genes, str) or not isinstance(genes, (Sequence, np.ndarray, pd.Index)):
+            raise TypeError(f"genes should be a Sequence, numpy.ndarray or pandas.Index of gene_t, was {type(genes)}")
+        genes = genes.tolist() if isinstance(genes, (np.ndarray, pd.Index)) else list(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])  # type: ignore # mat is type checked
     ranks, sorted_groups, tie_stats = _rank_cells(mat, ann.obs[groupby], tie_correction=tie_correction)  # type: ignore # mat is type checked
@@ -301,6 +314,6 @@ def wilcoxon_rank_sum_test_with_correlation(
         sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)
     zuppertail = (u - 0.5 - mu) / sqrt(sigma2)
-    # as limma: less = pt(zuppertail, lower.tail = FALSE), greater = pt(zlowertail) (the two were returned swapped);
+    # as limma: less = pt(zuppertail, lower.tail = FALSE), greater = pt(zlowertail);
     # t.sf is 1 - t.cdf without the loss of precision for small p-values
     return (t.sf(zuppertail, df), t.cdf(zlowertail, df))

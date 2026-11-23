@@ -1,16 +1,23 @@
 from collections.abc import ItemsView, Iterable, Iterator, Sequence
 from itertools import chain
-from typing import Any, Literal, overload
+from typing import Any, Generic, Literal, overload
 
 import pandas as pd
 
 from nichenetpy.metrics import calculate_evaluation_metrics
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import gene_t, ligand_eval_metric_t, target_eval_metric_t
+from nichenetpy.typing import (
+    GeneSymbol,
+    _as_gene,
+    _as_metrics,
+    _combination_name,
+    ligand_eval_metric_t,
+    target_eval_metric_t,
+)
 from nichenetpy.utils import is_ligand_active
 
 
-class EvaluationData[GeneSymbol]:
+class EvaluationData(Generic[GeneSymbol]):
     """
     Data which can be used for model evaluation. Each item needs to contain
 
@@ -106,16 +113,21 @@ class EvaluationData[GeneSymbol]:
             raise TypeError(f"key should have type str, was {type(key)}")
         if type(val) is not dict:
             raise TypeError(f"val should have type dict, was {type(val)}")
-        if self._ligand_name not in val:
+        self._data[key] = self._validated(val, key)
+
+    def _validated(self, item: dict[str, Any], key: str) -> dict[str, Any]:
+        # a shallow copy of the data element with its key and the ligand(s) as Python str/int: a single gene or a
+        # combination (a list or tuple of genes, stored as a list), numpy integers are converted
+        if self._ligand_name not in item:
             raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if type(val[self._ligand_name]) is not str and type(val[self._ligand_name]) is not list:
-            raise ValueError(f"'{self._ligand_name}' does not map to a string or list of strings")
-        if self._de_genes_name not in val:
+        ligand = item[self._ligand_name]
+        name = f"'{self._ligand_name}'"
+        ligand = [_as_gene(e, name) for e in ligand] if isinstance(ligand, (list, tuple)) else _as_gene(ligand, name)
+        if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
-        if type(val[self._de_genes_name]) is not dict:
+        if type(item[self._de_genes_name]) is not dict:
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
-        val[self._key_name] = key
-        self._data[key] = val
+        return {**item, self._key_name: key, self._ligand_name: ligand}
 
     def add(self, item: dict[str, Any]):
         """
@@ -145,15 +157,7 @@ class EvaluationData[GeneSymbol]:
             raise ValueError(f"item should have a '{self._key_name}' key")
         if type(item[self._key_name]) is not str:
             raise ValueError(f"'{self._key_name}' does not map to a string")
-        if self._ligand_name not in item:
-            raise ValueError(f"item should have a '{self._ligand_name}' key")
-        if not isinstance(item[self._ligand_name], gene_t.__value__) and type(item[self._ligand_name]) is not list:
-            raise ValueError(f"'{self._ligand_name}' does not map to a gene symbol or list")
-        if self._de_genes_name not in item:
-            raise ValueError(f"item should have a '{self._de_genes_name}' key")
-        if type(item[self._de_genes_name]) is not dict:
-            raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
-        self._data[item[self._key_name]] = item
+        self._data[item[self._key_name]] = self._validated(item, item[self._key_name])
 
     def add_all(self, items: Iterable[dict[str, Any]]):
         """
@@ -254,9 +258,10 @@ class EvaluationData[GeneSymbol]:
             raise TypeError(f"combination should have type bool, was {type(combination)}")
         output = set()
         for setting in self.values():
-            # the ligand field set by ligand_name (it was always read from "from")
+            # the ligand field set by ligand_name
             ligand = setting[self._ligand_name]
-            if isinstance(ligand, gene_t.__value__):
+            # a single gene or a list of genes (see add)
+            if not isinstance(ligand, (list, tuple)):
                 output.add(ligand)
             else:
                 if combination:
@@ -308,8 +313,8 @@ class EvaluationData[GeneSymbol]:
         pred_genes = predictor.get_genes()
         for k, gs in self._data.items():
             ligand = gs[self._ligand_name]
-            if type(ligand) is list or type(ligand) is tuple:
-                ligand = ("-".join(ligand) if type(ligand[0]) is str else ligand) if combination else None
+            if isinstance(ligand, (list, tuple)):
+                ligand = _combination_name(ligand) if combination else None
             if ligand is not None and ligand in ligands:
                 res = iter(gs[self._de_genes_name].items())
                 is_app = False
@@ -323,7 +328,7 @@ class EvaluationData[GeneSymbol]:
                     yield (k, gs)
 
 
-def get_single_ligand_importances[GeneSymbol](
+def get_single_ligand_importances(
     predictor: LigandActivityPredictor[GeneSymbol],
     evaluation_data: Iterable[dict[str, Any]],
     all_ligands: Iterable[GeneSymbol],
@@ -367,6 +372,8 @@ def get_single_ligand_importances[GeneSymbol](
     TypeError
         if the arguments have the wrong type
     """
+    # a tuple: the metrics are used more than once
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
@@ -395,7 +402,9 @@ def get_single_ligand_importances[GeneSymbol](
     for setting in settings:
         for ligand in all_ligands:
             metrics = predictor.evaluate_target_prediction(ligand, setting[de_genes_name], target_evaluation_metrics)
-            rows.append([metrics[m] for m in target_evaluation_metrics] + [setting[key_name], ligand, setting[ligand_name]])
+            rows.append(
+                [metrics[m] for m in target_evaluation_metrics] + [setting[key_name], ligand, setting[ligand_name]]
+            )
     return pd.DataFrame(rows, columns=[*target_evaluation_metrics, "setting", "test_ligand", "true_ligand"])
 
 
@@ -437,6 +446,9 @@ def evaluate_single_importances_ligand_prediction(
     TypeError
         if the arguments have the wrong type
     """
+    # a tuple: the metrics are used more than once
+    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if type(importances) is not pd.DataFrame:
         raise TypeError(f"importances should have type pandas.DataFrame, was {type(importances)}")
     if type(group) is not str:

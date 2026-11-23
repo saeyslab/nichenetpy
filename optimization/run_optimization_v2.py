@@ -207,7 +207,6 @@ if __name__ == "__main__":
             )
         )
 
-    source_path = os.path.normpath("./source_files/")
     if args.source_path is not None:
         if not os.path.exists(args.source_path):
             os.makedirs(args.source_path)
@@ -218,12 +217,12 @@ if __name__ == "__main__":
                 with open(file_path, "wb") as file:
                     file.write(res.content)
         optimized_source_weights = tuple(
-            zip(*read_csv_rows(os.path.join(source_path, "optimized_source_weights.csv"))[1], strict=True)
+            zip(*read_csv_rows(os.path.join(args.source_path, "optimized_source_weights.csv"))[1], strict=True)
         )
         optimized_source_weights = dict(
             zip(optimized_source_weights[0], (float(e) for e in optimized_source_weights[1]), strict=True)
         )
-        source_annotations = pd.DataFrame(read_csv_cols(os.path.join(source_path, "annotation_data_sources.csv")))
+        source_annotations = pd.DataFrame(read_csv_cols(os.path.join(args.source_path, "annotation_data_sources.csv")))
     if len(args.lr_network_file) == 0:
         raise ValueError("at least one settings file needs to be provided")
     _gr_network = read_network_file(args.gr_network_file)
@@ -309,9 +308,9 @@ if __name__ == "__main__":
                 source_names_fixed = set(df[bool_v]["source"])
                 source_names_var = set(df[~bool_v]["source"])
     # database column is no longer required so remove to save memory
-    lr_network.drop("database", axis=1, inplace=True)
-    _gr_network.drop("database", axis=1, inplace=True)
-    sig_network.drop("database", axis=1, inplace=True)
+    lr_network = lr_network.drop("database", axis=1)
+    _gr_network = _gr_network.drop("database", axis=1)
+    sig_network = sig_network.drop("database", axis=1)
     # map strings to integers to save a lot of memory in the subprocesses
     syms = sorted(
         set(
@@ -342,7 +341,9 @@ if __name__ == "__main__":
     def evaluation_data_sym2id(eval):
         for dct in eval.values():
             ligand = dct[eval._ligand_name]
-            dct[eval._ligand_name] = sym2id[ligand] if isinstance(ligand, gene_t) else tuple(sym2id[e] for e in ligand)
+            dct[eval._ligand_name] = (
+                sym2id[ligand] if isinstance(ligand, gene_t.__value__) else tuple(sym2id[e] for e in ligand)
+            )
             dct[eval._de_genes_name] = {sym2id[k]: v for k, v in dct[eval._de_genes_name].items()}
 
     network_sym2id(lr_network)
@@ -356,7 +357,7 @@ if __name__ == "__main__":
         if args.source_path is not None and len(args.var_database) > 0:
             # some source weights have been fixed a priori
             source_weights = {
-                (source_name, trial.suggest_float(name=source_name, low=0, high=1)) for source_name in source_names_var
+                source_name: trial.suggest_float(name=source_name, low=0, high=1) for source_name in source_names_var
             }
             for source_name in source_names_fixed:
                 if source_name in optimized_source_weights:

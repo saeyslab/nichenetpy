@@ -1,14 +1,15 @@
 from collections.abc import Iterable
 from typing import Any, overload
 
+import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _as_gene, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
-def _subset_layer[GeneSymbol](
+def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
 ) -> tuple[nichenet_matrix, list[GeneSymbol]]:
     sel_layer = ann.layers[layer]
@@ -22,7 +23,7 @@ def _subset_layer[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str],
     genes: Iterable[GeneSymbol] | None = None,
@@ -33,7 +34,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     *,
@@ -45,7 +46,7 @@ def subset_ann[GeneSymbol](
 
 
 @overload
-def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be this overload
+def subset_ann(  # if val and genes are not provided, it should be this overload
     ann: AnnData,
     val: None = None,
     genes: None = None,
@@ -55,7 +56,7 @@ def subset_ann[GeneSymbol](  # if val and genes are not provided, it should be t
 ) -> None: ...
 
 
-def subset_ann[GeneSymbol](
+def subset_ann(
     ann: AnnData,
     val: str | Iterable[str] | None = None,
     genes: Iterable[GeneSymbol] | None = None,
@@ -113,23 +114,20 @@ def subset_ann[GeneSymbol](
     if val is None:
         row_ids = None
     else:
-        if isinstance(val, gene_t.__value__):
-            val = {val}
-        elif not isinstance(val, Iterable):
-            raise TypeError(f"val should be of type gene_t or an Iterable of gene_t, was {type(val)}")
-        elif type(val) is not set:
-            val = set(val)
-        selected_vals = val
+        # a single value or an Iterable of values
+        if isinstance(val, str) or not isinstance(val, Iterable):
+            selected_vals = {_as_gene(val, "val")}
+        else:
+            selected_vals = set(val)
         try:
-            # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
-            cells_oi = ann.obs.loc[ann.obs[val_col].isin(val)].copy()  # pyright: ignore[reportArgumentType] # val has type set[gene_t]
+            # the positions of the selected cells (by position, a cell name can occur more than once)
+            row_ids = np.flatnonzero(ann.obs[val_col].isin(selected_vals).to_numpy())
         except KeyError as error:
             raise ValueError(f"There is no column '{val_col}' in the AnnData object") from error
-        if len(cells_oi) == 0:
+        if len(row_ids) == 0:
             raise ValueError(f"'{val}' not present in the column '{val_col}' of the AnnData object")
-        else:
-            row2index = dict(zip(ann.obs.index, range(len(ann.obs.index)), strict=True))
-            row_ids = [row2index[name] for name in cells_oi.index]
+        # copy, the categories of val_col are changed below (on a view this changed ann.obs or gave a warning)
+        cells_oi = ann.obs.iloc[row_ids].copy()
     if genes is None:
         col_ids = None
     else:
