@@ -380,7 +380,7 @@ def construct_ligand_tf_matrix(
         "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
         returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
-        for a higher damping_factor). Needs scikit-network, which is not installed by default
+        for a higher damping_factor, see Notes). Needs scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
         Default: "nichenetr"
 
@@ -423,6 +423,14 @@ def construct_ligand_tf_matrix(
     genes); the scores agree up to about 1e-9. Time complexity `O(l * k * E)` with `l` the amount of distinct
     ligands, `k` the amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links in the
     lr_sig weighted matrix
+
+    With ppr_implementation="scikit-network" (nichenetpy 1.x), the score that reaches a gene without outgoing links
+    doesn't return to the ligand: it's dropped, and the scores are rescaled to sum to 1 after each step, which spreads
+    it over all genes in proportion to their scores. The power iteration stops after at most 10 iterations, or when
+    the scores change by less than 1e-6 (scikit-network's defaults); each ligand is also computed on its own, so its
+    scores don't depend on the other ligands. The scores differ from NicheNetR, increasingly for a higher
+    damping_factor; almost all of the difference comes from the genes without outgoing links, the limited number of
+    iterations changes the scores much less.
 
     `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
     and `E` the amount of links in the lr_sig weighted matrix
@@ -931,7 +939,8 @@ def construct_ligand_target_matrix(  # type: ignore
         "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
         returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
-        for a higher damping_factor). Needs scikit-network, which is not installed by default
+        for a higher damping_factor, see the Notes of model_construction.construct_ligand_tf_matrix). Needs
+        scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
         Default: "nichenetr"
 
@@ -1170,7 +1179,8 @@ def construct_model_from_source_weights(
         "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
         returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
-        for a higher damping_factor). Needs scikit-network, which is not installed by default
+        for a higher damping_factor, see the Notes of model_construction.construct_ligand_tf_matrix). Needs
+        scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
         Default: "nichenetr"
 

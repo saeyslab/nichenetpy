@@ -470,7 +470,8 @@ def construct_and_evaluate(
         "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
         returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
         "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
-        for a higher damping_factor). Needs scikit-network, which is not installed by default
+        for a higher damping_factor, see the Notes of model_construction.construct_ligand_tf_matrix). Needs
+        scikit-network, which is not installed by default
         (`pip install nichenetpy[sknetwork]`).
         Default: "nichenetr"
     ligand_evaluation_metrics : Iterable of string
