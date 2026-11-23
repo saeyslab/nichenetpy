@@ -4,6 +4,7 @@
 Here we test if the NicheNetPy vignettes produce the same results as their R counterparts
 """
 
+import importlib.util
 import json
 import os
 import pickle
@@ -359,17 +360,18 @@ MC_top_10_gr_2 = {
     ("GATA1", "GFI1B"): 5.973500,
     ("SPI1", "NCF2"): 5.964865,
 }
+# the PPR values are the output of tests/data/model_construction_nichenetr/generate_reference.R (nichenetr)
 MC_top_10_ligand_target_matrix_PPR_0 = [
     (0, 0),
-    (1.095173e-02, 1.216394e-02),
-    (5.084809e-03, 5.172813e-03),
-    (1.249955e-02, 1.348655e-02),
-    (3.030508e-01, 2.451550e-01),
-    (3.341745e-03, 3.556587e-03),
-    (1.549648e-01, 8.327667e-02),
-    (4.062058e-03, 6.028271e-03),
-    (4.627761e-03, 5.194608e-03),
-    (1.554942e-01, 9.057184e-02),
+    (0.0109460705, 0.0121331691),
+    (0.005082632169, 0.005170885395),
+    (0.0124933742, 0.01347988602),
+    (0.3024526022, 0.2446840037),
+    (0.003340322397, 0.003555134576),
+    (0.1546551105, 0.08311917279),
+    (0.004059669215, 0.006022696043),
+    (0.00462647115, 0.005192891786),
+    (0.1551921914, 0.09041031152),
 ]
 MC_top_10_ligand_target_matrix_SPL_0 = [
     (0, 0),
@@ -397,15 +399,15 @@ MC_top_10_ligand_target_matrix_direct_0 = [
 ]
 MC_top_10_ligand_target_matrix_PPR_1 = [
     0,
-    2.488822e-03,
-    7.229267e-04,
-    3.258491e-03,
-    1.106382e-01,
-    3.157756e-04,
-    5.457279e-02,
-    5.690325e-04,
-    5.049286e-04,
-    4.036876e-02,
+    0.00248745021,
+    0.0007226374284,
+    0.003256857991,
+    0.1104190423,
+    0.0003155611492,
+    0.05446273404,
+    0.0005686957079,
+    0.0005049191028,
+    0.04029055358,
 ]
 MC_top_10_ligand_target_matrix_SPL_1 = [
     0,
@@ -432,16 +434,16 @@ MC_top_10_ligand_target_matrix_direct_1 = [
     4.31137936,
 ]
 MC_top_10_ligand_target_matrix_PPR_2 = [
-    0.0082132096,
-    0.0049895962,
-    0.0082667868,
-    0.0185473962,
-    0.0028839713,
-    0.0076032847,
-    0.0043716716,
-    0.0044186443,
-    0.1559356676,
-    0.0017981498,
+    0.008136272087,
+    0.00491186269,
+    0.008264736341,
+    0.01846904022,
+    0.002884102609,
+    0.007528019849,
+    0.004369780453,
+    0.004418003216,
+    0.1555565865,
+    0.00179821522,
 ]
 MC_top_10_ligand_target_matrix_SPL_2 = [
     80.510371,
@@ -1283,6 +1285,9 @@ def test_ligand_activity_single_cell() -> None:
 
 def test_model_construction() -> None:
     get_network_files()
+    # the PPR scores of the scikit-network implementation (nichenetpy 1.x, an optional dependency) differ from nichenetr's
+    # by up to 0.08%, 0.09% and 1.6% in the three cases
+    has_sknetwork = importlib.util.find_spec("sknetwork") is not None
     gr_network = read_network_file(os.path.join(network_path, "gr_human.csv"))
     lr_network = read_network_file(os.path.join(network_path, "lr_network_human.csv"))
     sig_network = read_network_file(os.path.join(network_path, "lr_sig_human.csv"))
@@ -1302,7 +1307,17 @@ def test_model_construction() -> None:
     )
     df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
-    assert equals_iter(df.head(10).to_numpy(), MC_top_10_ligand_target_matrix_PPR_0)
+    assert equals_iter(df.head(10).to_numpy(), MC_top_10_ligand_target_matrix_PPR_0, err_bound=1e-6)
+    if has_sknetwork:
+        mat, _, _ = construct_ligand_target_matrix(
+            weighted_networks,
+            lr_network,
+            ligands,
+            damping_factor=0.789,
+            ltf_cutoff=0.926,
+            ppr_implementation="scikit-network",
+        )
+        assert equals_iter(np.asarray(mat)[:10].reshape((10, 2)), MC_top_10_ligand_target_matrix_PPR_0, err_bound=0.02)
     mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks, lr_network, ligands, damping_factor=0.789, ltf_cutoff=0.926, algorithm="SPL"
     )
@@ -1342,7 +1357,17 @@ def test_model_construction() -> None:
     )
     df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 33354
-    assert equals_iter(df.head(10).to_numpy().reshape((-1,)), MC_top_10_ligand_target_matrix_PPR_1)
+    assert equals_iter(df.head(10).to_numpy().reshape((-1,)), MC_top_10_ligand_target_matrix_PPR_1, err_bound=1e-6)
+    if has_sknetwork:
+        mat, _, _ = construct_ligand_target_matrix(
+            weighted_networks,
+            lr_network,
+            ligands,
+            damping_factor=0.789,
+            ltf_cutoff=0.926,
+            ppr_implementation="scikit-network",
+        )
+        assert equals_iter(np.asarray(mat)[:10].reshape((-1,)), MC_top_10_ligand_target_matrix_PPR_1, err_bound=0.02)
     mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks, lr_network, ligands, damping_factor=0.789, ltf_cutoff=0.926, algorithm="SPL"
     )
@@ -1376,7 +1401,17 @@ def test_model_construction() -> None:
     )
     df = pd.DataFrame(mat, index=row_names, columns=col_names)
     assert len(df) == 28821
-    assert equals_iter(df.head(10).to_numpy().reshape(-1), MC_top_10_ligand_target_matrix_PPR_2)
+    assert equals_iter(df.head(10).to_numpy().reshape(-1), MC_top_10_ligand_target_matrix_PPR_2, err_bound=1e-6)
+    if has_sknetwork:
+        mat, _, _ = construct_ligand_target_matrix(
+            weighted_networks,
+            new_lr_network,
+            ligands,
+            damping_factor=0.789,
+            ltf_cutoff=0.926,
+            ppr_implementation="scikit-network",
+        )
+        assert equals_iter(np.asarray(mat)[:10].reshape((-1,)), MC_top_10_ligand_target_matrix_PPR_2, err_bound=0.02)
     mat, row_names, col_names = construct_ligand_target_matrix(
         weighted_networks, new_lr_network, ligands, damping_factor=0.789, ltf_cutoff=0.926, algorithm="SPL"
     )
