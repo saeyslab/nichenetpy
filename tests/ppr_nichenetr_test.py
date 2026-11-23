@@ -117,17 +117,17 @@ def _random_network(n_genes, n_links, seed):
     return genes, pairs, weights, {"lr_sig": lr_sig, "gr": gr}
 
 
-def _exact_ppr(n_genes, pairs, weights, seed_index, damping_factor):
-    # the scores solve x = (1 - d) e + d (P^T x + e * (scores of the genes without outgoing links)), with e the seed
+def _exact_ppr(n_genes, pairs, weights, damping_factor):
+    # the scores of seed s solve (M - d e_s u^T) x = (1 - d) e_s, with M = I - d P^T, e_s the seed and u the genes
+    # without outgoing links; with y = M^-1 e_s (Sherman-Morrison): x = (1 - d) y / (1 - d u^T y), so a single
+    # inverse gives the scores of every seed (one row per seed)
     adjacency = np.zeros((n_genes, n_genes))
     adjacency[pairs[:, 0], pairs[:, 1]] = weights
     out_weight = adjacency.sum(axis=1)
     dangling = out_weight == 0
     transition = np.divide(adjacency, out_weight[:, None], out=np.zeros_like(adjacency), where=~dangling[:, None])
-    seed = np.zeros(n_genes)
-    seed[seed_index] = 1
-    system = np.eye(n_genes) - damping_factor * (transition.T + np.outer(seed, dangling))
-    return np.linalg.solve(system, (1 - damping_factor) * seed)
+    inverse = np.linalg.inv(np.eye(n_genes) - damping_factor * transition.T)
+    return ((1 - damping_factor) * inverse / (1 - damping_factor * inverse[dangling].sum(axis=0))).T
 
 
 @pytest.mark.parametrize("damping_factor", [0.5, 0.85, 0.99])
@@ -140,7 +140,7 @@ def test_ppr_many_ligands_exact(damping_factor):
     )
     assert row_names == genes[:300]
     assert col_names == genes
-    exact = np.array([_exact_ppr(len(genes), pairs, weights, i, damping_factor) for i in range(300)])
+    exact = _exact_ppr(len(genes), pairs, weights, damping_factor)[:300]
     np.testing.assert_allclose(mat, exact, rtol=0, atol=1e-8)
 
 
