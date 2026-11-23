@@ -93,7 +93,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Added a `random_state` argument (int, numpy.random.Generator or None) to `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` and `parameter_optimization.construct_and_evaluate`, to make the noise that replaces all-zero columns of the ligand-target matrix (and therefore the evaluation scores) reproducible. The default (None) uses numpy's global random state (nichenetpy 1.x used Python's `random` module).
 
-### Changes
+### Changed
 
 - The `inplace` argument of pandas methods (deprecated in pandas 3.1) is no longer used.
 
@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning][].
 
 - `ltf_cutoff` must be smaller than 1 in `model_construction.construct_ligand_tf_matrix`, `construct_ligand_target_matrix` and `construct_model_from_source_weights` (1 set every ligand-tf score to 0); NicheNetR allows 1.
 
-- Personalized PageRank (`algorithm="PPR"`, the default) in `model_construction.construct_ligand_tf_matrix` (and therefore `construct_ligand_target_matrix`, `construct_model_from_source_weights` and the parameter optimization) now uses the model of NicheNetR (igraph's PRPACK solver) instead of scikit-network: the score that reaches a gene without outgoing links in the ligand-signaling network returns to the ligand, and self-loops are followed like other links. It's computed by power iteration, which stops for each ligand when its scores change by less than 1e-10 (PRPACK uses Gauss-Seidel); a ligand's scores don't depend on the other ligands. The scores match NicheNetR up to about 1e-9, so all PPR ligand-tf and ligand-target matrices change compared to before, more so for a higher `damping_factor` (up to 0.017 at 0.5 and 0.33 at 0.99 on a small test network). Each ligand is computed once, also when it is part of several combinations. `damping_factor` 1 is now refused by nichenetpy itself (it was refused by scikit-network before). The previous implementation is still available with the new argument `ppr_implementation="scikit-network"`; scikit-network is no longer a required dependency, install it with the optional extra `pip install nichenetpy[sknetwork]`.
+- Personalized PageRank (`algorithm="PPR"`, the default) in `model_construction.construct_ligand_tf_matrix` (and therefore `construct_ligand_target_matrix`, `construct_model_from_source_weights` and the parameter optimization) now uses the model of NicheNetR (igraph's PRPACK solver) instead of scikit-network: the score that reaches a gene without outgoing links in the ligand-signaling network returns to the ligand, and self-loops are followed like other links. It's computed by power iteration, which stops for each ligand when its scores change by less than 1e-10 (PRPACK uses Gauss-Seidel); a ligand's scores don't depend on the other ligands. The scores match NicheNetR up to about 1e-9, so all PPR ligand-tf and ligand-target matrices change compared to before, more so for a higher `damping_factor` (up to 0.017 at 0.5 and 0.33 at 0.99 on a small test network). Each ligand is computed once, also when it is part of several combinations. `damping_factor` must now be smaller than 1 for every algorithm (1 was refused by scikit-network for PPR, and accepted for SPL and direct, which don't use it). The previous implementation is still available with the new argument `ppr_implementation="scikit-network"`; scikit-network is no longer a required dependency, install it with the optional extra `pip install nichenetpy[sknetwork]`.
 
 - `normalization.scaling_zscore` (and therefore `activity_zscore` in `prioritization.generate_prioritization_table`) now uses the sample standard deviation (ddof=1), as NicheNetR's `scaling_zscore` (R's `sd`). The z-scores are smaller by a factor sqrt((n-1)/n) for n values; the order of the prioritization table and the prioritization scores don't change.
 
@@ -303,6 +303,7 @@ and this project adheres to [Semantic Versioning][].
 
 
 
+[2.0.0]: https://github.com/saeyslab/nichenetpy/compare/v1.0.4...v2.0.0
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/saeyslab/nichenetpy/compare/v1.0.1...v1.0.2
