@@ -22,9 +22,7 @@ weighted_networks = {
 ligands = [["L1"], ["L2"], ["L3"], ["L4"], ["L1", "L2"], ["L1", "L4"]]
 
 
-@pytest.mark.parametrize(
-    "damping_factor,ltf_cutoff", [(0, 0), (0.2, 0), (0.5, 0), (0.85, 0), (0.99, 0), (0.5, 0.5)]
-)
+@pytest.mark.parametrize("damping_factor,ltf_cutoff", [(0, 0), (0.2, 0), (0.5, 0), (0.85, 0), (0.99, 0), (0.5, 0.5)])
 def test_ppr_same_as_nichenetr(damping_factor, ltf_cutoff):
     reference = pd.read_csv(os.path.join(root, f"ltf_damping{damping_factor}_cutoff{ltf_cutoff}.csv"), index_col=0)
     mat, row_names, col_names = construct_ligand_tf_matrix(

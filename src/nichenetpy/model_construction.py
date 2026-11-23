@@ -431,8 +431,9 @@ def construct_ligand_tf_matrix(
     stops after at most 10 iterations, or when the scores change by less than 1e-6 (scikit-network's defaults), so
     the scores aren't always converged, more so for a higher damping_factor. Each ligand is computed on its own, so
     its scores don't depend on the other ligands. The scores differ from NicheNetR, increasingly for a higher
-    damping_factor; almost all of the difference comes from the genes without outgoing links, the limited number of
-    iterations changes the scores much less.
+    damping_factor. Which of the two causes matters most depends on the network: on the human ligand-signaling
+    network of NicheNet, where few genes have no outgoing links, it's mainly the limited number of iterations; on a
+    network with many genes without outgoing links, mainly their handling.
 
     `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
     and `E` the amount of links in the lr_sig weighted matrix
