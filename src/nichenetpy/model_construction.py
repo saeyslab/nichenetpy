@@ -417,18 +417,20 @@ def construct_ligand_tf_matrix(
 
     `PPR` uses the model of NicheNetR (igraph's PRPACK) by default (ppr_implementation="nichenetr"): the walker
     follows links proportionally to their weights (self-loops included) and returns to the seed with probability
-    1 - damping_factor, or always from a gene without outgoing links. Each distinct ligand (also a member of
-    combinations) is computed once, by power iteration until its scores change by less than 1e-10, so its scores
-    don't depend on the other ligands. PRPACK solves the same system by Gauss-Seidel (or directly for fewer than 128
-    genes); the scores agree up to about 1e-9. Time complexity `O(l * k * E)` with `l` the amount of distinct
-    ligands, `k` the amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links in the
-    lr_sig weighted matrix
+    1 - damping_factor, or always from a gene without outgoing links. This is the usual personalized PageRank (also
+    of networkx): the scores are the unique solution of a linear system. Each distinct ligand (also a member of
+    combinations) is computed once, by power iteration until its scores change by less than 1e-10, so the scores
+    are converged and don't depend on the other ligands. PRPACK solves the same system by Gauss-Seidel (or directly
+    for fewer than 128 genes); the scores agree up to about 1e-9. Time complexity `O(l * k * E)` with `l` the amount of
+    distinct ligands, `k` the amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links
+    in the lr_sig weighted matrix
 
     With ppr_implementation="scikit-network" (nichenetpy 1.x), the score that reaches a gene without outgoing links
     doesn't return to the ligand: it's dropped, and the scores are rescaled to sum to 1 after each step, which spreads
-    it over all genes in proportion to their scores. The power iteration stops after at most 10 iterations, or when
-    the scores change by less than 1e-6 (scikit-network's defaults); each ligand is also computed on its own, so its
-    scores don't depend on the other ligands. The scores differ from NicheNetR, increasingly for a higher
+    it over all genes in proportion to their scores. This isn't the usual personalized PageRank. The power iteration
+    stops after at most 10 iterations, or when the scores change by less than 1e-6 (scikit-network's defaults), so
+    the scores aren't always converged, more so for a higher damping_factor. Each ligand is computed on its own, so
+    its scores don't depend on the other ligands. The scores differ from NicheNetR, increasingly for a higher
     damping_factor; almost all of the difference comes from the genes without outgoing links, the limited number of
     iterations changes the scores much less.
 
