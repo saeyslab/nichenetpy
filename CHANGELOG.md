@@ -301,8 +301,19 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) returning all NaN when the data contains a NaN value; the quantiles are now computed without the NaN values, which stay NaN, as in NicheNetR. In `prioritization.generate_prioritization_table`, a ligand with a NaN activity (e.g. a NaN pearson correlation) made the scaled activity and prioritization score NaN for every interaction; now only that ligand's interactions are NaN.
 
+- Fixed `wrappers.run_nichenet` ignoring `condition_ref` for the gene set of interest: the receiver's condition of interest was compared with all other conditions instead of with the reference condition (as NicheNetR's `FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)`). This changes the results only with more than two conditions. `wrappers.get_geneset_oi` has a new argument `condition_ref`; without it, it still compares with all other conditions.
+
+## [2.0.1] - TODO
+
+### Fixed
+
+### Added
+
+### Changed
 
 
+
+[2.0.1]: https://github.com/saeyslab/nichenetpy/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/saeyslab/nichenetpy/compare/v1.0.4...v2.0.0
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3

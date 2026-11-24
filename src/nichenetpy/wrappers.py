@@ -46,6 +46,7 @@ def get_geneset_oi(
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
+    condition_ref: str | None = None,
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -68,7 +69,7 @@ def get_geneset_oi(
         the lower bound for the absolute log fold change
     min_pct : float
         genes are only considered if they're expressed in at least this fraction of the cells of the condition of
-        interest or of the other conditions (with use_scanpy: of the condition of interest)
+        interest or of the reference cells (with use_scanpy: of the condition of interest)
     use_scanpy : bool
         if true, use scanpy.tl.rank_genes_groups to compute the metrics
     scanpy_corr_method : str
@@ -81,6 +82,10 @@ def get_geneset_oi(
         a denormalization function to apply prior to the calculation of the log fold changes
 
         only used with use_scanpy=False
+    condition_ref : str or None
+        the reference condition: the condition of interest is compared with the cells of this condition (as
+        NicheNetR's FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)); if None, with the cells of
+        all other conditions
 
     Returns
     -------
@@ -97,6 +102,8 @@ def get_geneset_oi(
         sc.tl.rank_genes_groups(
             ann_receiver,
             groupby=condition_col,
+            groups="all" if condition_ref is None else [condition_oi],
+            reference="rest" if condition_ref is None else condition_ref,
             layer=layer,
             pts=True,
             method="wilcoxon",
@@ -117,6 +124,8 @@ def get_geneset_oi(
             min_pct=min_pct,
             min_abs_lfc=min_abs_lfc,
             lfc_denormalize=lfc_denormalize,
+            group_oi=condition_oi,
+            group_ref=condition_ref,
         )
         DE_table = ann_receiver.uns["group_metrics"]
     return set(DE_table[(DE_table[condition_col] == condition_oi) & (DE_table["pval_adj"] <= max_pval_adj)]["gene"])
@@ -345,6 +354,7 @@ def run_nichenet(
         use_scanpy=use_scanpy,
         celltype_col=celltype_col,
         lfc_denormalize=lfc_denormalize,
+        condition_ref=condition_ref,
     )
     geneset.intersection_update(predictor.get_genes())
     output["geneset_oi"] = geneset
