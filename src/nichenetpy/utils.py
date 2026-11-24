@@ -1,3 +1,5 @@
+from __future__ import annotations  # Index[T] typehint can throw an Error at runtime
+
 import os
 import pickle
 from collections.abc import Callable, Iterable, Sequence

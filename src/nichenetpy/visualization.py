@@ -1,3 +1,5 @@
+from __future__ import annotations  # Index[T] typehint can throw an Error at runtime
+
 import os
 from collections.abc import Callable, Collection, Iterable, Sequence
 from contextlib import redirect_stdout
