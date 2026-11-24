@@ -6,13 +6,17 @@ Here we test some errors.
 
 import os
 
+import numpy as np
+import pandas as pd
 import pytest
+from anndata import AnnData
 from common import get_anndata_file, get_hnscc_file, get_model_pickle, hnscc_path
 
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.extraction import average_expression, get_expressed_genes
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.metrics import group_metrics
+from nichenetpy.prioritization import get_avg_exp
 
 
 def test_group_metrics_error():
@@ -51,6 +55,16 @@ def test_average_expression_error():
     missing_col = "MIA"
     with pytest.raises(ValueError, match=rf"no column '{missing_col}'"):
         average_expression(ann, groupby=missing_col)
+
+
+def test_get_avg_exp_condition_error():
+    # condition_oi and condition_col are given together (as in NicheNetR)
+    obs = pd.DataFrame({"celltype": ["A", "B"], "condition": ["x", "y"]}, index=["c0", "c1"])
+    ann = AnnData(X=np.ones((2, 1)), obs=obs)
+    ann.layers["counts"] = ann.X
+    for kwargs in ({"condition_oi": "x"}, {"condition_col": "condition"}):
+        with pytest.raises(ValueError, match="together"):
+            get_avg_exp(ann, "celltype", **kwargs)
 
 
 def test_evaluate_target_prediction_error():

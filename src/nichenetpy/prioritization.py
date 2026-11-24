@@ -1,5 +1,6 @@
 from collections.abc import Collection, Iterable
 from numbers import Number
+from typing import overload
 
 import numpy as np
 import pandas as pd
@@ -108,6 +109,27 @@ def _expm1(mat: nichenet_matrix) -> nichenet_matrix:
     # undo the log1p of log-normalized data (works for dense and sparse matrices)
     return np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
 
+@overload
+def get_avg_exp(
+    ann: AnnData,
+    celltype_col: str,
+    condition_oi: str,
+    condition_col: str,
+    layer: str = "counts",
+    features: Iterable[GeneSymbol] | None = None,
+    log_normalized: bool = False,
+) -> pd.DataFrame: ...
+
+@overload
+def get_avg_exp(
+    ann: AnnData,
+    celltype_col: str,
+    condition_oi: None = None,
+    condition_col: None = None,
+    layer: str = "counts",
+    features: Iterable[GeneSymbol] | None = None,
+    log_normalized: bool = False,
+) -> pd.DataFrame: ...
 
 def get_avg_exp(
     ann: AnnData,
@@ -129,9 +151,9 @@ def get_avg_exp(
     celltype_col : str
         the column in ann.obs which contains the celltypes
     condition_oi : str or None
-        The condition of interest
+        The condition of interest, given together with condition_col; None uses the cells of all conditions
     condition_col : str or None
-        the column in ann.obs which contains the conditions
+        the column in ann.obs which contains the conditions, given together with condition_oi
     layer : str
         the layer of the AnnData object to use (counts, or log-normalized data if log_normalized is True)
     features : Iterable[gene_t] or None
@@ -151,6 +173,8 @@ def get_avg_exp(
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if only one of condition_oi and condition_col is given
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
@@ -166,7 +190,13 @@ def get_avg_exp(
         raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
     if type(log_normalized) is not bool:
         raise TypeError(f"log_normalized should have type bool, was {type(log_normalized)}")
-    if condition_col is not None and condition_oi is not None:
+    # if condition_col is provided, condition_col must also be provided, condition_col is a dead argument if condition_oi is None
+    if (condition_oi is None) != (condition_col is None):
+        raise ValueError(
+            "condition_oi and condition_col should be given together (or both be None), "
+            f"got condition_oi={condition_oi!r} and condition_col={condition_col!r}"
+        )
+    if condition_oi is not None and condition_col is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     celltypes = set(ann.obs[celltype_col])
     # normalize on all genes (library sizes must include every gene), select features afterwards
