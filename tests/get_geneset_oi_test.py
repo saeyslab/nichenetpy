@@ -69,22 +69,30 @@ def _seurat_genes(mode, min_pct, min_abs_lfc):
 
 @pytest.mark.parametrize(("min_pct", "min_abs_lfc"), settings)
 def test_geneset_oi_with_reference_same_as_seurat(min_pct, min_abs_lfc):
-    geneset = get_geneset_oi(_ann(), "R", "group", "A", min_pct=min_pct, min_abs_lfc=min_abs_lfc, condition_ref="B")
+    geneset = get_geneset_oi(_ann(), "R", "group", "A", "B", min_pct=min_pct, min_abs_lfc=min_abs_lfc)
     assert geneset == _seurat_genes("A_vs_B", min_pct, min_abs_lfc)
 
 
 @pytest.mark.parametrize(("min_pct", "min_abs_lfc"), settings)
 def test_geneset_oi_without_reference_same_as_seurat(min_pct, min_abs_lfc):
-    geneset = get_geneset_oi(_ann(), "R", "group", "A", min_pct=min_pct, min_abs_lfc=min_abs_lfc)
+    geneset = get_geneset_oi(_ann(), "R", "group", "A", None, min_pct=min_pct, min_abs_lfc=min_abs_lfc)
     assert geneset == _seurat_genes("one_vs_rest", min_pct, min_abs_lfc)
 
 
 @pytest.mark.parametrize("use_scanpy", [False, True])
 def test_geneset_oi_reference_ignores_other_conditions(use_scanpy):
     # the cells of condition C don't change the comparison of A with B
-    with_c = get_geneset_oi(_ann(), "R", "group", "A", condition_ref="B", use_scanpy=use_scanpy)
-    without_c = get_geneset_oi(_ann(["A", "B"]), "R", "group", "A", use_scanpy=use_scanpy)
+    with_c = get_geneset_oi(_ann(), "R", "group", "A", "B", use_scanpy=use_scanpy)
+    without_c = get_geneset_oi(_ann(["A", "B"]), "R", "group", "A", None, use_scanpy=use_scanpy)
     assert with_c == without_c
+
+
+@pytest.mark.parametrize(("condition_oi", "condition_ref"), [("A", "D"), ("D", "B"), ("A", "data"), ("A", "A")])
+def test_geneset_oi_invalid_conditions(condition_oi, condition_ref):
+    # conditions that the receiver cells don't have (e.g. the layer passed where condition_ref is expected), and
+    # the condition of interest as its own reference
+    with pytest.raises(ValueError):
+        get_geneset_oi(_ann(), "R", "group", condition_oi, condition_ref)
 
 
 def _model():

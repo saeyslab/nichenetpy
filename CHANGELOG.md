@@ -133,6 +133,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `prioritization.generate_prioritization_table` now uses the sign of the log fold change as NicheNetR (`numpy.sign`: 0 for an lfc of 0 and NaN for a NaN lfc, both were treated as positive) to compute `pval_adapted_*`; this only matters for DE tables with an lfc of exactly 0 and a p-value below 1, or a NaN lfc.
 
+- `wrappers.get_geneset_oi` has a new required argument `condition_ref`, right after `condition_oi` (as in `wrappers.run_nichenet`): the condition of interest is compared with this reference condition, as NicheNetR does, or with all other conditions (the previous behaviour) if it's None. Calls that pass `layer` or a later argument by position need to be adapted. It raises a `ValueError` when `condition_oi` or `condition_ref` isn't a condition of the receiver cells or both are the same.
+
 ### Fixed
 
 - Corrected docstrings.
@@ -301,7 +303,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) returning all NaN when the data contains a NaN value; the quantiles are now computed without the NaN values, which stay NaN, as in NicheNetR. In `prioritization.generate_prioritization_table`, a ligand with a NaN activity (e.g. a NaN pearson correlation) made the scaled activity and prioritization score NaN for every interaction; now only that ligand's interactions are NaN.
 
-- Fixed `wrappers.run_nichenet` ignoring `condition_ref` for the gene set of interest: the receiver's condition of interest was compared with all other conditions instead of with the reference condition (as NicheNetR's `FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)`). This changes the results only with more than two conditions. `wrappers.get_geneset_oi` has a new argument `condition_ref`; without it, it still compares with all other conditions.
+- Fixed `wrappers.run_nichenet` ignoring `condition_ref` for the gene set of interest: the receiver's condition of interest was compared with all other conditions instead of with the reference condition (as NicheNetR's `FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)`). This changes the results only with more than two conditions.
 
 ## [2.0.1] - TODO
 

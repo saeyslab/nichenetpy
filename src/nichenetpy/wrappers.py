@@ -37,6 +37,7 @@ def get_geneset_oi(
     receiver: str,
     condition_col: str,
     condition_oi: str,
+    condition_ref: str | None,
     layer: str = "data",
     max_pval_adj: float = 0.05,
     min_abs_lfc: float = 0.25,
@@ -46,7 +47,6 @@ def get_geneset_oi(
     scanpy_tie_correct: bool = False,
     celltype_col: str = "celltype",
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # this works fine
-    condition_ref: str | None = None,
 ) -> set[str]:
     """
     Gets the geneset of interest from an AnnData object. The gene set of interest are genes within the receiver cell type that are likely to be influenced by ligands from the CCC event.
@@ -61,6 +61,10 @@ def get_geneset_oi(
         the name of the column in obs which contains the conditions
     condition_oi : str
         the condition of interest
+    condition_ref : str or None
+        the reference condition: the condition of interest is compared with the cells of this condition (as
+        NicheNetR's FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)), or with the cells of all
+        other conditions if None
     layer : str
         the name of the layer which contains the data matrix
     max_pval_adj : float
@@ -82,15 +86,16 @@ def get_geneset_oi(
         a denormalization function to apply prior to the calculation of the log fold changes
 
         only used with use_scanpy=False
-    condition_ref : str or None
-        the reference condition: the condition of interest is compared with the cells of this condition (as
-        NicheNetR's FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)); if None, with the cells of
-        all other conditions
 
     Returns
     -------
     set
         the geneset of interest
+
+    Raises
+    ------
+    ValueError
+        if condition_oi or condition_ref is not a condition of the receiver cells, or condition_ref is condition_oi
 
     Notes
     -----
@@ -98,6 +103,14 @@ def get_geneset_oi(
     only the log fold changes will be different compared to use_scanpy=False
     """
     ann_receiver = subset_ann(ann, val=receiver, layers=[layer], val_col=celltype_col)
+    conditions = set(ann_receiver.obs[condition_col].tolist())
+    for name, condition in (("condition_oi", condition_oi), ("condition_ref", condition_ref)):
+        if condition is not None and condition not in conditions:
+            raise ValueError(
+                f"{name} should be a condition of the receiver cells (in obs[{condition_col!r}]), was {condition!r}"
+            )
+    if condition_ref == condition_oi:
+        raise ValueError(f"condition_ref should be another condition than condition_oi, both were {condition_oi!r}")
     if use_scanpy:  # lfc will be different
         sc.tl.rank_genes_groups(
             ann_receiver,
