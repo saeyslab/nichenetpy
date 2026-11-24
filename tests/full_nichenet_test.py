@@ -7,13 +7,11 @@ Here we test if the NicheNetPy vignettes produce the same results as their R cou
 import importlib.util
 import json
 import os
-import pickle
 from itertools import chain, cycle, repeat
 from math import log
 
 import numpy as np
 import pandas as pd
-import requests
 from common import (
     df2dict,
     equals,
@@ -23,11 +21,11 @@ from common import (
     get_anndata_file,
     get_evaluation_files,
     get_hnscc_file,
+    get_ltf_matrix,
     get_model_pickle,
     get_network_files,
     hnscc_path,
     network_path,
-    root_path,
 )
 from scipy.stats import pearsonr
 
@@ -1064,21 +1062,11 @@ def test_steps_prioritization() -> None:
 
 
 def test_ligand_target_signaling_path() -> None:
-    if not os.path.exists(root_path):
-        os.makedirs(root_path)
-    for filename in ["ltf_matrix_human.pkl", "nichenet_human.pkl"]:
-        file_path = os.path.join(root_path, filename)
-        if not os.path.exists(file_path):
-            res = requests.get(f"https://zenodo.org/records/15131577/files/{filename}")
-            with open(file_path, "wb") as file:
-                file.write(res.content)
-    with open(os.path.join(root_path, "ltf_matrix_human.pkl"), "rb") as file:
-        ltf_matrix = pickle.loads(file.read())
+    ltf_matrix = get_ltf_matrix("human")
     row_names = ltf_matrix["row_names"]
     col_names = ltf_matrix["col_names"]
     ltf_matrix = ltf_matrix["mat"]
-    with open(os.path.join(root_path, "nichenet_human.pkl"), "rb") as file:
-        model = pickle.loads(file.read())
+    model = get_model_pickle("human")
     lr_sig = pd.DataFrame(model["lr_sig"]._mapping, columns=["from", "to", "weight"])
     gr = pd.DataFrame(model["gr"]._mapping, columns=["from", "to", "weight"])
     ligands_oi = ["TGFB2"]
