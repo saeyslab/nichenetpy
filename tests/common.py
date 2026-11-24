@@ -19,20 +19,46 @@ eval_path = os.path.join(root_path, "model_evaluation")
 train_path = os.path.join(root_path, "model_optimization")
 
 
-def fetch(record, filename, directory, max_tries=5, timeout=60):
+def fetch(record, filename, directory, max_tries=5, timeout=60, lock_timeout=3600):
     """
     Download a file of a Zenodo record to directory, unless it's already there, and return its path.
 
     The file is downloaded to a temporary file that is renamed once it's complete, so a failed or interrupted download
     never leaves a file behind. Timeouts, connection errors and HTTP errors are retried with an increasing pause (Zenodo
     is sometimes briefly unavailable), after max_tries attempts a RuntimeError is raised.
+
+    Several processes can call it at the same time (e.g. the workers of pytest-xdist): the process that creates the
+    lock file next to the file downloads it, the others wait until it's there. A lock file older than lock_timeout
+    seconds (left behind by a process that was killed) is removed.
     """
     os.makedirs(directory, exist_ok=True)
     file_path = os.path.join(directory, filename)
-    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-        return file_path
+    lock_path = file_path + ".lock"
+    while not (os.path.exists(file_path) and os.path.getsize(file_path) > 0):
+        try:
+            # creating the file fails if it exists, so only one process gets the lock
+            os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(lock_path) > lock_timeout:
+                    os.remove(lock_path)
+            except FileNotFoundError:
+                pass
+            time.sleep(1)
+            continue
+        try:
+            # the file can have been downloaded between the check and creating the lock
+            if not (os.path.exists(file_path) and os.path.getsize(file_path) > 0):
+                _download(record, filename, file_path, max_tries, timeout)
+        finally:
+            os.remove(lock_path)
+    return file_path
+
+
+def _download(record, filename, file_path, max_tries, timeout):
     url = f"https://zenodo.org/records/{record}/files/{filename}"
-    part_path = file_path + ".part"
+    # a temporary file of this process only
+    part_path = f"{file_path}.{os.getpid()}.part"
     errors = []
     for attempt in range(max_tries):
         if attempt > 0:
