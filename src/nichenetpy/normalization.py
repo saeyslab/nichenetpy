@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # Series[T] typehint can throw an Error at runtime
 
 from collections.abc import Sequence
 from numbers import Number
