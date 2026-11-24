@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning][].
 
 - The `inplace` argument of pandas methods (deprecated in pandas 3.1) is no longer used.
 
-- Type signatures have been altered and static type checking has been enabled for the package. 
+- Type signatures have been altered and static type checking has been enabled for the package.
 
 - `parameter_optimization.compute_evaluation_scores` returns a nested dict (`"target_prediction"` / `"ligand_prediction"` → metric → score) instead of a tuple of 4 floats, and `parameter_optimization.construct_and_evaluate` returns `(model, scores)` instead of `(model, target_auroc, target_aupr, ligand_auroc, ligand_aupr)`.
 
