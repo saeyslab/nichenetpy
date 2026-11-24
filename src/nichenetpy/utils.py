@@ -631,14 +631,18 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
     Parameters
     ----------
     ann : AnnData
-        the AnnData object (ann.uns["rank_genes_groups"] needs to be defined by using scanpy.tl.rank_genes_groups)
+        the AnnData object (ann.uns["rank_genes_groups"] needs to be defined by using scanpy.tl.rank_genes_groups
+        with pts=True)
     groupby : str
         the "groupby" argument that was passed to scanpy.tl.rank_genes_groups
 
     Returns
     -------
     pandas.DataFrame
-        the data frame which contains the output of scanpy.tl.rank_genes_groups
+        the data frame which contains the output of scanpy.tl.rank_genes_groups: one row per group and gene, with
+        the columns groupby, "gene", "pval", "pval_adj", "lfc", "pct" (the fraction of expressing cells in the
+        group) and "pct_ref" (the fraction of expressing cells in the reference cells: the other cells, or the
+        reference group)
 
     Raises
     ------
@@ -658,6 +662,17 @@ def rank_genes_groups_to_dataframe(ann: AnnData, groupby: str) -> pd.DataFrame:
         temp = temp.drop(columns={groupby})
         output = output.join(temp, how="inner")
     temp = pd.melt(res["pts"], var_name=groupby, value_name="pts", ignore_index=False)
+    temp.index.name = "gene"
+    temp = temp.reset_index()
+    output = output.merge(temp, on=["gene", groupby], how="inner")
+    # the fraction of expressing cells in the reference cells: scanpy stores it per group for the other cells
+    # (pts_rest), and in the column of the reference group of pts for a reference group
+    reference = res["params"]["reference"]
+    if reference == "rest":
+        pts_ref = res["pts_rest"]
+    else:
+        pts_ref = pd.DataFrame({group: res["pts"][reference] for group in res["pts"].columns if group != reference})
+    temp = pd.melt(pts_ref, var_name=groupby, value_name="pct_ref", ignore_index=False)
     temp.index.name = "gene"
     temp = temp.reset_index()
     output = output.merge(temp, on=["gene", groupby], how="inner")

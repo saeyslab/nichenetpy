@@ -48,15 +48,17 @@ def calculate_de(
         the genes to consider
     min_abs_lfc : float
         a gene is only tested in a comparison if its absolute log fold change is at least this value
-        (see `metrics.group_metrics`), not used if use_scanpy is True
+        (see `metrics.group_metrics`)
     min_pct : float
         a gene is only tested in a comparison if it's expressed in at least this fraction of the cells of the cell type
-        or of the other cells (see `metrics.group_metrics`), not used if use_scanpy is True
+        or of the other cells (see `metrics.group_metrics`)
     pval_thresh : float
         upper bound for the p-values: only genes with a p-value smaller than this threshold are kept (as Seurat's
-        return.thresh), not used if use_scanpy is True
+        return.thresh)
     use_scanpy : bool
-        if True, use scanpy.rank_genes_groups
+        if True, use scanpy.rank_genes_groups; it tests all genes, features, min_abs_lfc (with scanpy's log fold
+        changes), min_pct and pval_thresh are applied to its results. As with group_metrics, the adjusted p-values
+        are computed over all genes.
 
     Returns
     -------
@@ -67,6 +69,8 @@ def calculate_de(
     ------
     TypeError
         if the arguments have the wrong type
+    KeyError
+        if a gene of features is not in the AnnData object
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type AnnData, was {type(ann)}")
@@ -91,7 +95,20 @@ def calculate_de(
     ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
     if use_scanpy:
         sc.tl.rank_genes_groups(ann, groupby=celltype_col, method="wilcoxon", layer=layer, pts=True)
-        return rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
+        output = rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
+        # the filters of group_metrics, applied to the results of the test of all genes
+        if features is not None:
+            features = sorted(features) if type(features) is set else list(features)
+            missing = set(features).difference(ann.var_names.tolist())
+            if missing:
+                raise KeyError(f"features contains genes that are not in the AnnData object: {sorted(missing)}")
+            output = output[output["gene"].isin(features)]
+        keep = (
+            (np.maximum(output["pct"], output["pct_ref"]) >= min_pct)
+            & (output["lfc"].abs() >= min_abs_lfc)
+            & (output["pval"] < pval_thresh)
+        )
+        return output[keep].reset_index(drop=True)
     else:
         group_metrics(
             ann,

@@ -93,6 +93,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Added a `random_state` argument (int, numpy.random.Generator or None) to `prediction.LigandActivityPredictor.replace_zero_col_by_noisy_scores` and `parameter_optimization.construct_and_evaluate`, to make the noise that replaces all-zero columns of the ligand-target matrix (and therefore the evaluation scores) reproducible. The default (None) uses numpy's global random state (nichenetpy 1.x used Python's `random` module).
 
+- `utils.rank_genes_groups_to_dataframe` has a new column `pct_ref`: the fraction of expressing cells in the reference cells (the other cells, or the reference group), as the `pct_ref` column of `metrics.group_metrics`.
+
 ### Changed
 
 - The `inplace` argument of pandas methods (deprecated in pandas 3.1) is no longer used.
@@ -134,6 +136,10 @@ and this project adheres to [Semantic Versioning][].
 - `prioritization.generate_prioritization_table` now uses the sign of the log fold change as NicheNetR (`numpy.sign`: 0 for an lfc of 0 and NaN for a NaN lfc, both were treated as positive) to compute `pval_adapted_*`; this only matters for DE tables with an lfc of exactly 0 and a p-value below 1, or a NaN lfc.
 
 - `wrappers.get_geneset_oi` has a new required argument `condition_ref`, right after `condition_oi` (as in `wrappers.run_nichenet`): the condition of interest is compared with this reference condition, as NicheNetR does, or with all other conditions (the previous behaviour) if it's None. Calls that pass `layer` or a later argument by position need to be adapted. It raises a `ValueError` when `condition_oi` or `condition_ref` isn't a condition of the receiver cells or both are the same.
+
+- The scanpy path of `prioritization.calculate_de` (`use_scanpy=True`) applies `features`, `min_pct`, `min_abs_lfc` and `pval_thresh` as the default path (`metrics.group_metrics`) does; they were ignored. scanpy still tests all genes (so the adjusted p-values are computed over all genes, as with `group_metrics`), and only the rows of the genes in `features`, expressed in at least `min_pct` of the cells of the cell type or of the other cells, with an absolute log fold change (scanpy's) of at least `min_abs_lfc` and a p-value smaller than `pval_thresh` are kept. With the default values, only the rows with a p-value of 1 are left out, as in the default path. A gene of `features` that isn't in the AnnData object raises a `KeyError`.
+
+- `wrappers.get_geneset_oi` with `use_scanpy=True` keeps a gene if it's expressed in at least `min_pct` of the cells of the condition of interest or of the reference cells, as the default path and Seurat's `min.pct`; it only used the condition of interest.
 
 ### Fixed
 

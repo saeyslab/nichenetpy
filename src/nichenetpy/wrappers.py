@@ -73,7 +73,7 @@ def get_geneset_oi(
         the lower bound for the absolute log fold change
     min_pct : float
         genes are only considered if they're expressed in at least this fraction of the cells of the condition of
-        interest or of the reference cells (with use_scanpy: of the condition of interest)
+        interest or of the reference cells
     use_scanpy : bool
         if true, use scanpy.tl.rank_genes_groups to compute the metrics
     scanpy_corr_method : str
@@ -127,7 +127,7 @@ def get_geneset_oi(
         DE_table = DE_table[
             (DE_table["pval_adj"] <= max_pval_adj)
             & (abs(DE_table["lfc"]) >= min_abs_lfc)
-            & (DE_table["pct"] >= min_pct)
+            & (np.maximum(DE_table["pct"], DE_table["pct_ref"]) >= min_pct)
         ]
     else:
         group_metrics(
