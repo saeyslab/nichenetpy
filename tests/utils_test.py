@@ -4,12 +4,21 @@
 Here we test some functions from nichenetpy.utils
 """
 
+from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
-from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, remove_zero_rows_cols, subset_matrix
+from nichenetpy.utils import (
+    combine_by_key,
+    combine_dicts,
+    df_grouped_apply,
+    ligand_activities_df,
+    remove_zero_rows_cols,
+    subset_matrix,
+)
 
 
 def matrix_equal(m1, m2):
@@ -360,3 +369,33 @@ def test_df_grouped_apply_missing_group(group):
     # every row is kept, the missing value is a group of its own (last)
     assert result.index.tolist() == [0, 3, 1, 2]
     assert result["centered"].tolist() == [-1.5, 1.5, 0.0, 0.0]
+
+
+def test_ligand_activities_df_metric_order():
+    # every value in its own column, whatever the order of a ligand's metrics
+    df = ligand_activities_df({"A": {"x": 1, "y": 2}, "B": {"y": 3, "x": 4}})
+    assert df.columns.tolist() == ["x", "y"]
+    assert df.loc["A"].tolist() == [1, 2]
+    assert df.loc["B"].tolist() == [4, 3]
+    assert df.index.name == "ligand"
+
+
+def test_ligand_activities_df_inputs():
+    activities = {"A": {"x": 1, "y": 2}, "B": {"x": 3, "y": 4}}
+    expected = ligand_activities_df(activities)
+    # (ligand, metrics) pairs, also as a generator, and a dict subclass give the same data frame
+    pd.testing.assert_frame_equal(ligand_activities_df(list(activities.items())), expected)
+    pd.testing.assert_frame_equal(ligand_activities_df(pair for pair in activities.items()), expected)
+    pd.testing.assert_frame_equal(ligand_activities_df(OrderedDict(activities)), expected)
+    # without ligands an empty data frame
+    for empty in ({}, []):
+        df = ligand_activities_df(empty)
+        assert len(df) == 0
+        assert df.index.name == "ligand"
+
+
+def test_ligand_activities_df_different_metrics():
+    with pytest.raises(ValueError, match="same metrics"):
+        ligand_activities_df({"A": {"x": 1, "y": 2}, "B": {"x": 3}})
+    with pytest.raises(ValueError, match="same metrics"):
+        ligand_activities_df({"A": {"x": 1}, "B": {"x": 3, "z": 4}})

@@ -325,6 +325,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `normalization.scaling_zscore` accepts any sequence of floats (e.g. a tuple), as `scaling_modified_zscore` does; only a list was accepted.
 
+- Fixed `utils.ligand_activities_df` (and therefore `prioritization.generate_prioritization_table` with ligand activities as a dict or list) putting a ligand's values in the wrong columns when its metrics were in another order than those of the first ligand; the values are now matched by metric name, ligands with different metrics raise a `ValueError`, and no ligands give an empty data frame (it raised an unclear error).
+
+- `evaluation.EvaluationData`, `utils.ligand_activities_df` and `prioritization.generate_prioritization_table` accept dict subclasses (e.g. `collections.OrderedDict`) wherever a dict is accepted; they were rejected or iterated as an Iterable.
+
 
 
 [2.0.1]: https://github.com/saeyslab/nichenetpy/compare/v2.0.0...v2.0.1

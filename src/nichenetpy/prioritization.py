@@ -474,7 +474,7 @@ def generate_prioritization_table(
         raise TypeError(f"sender_receiver_de should be of type pandas.DataFrame, was {type(sender_receiver_de)}")
     if lr_condition_de is not None and type(lr_condition_de) is not pd.DataFrame:
         raise TypeError(f"lr_condition_de should be of type pandas.DataFrame, was {type(lr_condition_de)}")
-    if type(ligand_activities) is dict or type(ligand_activities) is list:
+    if isinstance(ligand_activities, (dict, list)):
         ligand_activities = ligand_activities_df(ligand_activities)
     elif type(ligand_activities) is not pd.DataFrame:
         raise TypeError(

@@ -479,26 +479,42 @@ def ligand_activities_df(
     Parameters
     ----------
     ligand_activities : dict or Iterable
-        the ligand activities to convert
+        the ligand activities to convert: a dict that maps each ligand to its metrics (a dict of metric name to
+        value), or an Iterable of (ligand, metrics) pairs; every ligand has the same metrics, in any order
 
     Returns
     -------
     pandas.DataFrame
-        a pandas DataFrame containing the ligand activities
+        a pandas DataFrame containing the ligand activities: a row per ligand (the index), a column per metric (in
+        the order of the first ligand's metrics); without ligands an empty DataFrame
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
+    ValueError
+        if the ligands don't all have the same metrics
     """
-    if type(ligand_activities) is dict:
-        ligands, activities = zip(*ligand_activities.items(), strict=True)
-    elif isinstance(ligand_activities, Iterable):
-        ligands, activities = zip(*ligand_activities, strict=True)
-    else:
+    if isinstance(ligand_activities, dict):
+        ligand_activities = ligand_activities.items()
+    elif not isinstance(ligand_activities, Iterable):
         raise TypeError(f"ligand_activities should be of type dict or Iterable, was {type(ligand_activities)}")
+    # the ligands and their metrics (ligand_activities is iterated once)
+    pairs = tuple(zip(*ligand_activities, strict=True))
+    if len(pairs) == 0:
+        df = pd.DataFrame()
+        df.index.name = "ligand"
+        return df
+    ligands, activities = pairs
     columns = tuple(activities[0].keys())
-    data = [tuple(act.values()) for act in activities]
+    for ligand, act in zip(ligands, activities, strict=True):
+        if act.keys() != set(columns):
+            raise ValueError(
+                f"every ligand should have the same metrics: {ligands[0]!r} has {list(columns)}, {ligand!r} has "
+                f"{list(act.keys())}"
+            )
+    # each row by key, so every value ends up in its own column whatever the order of a ligand's metrics
+    data = [[act[column] for column in columns] for act in activities]
     df = pd.DataFrame(data=data, index=ligands, columns=columns)
     df.index.name = "ligand"
     return df

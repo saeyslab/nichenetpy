@@ -70,9 +70,9 @@ class EvaluationData(Generic[GeneSymbol]):
         self._ligand_name = ligand_name
         self._de_genes_name = de_genes_name
         if obj is not None:
-            if type(obj) is dict:
+            if isinstance(obj, dict):
                 for key, val in obj.items():
-                    self[key] = val
+                    self[key] = val  # pyright: ignore[reportArgumentType] # a dict of settings has str keys
             elif type(obj) is pd.DataFrame:
                 for key, val in zip(
                     obj[key_name],
@@ -113,7 +113,7 @@ class EvaluationData(Generic[GeneSymbol]):
     def __setitem__(self, key: str, val: dict[str, Any]):
         if type(key) is not str:
             raise TypeError(f"key should have type str, was {type(key)}")
-        if type(val) is not dict:
+        if not isinstance(val, dict):
             raise TypeError(f"val should have type dict, was {type(val)}")
         self._data[key] = self._validated(val, key)
 
@@ -127,7 +127,7 @@ class EvaluationData(Generic[GeneSymbol]):
         ligand = [_as_gene(e, name) for e in ligand] if isinstance(ligand, (list, tuple)) else _as_gene(ligand, name)
         if self._de_genes_name not in item:
             raise ValueError(f"item should have a '{self._de_genes_name}' key")
-        if type(item[self._de_genes_name]) is not dict:
+        if not isinstance(item[self._de_genes_name], dict):
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         return {**item, self._key_name: key, self._ligand_name: ligand}
 
@@ -153,7 +153,7 @@ class EvaluationData(Generic[GeneSymbol]):
         ValueError
             if the arguments are invalid
         """
-        if type(item) is not dict:
+        if not isinstance(item, dict):
             raise TypeError(f"item should have type dict, was {type(item)}")
         if self._key_name not in item:
             raise ValueError(f"item should have a '{self._key_name}' key")
