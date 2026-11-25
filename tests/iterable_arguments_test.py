@@ -8,6 +8,7 @@ Arguments annotated as an Iterable:
   annotation also allows a str).
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -23,7 +24,7 @@ from nichenetpy.parameter_optimization import compute_evaluation_scores, constru
 from nichenetpy.prediction import LigandActivityPredictor, assess_rf_class_probabilities
 from nichenetpy.prioritization import calculate_de, get_avg_exp
 from nichenetpy.utils import ncycle
-from nichenetpy.visualization import create_radar_plot
+from nichenetpy.visualization import create_radar_plot, marker_plot
 from nichenetpy.wrappers import create_ligand_receptor_links_prioritization_circos_plot
 
 
@@ -113,6 +114,20 @@ def test_predict_ligand_activities_metrics_generator():
     assert result == expected
 
 
+def test_marker_plot_labels_generator():
+    # labels are iterated twice when c is None (colors and markers)
+    def texts(labels):
+        fig, ax = marker_plot([1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0], labels, "x", "y", "a")
+        # the marker labels (with their colors) and the texts of the size legend
+        result = [(text.get_text(), text.get_color()) for text in ax.texts]
+        plt.close(fig)
+        return result
+
+    expected = texts(["A", "B", "A"])
+    assert expected
+    assert texts(label for label in ["A", "B", "A"]) == expected
+
+
 # an Iterable of str is not a single str
 
 
@@ -154,6 +169,7 @@ def _str_calls():
         ("convert_human_to_mouse_symbols", lambda: GeneInfo([("TNF", "Tnf")]).convert_human_to_mouse_symbols("TNF")),
         ("convert_mouse_to_human_symbols", lambda: GeneInfo([("TNF", "Tnf")]).convert_mouse_to_human_symbols("Tnf")),
         ("create_radar_plot value_labels", lambda: create_radar_plot([[1.0, 2.0]], "ab")),
+        ("marker_plot labels", lambda: marker_plot([1.0, 2.0], [1.0, 2.0], [1.0, 2.0], "ab", "x", "y", "a")),
         (
             "circos plot senders",
             lambda: create_ligand_receptor_links_prioritization_circos_plot("A", ["B"], ["L1"], ["R1"], {}),

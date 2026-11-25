@@ -38,7 +38,7 @@ from scipy.sparse.csgraph import dijkstra
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, _check_iterable, target_eval_metric_t, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _check_iterable, _reiterable, target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -1329,7 +1329,7 @@ def marker_plot(
     x: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     y: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     a: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
-    labels: Sequence[str],
+    labels: Iterable[str],
     xlabel,
     ylabel,
     alabel,
@@ -1397,8 +1397,9 @@ def marker_plot(
         raise TypeError(f"y should have type Sequence or numpy.ndarray, was {type(y)}")
     if not isinstance(a, Sequence) and type(a) is not np.ndarray:
         raise TypeError(f"a should have type Sequence or numpy.ndarray, was {type(a)}")
-    if not isinstance(labels, Iterable):
-        raise TypeError(f"labels should be an Iterable of str, was {type(labels)}")
+    _check_iterable(labels, "labels", "labels")
+    # iterated twice when c is None (for the colors and for the markers)
+    labels = _reiterable(labels)
     if type(xlabel) is not str:
         raise TypeError(f"xlabel should have type str, was {type(xlabel)}")
     if type(ylabel) is not str:
@@ -1420,7 +1421,7 @@ def marker_plot(
         raise TypeError(f"c should have type Sequence or numpy.ndarray, was {type(c)}")
     # unique values in order of appearance (a set has no fixed order for strings, so the default colors and the color
     # legend would change between Python sessions)
-    _c = list(dict.fromkeys(c))
+    _c = list(dict.fromkeys(c))  # type: ignore # c isn't None here (labels if it was None)
     if val2color is None:
         val2color = dict(zip(_c, (i / len(_c) for i in range(len(_c))), strict=True))
     if isinstance(val2color, dict):
@@ -1451,7 +1452,7 @@ def marker_plot(
     amax = float(np.max(np.abs(a)))
     a_scale = amax if amax > 0 else 1.0
     texts = []
-    for xp, yp, ap, cp, label in zip(x, y, a, c, labels, strict=True):
+    for xp, yp, ap, cp, label in zip(x, y, a, c, labels, strict=True):  # type: ignore # c isn't None here
         # linear with radius
         size_mult = ap / a_scale
         # linear with area

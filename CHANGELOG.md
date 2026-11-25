@@ -333,6 +333,8 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
+- `visualization.marker_plot` accepts `labels` as any Iterable of str (annotated as `Sequence[str]`, documented as Iterable), also a generator without `c` (it raised a zip error); a single str raises a `TypeError`.
+
 - `wilcoxon.wilcoxon_rank_sum_test` and `metrics.group_metrics` (and so `prioritization.calculate_de`) leave out cells without a value (NaN) in the `groupby` column, with a warning (for `group_metrics` only without `group_ref`; with `group_ref` they aren't used anyway). `wilcoxon_rank_sum_test` raised a `KeyError` or, when those cells only had zeros, returned wrong p-values (they were counted in the number of cells but in no group); `group_metrics` raised a `TypeError`.
 
 - `visualization.create_mushroom_plot` with `use_absolute_rank=True` sorts the interactions by `prioritization_rank`, as with `use_absolute_rank=False`; it showed the first `max_rows` interactions in the order of `df`, so with a table that isn't sorted by rank the top-ranked interactions could be left out.
