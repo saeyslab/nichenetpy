@@ -4,12 +4,14 @@
 Here we test some of the processing functions from nichenetpy.visualization
 """
 
+import numpy as np
 import pandas as pd
 from common import (
     equals_iter,
     get_ltf_matrix,
     get_model_pickle,
 )
+from scipy.sparse import csr_matrix
 
 from nichenetpy.visualization import _construct_ligand_signaling_df, get_ligand_signaling_path
 
@@ -119,3 +121,20 @@ def get_ligand_signaling_path_template(ligands_oi, targets_oi, exp_tf_signaling,
 
 def test_get_ligand_signaling_path_0():
     get_ligand_signaling_path_template(["IL1B"], ["TNFRSF11B", "CSF1", "NFKB2"], tf_signaling_0, tf_regulatory_0)
+
+
+def test_get_ligand_signaling_path_duplicate_links():
+    # L -> A occurs twice (summed weight 1.0), so the path L -> A -> T (cost 1 + 1) is shorter than L -> B -> T
+    # (cost 1 / 0.9 + 1)
+    lr_sig = pd.DataFrame(
+        {"from": ["L", "L", "A", "L", "B"], "to": ["A", "A", "T", "B", "T"], "weight": [0.5, 0.5, 1.0, 0.9, 1.0]}
+    )
+    gr = pd.DataFrame({"from": ["T"], "to": ["X"], "weight": [1.0]})
+    tf_signaling, tf_regulatory = get_ligand_signaling_path(
+        csr_matrix(np.array([[1.0]])), ["L"], ["X"], ["T"], ["L"], lr_sig, gr
+    )
+    tf_signaling = tf_signaling.sort_values(["from", "to"]).reset_index(drop=True)
+    pd.testing.assert_frame_equal(
+        tf_signaling, pd.DataFrame({"from": ["A", "L"], "to": ["T", "A"], "weight": [1.0, 1.0]}), check_dtype=False
+    )
+    assert tf_regulatory[["from", "to"]].values.tolist() == [["T", "X"]]

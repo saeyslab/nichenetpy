@@ -329,6 +329,12 @@ and this project adheres to [Semantic Versioning][].
 
 - Dict subclasses (e.g. `collections.OrderedDict`) are accepted wherever a dict is accepted; they were rejected (or iterated as an Iterable): `evaluation.EvaluationData`, `utils.ligand_activities_df`, `utils.combine_dicts`, `prioritization.generate_prioritization_table` (`ligand_activities`, `prioritizing_weights`), `model_construction.construct_weighted_networks`, `construct_model_from_source_weights` and `parameter_optimization.construct_and_evaluate` (`source_weights`), `model_construction.construct_ligand_tf_matrix`, `construct_tf_target_matrix` and `construct_ligand_target_matrix` (`weighted_networks`), `parameter_optimization.compute_evaluation_scores` (`eval_res`, `objective_fs`), `prediction.LigandActivityPredictor.evaluate_target_prediction` (`response`), `gene_symbol.GeneAliasInfo`, `visualization.create_barcode_plot` and the circos plots in `wrappers` (`colors`).
 
+## [2.0.1] - TODO
+
+### Fixed
+
+- Fixed `visualization.get_ligand_signaling_path` choosing the path with a link that occurs more than once in `lr_sig` by the sum of the costs (1 / weight) of its copies, so a duplicated link was less likely to be on the path; the weights of a duplicated link are now summed before the path search, as in the returned signaling network. Networks made by `model_construction.construct_weighted_networks` have no duplicated links.
+
 
 
 [2.0.1]: https://github.com/saeyslab/nichenetpy/compare/v2.0.0...v2.0.1

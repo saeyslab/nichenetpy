@@ -503,7 +503,9 @@ def get_ligand_signaling_path(
     all_targets : Collection of str
         all targets (column labels of ltf_matrix)
     lr_sig : pandas.DataFrame
-        dataframe which contains weighted ligand-receptor and signaling interactions (from, to, weight)
+        dataframe which contains weighted ligand-receptor and signaling interactions (from, to, weight); a link that
+        occurs more than once counts as one link with the summed weight (NicheNetR chooses the path with the largest
+        weight of such links, but also returns the summed weight)
     gr : pandas.DataFrame
         dataframe which contains weighted gene regulatory interactions (from, to, weight)
     top_n_regulators : int
@@ -548,8 +550,14 @@ def get_ligand_signaling_path(
     )
     all_genes = sorted(set(chain(lr_sig["from"], lr_sig["to"], gr["from"], gr["to"])))
     gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
+    # the weights of duplicate links are summed (as in the returned tf_signaling and in construct_weighted_networks), the
+    # cost of a link is 1 / weight (a sparse matrix would sum the costs of duplicate links instead)
+    links = lr_sig.groupby(["from", "to"], as_index=False)["weight"].sum()
     lr_sig_mat = csr_array(
-        ([1 / e for e in lr_sig["weight"]], ([gene2id[e] for e in lr_sig["from"]], [gene2id[e] for e in lr_sig["to"]])),
+        (
+            (1 / links["weight"]).to_numpy(),
+            ([gene2id[e] for e in links["from"].tolist()], [gene2id[e] for e in links["to"].tolist()]),
+        ),
         shape=(len(all_genes), len(all_genes)),
     )
     # get nodes on shortest path from ligand to each target
