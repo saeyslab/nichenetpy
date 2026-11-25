@@ -602,7 +602,8 @@ def group_metrics(
     ann : AnnData
         the AnnData object
     groupby : str
-        the column in ann.obs to group by
+        the column in ann.obs to group by; cells without a value (NaN) are left out (with a warning if group_ref is
+        None, otherwise they wouldn't be used anyway)
     group_oi : str or None
         the group of interest
     group_ref : str or None
@@ -671,6 +672,21 @@ def group_metrics(
         raise TypeError(f"pval_thresh should be of type float, was {type(pval_thresh)}")
     if lfc_denormalize is not None and not isinstance(lfc_denormalize, Callable):  # type: ignore
         raise TypeError(f"lfc_denormalize should be a Callable or None, had type {type(lfc_denormalize)}")
+    try:
+        missing = ann.obs[groupby].isna().to_numpy()
+    except KeyError as error:
+        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
+    # the result is stored in the caller's AnnData, also when ann is replaced by a subset below
+    output_ann = ann
+    if missing.any():
+        # cells without a group (NaN) are left out: they're in no group and not in the other cells of a group either
+        if group_ref is None:
+            warnings.warn(
+                f"{int(missing.sum())} cells without a value in the column '{groupby}' are left out", stacklevel=2
+            )
+        ann = subset_ann(
+            ann, val=set(ann.obs[groupby][~missing].tolist()), val_col=groupby, layers=[layer], subset_X=False
+        )
     if features is None:
         mat = ann.layers[layer]
         genes = ann.var_names
@@ -678,10 +694,7 @@ def group_metrics(
         # select genes
         mat, genes = _subset_layer(ann, layer, features)
     validate_matrix_type(mat, f"the selected layer should be of type nichenet_matrix, was {type(mat)}")
-    try:
-        groups = sorted(set(ann.obs[groupby]))
-    except KeyError as error:
-        raise ValueError(f"can't group by {groupby} as it is not present in the AnnData object") from error
+    groups = sorted(set(ann.obs[groupby]))
     cell_groups = ann.obs[groupby].to_numpy()
     if group_oi is not None and group_oi == group_ref:
         raise ValueError(f"group_oi and group_ref should be different, both were {group_oi}")
@@ -733,7 +746,7 @@ def group_metrics(
     output = output[(np.maximum(output["pct"], output["pct_ref"]) >= min_pct) & (abs(output["lfc"]) >= min_abs_lfc)]
     if len(output) == 0:
         # no gene passes the filters in any comparison, so there is nothing to test
-        ann.uns["group_metrics"] = output.assign(pval=pd.Series(dtype=float), pval_adj=pd.Series(dtype=float))
+        output_ann.uns["group_metrics"] = output.assign(pval=pd.Series(dtype=float), pval_adj=pd.Series(dtype=float))
         return
     # compute the p-values with the same reference cells as the lfc and pct
     if group_ref is None:
@@ -763,7 +776,7 @@ def group_metrics(
     output = output.merge(pvals, on=["gene", groupby], how="inner")
     # divide by amount of genes in AnnData object (not just features)
     output["pval_adj"] = np.clip(output["pval"] * len(ann.var_names), 0, 1)
-    ann.uns["group_metrics"] = output
+    output_ann.uns["group_metrics"] = output
 
 
 def _group_pvals(

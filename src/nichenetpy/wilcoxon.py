@@ -147,7 +147,7 @@ def wilcoxon_rank_sum_test(
     ann : AnnData
         the AnnData object
     groupby : str
-        the column to group by
+        the column to group by; cells without a value (NaN) are left out, with a warning
     as_dataframe : bool
         if True, a pandas DataFrame is returned
     tie_correction : bool
@@ -191,8 +191,16 @@ def wilcoxon_rank_sum_test(
             raise ValueError(f"There is no layer '{layer}' in the AnnData object")
     if groupby not in ann.obs.columns:
         raise ValueError(f"There is no column '{groupby}' in the AnnData object")
-    group_sizes = dict(ann.obs[groupby].value_counts())
-    n_total = len(ann.obs)
+    cell_groups = ann.obs[groupby]
+    # cells without a group (NaN) are left out: they're in no group and not in the other cells of a group either
+    missing = cell_groups.isna().to_numpy()
+    if missing.any():
+        warnings.warn(
+            f"{int(missing.sum())} cells without a value in the column '{groupby}' are left out", stacklevel=2
+        )
+        cell_groups = cell_groups[~missing]
+    group_sizes = dict(cell_groups.value_counts())
+    n_total = len(cell_groups)
     pvals = {}
     if layer is None:
         validate_matrix_type(ann.X, f"ann.X should be of type nichenet_matrix, was {type(ann.X)}")
@@ -209,7 +217,9 @@ def wilcoxon_rank_sum_test(
         genes = genes.tolist() if isinstance(genes, (np.ndarray, pd.Index)) else list(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         mat = subset_matrix(mat, cols=[gene2index[gene] for gene in genes])  # type: ignore # mat is type checked
-    ranks, sorted_groups, tie_stats = _rank_cells(mat, ann.obs[groupby], tie_correction=tie_correction)  # type: ignore # mat is type checked
+    if missing.any():
+        mat = subset_matrix(mat, rows=np.flatnonzero(~missing))  # type: ignore # mat is type checked
+    ranks, sorted_groups, tie_stats = _rank_cells(mat, cell_groups, tie_correction=tie_correction)  # type: ignore # mat is type checked
     rank_sums = {}
     # for each gene
     for ranking, groups, tie_stat in zip(ranks, sorted_groups, tie_stats, strict=True):
