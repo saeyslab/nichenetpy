@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug when reading GeneAliasInfo or GeneInfo from csv files where commas inside gene symbols where used for splitting.
 
-## [2.0.0] - 2026-11-25
+## [2.0.0] - 2026-11-26
 
 ### Added
 
@@ -329,10 +329,6 @@ and this project adheres to [Semantic Versioning][].
 
 - Dict subclasses (e.g. `collections.OrderedDict`) are accepted wherever a dict is accepted; they were rejected (or iterated as an Iterable): `evaluation.EvaluationData`, `utils.ligand_activities_df`, `utils.combine_dicts`, `prioritization.generate_prioritization_table` (`ligand_activities`, `prioritizing_weights`), `model_construction.construct_weighted_networks`, `construct_model_from_source_weights` and `parameter_optimization.construct_and_evaluate` (`source_weights`), `model_construction.construct_ligand_tf_matrix`, `construct_tf_target_matrix` and `construct_ligand_target_matrix` (`weighted_networks`), `parameter_optimization.compute_evaluation_scores` (`eval_res`, `objective_fs`), `prediction.LigandActivityPredictor.evaluate_target_prediction` (`response`), `gene_symbol.GeneAliasInfo`, `visualization.create_barcode_plot` and the circos plots in `wrappers` (`colors`).
 
-## [2.0.1] - TODO
-
-### Fixed
-
 - `visualization.marker_plot` accepts `labels` as any Iterable of str (annotated as `Sequence[str]`, documented as Iterable), also a generator without `c` (it raised a zip error); a single str raises a `TypeError`.
 
 - `wilcoxon.wilcoxon_rank_sum_test` and `metrics.group_metrics` (and so `prioritization.calculate_de`) leave out cells without a value (NaN) in the `groupby` column, with a warning (for `group_metrics` only without `group_ref`; with `group_ref` they aren't used anyway). `wilcoxon_rank_sum_test` raised a `KeyError` or, when those cells only had zeros, returned wrong p-values (they were counted in the number of cells but in no group); `group_metrics` raised a `TypeError`.
@@ -347,7 +343,6 @@ and this project adheres to [Semantic Versioning][].
 
 
 
-[2.0.1]: https://github.com/saeyslab/nichenetpy/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/saeyslab/nichenetpy/compare/v1.0.4...v2.0.0
 [1.0.4]: https://github.com/saeyslab/nichenetpy/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/saeyslab/nichenetpy/compare/v1.0.2...v1.0.3
