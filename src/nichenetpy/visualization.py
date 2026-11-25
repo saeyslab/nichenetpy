@@ -1175,11 +1175,12 @@ def create_mushroom_plot(
         raise TypeError(f"color_prefix should have type str, was {type(color_prefix)}")
     if type(max_rows) is not int:
         raise TypeError(f"max_rows should have type int, was {type(max_rows)}")
-    # work on a copy, so the caller's dataframe isn't sorted and doesn't get a "show" column
+    # work on a copy, so the caller's dataframe isn't sorted and doesn't get a "show" column; sorted by rank in both
+    # cases, so the rows of the plot are the top-ranked interactions (a stable sort keeps the order of ties)
+    df = df.sort_values(by="prioritization_rank", kind="stable")
     if use_absolute_rank:
         df = df.assign(show=df["prioritization_rank"] <= top_n)
     else:
-        df = df.sort_values(by="prioritization_rank")
         # the first top_n rows (all rows if there are fewer than top_n)
         df = df.assign(show=np.arange(df.shape[0]) < top_n)
     interactions = df.drop_duplicates(subset=["ligand", "receptor"])

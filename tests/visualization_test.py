@@ -4,6 +4,7 @@
 Here we test some of the processing functions from nichenetpy.visualization
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from common import (
@@ -13,7 +14,7 @@ from common import (
 )
 from scipy.sparse import csr_matrix
 
-from nichenetpy.visualization import _construct_ligand_signaling_df, get_ligand_signaling_path
+from nichenetpy.visualization import _construct_ligand_signaling_df, create_mushroom_plot, get_ligand_signaling_path
 
 ligand_signaling_df_0 = [
     ("IL1B", 0.2114539724, "IL1B", "TNFRSF11B", 1.3534754, 0.2861977536),
@@ -138,3 +139,25 @@ def test_get_ligand_signaling_path_duplicate_links():
         tf_signaling, pd.DataFrame({"from": ["A", "L"], "to": ["T", "A"], "weight": [1.0, 1.0]}), check_dtype=False
     )
     assert tf_regulatory[["from", "to"]].values.tolist() == [["T", "X"]]
+
+
+def test_create_mushroom_plot_sorts_by_rank():
+    # a table that isn't sorted by rank: the rows of the plot are the top-ranked interactions in both modes
+    df = pd.DataFrame(
+        {
+            "ligand": ["L3", "L2", "L1"],
+            "receptor": ["R3", "R2", "R1"],
+            "sender": ["S", "S", "S"],
+            "prioritization_rank": [3.0, 2.0, 1.0],
+            "scaled_avg_exprs_ligand": [0.5, 0.5, 0.5],
+            "scaled_avg_exprs_receptor": [0.5, 0.5, 0.5],
+            "scaled_pval_adapted_ligand": [0.5, 0.5, 0.5],
+            "scaled_pval_adapted_receptor": [0.5, 0.5, 0.5],
+        }
+    )
+    for use_absolute_rank in (True, False):
+        fig, ax = create_mushroom_plot(df, top_n=1, use_absolute_rank=use_absolute_rank, max_rows=2)
+        assert [label.get_text() for label in ax.get_yticklabels()] == ["L1 - R1", "L2 - R2"]
+        plt.close(fig)
+    # the caller's dataframe isn't sorted
+    assert df["ligand"].tolist() == ["L3", "L2", "L1"]

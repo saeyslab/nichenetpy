@@ -333,6 +333,8 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
+- `visualization.create_mushroom_plot` with `use_absolute_rank=True` sorts the interactions by `prioritization_rank`, as with `use_absolute_rank=False`; it showed the first `max_rows` interactions in the order of `df`, so with a table that isn't sorted by rank the top-ranked interactions could be left out.
+
 - Orders that changed between Python processes (they came from iterating a set) are reproducible; the results are the same: the ligands (columns) of `model_construction.construct_model_from_source_weights` without `ligands` and the groups of `extraction.average_expression` without `keys` are in the order of first appearance, the groups of `prioritization.get_avg_exp` too, the columns of `evaluation.EvaluationData.to_dataframe` in the order of the fields, the keys of `utils.combine_dicts` (and so the order of tied ligands in the activity heatmap) in the order of `dict1`, and the ligands of `visualization.assign_ligands_to_celltype` in the order of `ligands`. `average_expression` with `keys` keeps the order of `keys`.
 
 - `gene_symbol.GeneAliasInfo` created from a dict keeps a copy of it; `add` added the new aliases to the caller's dict.
