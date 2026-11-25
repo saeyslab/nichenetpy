@@ -5,8 +5,9 @@ Here we test the normalization functions.
 """
 
 import numpy as np
+import pytest
 
-from nichenetpy.normalization import scale_quantile, scale_quantile_adapted
+from nichenetpy.normalization import scale_quantile, scale_quantile_adapted, scaling_zscore
 
 err_bound = 0.001
 
@@ -84,3 +85,11 @@ def test_scale_quantile_adapted_std_0():
     template_scale_quantile_adapted(
         [1, 5, 9, 16, 20, 32, 45, 50, 54, 71], 0, [0.001, 0.058, 0.115, 0.215, 0.272, 0.444, 0.630, 0.701, 0.758, 1.001]
     )
+
+
+def test_scaling_zscore_tuple():
+    # any sequence of floats, not only a list
+    assert scaling_zscore((1.0, 2.0, 4.0)) == scaling_zscore([1.0, 2.0, 4.0])
+    assert scaling_zscore((3.0,)) == [0]
+    with pytest.raises(TypeError):
+        scaling_zscore("123")

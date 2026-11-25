@@ -317,6 +317,14 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `wrappers.run_nichenet` ignoring `condition_ref` for the gene set of interest: the receiver's condition of interest was compared with all other conditions instead of with the reference condition (as NicheNetR's `FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)`). This changes the results only with more than two conditions.
 
+- Fixed `prediction.LigandActivityPredictor.predict_single_cell_ligand_activities` silently giving wrong activities when the number of row or column names doesn't match the shape of `expression_scaled` or a name occurs more than once (a name pointed to a wrong or missing row or column); it now raises a `ValueError`, and the error for a cell that isn't in `expression_scaled_rows` names that argument (it said the ligand-target matrix).
+
+- Fixed unclear errors for edge cases: `evaluation.EvaluationData.to_dataframe` of empty evaluation data (a bare `StopIteration`; it now returns an empty data frame with the key, ligand and DE genes columns), `prediction.LigandActivityPredictor.get_weighted_ligand_target_links` with `n=0` (a numpy error; it now gives no targets, and a negative `n` raises a `ValueError`), `model_construction.construct_weighted_networks` with an empty dict of source weights (a zip error; it now gives empty networks, as weights of 0 do) and `extraction.average_expression` when none of the `keys` are values of the `groupby` column ("not enough values to unpack"; it now raises a `ValueError`, as for a missing `groupby` column when `keys` are given).
+
+- Fixed `utils.df_grouped_apply` (used by `prioritization.generate_prioritization_table`) dropping the rows with a missing value (NaN) in the `groupby` column, or failing when the other values are strings; these rows now form a group of their own.
+
+- `normalization.scaling_zscore` accepts any sequence of floats (e.g. a tuple), as `scaling_modified_zscore` does; only a list was accepted.
+
 
 
 [2.0.1]: https://github.com/saeyslab/nichenetpy/compare/v2.0.0...v2.0.1

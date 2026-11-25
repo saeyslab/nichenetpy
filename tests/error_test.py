@@ -16,6 +16,7 @@ from nichenetpy.ann_utils import subset_ann
 from nichenetpy.extraction import average_expression, get_expressed_genes
 from nichenetpy.io import read_csc_matrix
 from nichenetpy.metrics import group_metrics
+from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import get_avg_exp
 
 
@@ -83,7 +84,7 @@ def test_predict_single_cell_ligand_activities_error():
     get_hnscc_file()
     exp_mat, exp_mat_rows, exp_mat_cols = read_csc_matrix(os.path.join(hnscc_path, "hnscc_expression.bin"))
     exp_mat = exp_mat.toarray()
-    with pytest.raises(ValueError, match=rf"{cell_that_doesnt_exist} not in ligand_target_matrix"):
+    with pytest.raises(ValueError, match=rf"'{cell_that_doesnt_exist}' is not in expression_scaled_rows"):
         predictor.predict_single_cell_ligand_activities(
             [cell_that_doesnt_exist], exp_mat, exp_mat_rows, exp_mat_cols, predictor.get_ligands()
         )
@@ -91,3 +92,43 @@ def test_predict_single_cell_ligand_activities_error():
         predictor.predict_single_cell_ligand_activities(
             exp_mat_rows[:3], exp_mat, exp_mat_rows, exp_mat_cols, [ligand_that_doesnt_exist]
         )
+
+
+def _small_predictor():
+    return LigandActivityPredictor(
+        np.asfortranarray([[0.1, 0.5], [0.4, 0.2], [0.3, 0.9]]), ["g0", "g1", "g2"], ["L1", "L2"]
+    )
+
+
+def test_predict_single_cell_ligand_activities_names_error():
+    # two cells and three genes; the names must fit the shape and be unique
+    expression = np.array([[0.5, -1.0, 2.0], [1.5, 0.2, -0.3]])
+    predictor = _small_predictor()
+    for rows, cols, message in (
+        (["c0", "c1"], ["g0", "g1"], "shape"),
+        (["c0", "c1", "c2"], ["g0", "g1", "g2"], "shape"),
+        (["c0", "c0"], ["g0", "g1", "g2"], "duplicates"),
+        (["c0", "c1"], ["g0", "g1", "g1"], "duplicates"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            predictor.predict_single_cell_ligand_activities(rows, expression, rows, cols, ["L1", "L2"])
+
+
+def test_get_weighted_ligand_target_links_error():
+    with pytest.raises(ValueError, match="at least 0"):
+        _small_predictor().get_weighted_ligand_target_links("L1", ["g0", "g1"], n=-1)
+
+
+def test_average_expression_keys_error():
+    obs = pd.DataFrame({"celltype": ["A", "A", "B"]}, index=["c0", "c1", "c2"])
+    mat = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    ann = AnnData(X=mat, obs=obs, var=pd.DataFrame(index=["g0", "g1"]))
+    ann.layers["counts"] = mat
+    # keys that aren't values of the column are left out, none of them is an error
+    result = average_expression(ann, "celltype", keys=["A", "Z"], layer="counts")
+    assert result.columns.tolist() == ["A"]
+    np.testing.assert_allclose(result["A"], [2.0, 3.0])
+    with pytest.raises(ValueError, match="none of the keys"):
+        average_expression(ann, "celltype", keys=["Z"], layer="counts")
+    with pytest.raises(ValueError, match="no column 'MIA'"):
+        average_expression(ann, "MIA", keys=["A"], layer="counts")

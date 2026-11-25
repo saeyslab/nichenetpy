@@ -7,6 +7,7 @@ Here we test the LigandActivityPredictor class.
 import os
 from collections.abc import Sequence
 
+import numpy as np
 import pandas as pd
 from common import equals_iter, fetch, get_model_pickle
 
@@ -196,3 +197,15 @@ def test_prediction_PROST_FIB() -> None:
         .to_numpy(),
         PROST_FIB_top_10_ligand_activities,
     )
+
+
+def test_get_weighted_ligand_target_links_no_targets():
+    predictor = LigandActivityPredictor(
+        np.asfortranarray([[0.1, 0.5], [0.4, 0.2], [0.3, 0.9]]), ["g0", "g1", "g2"], ["L1", "L2"]
+    )
+    assert predictor.get_weighted_ligand_target_links("L1", ["g0", "g1"], n=0) == {
+        "ligand": "L1",
+        "target": None,
+        "weight": None,
+    }
+    assert predictor.get_weighted_ligand_target_links("L1", ["g0", "g1"], n=1)["target"] == ["g1"]

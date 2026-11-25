@@ -226,7 +226,7 @@ def scaling_zscore(
     With fewer than 2 values that aren't NaN, the values are only centered (NicheNetR raises an error).
     A single value gives 0, also if it's NaN (as in NicheNetR).
     """
-    if type(data) is list:
+    if isinstance(data, Sequence) and not isinstance(data, str):
         if len(data) == 1:
             return [0]
         avg, sd = _nan_mean_sd(np.asarray(data, dtype=np.float64))

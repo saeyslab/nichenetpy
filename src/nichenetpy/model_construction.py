@@ -85,9 +85,7 @@ def construct_weighted_networks(
         for source, weight in source_weights.items():
             if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
-        source_weights = pd.DataFrame(
-            dict(zip(("source", "weight"), zip(*source_weights.items(), strict=True), strict=True))
-        )
+        source_weights = pd.DataFrame({"source": list(source_weights.keys()), "weight": list(source_weights.values())})
     elif type(source_weights) is pd.DataFrame:
         for source, weight in zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True):
             if not 0 <= weight <= 1:

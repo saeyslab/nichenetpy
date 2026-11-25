@@ -513,7 +513,7 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
     df : pandas.DataFrame
         the dataframe
     groupby : str
-        the column to group by
+        the column to group by (rows with a missing value form a group of their own)
     func : Callable
         the function to apply
     dest : str
@@ -537,11 +537,11 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
         raise TypeError(f"func should have type Callable, was {type(func)}")
     if type(dest) is not str:
         raise TypeError(f"dest should have type str, was {type(dest)}")
-    vals = sorted(set(df[groupby]))
     groups = []
-    for val in vals:
+    # the groups in sorted order, a missing value (NaN) as a group of its own (last)
+    for _, group in df.groupby(groupby, sort=True, dropna=False, observed=True):
         # copy, so the new column is added to a dataframe of its own and not to a view of df
-        group = df[df[groupby] == val].copy()
+        group = group.copy()
         group[dest] = func(group)
         groups.append(group)
     return pd.concat(groups)

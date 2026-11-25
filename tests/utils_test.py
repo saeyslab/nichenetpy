@@ -5,9 +5,11 @@ Here we test some functions from nichenetpy.utils
 """
 
 import numpy as np
+import pandas as pd
+import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
-from nichenetpy.utils import combine_by_key, combine_dicts, remove_zero_rows_cols, subset_matrix
+from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, remove_zero_rows_cols, subset_matrix
 
 
 def matrix_equal(m1, m2):
@@ -349,3 +351,12 @@ def test_combine_dicts_1():
             "c": (2, 6),
         },
     )
+
+
+@pytest.mark.parametrize("group", [["a", "b", np.nan, "a"], [1.0, 2.0, np.nan, 1.0]])
+def test_df_grouped_apply_missing_group(group):
+    df = pd.DataFrame({"group": group, "value": [1.0, 2.0, 3.0, 4.0]})
+    result = df_grouped_apply(df, "group", lambda g: g["value"] - g["value"].mean(), "centered")
+    # every row is kept, the missing value is a group of its own (last)
+    assert result.index.tolist() == [0, 3, 1, 2]
+    assert result["centered"].tolist() == [-1.5, 1.5, 0.0, 0.0]

@@ -507,10 +507,19 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise TypeError(f"calc_auroc should have type bool, was {type(calc_auroc)}")
         if type(calc_pearson) is not bool:
             raise TypeError(f"calc_pearson should have type bool, was {type(calc_pearson)}")
+        # the names must describe the matrix: a name is looked up as a row or column of expression_scaled
+        if (len(expression_scaled_rows), len(expression_scaled_cols)) != expression_scaled.shape:
+            raise ValueError(
+                f"expression_scaled has shape {expression_scaled.shape}, but there are {len(expression_scaled_rows)} "
+                f"row names and {len(expression_scaled_cols)} column names"
+            )
         row2id = dict(zip(expression_scaled_rows, range(len(expression_scaled_rows)), strict=True))
         # the genes shared by the expression matrix and the model are the same for every cell and ligand, so they're
         # matched once: their rows in the ligand-target matrix and their columns in the expression matrix
         col2id = dict(zip(expression_scaled_cols, range(len(expression_scaled_cols)), strict=True))
+        # a duplicated name would point to only one of its rows or columns
+        if len(row2id) != len(expression_scaled_rows) or len(col2id) != len(expression_scaled_cols):
+            raise ValueError("expression_scaled_rows and expression_scaled_cols should not contain duplicates")
         genes, model_rows = self._shared_genes(col2id.keys())
         expression_cols = [col2id[gene] for gene in genes]
         predictions = {ligand: self.get_col(ligand, is_index=False)[model_rows] for ligand in potential_ligands}
@@ -521,7 +530,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         pearson: list[float] = []
         for cell in cells:
             if cell not in row2id:
-                raise ValueError(f"{cell} not in ligand_target_matrix")
+                raise ValueError(f"the cell {cell!r} is not in expression_scaled_rows")
             expression = np.asarray(expression_scaled[row2id[cell], :]).ravel()
             # the response: whether the gene is in the top (1 - quantile_cutoff) of the cell's expression
             qt = np.quantile(expression, quantile_cutoff)
@@ -561,7 +570,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         geneset : Iterable of gene_t
             the genes for which the expression is potentially affected by ligands from the interacting cell
         n : int
-            the top n of targets per ligand that will be considered, defaults to 250
+            the top n of targets per ligand that will be considered (0 gives no targets), defaults to 250
 
         Returns
         -------
@@ -582,12 +591,16 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         _check_iterable(geneset, "geneset", "gene symbols")
         if type(n) is not int:
             raise TypeError(f"n should have type int, was {type(n)}")
+        if n < 0:
+            raise ValueError(f"n should be at least 0, was {n}")
         if self.ligand_target_matrix.shape is None:
             raise ValueError("The shape of the ligand-target matrix is None. ")
         slc = self.ligand_target_matrix[:, self.ligand2index(ligand)]
         if not isinstance(slc, np.ndarray):
             slc = np.ravel(slc.toarray())
-        if n < self.ligand_target_matrix.shape[0]:
+        if n == 0:
+            targets = []
+        elif n < self.ligand_target_matrix.shape[0]:
             k = self.ligand_target_matrix.shape[0] - n
             top_n_score = np.partition(slc, k)[k]
             targets = sorted(

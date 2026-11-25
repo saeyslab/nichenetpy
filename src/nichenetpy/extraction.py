@@ -258,7 +258,8 @@ def average_expression(
     groupby : str
         the column in ann.obs to group by
     keys : Iterable of str or None
-        the values to group by, all values in the groupby column by default
+        the values to group by, all values in the groupby column by default; keys that aren't values of the groupby
+        column are left out
     layer : str
         the layer to compute average expression values from, this layer should contain counts
     norm_f : Callable or None
@@ -274,7 +275,7 @@ def average_expression(
     TypeError
         if the arguments have the wrong type
     ValueError
-        if the arguments are invalid
+        if the arguments are invalid, e.g. there is no groupby column or none of the keys are values of it
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should be of type AnnData, was {type(ann)}")
@@ -290,16 +291,16 @@ def average_expression(
         if not isinstance(norm_f, Callable):  # type: ignore
             raise TypeError(f"norm_f should be of type Callable, was {type(norm_f)}")
         data = norm_f(data)  # type: ignore # data is type checked
-    if keys is None:
-        try:
-            keys = set(ann.obs[groupby])
-        except KeyError as error:
-            raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
-    else:
+    if keys is not None:
         _check_iterable(keys, "keys", "values of the groupby column")
-    groups = ann.obs[groupby].to_numpy()
-    # make sure all keys are in ann.obs
-    keys = set(groups.tolist()).intersection(keys)
+    try:
+        groups = ann.obs[groupby].to_numpy()
+    except KeyError as error:
+        raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
+    # the keys that are values of the groupby column (all values by default)
+    keys = set(groups.tolist()) if keys is None else set(groups.tolist()).intersection(keys)
+    if len(keys) == 0:
+        raise ValueError(f"none of the keys are values of the column '{groupby}' of the AnnData object")
     # the rows of each group are found with one comparison per group (instead of looking up each cell's group with
     # ann.obs.loc for every group); np.asarray(...).ravel() works for dense and sparse means
     col_names, cols = zip(

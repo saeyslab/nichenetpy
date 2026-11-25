@@ -279,8 +279,11 @@ class EvaluationData(Generic[GeneSymbol]):
         Returns
         -------
         pandas.DataFrame
-            the evaluation data as a dataframe
+            the evaluation data as a dataframe (without rows, with the key, ligand and DE genes columns, if there is
+            no evaluation data)
         """
+        if len(self._data) == 0:
+            return pd.DataFrame(columns=[self.key_name, self.ligand_name, self.de_genes_name])
         keys = set(next(iter(self._data.values())).keys())
         columns_dct = {k: [] for k in keys}
         for v in self._data.values():
