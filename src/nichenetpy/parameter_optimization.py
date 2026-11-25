@@ -268,7 +268,7 @@ def compute_evaluation_scores(
         metric_score_f = metric_score_f_dct["NNv2"]
     if objective_fs is None:
         objective_fs = objective_fs_dct["NNv2"]
-    if type(eval_res) is not dict:
+    if not isinstance(eval_res, dict):
         raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
     if eval_res["performances_target_prediction"] is None:
         raise ValueError("eval_res['performances_target_prediction'] was None")
@@ -277,7 +277,7 @@ def compute_evaluation_scores(
     ligands = _reiterable(ligands)
     if not isinstance(metric_score_f, Callable):  # type: ignore
         raise TypeError(f"metric_score_f should have type Callable, was {type(metric_score_f)}")
-    if type(objective_fs) is not dict:
+    if not isinstance(objective_fs, dict):
         raise TypeError(f"objective_fs should have type dict, was {type(objective_fs)}")
     if (
         len(objective_fs) != 2
@@ -517,7 +517,7 @@ def construct_and_evaluate(
     _check_iterable(target_evaluation_metrics, "target_evaluation_metrics", "metric names")
     weights = (
         source_weights
-        if type(source_weights) is dict
+        if isinstance(source_weights, dict)
         else dict(zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True))  # type: ignore
     )
     # A model without ligand-signaling links (all ligand-receptor and signaling sources weighted 0 or not given)

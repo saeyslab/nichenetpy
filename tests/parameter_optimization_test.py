@@ -6,8 +6,10 @@ Here we test some parts of the optimization process.
 
 import json
 import os
+from collections import OrderedDict
 from itertools import chain
 
+import pandas as pd
 from common import (
     equals_dict,
     get_model_pickle,
@@ -202,3 +204,27 @@ def test_optuna_objective_optimized_source_weights_with_integer_mapping():
     assert scores["target_prediction"]["aupr_corrected"] > 0.4
     assert scores["ligand_prediction"]["auroc"] > 0.9
     assert scores["ligand_prediction"]["aupr_corrected"] > 0.9
+
+
+def test_compute_evaluation_scores_dict_subclass():
+    # the output of evaluate_model for two settings and the ligands L1 and L2
+    target = pd.DataFrame(
+        {
+            "aupr_corrected": [0.2, 0.4, 0.1, 0.3],
+            "auroc": [0.6, 0.7, 0.55, 0.65],
+            "setting": ["s1", "s2", "s1", "s2"],
+            "ligand": ["L1", "L1", "L2", "L2"],
+        }
+    )
+    ligand = pd.DataFrame(
+        {
+            "metric": ["aupr_corrected", "auroc", "aupr_corrected", "auroc"],
+            "group": ["s1", "s1", "s2", "s2"],
+            "ligand": ["L1", "L1", "L2", "L2"],
+            "aupr_corrected": [0.3, 0.2, 0.5, 0.4],
+            "auroc": [0.7, 0.6, 0.8, 0.75],
+        }
+    )
+    eval_res = {"performances_target_prediction": target, "performances_ligand_prediction": ligand}
+    expected = compute_evaluation_scores(eval_res, ["L1", "L2"])
+    assert compute_evaluation_scores(OrderedDict(eval_res), ["L1", "L2"]) == expected

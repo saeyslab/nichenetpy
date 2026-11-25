@@ -5,6 +5,7 @@ Here we test the LigandActivityPredictor class.
 """
 
 import os
+from collections import OrderedDict
 from collections.abc import Sequence
 
 import numpy as np
@@ -209,3 +210,13 @@ def test_get_weighted_ligand_target_links_no_targets():
         "weight": None,
     }
     assert predictor.get_weighted_ligand_target_links("L1", ["g0", "g1"], n=1)["target"] == ["g1"]
+
+
+def test_evaluate_target_prediction_dict_subclass():
+    predictor = LigandActivityPredictor(
+        np.asfortranarray([[0.1, 0.5], [0.4, 0.2], [0.3, 0.9]]), ["g0", "g1", "g2"], ["L1", "L2"]
+    )
+    response = {"g0": 1, "g1": 0, "g2": 1}
+    assert predictor.evaluate_target_prediction("L1", OrderedDict(response)) == predictor.evaluate_target_prediction(
+        "L1", response
+    )

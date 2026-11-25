@@ -858,13 +858,13 @@ def create_barcode_plot(
     Axes
         the axes
     """
-    if type(ligand_activities_agnostic) is dict:
+    if isinstance(ligand_activities_agnostic, dict):
         ligand_activities_agnostic = ligand_activities_agnostic.items()
     elif not isinstance(ligand_activities_agnostic, Iterable):
         raise TypeError(
             f"ligand_activities_agnostic should be a dictionary or an iterable of (key, value) tuples, was {type(ligand_activities_agnostic)}"
         )
-    if type(ligand_activities_focused) is dict:
+    if isinstance(ligand_activities_focused, dict):
         ligand_activities_focused = ligand_activities_focused.items()
     elif not isinstance(ligand_activities_focused, Iterable):
         raise TypeError(

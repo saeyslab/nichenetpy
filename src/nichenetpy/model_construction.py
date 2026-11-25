@@ -81,7 +81,7 @@ def construct_weighted_networks(
         raise TypeError(f"sig_network should have type pandas.DataFrame, was {type(sig_network)}")
     if type(gr_network) is not pd.DataFrame:
         raise TypeError(f"gr_network should have type pandas.DataFrame, was {type(gr_network)}")
-    if type(source_weights) is dict:
+    if isinstance(source_weights, dict):
         for source, weight in source_weights.items():
             if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
@@ -446,7 +446,7 @@ def construct_ligand_tf_matrix(
 
     `direct` time complexity `O(l * c)` with `l` the amount of ligands and `c` the amount of columns in lr_sig weighted matrix
     """
-    if type(weighted_networks) is not dict:
+    if not isinstance(weighted_networks, dict):
         raise TypeError(
             f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
         )
@@ -646,7 +646,7 @@ def construct_tf_target_matrix(
     TypeError
         if the arguments have the wrong type
     """
-    if type(weighted_networks) is not dict:
+    if not isinstance(weighted_networks, dict):
         raise TypeError(
             f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
         )
@@ -973,7 +973,7 @@ def construct_ligand_target_matrix(  # type: ignore
     -----
     if return_all_matrices is True, three matrices with row en column labels are returned (ligand-target, ligand-tf and tf-target)
     """
-    if type(weighted_networks) is not dict:
+    if not isinstance(weighted_networks, dict):
         raise TypeError(
             f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
         )
@@ -1205,7 +1205,7 @@ def construct_model_from_source_weights(
         if the arguments are invalid
         if none of the ligands are present in the weighted networks
     """
-    if (type(source_weights) is dict and sum(source_weights.values()) == 0) or (
+    if (isinstance(source_weights, dict) and sum(source_weights.values()) == 0) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
     ):
         return {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None}

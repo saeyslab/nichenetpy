@@ -463,9 +463,9 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     """
     if func is None:
         func = lambda x, y: (x, y)
-    if type(dict1) is not dict:
+    if not isinstance(dict1, dict):
         raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
-    if type(dict2) is not dict:
+    if not isinstance(dict2, dict):
         raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
     return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
 

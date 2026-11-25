@@ -1098,7 +1098,7 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     _check_iterable(receivers, "receivers", "cell types")
     _check_iterable(ligands, "ligands", "gene symbols")
     _check_iterable(receptors, "receptors", "gene symbols")
-    if type(colors) is not dict:
+    if not isinstance(colors, dict):
         raise TypeError(f"colors should have type dict[gene_t, str], was {type(colors)}")
     if not isinstance(inter_space, Number):
         raise TypeError(f"inter_space should have type float, was {type(inter_space)}")
@@ -1163,7 +1163,7 @@ def create_ligand_links_circos_plot(
     """
     if type(circos_links) is not pd.DataFrame:
         raise TypeError(f"circos_links should have type pandas.DataFrame, was {type(circos_links)}")
-    if type(colors) is not dict:
+    if not isinstance(colors, dict):
         raise TypeError(f"colors should have type dict[gene_t, str], was {type(colors)}")
     if type(dest_name) is not str:
         raise TypeError(f"dest_name should have type str, was {type(dest_name)}")

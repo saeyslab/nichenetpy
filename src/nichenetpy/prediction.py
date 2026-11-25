@@ -349,7 +349,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         """
         _check_iterable(target_evaluation_metrics, "target_evaluation_metrics", "metric names")
         ligand = _as_ligand(ligand, "ligand")
-        if type(response) is not dict:
+        if not isinstance(response, dict):
             raise TypeError(f"response should have type dict, was {type(response)}")
         genes, rows = self._shared_genes(response.keys())
         resp = np.array([response[gene] for gene in genes])

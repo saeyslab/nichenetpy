@@ -5,6 +5,7 @@ Here we test if the gene symbol conversion is the same as in NicheNetR.
 """
 
 import os
+from collections import OrderedDict
 
 import pytest
 from common import get_network_files, network_path
@@ -139,3 +140,10 @@ def test_convert_mouse_to_human_1():
 
 def test_convert_mouse_to_human_2():
     convert_mouse_to_human_template(["Ssxb3", "Ssx9", "Ssxb10", "Ssxb9"], [None, None, None, None])
+
+
+def test_gene_alias_info_dict_subclass():
+    mapping = {"A1": ("SYM", 1), "B1": ("OTHER", None)}
+    assert GeneAliasInfo(OrderedDict(mapping)).alias_to_symbol(["A1", "X"]) == GeneAliasInfo(mapping).alias_to_symbol(
+        ["A1", "X"]
+    )

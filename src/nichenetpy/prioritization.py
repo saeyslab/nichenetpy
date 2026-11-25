@@ -503,7 +503,7 @@ def generate_prioritization_table(
             }
         )
     else:
-        if type(prioritizing_weights) is not dict:
+        if not isinstance(prioritizing_weights, dict):
             raise TypeError(f"prioritizing_weights should have type dict, was {type(prioritizing_weights)}")
         for key in (
             "de_ligand",

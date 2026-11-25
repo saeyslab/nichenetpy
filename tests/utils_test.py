@@ -399,3 +399,8 @@ def test_ligand_activities_df_different_metrics():
         ligand_activities_df({"A": {"x": 1, "y": 2}, "B": {"x": 3}})
     with pytest.raises(ValueError, match="same metrics"):
         ligand_activities_df({"A": {"x": 1}, "B": {"x": 3, "z": 4}})
+
+
+def test_combine_dicts_dict_subclass():
+    dict1, dict2 = {"a": 1, "b": 2}, {"a": 3, "b": 4}
+    assert combine_dicts(OrderedDict(dict1), OrderedDict(dict2)) == combine_dicts(dict1, dict2)

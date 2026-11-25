@@ -39,7 +39,7 @@ class GeneAliasInfo:
             self._mapping = dict(
                 zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez), strict=True), strict=True)
             )
-        elif type(arg) is dict:
+        elif isinstance(arg, dict):
             self._mapping = arg
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")

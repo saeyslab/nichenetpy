@@ -327,7 +327,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed `utils.ligand_activities_df` (and therefore `prioritization.generate_prioritization_table` with ligand activities as a dict or list) putting a ligand's values in the wrong columns when its metrics were in another order than those of the first ligand; the values are now matched by metric name, ligands with different metrics raise a `ValueError`, and no ligands give an empty data frame (it raised an unclear error).
 
-- `evaluation.EvaluationData`, `utils.ligand_activities_df` and `prioritization.generate_prioritization_table` accept dict subclasses (e.g. `collections.OrderedDict`) wherever a dict is accepted; they were rejected or iterated as an Iterable.
+- Dict subclasses (e.g. `collections.OrderedDict`) are accepted wherever a dict is accepted; they were rejected (or iterated as an Iterable): `evaluation.EvaluationData`, `utils.ligand_activities_df`, `utils.combine_dicts`, `prioritization.generate_prioritization_table` (`ligand_activities`, `prioritizing_weights`), `model_construction.construct_weighted_networks`, `construct_model_from_source_weights` and `parameter_optimization.construct_and_evaluate` (`source_weights`), `model_construction.construct_ligand_tf_matrix`, `construct_tf_target_matrix` and `construct_ligand_target_matrix` (`weighted_networks`), `parameter_optimization.compute_evaluation_scores` (`eval_res`, `objective_fs`), `prediction.LigandActivityPredictor.evaluate_target_prediction` (`response`), `gene_symbol.GeneAliasInfo`, `visualization.create_barcode_plot` and the circos plots in `wrappers` (`colors`).
 
 
 
