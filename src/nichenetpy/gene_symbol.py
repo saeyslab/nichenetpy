@@ -40,7 +40,8 @@ class GeneAliasInfo:
                 zip(alias, zip(symbol, (None if e == "" else int(e) for e in entrez), strict=True), strict=True)
             )
         elif isinstance(arg, dict):
-            self._mapping = arg
+            # a copy, so add doesn't change the caller's dict
+            self._mapping = dict(arg)
         else:
             raise TypeError(f"arg should have type str or dict, was {type(arg)}")
 

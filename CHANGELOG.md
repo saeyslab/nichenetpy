@@ -333,6 +333,8 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
+- `gene_symbol.GeneAliasInfo` created from a dict keeps a copy of it; `add` added the new aliases to the caller's dict.
+
 - Fixed `visualization.get_ligand_signaling_path` choosing the path with a link that occurs more than once in `lr_sig` by the sum of the costs (1 / weight) of its copies, so a duplicated link was less likely to be on the path; the weights of a duplicated link are now summed before the path search, as in the returned signaling network. Networks made by `model_construction.construct_weighted_networks` have no duplicated links.
 
 

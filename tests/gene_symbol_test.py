@@ -147,3 +147,11 @@ def test_gene_alias_info_dict_subclass():
     assert GeneAliasInfo(OrderedDict(mapping)).alias_to_symbol(["A1", "X"]) == GeneAliasInfo(mapping).alias_to_symbol(
         ["A1", "X"]
     )
+
+
+def test_gene_alias_info_add_keeps_caller_dict():
+    mapping = {"A1": ("SYM", 1)}
+    alias_info = GeneAliasInfo(mapping)
+    alias_info.add([("B1", ("OTHER", None))])
+    assert mapping == {"A1": ("SYM", 1)}
+    assert alias_info["B1"] == ("OTHER", None)
