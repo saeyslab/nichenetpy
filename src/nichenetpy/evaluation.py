@@ -10,7 +10,9 @@ from nichenetpy.typing import (
     GeneSymbol,
     _as_gene,
     _as_metrics,
+    _check_iterable,
     _combination_name,
+    _reiterable,
     ligand_eval_metric_t,
     target_eval_metric_t,
 )
@@ -372,12 +374,13 @@ def get_single_ligand_importances(
     TypeError
         if the arguments have the wrong type
     """
-    # a tuple: the metrics are used more than once
-    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
+    _check_iterable(target_evaluation_metrics, "target_evaluation_metrics", "metric names")
+    _check_iterable(all_ligands, "all_ligands", "ligands")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if not isinstance(evaluation_data, Iterable):
         raise TypeError(f"evaluation_data should have type Iterable[dict], was {type(evaluation_data)}")
+    # sorted (a fixed column order), and used for every row
     target_evaluation_metrics = sorted(target_evaluation_metrics)
     # the field names of the settings: those of an EvaluationData, otherwise the documented keys
     if isinstance(evaluation_data, EvaluationData):
@@ -386,9 +389,8 @@ def get_single_ligand_importances(
         de_genes_name = evaluation_data.de_genes_name
     else:
         key_name, ligand_name, de_genes_name = "name", "from", "response"
-    # stored in lists, both are looped over for every row (a generator can only be used once)
-    settings = list(evaluation_data)
-    all_ligands = list(all_ligands)
+    # iterated once per setting
+    all_ligands = _reiterable(all_ligands)
     """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix
@@ -399,7 +401,7 @@ def get_single_ligand_importances(
     """
     # one row per (setting, test ligand): the metrics, the setting, the test ligand and the true ligand
     rows = []
-    for setting in settings:
+    for setting in evaluation_data:
         for ligand in all_ligands:
             metrics = predictor.evaluate_target_prediction(ligand, setting[de_genes_name], target_evaluation_metrics)
             rows.append(
@@ -446,8 +448,8 @@ def evaluate_single_importances_ligand_prediction(
     TypeError
         if the arguments have the wrong type
     """
-    # a tuple: the metrics are used more than once
-    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
+    _check_iterable(ligand_evaluation_metrics, "ligand_evaluation_metrics", "metric names")
+    # used twice: for the rows and as the metric column
     target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if type(importances) is not pd.DataFrame:
         raise TypeError(f"importances should have type pandas.DataFrame, was {type(importances)}")
@@ -455,6 +457,7 @@ def evaluate_single_importances_ligand_prediction(
         raise TypeError(f"group should have type str, was {type(group)}")
     importances = importances[importances["setting"] == group]
     added = is_ligand_active(importances)
+    # sorted, as the results of calculate_evaluation_metrics below, and used for every target metric
     ligand_evaluation_metrics = sorted(ligand_evaluation_metrics)
     """
     target prediction score:

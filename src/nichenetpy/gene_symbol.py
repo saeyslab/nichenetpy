@@ -5,6 +5,7 @@ from typing import overload
 from anndata import AnnData
 
 from nichenetpy.network import Network
+from nichenetpy.typing import _check_iterable
 
 _pat_gene_alias_info = re.compile(r"^((?:(?:\"|').+(?:\"|'))|NA),(?:\"|')?(\d+)(?:\"|')?,((?:(?:\"|').+(?:\"|'))|NA)$")
 _pat_gene_info = re.compile(
@@ -120,10 +121,11 @@ class GeneAliasInfo:
             obj.var_names = self.alias_to_symbol(obj.var_names)
             if "gene" in obj.var:
                 obj.var["gene"] = self.alias_to_symbol(obj.var["gene"])
-        elif isinstance(obj, Iterable):
+        elif isinstance(obj, Iterable) and not isinstance(obj, str):
+            # a list: the genes are indexed to revert duplicate symbols
             return self.alias_to_symbol(list(obj))
         else:
-            raise TypeError(f"expected type of obj argument to be Iterable[str] or AnnData, got {type(obj)}")
+            raise TypeError(f"obj should be an Iterable of gene symbols (not a single str) or AnnData, was {type(obj)}")
         return None
 
 
@@ -185,15 +187,19 @@ class GeneInfo:
         Returns
         -------
         Iterable of str
-            the mouse gene symbols or None for genes that aren't recognized
+            the mouse gene symbols or None for genes that aren't recognized (computed while iterating)
+
+        Raises
+        ------
+        TypeError
+            if symbols is a str or isn't an Iterable
         """
+        _check_iterable(symbols, "symbols", "gene symbols")
         # this does the same as the NicheNetR equivalent but it makes no sense to me (Victor)
-        for symbol in symbols:
-            if symbol in self._human2mouse._index:
-                mapping = self._human2mouse.mapping_iter(symbol)
-                yield next(mapping)
-            else:
-                yield None
+        return (
+            next(self._human2mouse.mapping_iter(symbol)) if symbol in self._human2mouse._index else None
+            for symbol in symbols
+        )
 
     def convert_mouse_to_human_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:
         """
@@ -207,15 +213,12 @@ class GeneInfo:
         Returns
         -------
         Iterable of str
-            the human gene symbols
+            the human gene symbols or None for genes that aren't recognized (computed while iterating)
 
         Raises
         ------
-        KeyError
-            if a gene symbol isn't recognized
+        TypeError
+            if symbols is a str or isn't an Iterable
         """
-        for symbol in symbols:
-            try:
-                yield self._mouse2human[symbol]
-            except KeyError:
-                yield None
+        _check_iterable(symbols, "symbols", "gene symbols")
+        return (self._mouse2human.get(symbol) for symbol in symbols)

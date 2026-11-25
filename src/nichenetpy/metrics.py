@@ -12,7 +12,14 @@ from sklearn.metrics import precision_recall_curve, roc_curve
 
 from nichenetpy.ann_utils import _subset_layer, subset_ann
 from nichenetpy.exception import NicheNetError, NoTrueSamplesError
-from nichenetpy.typing import EvalMetric, GeneSymbol, eval_metric_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import (
+    EvalMetric,
+    GeneSymbol,
+    _check_iterable,
+    eval_metric_t,
+    nichenet_matrix,
+    validate_matrix_type,
+)
 from nichenetpy.utils import subset_matrix
 from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
 
@@ -384,6 +391,7 @@ def calculate_evaluation_metrics(
         raise TypeError(f"response should be a list or tuple or numpy.ndarray of floats, had type {type(response)}")
     if not isinstance(prediction, (Sequence, np.ndarray)):
         raise TypeError(f"prediction should be a list or tuple or numpy.ndarray of floats, had type {type(prediction)}")
+    _check_iterable(metrics, "metrics", "metric names")
     if sum(response) == 0:
         raise NoTrueSamplesError(
             "There are no true samples in response. aupr, auroc and pearson correlation coëfficient are undefined."
@@ -653,8 +661,8 @@ def group_metrics(
         raise TypeError(f"lfc_pseudocount should be of type float, was {type(lfc_pseudocount)}")
     if type(tie_correction) is not bool:
         raise TypeError(f"tie_correction should be of type bool, was {type(tie_correction)}")
-    if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should be an Iterable of strings, had type {type(features)}")
+    if features is not None:
+        _check_iterable(features, "features", "gene symbols")
     if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should be of type float, was {type(min_abs_lfc)}")
     if not isinstance(min_pct, Number):
@@ -701,7 +709,7 @@ def group_metrics(
         pct.append(y)
         pct_ref.append(z)
     output = pd.melt(
-        pd.DataFrame(np.column_stack(lfc), index=genes, columns=comparison_groups),
+        pd.DataFrame(np.column_stack(lfc), index=genes, columns=comparison_groups),  # pyright: ignore[reportCallIssue, reportArgumentType] # genes is a list, tuple, numpy array or pandas Index
         var_name=groupby,
         value_name="lfc",
         ignore_index=False,

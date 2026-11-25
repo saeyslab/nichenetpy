@@ -20,6 +20,7 @@ from nichenetpy.typing import (
     GeneSymbol,
     _as_ligand,
     _as_metrics,
+    _check_iterable,
     nichenet_matrix,
     target_eval_metric_t,
 )
@@ -346,8 +347,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         nichenetpy.exception.NotInModelError
             if a ligand is not in the ligand-target matrix
         """
-        # a tuple: the metrics are used more than once
-        target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
+        _check_iterable(target_evaluation_metrics, "target_evaluation_metrics", "metric names")
         ligand = _as_ligand(ligand, "ligand")
         if type(response) is not dict:
             raise TypeError(f"response should have type dict, was {type(response)}")
@@ -358,7 +358,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
     def _shared_genes(self, genes: Iterable[GeneSymbol]) -> tuple[list[GeneSymbol], list[int]]:
         # the genes that are both in genes and in the ligand-target matrix, sorted (predictions and responses are matched
         # in this order), and their rows in the ligand-target matrix
-        shared = sorted(self._gene2index.keys() & set(genes))  # type: ignore # genes of one type (str or int) are comparable
+        shared = sorted(self._gene2index.keys() & genes)  # type: ignore # genes of one type (str or int) are comparable
         return shared, [self._gene2index[gene] for gene in shared]
 
     def predict_ligand_activities(
@@ -398,7 +398,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         nichenetpy.exception.NotInModelError
             if a ligand is not in the ligand-target matrix
         """
-        # a tuple: the metrics are used more than once
+        # used for every ligand
         target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
         if not isinstance(geneset, Collection):
             raise TypeError(f"geneset should have type Collection, was {type(geneset)}")
@@ -406,8 +406,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise TypeError(
                 f"background_expressed_genes should have type Collection, was {type(background_expressed_genes)}"
             )
-        if not isinstance(potential_ligands, Iterable):
-            raise TypeError(f"potential_ligands should have type Iterable, was {type(potential_ligands)}")
+        _check_iterable(potential_ligands, "potential_ligands", "ligands")
         if len(geneset) < 20 or len(geneset) > 2000:
             warnings.warn(
                 f"It is recommended that the size of the gene set of interest is between 20 and 2000, was {len(geneset)}",
@@ -580,8 +579,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             if a ligand is not in the ligand-target matrix
         """
         ligand = _as_ligand(ligand, "ligand")
-        if not isinstance(geneset, Iterable):
-            raise TypeError(f"geneset should have type Iterable, was {type(geneset)}")
+        _check_iterable(geneset, "geneset", "gene symbols")
         if type(n) is not int:
             raise TypeError(f"n should have type int, was {type(n)}")
         if self.ligand_target_matrix.shape is None:
@@ -765,8 +763,7 @@ def assess_rf_class_probabilities(
         raise TypeError(
             f"background_expressed_genes should have type Collection[gene_t], was {type(background_expressed_genes)}"
         )
-    if not isinstance(ligands_oi, Iterable):
-        raise TypeError(f"ligands_oi should have type Iterable[gene_t], was {type(ligands_oi)}")
+    _check_iterable(ligands_oi, "ligands_oi", "ligands")
     if not isinstance(predictor, LigandActivityPredictor):
         raise TypeError(f"predictor should have type LigandActivityPredictor, was {type(predictor)}")
     if type(ntrees) is not int:

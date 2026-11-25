@@ -1,5 +1,5 @@
 import warnings
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Collection, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
 from typing import Any, Literal
@@ -22,7 +22,7 @@ from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
 from nichenetpy.normalization import scaling_modified_zscore
 from nichenetpy.prediction import LigandActivityPredictor
 from nichenetpy.prioritization import calculate_de, generate_prioritization_table, get_avg_exp, process_table_to_ic
-from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, _check_iterable, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import combine_by_key, combine_dicts, df_grouped_apply, rank_genes_groups_to_dataframe
 from nichenetpy.visualization import (
     heatmap_1d,
@@ -171,8 +171,7 @@ def combine_weighted_ligand_target_links(
     )
 
 
-def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | None:
-    # the sender cell types are used several times, so they're stored in a list (a generator can only be used once);
+def _senders(sender_celltypes: Iterable[str] | str | None) -> Iterable[str] | None:
     # a single str is one cell type (iterating over it would give its characters)
     if sender_celltypes is None:
         return None
@@ -180,7 +179,7 @@ def _sender_list(sender_celltypes: Iterable[str] | str | None) -> list[str] | No
         return [sender_celltypes]
     if not isinstance(sender_celltypes, Iterable):
         raise TypeError(f"sender_celltypes should be an Iterable of str or None, was {type(sender_celltypes)}")
-    return list(sender_celltypes)
+    return sender_celltypes
 
 
 def _ligands_in_model(
@@ -339,7 +338,11 @@ def run_nichenet(
     ValueError
         if get_prioritization_table is True and sender_celltypes is not provided
     """
-    sender_celltypes = _sender_list(sender_celltypes)
+    sender_celltypes = _senders(sender_celltypes)
+    # iterated up to four times and passed to generate_info_tables, which needs a Sequence: anything else (e.g. a
+    # generator or a set) is stored in a list
+    if sender_celltypes is not None and not isinstance(sender_celltypes, Sequence):
+        sender_celltypes = list(sender_celltypes)
     # checked first, so the analysis doesn't run for nothing
     if get_prioritization_table and sender_celltypes is None:
         raise ValueError("sender_celltypes needs to be provided if get_prioritization_table is True")
@@ -560,7 +563,8 @@ def run_nichenet_cluster_de(
         raise TypeError(f"geneset should have type str, was {type(geneset)}")
     elif geneset not in ("DE", "up", "down"):
         raise ValueError(f"geneset should be 'DE', 'up' or 'down', was {geneset}")
-    sender_celltypes = _sender_list(sender_celltypes)
+    # iterated once
+    sender_celltypes = _senders(sender_celltypes)
     expressed_genes_receiver_ref = set(
         get_expressed_genes(receiver_reference, ann, pct=expression_pct, celltype_col=celltype_col, layer=layer)
     )
@@ -936,9 +940,14 @@ def _create_circos_plot(
     separate_sender_receiver: bool = True,
     sender_receiver_space: float = 0,
 ) -> tuple[Figure, Axes]:
+    # a list: its len is needed for the default weights and the length check
     circos_links = list(circos_links)
-    # opacity is used twice (its maximum and the value of each link), so it's stored in a list (it may be a generator)
-    weights = [1.0] * len(circos_links) if opacity is None else list(opacity)
+    # iterated twice (its maximum and the value of each link) and its len is needed: anything that isn't a Collection
+    # (e.g. a generator) is stored in a list
+    if opacity is None:
+        weights: Collection[float] = [1.0] * len(circos_links)
+    else:
+        weights = opacity if isinstance(opacity, Collection) else list(opacity)
     if len(weights) != len(circos_links):
         raise ValueError(f"opacity should have a value for each of the {len(circos_links)} links, had {len(weights)}")
     max_weight = max(weights, default=1.0)
@@ -1085,14 +1094,10 @@ def create_ligand_receptor_links_prioritization_circos_plot(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(senders, Iterable):
-        raise TypeError(f"senders should have type Iterable[str], was {type(senders)}")
-    if not isinstance(receivers, Iterable):
-        raise TypeError(f"receivers should have type Iterable[str], was {type(receivers)}")
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[gene_t], was {type(ligands)}")
-    if not isinstance(receptors, Iterable):
-        raise TypeError(f"receptors should have type Iterable[gene_t], was {type(receptors)}")
+    _check_iterable(senders, "senders", "cell types")
+    _check_iterable(receivers, "receivers", "cell types")
+    _check_iterable(ligands, "ligands", "gene symbols")
+    _check_iterable(receptors, "receptors", "gene symbols")
     if type(colors) is not dict:
         raise TypeError(f"colors should have type dict[gene_t, str], was {type(colors)}")
     if not isinstance(inter_space, Number):

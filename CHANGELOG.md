@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug when reading GeneAliasInfo or GeneInfo from csv files where commas inside gene symbols where used for splitting.
 
-## [2.0.0] - 2026-11-24
+## [2.0.0] - 2026-11-25
 
 ### Added
 
@@ -141,6 +141,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `wrappers.get_geneset_oi` with `use_scanpy=True` keeps a gene if it's expressed in at least `min_pct` of the cells of the condition of interest or of the reference cells, as the default path and Seurat's `min.pct`; it only used the condition of interest.
 
+- Arguments that are an Iterable of str (gene symbols, metric names, cell types, labels) raise a `TypeError` for a single str, which was split into its characters (or, for `prioritization.get_avg_exp`, used as one gene): `ann_utils.subset_ann` (`genes`, `layers`), `metrics.group_metrics`, `prioritization.calculate_de` and `prioritization.get_avg_exp` (`features`), `extraction.average_expression` (`keys`), `extraction.get_weighted_ligand_receptor_links`, `metrics.calculate_evaluation_metrics` (`metrics`), `model_construction.construct_ligand_tf_matrix` and `construct_ligand_target_matrix` (`ligands`), `parameter_optimization.compute_evaluation_scores` (`ligands`) and `construct_and_evaluate` (the metrics), `evaluation.get_single_ligand_importances` and `evaluation.evaluate_single_importances_ligand_prediction`, the `prediction.LigandActivityPredictor` methods `predict_ligand_activities`, `get_weighted_ligand_target_links` and `evaluate_target_prediction`, `prediction.assess_rf_class_probabilities` (`ligands_oi`), `gene_symbol.GeneAliasInfo.alias_to_symbol`, `gene_symbol.GeneInfo.convert_human_to_mouse_symbols` and `convert_mouse_to_human_symbols` (which now check their argument when they're called), `visualization.create_radar_plot` (`value_labels`) and `wrappers.create_ligand_receptor_links_prioritization_circos_plot`. Arguments that also accept a single str say so in their annotation (e.g. `sender_celltypes` of `wrappers.run_nichenet`).
+
+- Iterable arguments are only copied when that's needed: an argument that's used once isn't copied, and an argument that's used more than once is only stored in a list when it can be used only once (e.g. a generator).
+
 ### Fixed
 
 - Corrected docstrings.
@@ -197,7 +201,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed support for dense (`numpy.ndarray`) layers: `metrics.group_metrics` crashed and `extraction.get_lfc_celltype` returned a single value instead of a list of log fold changes. `utils.subset_matrix` is now faster for sparse inputs, and `metrics.gene_expression_pct` no longer modifies its input matrix or counts explicitly stored zeros as expressed.
 
-- Fixed `prioritization.get_avg_exp` raising a `TypeError` when `condition_oi` / `condition_col` weren't given (both default to None); giving only one of them raises a `ValueError`, as in NicheNetR. Passing `features` subset the genes before normalization, so library sizes were computed from the selected genes only (inflating the average expression and changing its relative values across cell types). Results now match Seurat's `AverageExpression`. `features` can now also be a generator or a single gene name (a str was split into its characters).
+- Fixed `prioritization.get_avg_exp` raising a `TypeError` when `condition_oi` / `condition_col` weren't given (both default to None); giving only one of them raises a `ValueError`, as in NicheNetR. Passing `features` subset the genes before normalization, so library sizes were computed from the selected genes only (inflating the average expression and changing its relative values across cell types). Results now match Seurat's `AverageExpression`. `features` can now also be a generator.
 
 - Fixed bugs in `visualization.create_radar_plot`: without `max_val` the plot was scaled to the largest second value of the series instead of the largest value (and failed for 1-D data), and a generator for `value_labels` failed. Also corrected the type of `data` to a sequence of sequences of floats or a 2-D `numpy.ndarray` (one row per plotted series).
 
@@ -285,7 +289,9 @@ and this project adheres to [Semantic Versioning][].
 
 - `model_construction.construct_ligand_tf_matrix` now raises a `TypeError` when a ligand isn't an Iterable of genes; a string was split into its characters.
 
-- `utils.ncycle` rejects an `n` that isn't an int with a clear `TypeError` (a bool was used as 0 or 1).
+- `utils.ncycle` rejects an `n` that isn't an int with a clear `TypeError` (a bool was used as 0 or 1). It cycles through an iterator (e.g. a generator) `n` times instead of once, and checks its arguments when it's called instead of when it's iterated.
+
+- Fixed `parameter_optimization.compute_evaluation_scores` with `ligands` as a generator: it's used twice (target and ligand prediction), the second time it was empty, which raised a `ValueError`. Fixed `ann_utils.subset_ann` with `layers` as a generator, which raised a `StopIteration`.
 
 - Fixed `network.WeightedNetwork.get_all` including the link weights, and `to_dataframe` of `network.Network` and `network.WeightedNetwork` failing for an empty network. `to_dataframe` is ~4 times faster and its index now runs from 0 to the number of links.
 
@@ -310,14 +316,6 @@ and this project adheres to [Semantic Versioning][].
 - Fixed `normalization.scale_quantile` (and `scale_quantile_adapted`) returning all NaN when the data contains a NaN value; the quantiles are now computed without the NaN values, which stay NaN, as in NicheNetR. In `prioritization.generate_prioritization_table`, a ligand with a NaN activity (e.g. a NaN pearson correlation) made the scaled activity and prioritization score NaN for every interaction; now only that ligand's interactions are NaN.
 
 - Fixed `wrappers.run_nichenet` ignoring `condition_ref` for the gene set of interest: the receiver's condition of interest was compared with all other conditions instead of with the reference condition (as NicheNetR's `FindMarkers(ident.1 = condition_oi, ident.2 = condition_reference)`). This changes the results only with more than two conditions.
-
-## [2.0.1] - TODO
-
-### Fixed
-
-### Added
-
-### Changed
 
 
 

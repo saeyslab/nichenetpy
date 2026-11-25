@@ -12,7 +12,7 @@ from nichenetpy.extraction import average_expression
 from nichenetpy.metrics import group_metrics
 from nichenetpy.network import LigandReceptorNetwork
 from nichenetpy.normalization import relative_counts, scale_quantile_adapted, scaling_zscore
-from nichenetpy.typing import GeneSymbol, nichenet_matrix, target_eval_metric_t
+from nichenetpy.typing import GeneSymbol, _check_iterable, nichenet_matrix, target_eval_metric_t
 from nichenetpy.utils import df_grouped_apply, ligand_activities_df, rank_genes_groups_to_dataframe
 
 
@@ -82,8 +82,8 @@ def calculate_de(
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
-    if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
+    if features is not None:
+        _check_iterable(features, "features", "gene symbols")
     if not isinstance(min_abs_lfc, Number):
         raise TypeError(f"min_abs_lfc should have type float, was {type(min_abs_lfc)}")
     if not isinstance(min_pct, Number):
@@ -98,8 +98,9 @@ def calculate_de(
         output = rank_genes_groups_to_dataframe(ann, groupby=celltype_col)
         # the filters of group_metrics, applied to the results of the test of all genes
         if features is not None:
-            features = sorted(features) if type(features) is set else list(features)
-            missing = set(features).difference(ann.var_names.tolist())
+            # a set: used to check the genes and to select the rows
+            features = set(features)
+            missing = features.difference(ann.var_names.tolist())
             if missing:
                 raise KeyError(f"features contains genes that are not in the AnnData object: {sorted(missing)}")
             output = output[output["gene"].isin(features)]
@@ -203,8 +204,8 @@ def get_avg_exp(
         raise TypeError(f"condition_col should have type str, was {type(condition_col)}")
     if type(layer) is not str:
         raise TypeError(f"layer should have type str, was {type(layer)}")
-    if features is not None and not isinstance(features, Iterable):
-        raise TypeError(f"features should have type Iterable[gene_t], was {type(features)}")
+    if features is not None:
+        _check_iterable(features, "features", "gene symbols")
     if type(log_normalized) is not bool:
         raise TypeError(f"log_normalized should have type bool, was {type(log_normalized)}")
     # if condition_col is provided, condition_col must also be provided, condition_col is a dead argument if condition_oi is None
@@ -227,7 +228,8 @@ def get_avg_exp(
     )
     avg_celltype.index.name = "gene"
     if features is not None:
-        avg_celltype = avg_celltype.loc[[features] if type(features) is str else list(features)]
+        # a list: pandas selects rows with a list (not with a set or a generator)
+        avg_celltype = avg_celltype.loc[list(features)]
     avg_celltype = avg_celltype.reset_index()
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"

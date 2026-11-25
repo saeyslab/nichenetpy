@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence, Collection
 from typing import Any, Literal, Protocol, TypeVar, overload
 
 from numpy import bool_, dtype, floating, integer, ndarray
@@ -155,9 +155,39 @@ def _as_ligand(
     return _as_gene(obj, name)
 
 
-def _as_metrics(metrics: Iterable[EvalMetric], name: str) -> tuple[EvalMetric, ...]:
+def _check_iterable(values: object, name: str, elements: str) -> None:
     """
-    Return evaluation metrics as a tuple, so they can be used more than once (e.g. when given as a generator).
+    Check that an argument is an Iterable and not a single str (a str is an Iterable of its characters).
+
+    Parameters
+    ----------
+    values : object
+        the argument
+    name : str
+        the name of the argument, used in the error message
+    elements : str
+        what the Iterable contains, used in the error message (e.g. "gene symbols")
+
+    Raises
+    ------
+    TypeError
+        if values is a str or isn't an Iterable
+    """
+    if isinstance(values, str):
+        raise TypeError(f"{name} should be an Iterable of {elements}, not a single str: {values!r}")
+    if not isinstance(values, Iterable):
+        raise TypeError(f"{name} should be an Iterable of {elements}, was {type(values)}")
+
+
+def _reiterable[T](values: Iterable[T]) -> Iterable[T]:
+    # a Collection (list, tuple, set, dict, numpy array, pandas Index, range, dict views) produces a new iterator
+    # every time it's iterated; anything else (e.g. a generator) is stored in a list
+    return values if isinstance(values, Collection) else list(values)
+
+
+def _as_metrics(metrics: Iterable[EvalMetric], name: str) -> Iterable[EvalMetric]:
+    """
+    Check evaluation metrics and return them so they can be used more than once and in a fixed order.
 
     Parameters
     ----------
@@ -168,19 +198,19 @@ def _as_metrics(metrics: Iterable[EvalMetric], name: str) -> tuple[EvalMetric, .
 
     Returns
     -------
-    tuple of str
-        the metrics in the given order, a set in sorted order (the order of a set changes between Python processes)
+    Iterable of str
+        a set in sorted order (the order of a set changes between Python processes), an iterator (e.g. a generator) in
+        a list, any other Iterable as it is
 
     Raises
     ------
     TypeError
         if metrics is a str (a single metric would be split into its characters) or isn't an Iterable
     """
-    if isinstance(metrics, str) or not isinstance(metrics, Iterable):
-        raise TypeError(f"{name} should be an Iterable of metric names (not a str), was {type(metrics)}")
+    _check_iterable(metrics, name, "metric names")
     if isinstance(metrics, (set, frozenset)):
-        return tuple(sorted(metrics))
-    return tuple(metrics)
+        return sorted(metrics)
+    return _reiterable(metrics)
 
 
 def validate_matrix_type(obj: object, err_msg: str) -> None:

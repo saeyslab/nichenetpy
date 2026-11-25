@@ -9,7 +9,16 @@ import pandas as pd
 from scipy.sparse import csc_array, csr_array, csr_matrix, diags_array
 from scipy.sparse.csgraph import dijkstra
 
-from nichenetpy.typing import GeneCombination, GeneSymbol, _as_gene, _combination_name, gene_t, nichenet_matrix
+from nichenetpy.typing import (
+    GeneCombination,
+    GeneSymbol,
+    _as_gene,
+    _check_iterable,
+    _combination_name,
+    _reiterable,
+    gene_t,
+    nichenet_matrix,
+)
 from nichenetpy.utils import subset_matrix
 
 
@@ -350,9 +359,8 @@ def construct_ligand_tf_matrix(
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
     ligands : Iterable of Iterable of gene_t
-        all ligands and ligand-combinations of which target gene probability scores should be calculated; a combination
-        is named after its members joined with "-" (only for gene symbols, str) and uses the members that are in the
-        weighted networks
+        all ligands and ligand-combinations of which target gene probability scores should be calculated; a combination is named after its members joined with "-" (only for gene symbols, str) and uses the
+        members that are in the weighted networks
     ltf_cutoff : float
         ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
         every score to 0).
@@ -444,8 +452,7 @@ def construct_ligand_tf_matrix(
         raise TypeError(
             f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
         )
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[gene_t], was {type(ligands)}")
+    _check_iterable(ligands, "ligands", "ligands (Iterables of genes)")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -974,8 +981,7 @@ def construct_ligand_target_matrix(  # type: ignore
         )
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[gene_t|Iterable[gene_t]], was {type(ligands)}")
+    _check_iterable(ligands, "ligands", "ligands and combinations of ligands")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -1020,9 +1026,10 @@ def construct_ligand_target_matrix(  # type: ignore
     elif not 0 <= direct_coef <= 1:
         raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
     _check_ppr_implementation(ppr_implementation)
-    # a single ligand or a combination (an Iterable of ligands, as a tuple: the ligands are used more than once below)
+    # a single ligand (in a tuple) or a combination (an Iterable of ligands); each is iterated twice: for the direct
+    # regulators and to construct the ligand-tf matrix
     ligands = [
-        tuple(_ligands) if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
+        _reiterable(_ligands) if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
         for _ligands in ligands
     ]
     # the direct regulatory links start at any ligand of the ligand-receptor network, so a ligand's row doesn't depend

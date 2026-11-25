@@ -15,7 +15,9 @@ from nichenetpy.typing import (
     MetricScoreFunction,
     ObjectiveFunction,
     _as_metrics,
+    _check_iterable,
     _combination_name,
+    _reiterable,
     eval_metric_t,
     ligand_eval_metric_t,
     target_eval_metric_t,
@@ -151,7 +153,7 @@ def evaluate_model(
     For instance if the intersection between the genes in the ligand-target matrix and the genes in the
     GS set are genes that aren't expressed then the model can't be evaluated on this GS set.
     """
-    # a tuple: the metrics are used more than once
+    # used for every setting
     ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
     target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
     if not isinstance(predictor, LigandActivityPredictor):
@@ -270,8 +272,9 @@ def compute_evaluation_scores(
         raise TypeError(f"eval_res should have type dict, was {type(eval_res)}")
     if eval_res["performances_target_prediction"] is None:
         raise ValueError("eval_res['performances_target_prediction'] was None")
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable, was {type(ligands)}")
+    _check_iterable(ligands, "ligands", "ligands")
+    # iterated twice: for the target prediction and for the ligand prediction
+    ligands = _reiterable(ligands)
     if not isinstance(metric_score_f, Callable):  # type: ignore
         raise TypeError(f"metric_score_f should have type Callable, was {type(metric_score_f)}")
     if type(objective_fs) is not dict:
@@ -510,9 +513,8 @@ def construct_and_evaluate(
     If all source weights are 0, or all ligand-receptor and signaling sources have weight 0 (no ligand-signaling
     network), no model is constructed and all prediction scores are 0.
     """
-    # a tuple: the metrics are used more than once
-    ligand_evaluation_metrics = _as_metrics(ligand_evaluation_metrics, "ligand_evaluation_metrics")
-    target_evaluation_metrics = _as_metrics(target_evaluation_metrics, "target_evaluation_metrics")
+    _check_iterable(ligand_evaluation_metrics, "ligand_evaluation_metrics", "metric names")
+    _check_iterable(target_evaluation_metrics, "target_evaluation_metrics", "metric names")
     weights = (
         source_weights
         if type(source_weights) is dict

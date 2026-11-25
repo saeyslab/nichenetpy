@@ -9,7 +9,7 @@ from anndata import AnnData
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.metrics import gene_expression_pct, log_fold_change
 from nichenetpy.network import LigandReceptorNetwork, WeightedNetwork
-from nichenetpy.typing import GeneSymbol, gene_t, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _check_iterable, gene_t, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
@@ -126,13 +126,12 @@ def get_weighted_ligand_receptor_links(
     TypeError
         if the arguments have the wrong type
     """
-    if not isinstance(best_upstream_ligands, Iterable):
-        raise TypeError(f"best_upstream_ligands should be an Iterable of strings, was {type(best_upstream_ligands)}")
-    elif type(best_upstream_ligands) is not set:
+    _check_iterable(best_upstream_ligands, "best_upstream_ligands", "gene symbols")
+    _check_iterable(expressed_receptors, "expressed_receptors", "gene symbols")
+    # sets: used for membership tests (once per link of the ligand-receptor network)
+    if not isinstance(best_upstream_ligands, (set, frozenset)):
         best_upstream_ligands = set(best_upstream_ligands)
-    if not isinstance(expressed_receptors, Iterable):
-        raise TypeError(f"expressed_receptors should be an Iterable of strings, was {type(expressed_receptors)}")
-    elif type(expressed_receptors) is not set:
+    if not isinstance(expressed_receptors, (set, frozenset)):
         expressed_receptors = set(expressed_receptors)
     if type(lr_network) is not LigandReceptorNetwork:
         raise TypeError(f"lr_network should have type LigandReceptorNetwork, was {type(lr_network)}")
@@ -296,8 +295,8 @@ def average_expression(
             keys = set(ann.obs[groupby])
         except KeyError as error:
             raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
-    elif not isinstance(keys, Iterable):
-        raise TypeError(f"keys should be an Iterable of strings, was {type(keys)}")
+    else:
+        _check_iterable(keys, "keys", "values of the groupby column")
     groups = ann.obs[groupby].to_numpy()
     # make sure all keys are in ann.obs
     keys = set(groups.tolist()).intersection(keys)

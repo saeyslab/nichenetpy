@@ -38,7 +38,7 @@ from scipy.sparse.csgraph import dijkstra
 from nichenetpy.ann_utils import subset_ann
 from nichenetpy.network import WeightedNetwork
 from nichenetpy.prediction import LigandActivityPredictor
-from nichenetpy.typing import GeneSymbol, target_eval_metric_t, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _check_iterable, target_eval_metric_t, validate_matrix_type
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
@@ -1671,7 +1671,7 @@ def create_radar_plot(
     data : sequence of sequence of float or numpy.ndarray
         the data to be plotted
     value_labels : iterable of string
-        the labels of the values to be plotted
+        the labels of the values to be plotted (not a single str)
     cmap : str or Colormap
         the name of the color map
     figsize : tuple of int
@@ -1695,8 +1695,7 @@ def create_radar_plot(
     """
     if not isinstance(data, Iterable):
         raise TypeError(f"data should have type Iterable, was {type(data)}")
-    if not isinstance(value_labels, Iterable):
-        raise TypeError(f"value_labels should have type Iterable, was {type(value_labels)}")
+    _check_iterable(value_labels, "value_labels", "labels")
     if type(cmap) is str:
         cmap = cm[cmap]
     elif not isinstance(cmap, Colormap):
@@ -1704,6 +1703,7 @@ def create_radar_plot(
     if type(figsize) is not tuple and type(figsize) is not list:
         raise TypeError(f"figsize should have type tuple, was {type(figsize)}")
     data = tuple(tuple(e) if not isinstance(e, Sequence) else e for e in data)
+    # its len is needed
     if not isinstance(value_labels, Collection):
         value_labels = tuple(value_labels)
     if max_val is None:

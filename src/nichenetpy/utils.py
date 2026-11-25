@@ -2,7 +2,8 @@ from __future__ import annotations  # Index[T] typehint can throw an Error at ru
 
 import os
 import pickle
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from itertools import chain, repeat
 from re import Pattern, compile, finditer, search, split
 from typing import Any, overload
 
@@ -11,7 +12,7 @@ import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
-from nichenetpy.typing import GeneSymbol, _combination_name, nichenet_matrix
+from nichenetpy.typing import GeneSymbol, _combination_name, _reiterable, nichenet_matrix
 
 _default_row_name_pattern = compile(r"^\"*([^\"]+)\"*,")
 _default_col_name_pattern = compile(r",\"*([^\"]+)\"*")
@@ -546,7 +547,7 @@ def df_grouped_apply(df: pd.DataFrame, groupby: str, func: Callable, dest: str) 
     return pd.concat(groups)
 
 
-def ncycle(it: Iterable, n: int) -> Iterable:
+def ncycle(it: Iterable, n: int) -> Iterator:
     """
     A combination of itertools.repeat and itertools.cycle,
     iterate over it n times.
@@ -560,8 +561,8 @@ def ncycle(it: Iterable, n: int) -> Iterable:
 
     Returns
     -------
-    Iterable
-        it chained n times
+    Iterator
+        it chained n times (the elements are produced while iterating)
 
     Raises
     ------
@@ -572,8 +573,10 @@ def ncycle(it: Iterable, n: int) -> Iterable:
         raise TypeError(f"it should have type Iterable, was {it}")
     if type(n) is not int:
         raise TypeError(f"n should have type int, was {type(n)}")
-    for _ in range(n):
-        yield from it
+    # iterated n times
+    if n > 1:
+        it = _reiterable(it)
+    return chain.from_iterable(repeat(it, n))
 
 
 def decomplexify(df: pd.DataFrame, from_col: str = "ligand", to_col: str = "receptor") -> pd.DataFrame:

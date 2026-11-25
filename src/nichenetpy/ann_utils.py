@@ -1,23 +1,32 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, overload
 
 import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.typing import GeneSymbol, _as_gene, nichenet_matrix, validate_matrix_type
+from nichenetpy.typing import GeneSymbol, _as_gene, _check_iterable, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
+
+
+def _as_gene_sequence(genes: Iterable[GeneSymbol]) -> Sequence[GeneSymbol]:
+    # the genes are used more than once and as a sequence (their order, len, a pandas index): a set is sorted (it has
+    # no fixed order), anything else that isn't a sequence (e.g. a generator) is stored in a list
+    if isinstance(genes, (set, frozenset)):
+        return sorted(genes)
+    if isinstance(genes, (Sequence, np.ndarray, pd.Index)):
+        return genes  # type: ignore # a numpy array or pandas Index of genes behaves as a Sequence
+    return list(genes)
 
 
 def _subset_layer(
     ann: AnnData, layer: str, features: Iterable[GeneSymbol], gene2index: dict[GeneSymbol, int] | None = None
-) -> tuple[nichenet_matrix, list[GeneSymbol]]:
+) -> tuple[nichenet_matrix, Sequence[GeneSymbol]]:
     sel_layer = ann.layers[layer]
     validate_matrix_type(sel_layer, f"the selected layer should be of type nichenet_matrix, was {type(sel_layer)}")
     if gene2index is None:
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
-    # sets are sorted (they have no fixed order), other iterables are stored in a list (a generator can only be used once)
-    features = sorted(features) if type(features) is set else list(features)
+    features = _as_gene_sequence(features)
     ids = [gene2index[gene] for gene in features]
     return (subset_matrix(sel_layer, cols=ids), features)  # type: ignore # sel_layer is type checked
 
@@ -76,7 +85,7 @@ def subset_ann(
     genes : Iterable of gene_t or None
         the genes to select
     layers : Iterable of str or None
-        the layers to subset (additionally to subsetting obs), if None all layers are subsetted
+        the layers to subset, if None all layers are subsetted
         layers that aren't subsetted won't be present in the output
     val_col : str
         the name of the column in obs that contains the values to subset by
@@ -102,12 +111,12 @@ def subset_ann(
         raise TypeError(f"ann.obs should be of type pandas.DataFrame, was {type(ann.obs)}")
     if val_col is not None and type(val_col) is not str:
         raise TypeError(f"val_col should be of type str, was {type(val_col)}")
-    if genes is not None and not isinstance(genes, Iterable):
-        raise TypeError(f"genes should be an Iterable of strings, was {type(genes)}")
+    if genes is not None:
+        _check_iterable(genes, "genes", "gene symbols")
     if layers is None:
         layers = [key for key in ann.layers.keys() if key is not None]
-    elif not isinstance(layers, Iterable):
-        raise TypeError(f"layers should be an Iterable of strings, was {type(layers)}")
+    else:
+        _check_iterable(layers, "layers", "layer names")
     # the selected cells (None if the cells aren't subsetted) and the selected values of val_col
     cells_oi: pd.DataFrame | None = None
     selected_vals: set[Any] = set()
@@ -131,9 +140,8 @@ def subset_ann(
     if genes is None:
         col_ids = None
     else:
-        # sets are sorted (they have no fixed order), other iterables are stored in a list: genes is used twice (for
-        # the columns and the var_names) and a generator can only be used once
-        genes = sorted(genes) if type(genes) is set else list(genes)
+        # used twice: for the columns and the var_names
+        genes = _as_gene_sequence(genes)
         gene2index = dict(zip(ann.var_names, range(len(ann.var_names)), strict=True))
         try:
             col_ids = [gene2index[gene] for gene in genes]
@@ -152,7 +160,8 @@ def subset_ann(
         categories = [cat for cat in cells_oi[val_col].cat.categories.tolist() if cat in selected_vals]
         cells_oi[val_col] = cells_oi[val_col].cat.set_categories(categories)
     if len(new_layers) > 0:
-        new_shape = new_layers[next(iter(layers))].shape
+        # the shape of one of the subsetted layers (layers itself is only iterated once, it can be a generator)
+        new_shape = next(iter(new_layers.values())).shape
     elif new_X is not None:
         new_shape = new_X.shape
     else:
