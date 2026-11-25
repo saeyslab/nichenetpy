@@ -261,6 +261,13 @@ def compute_evaluation_scores(
     ------
     TypeError
         if the arguments have the wrong type
+
+    Notes
+    -----
+    For every ligand the median of each metric over its settings is computed. A ligand whose median of a metric is
+    NaN (the metric is undefined in all its settings) is only left out of the objective of that metric, it still
+    counts for the other metrics. This differs from NicheNetR, which leaves such a ligand out of every objective (it
+    drops the ligands with any missing median, also of a metric that isn't an objective).
     """
     # the defaults are looked up here instead of in the signature, so the signature (and its documentation) doesn't
     # contain the dictionaries of functions themselves (note: the default is still the shared module-level object)
@@ -310,6 +317,7 @@ def compute_evaluation_scores(
         )
     )
     performances_prediction_averaged["target_prediction"] = performances_target_prediction_averaged
+    # a ligand with a NaN median is left out of that metric only (NicheNetR leaves it out of every metric)
     for e in performances_target_prediction_averaged.keys():
         performances_target_prediction_averaged[e] = [
             e for e in performances_target_prediction_averaged[e] if not np.isnan(e)
@@ -370,6 +378,7 @@ def compute_evaluation_scores(
         )
     )
     performances_prediction_averaged["ligand_prediction"] = performances_ligand_prediction_averaged
+    # a ligand with a NaN median is left out of that metric only (NicheNetR leaves it out of every metric)
     for e in performances_ligand_prediction_averaged.keys():
         performances_ligand_prediction_averaged[e] = [  # pyright: ignore[reportArgumentType] # target prediction keys should be fine
             e for e in performances_ligand_prediction_averaged[e] if not np.isnan(e)
