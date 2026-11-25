@@ -1210,7 +1210,8 @@ def construct_model_from_source_weights(
     ):
         return {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None}
     if ligands is None:
-        ligands = set(lr_network["from"])
+        # in the order of first appearance (the order of a set changes between Python processes)
+        ligands = list(dict.fromkeys(lr_network["from"].tolist()))
     weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
     ligand2target: np.ndarray[Any, np.dtype[np.floating]]
     # an empty ligand-signaling network (all ligand-receptor and signaling sources weighted 0) is handled by

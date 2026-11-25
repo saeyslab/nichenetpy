@@ -297,8 +297,10 @@ def average_expression(
         groups = ann.obs[groupby].to_numpy()
     except KeyError as error:
         raise ValueError(f"There is no column '{groupby}' in the AnnData object") from error
-    # the keys that are values of the groupby column (all values by default)
-    keys = set(groups.tolist()) if keys is None else set(groups.tolist()).intersection(keys)
+    # the keys that are values of the groupby column (all values by default), in the order of first appearance in the
+    # column or in the order of keys (the order of a set changes between Python processes)
+    values = dict.fromkeys(groups.tolist())
+    keys = list(values) if keys is None else [key for key in dict.fromkeys(keys) if key in values]
     if len(keys) == 0:
         raise ValueError(f"none of the keys are values of the column '{groupby}' of the AnnData object")
     # the rows of each group are found with one comparison per group (instead of looking up each cell's group with

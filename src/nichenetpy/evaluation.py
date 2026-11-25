@@ -284,7 +284,8 @@ class EvaluationData(Generic[GeneSymbol]):
         """
         if len(self._data) == 0:
             return pd.DataFrame(columns=[self.key_name, self.ligand_name, self.de_genes_name])
-        keys = set(next(iter(self._data.values())).keys())
+        # the columns in the order of the fields of the first entry (the order of a set changes between Python processes)
+        keys = list(next(iter(self._data.values())).keys())
         columns_dct = {k: [] for k in keys}
         for v in self._data.values():
             for k in keys:

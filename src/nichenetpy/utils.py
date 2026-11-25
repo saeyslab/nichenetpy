@@ -411,7 +411,7 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     -------
     dict
         a dictionary where each key is mapped to a tuple containing the mappings of the input dictionaries for that key,
-        or alternatively a function is applied which combines the mappings
+        or alternatively a function is applied which combines the mappings; the keys are in the order of dict1
 
     Raises
     ------
@@ -467,7 +467,8 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
         raise TypeError(f"dict1 should have type dict, was {type(dict1)}")
     if not isinstance(dict2, dict):
         raise TypeError(f"dict2 should have type dict, was {type(dict2)}")
-    return {key: func(dict1[key], dict2[key]) for key in set(dict1.keys()).intersection(set(dict2.keys()))}
+    # the mutual keys in the order of dict1 (the order of a set changes between Python processes)
+    return {key: func(dict1[key], dict2[key]) for key in dict1 if key in dict2}
 
 
 def ligand_activities_df(

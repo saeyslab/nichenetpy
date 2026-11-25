@@ -216,7 +216,8 @@ def get_avg_exp(
         )
     if condition_oi is not None and condition_col is not None:
         ann = subset_ann(ann, condition_oi, layers=[layer], val_col=condition_col)
-    celltypes = set(ann.obs[celltype_col])
+    # in the order of first appearance (the order of a set changes between Python processes)
+    celltypes = list(dict.fromkeys(ann.obs[celltype_col].tolist()))
     # normalize on all genes (library sizes must include every gene), select features afterwards
     norm_f = _expm1 if log_normalized else relative_counts
     avg_celltype: pd.DataFrame = average_expression(

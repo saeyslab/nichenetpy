@@ -733,7 +733,8 @@ def assign_ligands_to_celltype(
     Returns
     -------
     pandas.DataFrame
-        A data frame with two columns, the cell type the ligand has been assigned to (ligand_type) and the ligand name (ligand)
+        A data frame with two columns, the cell type the ligand has been assigned to (ligand_type) and the ligand name (ligand);
+        the cell types are sorted, the ligands (the general ligands last) are in the order of ligands
     """
     if type(ann) is not AnnData:
         raise TypeError(f"ann should have type anndata.AnnData, was {type(ann)}")
@@ -769,8 +770,10 @@ def assign_ligands_to_celltype(
         assig += np.std(avg_expression_ligands, mean=assig, axis=0, ddof=1)
     else:
         assig[:] = np.inf
+    # lists instead of sets, so the rows are in a reproducible order (the order of a set changes between Python
+    # processes): the ligands in the order of ligands (subset_ann keeps the order of genes)
     sender_ligand_assignment = {
-        celltype: {ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :]) if e > assig[j]}
+        celltype: [ann_sub.var_names[j] for j, e in enumerate(avg_expression_ligands[i, :].tolist()) if e > assig[j]]
         for i, celltype in enumerate(celltypes)
     }
     count = {}
@@ -780,9 +783,10 @@ def assign_ligands_to_celltype(
         else:
             count[e] = 1
     unique_ligands = {k for k, v in count.items() if v == 1}
-    general_ligands = (ligands if type(ligands) is set else set(ligands)).difference(unique_ligands)
-    for e in sender_ligand_assignment.values():
-        e.difference_update(general_ligands)
+    general_ligands = [e for e in dict.fromkeys(ligands) if e not in unique_ligands]
+    # a ligand assigned to more than one cell type is a general ligand
+    for celltype, assigned in sender_ligand_assignment.items():
+        sender_ligand_assignment[celltype] = [e for e in assigned if e in unique_ligands]
     return pd.DataFrame(
         {
             "ligand_type": chain(
