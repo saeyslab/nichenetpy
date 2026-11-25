@@ -41,7 +41,9 @@ def _expressed_fraction(cells):
 def test_rank_genes_groups_pct_ref(reference):
     ann = _ann()
     groups = "all" if reference == "rest" else ["A", "C"]
-    sc.tl.rank_genes_groups(ann, groupby="celltype", layer="data", method="wilcoxon", pts=True, groups=groups, reference=reference)
+    sc.tl.rank_genes_groups(
+        ann, groupby="celltype", layer="data", method="wilcoxon", pts=True, groups=groups, reference=reference
+    )
     res = rank_genes_groups_to_dataframe(ann, "celltype")
     celltypes = meta["group"].to_numpy()
     for group in ("A", "C"):
@@ -53,7 +55,13 @@ def test_rank_genes_groups_pct_ref(reference):
 
 @pytest.mark.parametrize(
     ("features", "min_pct", "min_abs_lfc", "pval_thresh"),
-    [(None, 0.3, 0, 2), (None, 0, 0.5, 2), (None, 0, 0, 0.01), (["gene0", "gene5", "gene20"], 0, 0, 2), (None, 0.2, 0.25, 0.05)],
+    [
+        (None, 0.3, 0, 2),
+        (None, 0, 0.5, 2),
+        (None, 0, 0, 0.01),
+        (["gene0", "gene5", "gene20"], 0, 0, 2),
+        (None, 0.2, 0.25, 0.05),
+    ],
 )
 def test_calculate_de_scanpy_filters(features, min_pct, min_abs_lfc, pval_thresh):
     # all results (pval_thresh 2 keeps every p-value), filtered by hand
@@ -81,7 +89,9 @@ def test_calculate_de_scanpy_filters(features, min_pct, min_abs_lfc, pval_thresh
 def test_calculate_de_scanpy_min_pct_as_group_metrics():
     # min_pct keeps the same (gene, cell type) pairs as group_metrics: expressed in the cell type or in the other cells
     for min_pct in (0.1, 0.3, 0.6):
-        scanpy_pairs = calculate_de(_ann(), "celltype", "c", "condition", min_pct=min_pct, pval_thresh=2, use_scanpy=True)
+        scanpy_pairs = calculate_de(
+            _ann(), "celltype", "c", "condition", min_pct=min_pct, pval_thresh=2, use_scanpy=True
+        )
         ann = _ann()
         group_metrics(ann, groupby="celltype", layer="data", min_pct=min_pct)
         default_pairs = ann.uns["group_metrics"]

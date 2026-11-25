@@ -39,7 +39,9 @@ def _ann():
 
 
 def _predictor():
-    return LigandActivityPredictor(np.asfortranarray([[0.1, 0.5], [0.4, 0.2], [0.3, 0.9]]), ["g0", "g1", "g2"], ["L1", "L2"])
+    return LigandActivityPredictor(
+        np.asfortranarray([[0.1, 0.5], [0.4, 0.2], [0.3, 0.9]]), ["g0", "g1", "g2"], ["L1", "L2"]
+    )
 
 
 def _eval_res():
@@ -107,7 +109,11 @@ def test_get_single_ligand_importances_generators():
 
 def test_predict_ligand_activities_metrics_generator():
     predictor = _predictor()
-    kwargs = {"geneset": {"g0", "g2"}, "background_expressed_genes": {"g0", "g1", "g2"}, "potential_ligands": ["L1", "L2"]}
+    kwargs = {
+        "geneset": {"g0", "g2"},
+        "background_expressed_genes": {"g0", "g1", "g2"},
+        "potential_ligands": ["L1", "L2"],
+    }
     expected = predictor.predict_ligand_activities(target_evaluation_metrics=["aupr", "auroc"], **kwargs)
     result = predictor.predict_ligand_activities(target_evaluation_metrics=(m for m in ["aupr", "auroc"]), **kwargs)
     assert result == expected
@@ -127,8 +133,14 @@ def _str_calls():
         ("calculate_de features", lambda: calculate_de(ann, "celltype", "c", "condition", features="g0")),
         ("get_avg_exp features", lambda: get_avg_exp(ann, "celltype", features="g0")),
         ("average_expression keys", lambda: average_expression(ann, "celltype", keys="A")),
-        ("get_weighted_ligand_receptor_links ligands", lambda: get_weighted_ligand_receptor_links("L1", ["R1"], None, None)),
-        ("get_weighted_ligand_receptor_links receptors", lambda: get_weighted_ligand_receptor_links(["L1"], "R1", None, None)),
+        (
+            "get_weighted_ligand_receptor_links ligands",
+            lambda: get_weighted_ligand_receptor_links("L1", ["R1"], None, None),
+        ),
+        (
+            "get_weighted_ligand_receptor_links receptors",
+            lambda: get_weighted_ligand_receptor_links(["L1"], "R1", None, None),
+        ),
         ("calculate_evaluation_metrics metrics", lambda: calculate_evaluation_metrics([1, 0], [0.5, 0.1], "aupr")),
         ("construct_ligand_tf_matrix ligands", lambda: construct_ligand_tf_matrix({}, "L1")),
         ("construct_ligand_target_matrix ligands", lambda: construct_ligand_target_matrix({}, pd.DataFrame(), "L1")),
@@ -141,7 +153,9 @@ def _str_calls():
         ),
         (
             "construct_and_evaluate metrics",
-            lambda: construct_and_evaluate({}, 0, 0, 0.5, 0.5, None, None, None, None, ligand_evaluation_metrics="aupr"),
+            lambda: construct_and_evaluate(
+                {}, 0, 0, 0.5, 0.5, None, None, None, None, ligand_evaluation_metrics="aupr"
+            ),
         ),
         (
             "predict_ligand_activities ligands",
@@ -149,7 +163,10 @@ def _str_calls():
         ),
         ("get_weighted_ligand_target_links geneset", lambda: predictor.get_weighted_ligand_target_links("L1", "g0")),
         ("evaluate_target_prediction metrics", lambda: predictor.evaluate_target_prediction("L1", {"g0": 1}, "aupr")),
-        ("assess_rf_class_probabilities ligands", lambda: assess_rf_class_probabilities(2, {"g0"}, {"g1"}, "L1", predictor)),
+        (
+            "assess_rf_class_probabilities ligands",
+            lambda: assess_rf_class_probabilities(2, {"g0"}, {"g1"}, "L1", predictor),
+        ),
         ("alias_to_symbol", lambda: GeneAliasInfo({}).alias_to_symbol("ABC")),
         ("convert_human_to_mouse_symbols", lambda: GeneInfo([("TNF", "Tnf")]).convert_human_to_mouse_symbols("TNF")),
         ("convert_mouse_to_human_symbols", lambda: GeneInfo([("TNF", "Tnf")]).convert_mouse_to_human_symbols("Tnf")),
