@@ -105,7 +105,7 @@ and this project adheres to [Semantic Versioning][].
 
 - `prediction.LigandActivityPredictor` stores a copy of the row and column names, so changing the names that were passed no longer makes the predictor inconsistent. `row_names` and `col_names` are read-only properties that return a tuple, also available as `gene_names` and `ligand_names` (predictors pickled with older versions are converted when they're loaded).
 
-- `parameter_optimization.evaluate_model` and `construct_and_evaluate` no longer depend on the iteration order of sets: the rows of `performances_ligand_prediction` follow the order of the evaluation data, and the ligands are sorted, so results (including the noise of `replace_zero_col_by_noisy_scores` with a fixed `random_state`) are identical across Python processes.
+- `parameter_optimization.evaluate_model` and `construct_and_evaluate` no longer depend on the iteration order of sets: the rows of `performances_ligand_prediction` follow the order of the evaluation data, and the ligands are sorted (by their members: a combination right after its first member, int ids numerically), so results (including the noise of `replace_zero_col_by_noisy_scores` with a fixed `random_state`) are identical across Python processes.
 
 - `parameter_optimization.construct_and_evaluate` now returns the empty solution (all scores 0, for the metrics of `objective_fs`) when all ligand-receptor and signaling sources have weight 0, instead of constructing and evaluating a model without a ligand-signaling network.
 
@@ -125,7 +125,7 @@ and this project adheres to [Semantic Versioning][].
 
 - `network.Network` and `network.WeightedNetwork` store a sorted copy of the mapping list, so the list no longer needs to be sorted by "from" and later changes to it don't affect the network.
 
-- Faster `extraction.average_expression` (and therefore `prioritization.get_avg_exp`), e.g. ~25-60 times for 20,000 cells, and faster ligand activity prediction: `prediction.LigandActivityPredictor.predict_ligand_activities` ~2 times, `predict_single_cell_ligand_activities` ~2.5 times, and `get_col` on sparse matrices ~9 times. The results are unchanged.
+- Faster `extraction.average_expression` (and therefore `prioritization.get_avg_exp`), e.g. ~25-60 times for 20,000 cells, and faster ligand activity prediction: `prediction.LigandActivityPredictor.predict_ligand_activities` ~2 times, `predict_single_cell_ligand_activities` ~2.5 times, and `get_col` on sparse matrices ~9 times; `metrics.group_metrics` with `wilcoxon_limma=True` (and so `prioritization.calculate_de`) ranks each gene once for all groups (~4 times faster with 10 groups). The results are unchanged.
 
 - `ltf_cutoff` must be smaller than 1 in `model_construction.construct_ligand_tf_matrix`, `construct_ligand_target_matrix` and `construct_model_from_source_weights` (1 set every ligand-tf score to 0); NicheNetR allows 1.
 
@@ -253,7 +253,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed the circos plots in `wrappers` failing for cell types or genes containing "_" and for `opacity` given as a generator; the genes within a sector are now always in the same order. Corrected the documentation of `wrappers.create_ligand_links_circos_plot` (the receiving genes are read from the column named by `dest_name`).
 
-- Fixed `prediction.assess_rf_class_probabilities` removing the genes that aren't in the model from the caller's `geneset` and `background_expressed_genes` sets, and failing when `ligands_oi` is a generator. Added a `random_state` argument (for the fold splits and the random forests) to make the results reproducible.
+- Fixed `prediction.assess_rf_class_probabilities` removing the genes that aren't in the model from the caller's `geneset` and `background_expressed_genes` sets, and failing when `ligands_oi` is a generator. Added a `random_state` argument (for the fold splits and the random forests) to make the results reproducible; the genes and a set of `ligands_oi` (the order of the random forest's features) are sorted, so with the same `random_state` the results are identical across Python processes.
 
 - Fixed `prioritization.generate_prioritization_table` adding a "rank" column to the caller's `ligand_activities`.
 
@@ -335,7 +335,7 @@ and this project adheres to [Semantic Versioning][].
 
 - `visualization.create_mushroom_plot` with `use_absolute_rank=True` sorts the interactions by `prioritization_rank`, as with `use_absolute_rank=False`; it showed the first `max_rows` interactions in the order of `df`, so with a table that isn't sorted by rank the top-ranked interactions could be left out.
 
-- Orders that changed between Python processes (they came from iterating a set) are reproducible; the results are the same: the ligands (columns) of `model_construction.construct_model_from_source_weights` without `ligands` and the groups of `extraction.average_expression` without `keys` are in the order of first appearance, the groups of `prioritization.get_avg_exp` too, the columns of `evaluation.EvaluationData.to_dataframe` in the order of the fields, the keys of `utils.combine_dicts` (and so the order of tied ligands in the activity heatmap) in the order of `dict1`, and the ligands of `visualization.assign_ligands_to_celltype` in the order of `ligands`. A set is sorted: `features` of `prioritization.get_avg_exp` (the row order) and `ligands_oi` of `prediction.assess_rf_class_probabilities` (the order of the random forest's features, so its results were not reproducible between Python processes, even with the same `random_state`). `average_expression` with `keys` keeps the order of `keys`.
+- Orders that changed between Python processes (they came from iterating a set) are reproducible; the results are the same: the ligands (columns) of `model_construction.construct_model_from_source_weights` without `ligands` and the groups of `extraction.average_expression` without `keys` are in the order of first appearance, the groups of `prioritization.get_avg_exp` too, the columns of `evaluation.EvaluationData.to_dataframe` in the order of the fields, the keys of `utils.combine_dicts` (and so the order of tied ligands in the activity heatmap) in the order of `dict1`, and the ligands of `visualization.assign_ligands_to_celltype` in the order of `ligands`. A set of `features` of `prioritization.get_avg_exp` is sorted (the row order). `average_expression` with `keys` keeps the order of `keys`.
 
 - `gene_symbol.GeneAliasInfo` created from a dict keeps a copy of it; `add` added the new aliases to the caller's dict.
 
