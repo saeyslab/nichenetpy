@@ -71,53 +71,55 @@ def get_exp(mat, cols):
     return {gene for gene, x in zip(cols, agg_exp, strict=True) if x >= 4}
 
 
+# the expected values of test_steps, test_wrapper, test_steps_prioritization and test_target_prediction_evaluation_geneset
+# are the output of data/full_nichenet_nichenetr/generate_reference.R (nichenetr, after the gene alias conversion)
 BASIC_top_10_ligand_activities = [
-    ("Ifna1", 0.34233796),
-    ("Ifnl3", 0.31641473),
-    ("Ifnb1", 0.31168307),
-    ("Il27", 0.30262806),
-    ("Ifng", 0.29004163),
-    ("Ifnk", 0.19970100),
-    ("Ifne", 0.19817601),
-    ("Ebi3", 0.17898331),
-    ("Ifnl2", 0.16908673),
-    ("Ifna2", 0.16606369),
+    ("Ifna1", 0.35676019),
+    ("Ifnb1", 0.32530688),
+    ("Ifnl3", 0.31567311),
+    ("Il27", 0.31465884),
+    ("Ifng", 0.30593068),
+    ("Ifnk", 0.20604644),
+    ("Ifne", 0.20334689),
+    ("Ebi3", 0.18827519),
+    ("Ifnl2", 0.17628493),
+    ("Ifna2", 0.17142676),
 ]
 BASIC_top_10_active_ligand_target_links = [
-    ("Il27", "Irf1", 0.3393635),
-    ("Ifng", "Irf1", 0.2864755),
-    ("Ifng", "Stat1", 0.2846630),
+    ("Il27", "Irf1", 0.33936348),
+    ("Ifng", "Irf1", 0.28647548),
+    ("Ifng", "Stat1", 0.28466295),
     ("Ifna1", "Stat1", 0.2828309),
-    ("Ifna1", "Ifit2", 0.2794132),
-    ("Ifna1", "Ifi35", 0.2789524),
-    ("Ifna1", "Irf7", 0.2785550),
-    ("Tnf", "Irf1", 0.2769230),
-    ("Tnf", "Irf7", 0.2753571),
-    ("Ifna1", "Stat2", 0.2731093),
+    ("Ifna1", "Ifit2", 0.27941315),
+    ("Ifna1", "Ifi35", 0.27895236),
+    ("Ifna1", "Irf7", 0.27855497),
+    ("Tnf", "Irf1", 0.27692301),
+    ("Tnf", "Irf7", 0.27535714),
+    ("Ifna1", "Stat2", 0.27310932),
 ]
 BASIC_top_10_ligand_receptor_links = [
     ("Ifng", "Ifngr1", 1.5938121),
     ("Ifna1", "Ifnar1", 1.5579253),
-    ("H2-M3", "Cd8a", 1.4430922),
     ("Ifna1", "Ifnar2", 1.3783434),
     ("Ifnb1", "Ifnar1", 1.3397792),
     ("Il27", "Il27ra", 1.2787938),
-    ("Ifna11", "Ifnar1", 1.2454250),
-    ("Ifna12", "Ifnar1", 1.2454250),
-    ("Ifna13", "Ifnar1", 1.2454250),
-    ("Ifna14", "Ifnar1", 1.2454250),
+    ("Il10", "Il10rb", 1.265327),
+    ("Ifna11", "Ifnar1", 1.245425),
+    ("Ifna12", "Ifnar1", 1.245425),
+    ("Ifna13", "Ifnar1", 1.245425),
+    ("Ifna14", "Ifnar1", 1.245425),
 ]
 BASIC_top_10_ligand_activities_focused = [
-    ("Il27", 0.30262806),
-    ("Ebi3", 0.17898331),
-    ("Tnf", 0.12740633),
-    ("Ptprc", 0.11700399),
-    ("H2-Eb1", 0.11242171),
-    ("H2-M3", 0.11226548),
-    ("Vsig10", 0.11064793),
-    ("Clcf1", 0.09289923),
-    ("H2-M2", 0.09154333),
-    ("H2-T10", 0.09154333),
+    ("Il27", 0.31465884),
+    ("Ebi3", 0.18827519),
+    ("Tnf", 0.13019244),
+    ("Ptprc", 0.12292458),
+    ("H2-Eb1", 0.11973532),
+    ("Vsig10", 0.11854376),
+    ("H2-M3", 0.11722891),
+    ("Clcf1", 0.10009112),
+    ("H2-M2", 0.098472502),
+    ("H2-T-ps", 0.098472502),
 ]
 BASIC_top_10_active_ligand_target_links_focused = [
     ("Il27", "Irf1", 0.33936348),
@@ -126,13 +128,12 @@ BASIC_top_10_active_ligand_target_links_focused = [
     ("Il27", "Stat1", 0.25249051),
     ("Tnf", "Tap1", 0.25076038),
     ("Il27", "Ifit3", 0.24560454),
+    ("Il27", "Ifit3b", 0.24560454),
     ("Tnf", "Ddx58", 0.24433255),
     ("Tnf", "Gbp2", 0.24165079),
     ("Il27", "Stat2", 0.23349733),
-    ("Il27", "Ifi35", 0.22961687),
 ]
 BASIC_top_10_ligand_receptor_links_focused = [
-    ("Il2", "Il2rb", 1.4541219),
     ("H2-D1", "Cd8a", 1.4430922),
     ("H2-K1", "Cd8a", 1.4430922),
     ("H2-M3", "Cd8a", 1.4430922),
@@ -142,6 +143,7 @@ BASIC_top_10_ligand_receptor_links_focused = [
     ("Il27", "Il27ra", 1.2787938),
     ("Ptprc", "Cd247", 1.1547412),
     ("H2-M2", "Cd8a", 1.1484508),
+    ("H2-T-ps", "Cd8a", 1.1484508),
 ]
 LAG_top_10_ligand_activities = [
     ("TGFB2", 0.10465456),
@@ -180,16 +182,16 @@ LAG_top_10_ligand_receptor_links = [
     ("CFH", "CFB", 0.9611272),
 ]
 PRIOR_top_10_prior_table = [
-    ("NK", "Ptprc", "Dpp4", 0.87076537, 1.00100000, 0.86010363, 1.0010000, 0.8750472),
-    ("Mono", "Ptprc", "Dpp4", 0.84065245, 0.86703872, 0.86010363, 1.0010000, 0.8586398),
-    ("Treg", "Ptprc", "Dpp4", 0.75784191, 0.74111570, 0.86010363, 1.0010000, 0.8377664),
-    ("B", "Ptprc", "Dpp4", 0.75156838, 0.66560973, 0.86010363, 1.0010000, 0.8295885),
-    ("Mono", "Cxcl10", "Dpp4", 0.95984944, 1.00100000, 0.86010363, 1.0010000, 0.8276718),
-    ("Mono", "Cxcl9", "Dpp4", 0.97490590, 1.00100000, 0.86010363, 1.0010000, 0.7916860),
-    ("DC", "Icam1", "Il2rg", 0.87703890, 1.00100000, 0.78756477, 0.9948209, 0.7874890),
-    ("DC", "B2m", "Tap2", 0.86198243, 1.00100000, 0.65284974, 0.7809968, 0.7821832),
-    ("Mono", "Cxcl11", "Dpp4", 0.97365119, 1.00100000, 0.86010363, 1.0010000, 0.7816520),
-    ("Mono", "Ebi3", "Il6st", 0.94102886, 1.00100000, 0.73056995, 0.6353662, 0.7764286),
+    ("NK", "Ptprc", "Dpp4", 0.8694075, 1.001, 0.85507246, 1.001, 0.88444453),
+    ("Mono", "Ptprc", "Dpp4", 0.84038694, 0.86703872, 0.85507246, 1.001, 0.86814634),
+    ("Treg", "Ptprc", "Dpp4", 0.75937122, 0.7411157, 0.85507246, 1.001, 0.84745247),
+    ("B", "Ptprc", "Dpp4", 0.75211608, 0.66560973, 0.85507246, 1.001, 0.83917636),
+    ("Mono", "Cxcl10", "Dpp4", 0.96130593, 1.001, 0.85507246, 1.001, 0.83557945),
+    ("Mono", "Cxcl9", "Dpp4", 0.9758162, 1.001, 0.85507246, 1.001, 0.8001953),
+    ("DC", "Icam1", "Il2rg", 0.87545345, 1.001, 0.78743961, 0.99482087, 0.79597311),
+    ("DC", "B2m", "Tap2", 0.86094317, 1.001, 0.66183575, 0.78099682, 0.79111966),
+    ("Mono", "Cxcl11", "Dpp4", 0.97460701, 1.001, 0.85507246, 1.001, 0.79038112),
+    ("Mono", "Ebi3", "Il6st", 0.94316808, 1.001, 0.73429952, 0.63536617, 0.77390896),
 ]
 LTSP_top_10_tf_signaling = [
     ("SMAD4", "SMAD3", 1.7500000),
@@ -468,10 +470,10 @@ MC_top_10_ligand_target_matrix_direct_2 = [
     1.6602571,
 ]
 TPEG_target_prediction_performances_discrete = [
-    (0, 2950, 56, 0.01898305),
-    (1, 241, 104, 0.43153527),
-    (0, 2950, 50, 0.01694915),
-    (1, 241, 110, 0.45643154),
+    (0, 3224, 64, 0.019851117),
+    (1, 261, 111, 0.42528736),
+    (0, 3224, 57, 0.017679901),
+    (1, 261, 118, 0.45210728),
 ]
 MCWL_top_10_ligand_activities_liana = [
     ("Ebi3", 0.23326377),
@@ -538,6 +540,9 @@ DE_top_10_ligand_receptor_links = [
 def test_steps() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
+    # gene aliases to gene symbols, as in the notebooks
+    get_network_files()
+    GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_mouse.csv")).alias_to_symbol(ann)
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
     lr_sig: WeightedNetwork = model["lr_sig"]
@@ -552,17 +557,17 @@ def test_steps() -> None:
     expressed_genes_sender = {gene for ct in sender_celltypes for gene in get_expressed_genes(ct, ann, pct=0.05)}
     potential_ligands_focused = potential_ligands.intersection(expressed_genes_sender)
     assert len(expressed_genes_sender) == 8492
-    assert len(potential_ligands) == 475
-    assert len(potential_ligands_focused) == 122
+    assert len(potential_ligands) == 483
+    assert len(potential_ligands_focused) == 127
     ann_receiver = subset_ann(ann, val=receiver, val_col="celltype", layers=["data", "counts"])
     group_metrics(ann_receiver, groupby="aggregate", layer="data", min_pct=0.05, min_abs_lfc=0.25)
     DE_table = ann_receiver.uns["group_metrics"]
     geneset = set(DE_table[(DE_table["aggregate"] == "LCMV") & (DE_table["pval_adj"] <= 0.05)]["gene"])
     geneset.intersection_update(predictor.get_genes())
-    assert len(geneset) == 241
+    assert len(geneset) == 261
     assert len(expressed_genes_receiver) == 3903
     background_expressed_genes = predictor.get_genes().intersection(expressed_genes_receiver)
-    assert len(background_expressed_genes) == 3182
+    assert len(background_expressed_genes) == 3476
     ligand_activities = predictor.predict_ligand_activities(
         geneset=geneset, background_expressed_genes=background_expressed_genes, potential_ligands=potential_ligands
     )
@@ -570,7 +575,7 @@ def test_steps() -> None:
         ligand_activities.items(),
         key=lambda x: (-x[1]["aupr_corrected"], x[0]),
     )
-    assert len(ligand_activities_sorted) == 475
+    assert len(ligand_activities_sorted) == 483
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         BASIC_top_10_ligand_activities,
@@ -583,7 +588,7 @@ def test_steps() -> None:
     active_ligand_target_links = list(
         chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
     )
-    assert len(active_ligand_target_links) == 579
+    assert len(active_ligand_target_links) == 637
     assert equals_iter(
         sorted(active_ligand_target_links, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_active_ligand_target_links,
@@ -591,14 +596,14 @@ def test_steps() -> None:
     ligand_receptor_links = get_weighted_ligand_receptor_links(
         best_upstream_ligands, expressed_receptors, lr_network, lr_sig
     )
-    assert len(ligand_receptor_links) == 52
+    assert len(ligand_receptor_links) == 53
     assert equals_iter(
         sorted(ligand_receptor_links._mapping, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_ligand_receptor_links,
     )
     ligand_activities = {key: val for key, val in ligand_activities.items() if key in potential_ligands_focused}
     ligand_activities_sorted = sorted(ligand_activities.items(), key=lambda x: (-x[1]["aupr_corrected"], x[0]))
-    assert len(ligand_activities_sorted) == 122
+    assert len(ligand_activities_sorted) == 127
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         BASIC_top_10_ligand_activities_focused,
@@ -610,7 +615,7 @@ def test_steps() -> None:
     active_ligand_target_links = list(
         chain(*(zip(cycle([e["ligand"]]), e["target"], e["weight"], strict=False) for e in active_ligand_target_links))
     )
-    assert len(active_ligand_target_links) == 313
+    assert len(active_ligand_target_links) == 361
     assert equals_iter(
         sorted(active_ligand_target_links, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_active_ligand_target_links_focused,
@@ -647,12 +652,15 @@ def test_steps() -> None:
     assert equals(df["Tnf"]["Mono"], 1.24955145)
     assert equals(df["H2-Eb1"]["NK"], -1.5845094)
     assert equals(df["Ptprc"]["B"], 0.44807439)
-    assert equals(df["Il2"]["DC"], 1.3173053)
+    assert equals(df["H2-M2"]["DC"], -0.70542838)
 
 
 def test_wrapper() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
+    # gene aliases to gene symbols, as in the notebooks
+    get_network_files()
+    GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_mouse.csv")).alias_to_symbol(ann)
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
     lr_sig: WeightedNetwork = model["lr_sig"]
@@ -681,29 +689,29 @@ def test_wrapper() -> None:
     lfcs = res["lfcs"]
     geneset = res["geneset_oi"]
     expressed_genes_receiver = res["expressed_genes_receiver"]
-    assert len(geneset) == 241
+    assert len(geneset) == 261
     assert len(expressed_genes_receiver) == 3903
-    assert len(ligand_activities_sorted) == 475
+    assert len(ligand_activities_sorted) == 483
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted[:10]),
         BASIC_top_10_ligand_activities,
     )
-    assert len(active_ligand_target_links) == 579
+    assert len(active_ligand_target_links) == 637
     assert equals_iter(
         sorted(active_ligand_target_links, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_active_ligand_target_links,
     )
-    assert len(ligand_receptor_links) == 52
+    assert len(ligand_receptor_links) == 53
     assert equals_iter(
         sorted(ligand_receptor_links._mapping, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_ligand_receptor_links,
     )
-    assert len(ligand_activities_sorted_focused) == 122
+    assert len(ligand_activities_sorted_focused) == 127
     assert equals_iter(
         ((ligand, act["aupr_corrected"]) for ligand, act in ligand_activities_sorted_focused[:10]),
         BASIC_top_10_ligand_activities_focused,
     )
-    assert len(active_ligand_target_links_focused) == 313
+    assert len(active_ligand_target_links_focused) == 361
     assert equals_iter(
         sorted(active_ligand_target_links_focused, key=lambda x: x[2], reverse=True)[:10],
         BASIC_top_10_active_ligand_target_links_focused,
@@ -720,7 +728,7 @@ def test_wrapper() -> None:
     assert equals(df["Tnf"]["Mono"], 1.24955145)
     assert equals(df["H2-Eb1"]["NK"], -1.5845094)
     assert equals(df["Ptprc"]["B"], 0.44807439)
-    assert equals(df["Il2"]["DC"], 1.3173053)
+    assert equals(df["H2-M2"]["DC"], -0.70542838)
 
 
 def test_ligand_activity_geneset() -> None:
@@ -856,6 +864,9 @@ def test_ligand_activity_geneset() -> None:
 def test_steps_prioritization() -> None:
     model = get_model_pickle("mouse")
     ann = get_anndata_file("annData3531889.h5")
+    # gene aliases to gene symbols, as in the notebooks
+    get_network_files()
+    GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_mouse.csv")).alias_to_symbol(ann)
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
     sender_celltypes = ("CD4 T", "Treg", "Mono", "NK", "B", "DC")
@@ -919,7 +930,7 @@ def test_steps_prioritization() -> None:
         & (prior_table["ligand"] == "Ptprc")
         & (prior_table["receptor"] == "Dpp4")
     ].iloc[0]
-    assert len(prior_table) == 1212
+    assert len(prior_table) == 1272
     assert equals(row["lfc_ligand"], 0.64193917)
     assert equals(row["lfc_receptor"], 0.299171963)
     assert equals(row["ligand_receptor_lfc_avg"], 0.47055556)
@@ -934,36 +945,36 @@ def test_steps_prioritization() -> None:
     assert equals(row["ligand_receptor_prod"], 2.247472e01)
     assert equals(row["lfc_pval_ligand"], 4.275964e00)
     assert equals(row["pval_adapted_ligand"], 6.661011140)
-    assert equals(row["scaled_lfc_ligand"], 0.7277778)
-    assert equals(row["scaled_pval_ligand"], 0.821974965)
-    assert equals(row["scaled_lfc_pval_ligand"], 0.83031989)
-    assert equals(row["scaled_pval_adapted_ligand"], 0.87065369)
-    assert equals(row["activity"], 0.117003988)
+    assert equals(row["scaled_lfc_ligand"], 0.72533333)
+    assert equals(row["scaled_pval_ligand"], 0.82242991)
+    assert equals(row["scaled_lfc_pval_ligand"], 0.83044059)
+    assert equals(row["scaled_pval_adapted_ligand"], 0.86915888)
+    assert equals(row["activity"], 0.12292458)
     assert equals(row["rank"], 4)
-    assert equals(row["activity_zscore"], 1.81234289)
-    assert equals(row["scaled_activity"], 0.66009987)
+    assert equals(row["activity_zscore"], 1.7876231)
+    assert equals(row["scaled_activity"], 0.67422947)
     assert equals(row["lfc_pval_receptor"], 0.950935599)
     assert equals(row["pval_adapted_receptor"], 3.1785586)
-    assert equals(row["scaled_lfc_receptor"], 0.78461538)
-    assert equals(row["scaled_pval_receptor"], 0.8153846)
-    assert equals(row["scaled_lfc_pval_receptor"], 0.83076923)
-    assert equals(row["scaled_pval_adapted_receptor"], 0.84615385)
+    assert equals(row["scaled_lfc_receptor"], 0.78571429)
+    assert equals(row["scaled_pval_receptor"], 0.78571429)
+    assert equals(row["scaled_lfc_pval_receptor"], 0.82857143)
+    assert equals(row["scaled_pval_adapted_receptor"], 0.82857143)
     assert equals(row["scaled_avg_exprs_ligand"], 1.001000000)
     assert equals(row["scaled_avg_exprs_receptor"], 1.0010000)
     assert equals(row["lfc_ligand_group"], 0.39227123)
     assert equals(row["pval_ligand_group"], 3.189997e-10)
     assert equals(row["lfc_pval_ligand_group"], 3.725089816)
     assert equals(row["pval_adapted_ligand_group"], 9.49620970)
-    assert equals(row["scaled_lfc_ligand_group"], 0.4508197)
-    assert equals(row["scaled_lfc_pval_ligand_group"], 0.6147541)
+    assert equals(row["scaled_lfc_ligand_group"], 0.4488189)
+    assert equals(row["scaled_lfc_pval_ligand_group"], 0.62204724)
     assert equals(row["lfc_receptor_group"], 0.73450977)
     assert equals(row["pval_receptor_group"], 1.170731e-06)
     assert equals(row["lfc_pval_receptor_group"], 4.356776089)
     assert equals(row["pval_adapted_receptor_group"], 5.93154271)
-    assert equals(row["scaled_lfc_receptor_group"], 0.8636364)
-    assert equals(row["scaled_pval_receptor_group"], 0.80303030)
-    assert equals(row["scaled_lfc_pval_receptor_group"], 0.8636364)
-    assert equals(row["scaled_pval_adapted_receptor_group"], 0.83333333)
+    assert equals(row["scaled_lfc_receptor_group"], 0.85915493)
+    assert equals(row["scaled_pval_receptor_group"], 0.8028169)
+    assert equals(row["scaled_lfc_pval_receptor_group"], 0.85915493)
+    assert equals(row["scaled_pval_adapted_receptor_group"], 0.83098592)
     # prioritization across multiple receivers
     nichenet_output = {}
     for receiver in ("CD8 T", "CD4 T", "Treg"):
@@ -1418,6 +1429,9 @@ def test_target_prediction_evaluation_geneset() -> None:
     # not deterministic, so allow for some variance
     non_deterministic_err_bound = 0.5
     ann = get_anndata_file("annData3531889.h5")
+    # gene aliases to gene symbols, as in the notebooks
+    get_network_files()
+    GeneAliasInfo(os.path.join(network_path, "geneinfo_alias_mouse.csv")).alias_to_symbol(ann)
     model = get_model_pickle("mouse")
     predictor: LigandActivityPredictor = model["predictor"]
     lr_network: LigandReceptorNetwork = model["lr_network"]
@@ -1459,9 +1473,9 @@ def test_target_prediction_evaluation_geneset() -> None:
     target_prediction_performances = pd.concat(target_prediction_performances)
     target_prediction_performances = target_prediction_performances.reset_index(drop=True)
     tpp_mean = target_prediction_performances.mean()
-    assert equals(tpp_mean["auroc"], 0.8025248, err_bound=non_deterministic_err_bound)
-    assert equals(tpp_mean["aupr"], 0.4882684, err_bound=non_deterministic_err_bound)
-    assert equals(tpp_mean["pearson"], 0.5338662, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["auroc"], 0.80265644, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["aupr"], 0.48492863, err_bound=non_deterministic_err_bound)
+    assert equals(tpp_mean["pearson"], 0.53135278, err_bound=non_deterministic_err_bound)
     target_prediction_performances_discrete = pd.concat(
         [calculate_fraction_top_predicted(df) for df in gene_predictions_top30_list]
     )
@@ -1474,14 +1488,14 @@ def test_target_prediction_evaluation_geneset() -> None:
         target_prediction_performances_discrete[target_prediction_performances_discrete["true_target"] == 1][
             "fraction_positive_predicted"
         ].mean(),
-        0.4439834,
+        0.43869732,
         err_bound=non_deterministic_err_bound,
     )
     assert equals(
         target_prediction_performances_discrete[target_prediction_performances_discrete["true_target"] == 0][
             "fraction_positive_predicted"
         ].mean(),
-        0.0179661,
+        0.018765509,
         err_bound=non_deterministic_err_bound,
     )
     [calculate_fraction_top_predicted_fisher(e).pvalue for e in gene_predictions_top30_list]
