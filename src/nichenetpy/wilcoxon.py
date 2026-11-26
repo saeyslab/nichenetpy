@@ -302,9 +302,10 @@ def wilcoxon_rank_sum_test_with_correlation(
         raise TypeError(f"df should have type float, was {type(df)}")
     n = len(statistics)
     r = pd.DataFrame(statistics, columns=("rank",)).rank(method="average", ascending=True)
-    if type(index) is not list and type(index) is not tuple:
-        index = list(index)
-    r1 = r[index] if type(index[0]) is bool or type(index[0]) is np.bool else r.iloc[index]
+    # a numpy array is used as it is (no copy per call), anything else (a list, tuple or generator) is converted once;
+    # the dtype tells a mask (bool) from positions (int), also for an empty index
+    index = np.asarray(index if isinstance(index, (list, tuple, np.ndarray)) else list(index))
+    r1 = r[index] if index.dtype == bool else r.iloc[index]
     n1 = len(r1)
     n2 = n - n1
     u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
