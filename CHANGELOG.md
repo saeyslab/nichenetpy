@@ -55,7 +55,7 @@ and this project adheres to [Semantic Versioning][].
 
 - Fixed bug when reading GeneAliasInfo or GeneInfo from csv files where commas inside gene symbols where used for splitting.
 
-## [2.0.0] - 2026-11-26
+## [2.0.0] - 2026-11-27
 
 ### Added
 
