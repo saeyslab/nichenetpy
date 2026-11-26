@@ -23,7 +23,7 @@ Files written by older versions of NicheNetPy can still be read.
 
 import struct
 from collections.abc import Iterable, Sequence
-from typing import Literal, overload
+from typing import Any, Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,9 @@ _SPARSE_MARKER = b"\xffNNPYSPM"
 _SPARSE_VERSION = 1
 
 
-def _write_chunks(filename: str, *chunks: bytes | bytearray | np.ndarray, header: bytes = b"") -> None:
+def _write_chunks(
+    filename: str, *chunks: bytes | bytearray | np.ndarray[Any, np.dtype[np.floating | np.integer]], header: bytes = b""
+) -> None:
     # write the header and then each chunk preceded by its length in bytes; numpy arrays (1-D and contiguous) are written
     # directly from their memory, without first copying them into a bytes object
     with open(filename, "wb") as file:
@@ -179,7 +181,9 @@ def write_ligand_target_matrix(
     )
 
 
-def read_ligand_target_matrix(filename: str, column_major: bool = True) -> tuple[np.ndarray, list[str], list[str]]:
+def read_ligand_target_matrix(
+    filename: str, column_major: bool = True
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[str], list[str]]:
     """
     Reads a ligand-target matrix from a file.
 
@@ -278,7 +282,13 @@ def write_sparse_matrix(
 
 def _read_sparse_matrix(
     filename: str, sparse_format: bytes
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], list[str]]:
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.integer]],
+    np.ndarray[Any, np.dtype[np.integer]],
+    list[str],
+    list[str],
+]:
     with open(filename, "rb") as file:
         first = file.read(_INT_SIZE)
         if first == _SPARSE_MARKER:

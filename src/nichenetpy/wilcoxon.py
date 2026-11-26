@@ -18,7 +18,7 @@ from nichenetpy.utils import subset_matrix
 
 def _rank_cells(
     mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str], tie_correction: bool = True
-) -> tuple[list[list[float]], Sequence[Sequence[str]], np.ndarray]:
+) -> tuple[list[list[float]], Sequence[Sequence[str]], np.ndarray[Any, np.dtype[np.floating]]]:
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = cell_groups.tolist()
@@ -309,7 +309,9 @@ def wilcoxon_rank_sum_test_with_correlation(
     return _rank_sum_test_with_correlation(ranks, adjustment, index, correlation, df)
 
 
-def _ranks_and_tie_adjustment(statistics: Sequence[float] | np.ndarray) -> tuple[np.ndarray, float]:
+def _ranks_and_tie_adjustment(
+    statistics: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], float]:
     # the ranks of the statistics (ties get their average rank) and the tie adjustment of the variance; they only depend
     # on the statistics, so they're computed once when several groups are tested against the same statistics
     n = len(statistics)
@@ -321,7 +323,11 @@ def _ranks_and_tie_adjustment(statistics: Sequence[float] | np.ndarray) -> tuple
 
 
 def _rank_sum_test_with_correlation(
-    ranks: np.ndarray, adjustment: float, index: np.ndarray, correlation: float = 0, df: float = np.inf
+    ranks: np.ndarray[Any, np.dtype[np.floating]],
+    adjustment: float,
+    index: np.ndarray[Any, np.dtype[np.bool_ | np.integer]],
+    correlation: float = 0,
+    df: float = np.inf,
 ) -> tuple[float, float]:
     # the test of the group given by index (a mask or positions) with the ranks and the tie adjustment of
     # _ranks_and_tie_adjustment, see wilcoxon_rank_sum_test_with_correlation

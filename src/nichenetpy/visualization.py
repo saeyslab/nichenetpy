@@ -42,25 +42,25 @@ from nichenetpy.typing import GeneSymbol, _check_iterable, _reiterable, target_e
 from nichenetpy.utils import get_ties, linked_iter, subset_matrix
 
 
-def _cluster_order(mat: np.ndarray, rowvar: bool) -> np.ndarray:
+def _cluster_order(mat: np.ndarray[Any, np.dtype[np.floating]], rowvar: bool) -> np.ndarray[Any, np.dtype[np.integer]]:
     # order of the rows (rowvar=True) or columns (rowvar=False) after hierarchical clustering on 1 - correlation
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = np.corrcoef(mat, rowvar=rowvar)
     # the correlation with a constant row/column is undefined (NaN), it's treated as uncorrelated (0) with the others
     # and perfectly correlated with itself, otherwise the clustering fails on the NaN distances
     corr = np.nan_to_num(corr, nan=0.0)
-    np.fill_diagonal(corr, 1.0)
+    np.fill_diagonal(corr, 1.0)  # pyright: ignore[reportArgumentType] # np.corrcoef of a matrix is a matrix
     corr = 1 - corr
-    dist = sc.spatial.distance.cdist(corr, corr)
+    dist = sc.spatial.distance.cdist(corr, corr)  # pyright: ignore[reportArgumentType] # a matrix, see above
     clust = sc.cluster.hierarchy.ward(sc.spatial.distance.squareform(dist))
     return sc.cluster.hierarchy.leaves_list(clust)
 
 
 def reorder_labels(
-    mat: np.ndarray,
+    mat: np.ndarray[Any, np.dtype[np.floating]],
     row_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
     col_labels: Sequence[GeneSymbol] | np.ndarray[Any, np.dtype[np.str_ | np.integer]] | pd.Index[GeneSymbol],
-) -> tuple[np.ndarray, list[GeneSymbol], list[GeneSymbol]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol], list[GeneSymbol]]:
     """
     Reorders the rows and columns of the matrix along with the corresponding labels based on hierarchic clustering.
 
@@ -1599,7 +1599,7 @@ def marker_plot(
 
 
 # copied and modified from https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
-def _radar_factory(num_vars: int, frame: str = "circle") -> np.ndarray:
+def _radar_factory(num_vars: int, frame: str = "circle") -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Create a radar chart with `num_vars` Axes.
 

@@ -459,7 +459,7 @@ def _sub_log_fold_change(
     data: nichenet_matrix,
     denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
     pseudocount: float = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.floating]]:
     if denormalize is not None:
         data = denormalize(data)
     if data.shape is None:
@@ -472,7 +472,7 @@ def log_fold_change(
     mat2: nichenet_matrix,
     denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
     pseudocount: float = 1,
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.floating]]:
     """
     Calculates the log fold changes the way seurat does it.
 
@@ -553,7 +553,7 @@ def _single_group_metrics(
     groupby: str,
     group_oi: str,
     group_ref: str | None = None,
-) -> tuple[np.ndarray, list[float], list[float]]:
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[float], list[float]]:
     # the positions of the cells (by position, a cell name can occur more than once), cell_groups has the group of
     # each cell
     cells_oi = np.flatnonzero(cell_groups == group_oi)
