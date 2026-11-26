@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence, Collection
+from collections.abc import Callable, Collection, Iterable, Sequence
 from typing import Any, Literal, Protocol, TypeVar, overload
 
 from numpy import bool_, dtype, floating, integer, ndarray

@@ -127,6 +127,7 @@ def _expm1(mat: nichenet_matrix) -> nichenet_matrix:
     # undo the log1p of log-normalized data (works for dense and sparse matrices)
     return np.expm1(mat) if isinstance(mat, np.ndarray) else mat.expm1()
 
+
 @overload
 def get_avg_exp(
     ann: AnnData,
@@ -138,6 +139,7 @@ def get_avg_exp(
     log_normalized: bool = False,
 ) -> pd.DataFrame: ...
 
+
 @overload
 def get_avg_exp(
     ann: AnnData,
@@ -148,6 +150,7 @@ def get_avg_exp(
     features: Iterable[GeneSymbol] | None = None,
     log_normalized: bool = False,
 ) -> pd.DataFrame: ...
+
 
 def get_avg_exp(
     ann: AnnData,
