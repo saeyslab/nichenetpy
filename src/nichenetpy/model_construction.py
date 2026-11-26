@@ -1,40 +1,44 @@
-from nichenetpy.utils import subset_matrix
-from nichenetpy.graph import dijkstra_spl
-from nichenetpy.typing import (
-    nichenet_matrix,
-    gene_t
-)
-
-from numbers import Number
-from itertools import chain
+from collections import Counter
 from collections.abc import Iterable
-from scipy.sparse import (
-    csr_matrix,
-    csc_matrix
-)
-from sknetwork.ranking import PageRank
+from itertools import chain
+from numbers import Number
+from typing import Any, Literal, overload
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy.sparse import csc_array, csr_array, csr_matrix, diags_array
+from scipy.sparse.csgraph import dijkstra
+
+from nichenetpy.typing import (
+    GeneCombination,
+    GeneSymbol,
+    _as_gene,
+    _check_iterable,
+    _combination_name,
+    _reiterable,
+    gene_t,
+    nichenet_matrix,
+)
+from nichenetpy.utils import subset_matrix
 
 
-def _sum_weights(df, source_weights):
+def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame) -> pd.DataFrame:
     return (
-        df
-            .merge(source_weights, on="source", how="inner")[["from", "to", "weight"]]
-            .groupby(["from", "to"])
-            .aggregate("sum")
-            .reset_index()
+        df.merge(source_weights, on="source", how="inner")[["from", "to", "weight"]]
+        .groupby(["from", "to"])
+        .aggregate("sum")
+        .reset_index()
     )
 
+
 def construct_weighted_networks(
-    lr_network:pd.DataFrame,
-    sig_network:pd.DataFrame,
-    gr_network:pd.DataFrame,
-    source_weights:dict[str, float]|pd.DataFrame,
-    n_output_networks:int=2
+    lr_network: pd.DataFrame,
+    sig_network: pd.DataFrame,
+    gr_network: pd.DataFrame,
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
+    n_output_networks: int = 2,
 ) -> dict[str, pd.DataFrame]:
-    '''
+    """
     Construct layer-specific weighted integrated networks from input source networks via weighted aggregation.
 
     Parameters
@@ -52,42 +56,44 @@ def construct_weighted_networks(
     n_output_networks : int
         the number of output networks to return: 2
         (ligand-signaling and gene regulatory; default) or 3 (ligand-receptor, signaling and gene regulatory)
-    
+
     Returns
     -------
     dictionary
         a dictionary containing 2 elements (lr_sig and gr) or 3 elements (lr, sig, gr):
         the integrated weighted ligand-signaling and gene regulatory networks or ligand-receptor,
-        signaling and gene regulatory networks in data frame / tibble format with columns: from, to, weight
-    
+        signaling and gene regulatory networks
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    
-    NOTES
+
+    Notes
     -----
     time complexity `O(s * l)` with `s` the amount of sources and `l` the amount of links in the networks
-    '''
+    """
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
     if type(sig_network) is not pd.DataFrame:
         raise TypeError(f"sig_network should have type pandas.DataFrame, was {type(sig_network)}")
     if type(gr_network) is not pd.DataFrame:
         raise TypeError(f"gr_network should have type pandas.DataFrame, was {type(gr_network)}")
-    if type(source_weights) is dict:
+    if isinstance(source_weights, dict):
         for source, weight in source_weights.items():
-            if weight < 0 or weight > 1:
+            if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
-        source_weights = pd.DataFrame(dict(zip(("source", "weight"), zip(*source_weights.items()))))
+        source_weights = pd.DataFrame({"source": list(source_weights.keys()), "weight": list(source_weights.values())})
     elif type(source_weights) is pd.DataFrame:
-        for source, weight in zip(source_weights["source"], source_weights["weight"]):
-            if weight < 0 or weight > 1:
+        for source, weight in zip(source_weights["source"].tolist(), source_weights["weight"].tolist(), strict=True):
+            if not 0 <= weight <= 1:
                 raise ValueError(f"{source} weight was {weight}, should be in the interval [0, 1]")
     else:
-        raise TypeError(f"source_weights should have type pandas.DataFrame or dict[str, float], was {type(source_weights)}")
+        raise TypeError(
+            f"source_weights should have type pandas.DataFrame or dict[str, float], was {type(source_weights)}"
+        )
     if type(n_output_networks) is not int:
         raise TypeError(f"n_output_networks should have type int, was {type(n_output_networks)}")
     if n_output_networks != 2 and n_output_networks != 3:
@@ -96,25 +102,16 @@ def construct_weighted_networks(
     gr_network_w = _sum_weights(gr_network, source_weights)
     if n_output_networks == 2:
         ligand_signaling_w = _sum_weights(pd.concat((lr_network, sig_network)), source_weights)
-        return {
-            "lr_sig": ligand_signaling_w,
-            "gr": gr_network_w
-        }
+        return {"lr_sig": ligand_signaling_w, "gr": gr_network_w}
     else:
         lr_network_w = _sum_weights(lr_network, source_weights)
         sig_network_w = _sum_weights(sig_network, source_weights)
-        return {
-            "lr": lr_network_w,
-            "sig": sig_network_w,
-            "gr": gr_network_w
-        }
+        return {"lr": lr_network_w, "sig": sig_network_w, "gr": gr_network_w}
 
-def apply_hub_correction(
-    df:pd.DataFrame,
-    hub:float
-) -> pd.DataFrame:
-    '''
-    downweighs the importance of nodes with a lot of incoming links in the ligand-signaling and/or gene regulatory network.
+
+def apply_hub_correction(df: pd.DataFrame, hub: float) -> pd.DataFrame:
+    """
+    Downweighs the importance of nodes with a lot of incoming links in the ligand-signaling and/or gene regulatory network.
 
     Parameters
     ----------
@@ -122,54 +119,236 @@ def apply_hub_correction(
         the network
     hub : float
         a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
-    
+
     Returns
     -------
-    dictionary
+    pandas.DataFrame
         the hubiness-corrected network
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    '''
+    """
     if type(df) is not pd.DataFrame:
         raise TypeError(f"df should haver type pandas.DataFrame, was {type(df)}")
     if not isinstance(hub, Number):
         raise TypeError(f"hub should have type float, was {type(hub)}")
-    if hub < 0 or hub > 1:
+    if not 0 <= hub <= 1:
         raise ValueError(f"hub should be in the interval [0, 1], was {hub}")
     if hub == 0:
         return df.copy()
     to_count = df[["to", "weight"]].groupby("to").aggregate("count")
-    to_count.rename(columns={"weight": "n"}, inplace=True)
-    to_count.reset_index(inplace=True)
+    to_count = to_count.rename(columns={"weight": "n"})
+    to_count = to_count.reset_index()
     df = df.merge(to_count, on="to", how="inner")
     df["weight"] = df["weight"] / (df["n"] ** hub)
-    df.drop(columns="n", inplace=True)
+    df = df.drop(columns="n")
     return df
 
-def _quantile_clip(mat, cutoff):
+
+def _check_ppr_implementation(ppr_implementation: str) -> None:
+    if type(ppr_implementation) is not str:
+        raise TypeError(f"ppr_implementation should have type str, was {type(ppr_implementation)}")
+    if ppr_implementation not in ("nichenetr", "scikit-network"):
+        raise ValueError(f"ppr_implementation should be 'nichenetr' or 'scikit-network', was {ppr_implementation}")
+
+
+def _quantile_clip(mat: np.ndarray[Any, np.dtype[np.floating]], cutoff: float) -> None:
     if cutoff > 0:
-        for i in range(mat.shape[0]):
-            row = mat[i, :]
-            qt = np.quantile(row, cutoff)
-            for j in range(len(row)):
-                if row[j] <= qt:
-                    mat[i, j] = 0
+        mat[mat <= np.quantile(mat, cutoff, axis=1, keepdims=True)] = 0
+
+
+def _personalized_pagerank(
+    adjacency: csr_array,
+    seeds: list[int],
+    damping: float,
+    tol: float = 1e-10,
+    max_iter: int = 100_000,
+    batch_size: int = 256,
+) -> np.ndarray[Any, np.dtype[np.floating]]:
+    """
+    Personalized PageRank of each seed node, with the model of igraph's PRPACK solver (used by NicheNetR).
+
+    The random walker follows a link with probability `damping` (proportionally to the link weights, self-loops count
+    as links) and returns to the seed with probability 1 - `damping`; from a node without outgoing links it always
+    returns to the seed. The scores of each seed are found by power iteration (the seeds of a batch together) until
+    its scores change by less than `tol` (L1 norm). Each seed stops at its own convergence, so its scores are the
+    same as when it's computed alone. PRPACK solves the same linear system directly (fewer than 128 nodes) or by
+    Gauss-Seidel per strongly connected component, with a residual as stopping criterion; the scores agree up to
+    about 1e-9.
+
+    Parameters
+    ----------
+    adjacency : scipy.sparse.csr_array
+        the weighted adjacency matrix (from x to)
+    seeds : list of int
+        the seed nodes
+    damping : float
+        the damping factor, at least 0 and smaller than 1
+    tol : float
+        the convergence tolerance
+    max_iter : int
+        the maximal number of iterations
+    batch_size : int
+        the number of seeds computed together (limits the memory use)
+
+    Returns
+    -------
+    numpy.ndarray
+        the scores, one row per seed (each row sums to 1)
+    """
+    n = adjacency.shape[0]
+    out_weight = np.asarray(adjacency.sum(axis=1)).ravel()
+    dangling = out_weight == 0
+    # transition probabilities (rows of nodes with outgoing links sum to 1), transposed so that one step is trans_t @ x
+    inverse_weight = np.divide(1.0, out_weight, out=np.zeros(n), where=~dangling)
+    trans_t = (diags_array(inverse_weight) @ adjacency).T.tocsr()
+    output = np.empty((len(seeds), n))
+    for start in range(0, len(seeds), batch_size):
+        batch = seeds[start : start + batch_size]
+        # the columns that haven't converged yet: their position in the batch, their seed and their scores; a seed
+        # stops at its own convergence, so its scores are the same as when it's computed alone
+        active = np.arange(len(batch))
+        active_seeds = np.array(batch)
+        scores = np.zeros((n, len(batch)))
+        scores[active_seeds, active] = 1.0
+        for _ in range(max_iter):
+            columns = np.arange(len(active))
+            # the sums per seed are taken over the contiguous rows of the transpose, so they're summed in the same
+            # order for any number of seeds (numpy sums a single column pairwise, several columns row by row)
+            # the score of nodes without outgoing links returns to the seed, like the teleport
+            step = trans_t @ scores
+            step[active_seeds, columns] += np.ascontiguousarray(scores[dangling].T).sum(axis=1)
+            new_scores = damping * step
+            new_scores[active_seeds, columns] += 1 - damping
+            change = np.ascontiguousarray(np.abs(new_scores - scores).T).sum(axis=1)
+            scores = new_scores
+            converged = change < tol
+            if converged.any():
+                output[start + active[converged]] = scores[:, converged].T
+                if converged.all():
+                    break
+                active, active_seeds, scores = active[~converged], active_seeds[~converged], scores[:, ~converged]
+        else:
+            output[start + active] = scores.T
+    return output
+
+
+def _personalized_pagerank_sknetwork(
+    adjacency: csr_array, seeds: list[int], damping: float
+) -> np.ndarray[Any, np.dtype[np.floating]]:
+    """
+    Personalized PageRank of each seed node as computed by scikit-network (nichenetpy 1.x), one row per seed.
+
+    scikit-network handles nodes without outgoing links differently from igraph (NicheNetR), so the scores differ
+    from `_personalized_pagerank`, increasingly for a higher damping factor.
+    """
+    try:
+        from sknetwork.ranking import PageRank
+    except ImportError as error:
+        raise ImportError(
+            "ppr_implementation='scikit-network' needs scikit-network, which is not installed by default (since "
+            "nichenetpy 2.0.0 personalized PageRank uses the model of NicheNetR). Install it with "
+            "`pip install nichenetpy[sknetwork]` or `pip install scikit-network`, or use ppr_implementation='nichenetr'."
+        ) from error
+    # scikit-network doesn't accept sparse arrays, only sparse matrices
+    adjacency_mat = csr_matrix(adjacency)
+    pagerank = PageRank(damping_factor=damping)
+    output = np.empty((len(seeds), adjacency.shape[0]))
+    seed_vector = np.zeros(adjacency.shape[0])
+    for i, seed in enumerate(seeds):
+        seed_vector.fill(0)
+        seed_vector[seed] = 1
+        output[i] = pagerank.fit_predict(adjacency_mat, weights=seed_vector)
+    return output
+
+
+@overload
+def construct_ligand_tf_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major: bool = False,
+    split_ppr: Literal[False] = False,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]
+]: ...
+
+
+@overload
+def construct_ligand_tf_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major: bool = False,
+    *,
+    split_ppr: Literal[True],
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
+    list[GeneSymbol],
+]: ...
+
+
+@overload
+def construct_ligand_tf_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    *,
+    algorithm: Literal["SPL"] | Literal["direct"],
+    damping_factor: float = 0.5,
+    column_major: bool = False,
+    split_ppr: Literal[True],
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[GeneSymbol]
+]: ...
+
+
+@overload
+def construct_ligand_tf_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major: bool = False,
+    split_ppr: bool = False,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]]
+    | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
+    list[GeneSymbol],
+]: ...
 
 
 def construct_ligand_tf_matrix(
-    weighted_networks:dict[str, pd.DataFrame],
-    ligands:Iterable[Iterable[gene_t]],
-    ltf_cutoff:float=0.99,
-    algorithm:str="PPR",
-    damping_factor:float=0.5,
-    column_major=False
-) -> tuple[np.ndarray, list[gene_t], list[gene_t]]:
-    '''
+    weighted_networks: dict[str, pd.DataFrame],
+    ligands: Iterable[Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    column_major: bool = False,
+    split_ppr: bool = False,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.floating]]
+    | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+    list[GeneSymbol | GeneCombination[GeneSymbol]],
+    list[GeneSymbol],
+]:
+    """
     Convert integrated weighted networks into a matrix which contains ligand-tf probability scores.
     The higher this score, the more likely a particular ligand can signal to a downstream gene.
 
@@ -178,9 +357,11 @@ def construct_ligand_tf_matrix(
     weighted_networks : dict
         the weighted networks as returned by nichenetpy.model_construction.construct_weighted_networks
     ligands : Iterable of Iterable of gene_t
-        all ligands and ligand-combinations of which target gene probability scores should be calculated
+        all ligands and ligand-combinations of which target gene probability scores should be calculated; a combination is named after its members joined with "-" (only for gene symbols, str) and uses the
+        members that are in the weighted networks
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     algorithm : str
         Selection of the algorithm to calculate ligand-tf signaling probability scores.
@@ -193,40 +374,83 @@ def construct_ligand_tf_matrix(
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
         Default: 0.5
     column_major : bool
         whether to use column_major or row_major data format
-    
-    
+    split_ppr : bool
+        in case of ppr algorithm, whether to split off the reflexive scores,
+        if true a tuple of matrices is returned, the first contains the reflexive scores and the second one the non-reflexive scores
+    ppr_implementation : str
+        Only relevant when algorithm is PPR. How personalized pagerank is computed:
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
+        "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
+        for a higher damping_factor, see Notes). Needs scikit-network, which is not installed by default
+        (`pip install nichenetpy[sknetwork]`).
+        Default: "nichenetr"
+
     Returns
     -------
-    numpy.ndarray
-        a matrix containing ligand-target probability scores
+    numpy.ndarray or tuple[numpy.ndarray, numpy.ndarray]
+        a matrix (or 2 matrices in case of split) containing ligand-target probability scores
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
         the name of the columns of the matrix
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
+    ImportError
+        if ppr_implementation is "scikit-network" and scikit-network is not installed
     ValueError
-        if the arguments are invalid
-    NOTES
+        if ltf_cutoff is not at least 0 and smaller than 1, or damping_factor is not at least 0 and smaller than 1
+        if two ligands (combinations) get the same name
+        if algorithm is not "PPR", "SPL" or "direct"
+        if ppr_implementation is not "nichenetr" or "scikit-network"
+        if none of the ligands are present in the weighted networks
+
+    Notes
     -----
-    `PPR` time complexity `O(l * k * E)` with `l` the amount of ligands, `k` the amount of PPR iterations
-    and `E` the amount of links in the lr_sig weighted matrix
+    If the ligand-signaling network (weighted_networks["lr_sig"]) is empty, each ligand only reaches itself:
+    its row is 1 at the ligand (1/k at each member of a combination of k ligands) and 0 elsewhere,
+    which is the personalized pagerank result on a network without links.
+
+    With algorithm "direct", the max score is added to a link of a ligand to itself that is already in the
+    ligand-signaling network (as in NicheNetR).
+
+    `PPR` uses the model of NicheNetR (igraph's PRPACK) by default (ppr_implementation="nichenetr"): the walker
+    follows links proportionally to their weights (self-loops included) and returns to the seed with probability
+    1 - damping_factor, or always from a gene without outgoing links. This is the usual personalized PageRank (also
+    of networkx): the scores are the unique solution of a linear system. Each distinct ligand (also a member of
+    combinations) is computed once, by power iteration until its scores change by less than 1e-10, so the scores
+    are converged and don't depend on the other ligands. PRPACK solves the same system by Gauss-Seidel (or directly
+    for fewer than 128 genes); the scores agree up to about 1e-9. Time complexity `O(l * k * E)` with `l` the amount of
+    distinct ligands, `k` the amount of PPR iterations (more for a higher damping_factor) and `E` the amount of links
+    in the lr_sig weighted matrix
+
+    With ppr_implementation="scikit-network" (nichenetpy 1.x), the score that reaches a gene without outgoing links
+    doesn't return to the ligand: it's dropped, and the scores are rescaled to sum to 1 after each step, which spreads
+    it over all genes in proportion to their scores. This isn't the usual personalized PageRank. The power iteration
+    stops after at most 10 iterations, or when the scores change by less than 1e-6 (scikit-network's defaults), so
+    the scores aren't always converged, more so for a higher damping_factor. Each ligand is computed on its own, so
+    its scores don't depend on the other ligands. The scores differ from NicheNetR, increasingly for a higher
+    damping_factor. Which of the two causes matters most depends on the network: on the human ligand-signaling
+    network of NicheNet, where few genes have no outgoing links, it's mainly the limited number of iterations; on a
+    network with many genes without outgoing links, mainly their handling.
 
     `SPL` time complexity `O(l * (N + E) * log(N)))` with `l` the amount of ligands, `N` the amount of nodes
     and `E` the amount of links in the lr_sig weighted matrix
 
     `direct` time complexity `O(l * c)` with `l` the amount of ligands and `c` the amount of columns in lr_sig weighted matrix
-    '''
-    if type(weighted_networks) is not dict:
-        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[gene_t], was {type(ligands)}")
+    """
+    if not isinstance(weighted_networks, dict):
+        raise TypeError(
+            f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
+        )
+    _check_iterable(ligands, "ligands", "ligands (Iterables of genes)")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -235,79 +459,112 @@ def construct_ligand_tf_matrix(
         raise TypeError(f"damping_factor should have type float, was {type(damping_factor)}")
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
-    if ltf_cutoff < 0 or ltf_cutoff > 1:
-        raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
-        raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
+    if not 0 <= ltf_cutoff < 1:
+        raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
+    if not 0 <= damping_factor < 1:
+        raise ValueError(f"damping_factor should be at least 0 and smaller than 1, was {damping_factor}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
+    if type(split_ppr) is not bool:
+        raise TypeError(f"split_ppr should have type bool, was {type(split_ppr)}")
+    _check_ppr_implementation(ppr_implementation)
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
     gene2id_keys = set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
-    all_genes = sorted(gene2id_keys)
-    gene2id = dict(zip(all_genes, range(len(all_genes))))
-    ligands = [
-        ligand
-        for ligand in ([e for e in _ligands if e in gene2id_keys] for _ligands in ligands)
-        if len(ligand) > 0 # ligand is not in the weighted networks, so it can't be in the matrix
-    ]
-    if algorithm == "PPR":
-        # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_matrix(
-            (
-                lr_sig["weight"],
-                (
-                    lr_sig["from"].apply(lambda x : gene2id[x]),
-                    lr_sig["to"].apply(lambda x : gene2id[x])
-                )
-            ),
-            shape=(len(gene2id), len(gene2id))
+    all_genes: list[GeneSymbol] = sorted(gene2id_keys)
+    gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
+    requested = []
+    for _ligands in ligands:
+        # a ligand or combination is an Iterable of genes, a str would be split into its characters
+        if isinstance(_ligands, str) or not isinstance(_ligands, Iterable):
+            raise TypeError(f"ligands should have type Iterable[Iterable[gene_t]], contained {_ligands!r}")
+        requested.append(tuple(_as_gene(ligand, "ligand") for ligand in _ligands))
+    named_ligands = [
+        (
+            _combination_name(_ligands) if len(_ligands) > 1 else _ligands[0],
+            [e for e in _ligands if e in gene2id_keys],
         )
-        # preference vector
-        pv = np.zeros(shape=lr_sig_mat.shape[0])
-        pr = PageRank(damping_factor=damping_factor)
+        for _ligands in requested
+        if len(_ligands) > 0
+    ]
+    named_ligands = [(name, members) for name, members in named_ligands if len(members) > 0]
+    row_names: list[GeneSymbol | GeneCombination[GeneSymbol]] = [name for name, _ in named_ligands]
+    ligands = [members for _, members in named_ligands]
+    duplicates = sorted((name for name, count in Counter(row_names).items() if count > 1), key=str)
+    if len(duplicates) > 0:
+        raise ValueError(f"several ligands (or combinations) have the same name: {duplicates}")
+    if len(ligands) == 0:
+        # without ligands, complete_matrix stays empty and np.array([]) has shape (0,) instead of
+        # (0, len(all_genes)), which breaks the ligand-tf @ tf-target product further on
+        raise ValueError("none of the ligands are present in the weighted networks")
+    if algorithm not in ("PPR", "SPL", "direct"):
+        raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
+    if len(lr_sig) == 0:
+        # All ligand-receptor and signaling sources have weight 0, so there are no ligand-signaling links.
+        # The result is built directly (for every algorithm):
+        # without edges the random walker can't leave its seed, so personalized pagerank gives 1 for the ligand
+        # itself and 0 elsewhere; the quantile clip keeps that value (it is the row maximum) and combinations
+        # are averaged over their members (as in the PPR branch), i.e. 1/k for each of the k members.
+        # ligands only contains members present in the networks (filtered above), so gene2id[ligand] is safe.
         complete_matrix = []
+        # mask marks the ligand's own nodes, as in the PPR branch, so split_ppr can separate the ligand's own
+        # (direct) scores from the rest (indirect); here the direct part is the whole row, the indirect part is 0
+        mask = []
         for _ligands in ligands:
-            partial_matrix = []
+            row = np.zeros(len(all_genes))
             for ligand in _ligands:
-                pv.fill(0)
-                pv[gene2id[ligand]] = 1
-                partial_matrix.append(pr.fit_predict(lr_sig_mat, weights=pv))
-            ppr_matrix = np.array(partial_matrix).reshape((
-                int(sum(len(x) for x in partial_matrix)/len(pv)),
-                len(pv)
-            ))
-            if damping_factor == 0:
-                ltf_cutoff = 0
+                row[gene2id[ligand]] = 1 / len(_ligands)
+            complete_matrix.append(row)
+            mask.append(row > 0)
+    elif algorithm == "PPR":
+        # the adjacency matrix of the ligand-signaling network
+        lr_sig_mat = csr_array(
+            (
+                lr_sig["weight"].to_numpy(dtype=np.float64),
+                (lr_sig["from"].map(gene2id).to_numpy(), lr_sig["to"].map(gene2id).to_numpy()),
+            ),
+            shape=(len(gene2id), len(gene2id)),
+        )
+        # personalized pagerank of every ligand (also the members of combinations) once
+        seeds = sorted({gene2id[ligand] for _ligands in ligands for ligand in _ligands})
+        seed2row = {seed: i for i, seed in enumerate(seeds)}
+        if ppr_implementation == "nichenetr":
+            ppr_scores = _personalized_pagerank(lr_sig_mat, seeds, damping_factor)
+        else:
+            ppr_scores = _personalized_pagerank_sknetwork(lr_sig_mat, seeds, damping_factor)
+        if damping_factor == 0:
+            ltf_cutoff = 0
+        complete_matrix = []
+        if split_ppr:
+            mask = []
+        for _ligands in ligands:
+            if split_ppr:
+                mask.append(np.zeros(len(all_genes), dtype=bool))
+                for ligand in _ligands:
+                    mask[-1][gene2id[ligand]] = True
+            # the scores of the members (a copy, the quantile clip changes it), averaged over the members
+            ppr_matrix = ppr_scores[[seed2row[gene2id[ligand]] for ligand in _ligands]]
             _quantile_clip(ppr_matrix, ltf_cutoff)
             complete_matrix.append(ppr_matrix.mean(axis=0))
     elif algorithm == "SPL":
         # the adjancy matrix (and adjacency graph)
-        lr_sig_mat = csr_matrix(
+        lr_sig_mat = csr_array(
             (
-                [1/e for e in lr_sig["weight"]],
-                (
-                    lr_sig["from"].apply(lambda x : gene2id[x]),
-                    lr_sig["to"].apply(lambda x : gene2id[x])
-                )
+                [1 / e for e in lr_sig["weight"]],
+                (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x])),
             ),
-            shape=(len(gene2id), len(gene2id))
+            shape=(len(gene2id), len(gene2id)),
         )
         complete_matrix = []
         for _ligands in ligands:
-            spl_matrix = np.array([
-                [e[0] for e in dijkstra_spl(graph=lr_sig_mat, src=gene2id[src])]
-                for src in _ligands
-            ])
-            for i in range(spl_matrix.shape[0]):
-                for j in range(spl_matrix.shape[1]):
-                    if spl_matrix[i, j] == np.inf:
-                        spl_matrix[i, j] = -1
-            max_dist = spl_matrix.max()
-            for i in range(spl_matrix.shape[0]):
-                for j in range(spl_matrix.shape[1]):
-                    if spl_matrix[i, j] == -1:
-                        spl_matrix[i, j] = 0
-                    else:
-                        spl_matrix[i, j] = max_dist - spl_matrix[i, j]
+            # shortest path lengths from each ligand (of the combination) to every gene, one row per ligand
+            spl_matrix = dijkstra(lr_sig_mat, directed=True, indices=[gene2id[src] for src in _ligands])
+            # convert distances to scores: max_dist - distance, unreachable genes (distance inf) get 0
+            unreachable = np.isinf(spl_matrix)
+            # the ligand itself (distance 0) is always reachable, so max_dist >= 0
+            max_dist = spl_matrix[~unreachable].max()
+            spl_matrix = np.where(unreachable, 0.0, max_dist - spl_matrix)
             _quantile_clip(spl_matrix, ltf_cutoff)
             complete_matrix.append(spl_matrix.mean(axis=0))
     elif algorithm == "direct":
@@ -317,19 +574,14 @@ def construct_ligand_tf_matrix(
             .groupby("from", as_index=False)
             .max()
         )
-        lig_lig.drop_duplicates(inplace=True)
+        lig_lig = lig_lig.drop_duplicates()
         all_ligands_lst = list(all_ligands)
         lig_lig = lig_lig.merge(pd.DataFrame({"from": all_ligands_lst, "to": all_ligands_lst}), on="from", how="inner")
+        # a self-link that is already in lr_sig is kept, the sparse matrix sums it with the added one (as in NicheNetR)
         lr_sig = pd.concat((lr_sig, lig_lig))
-        lr_sig_mat = csr_matrix(
-            (
-                lr_sig["weight"],
-                (
-                    lr_sig["from"].apply(lambda x : gene2id[x]),
-                    lr_sig["to"].apply(lambda x : gene2id[x])
-                )
-            ),
-            shape=(len(gene2id), len(gene2id))
+        lr_sig_mat = csr_array(
+            (lr_sig["weight"], (lr_sig["from"].apply(lambda x: gene2id[x]), lr_sig["to"].apply(lambda x: gene2id[x]))),
+            shape=(len(gene2id), len(gene2id)),
         )
         complete_matrix = []
         for _ligands in ligands:
@@ -339,16 +591,35 @@ def construct_ligand_tf_matrix(
     else:
         raise ValueError(f"algorithm should be 'PPR', 'SPL' or 'direct', was {algorithm}")
     ltf_matrix = np.array(complete_matrix, order=("F" if column_major else "C"))
-    row_names = ["-".join(_ligands) if type(_ligands[0]) is str else _ligands[0] for _ligands in ligands]
     col_names = all_genes
+    if algorithm == "PPR" and split_ppr:
+        mask = np.array(mask)
+        return ((np.multiply(ltf_matrix, mask), np.multiply(ltf_matrix, ~mask)), row_names, col_names)
     return (ltf_matrix, row_names, col_names)
 
+
+@overload
 def construct_tf_target_matrix(
-    weighted_networks:dict[str, pd.DataFrame],
-    standalone_output:bool=False,
-    column_major:bool=False
-) -> tuple[csr_matrix|csc_matrix, list[gene_t], list[gene_t]]:
-    '''
+    weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: Literal[False] = False
+) -> tuple[csr_array[np.floating], list[gene_t], list[gene_t]]: ...
+
+
+@overload
+def construct_tf_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, *, column_major: Literal[True]
+) -> tuple[csc_array[np.floating], list[gene_t], list[gene_t]]: ...
+
+
+@overload
+def construct_tf_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
+) -> tuple[csr_array[np.floating] | csc_array[np.floating], list[gene_t], list[gene_t]]: ...
+
+
+def construct_tf_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame], standalone_output: bool = False, column_major: bool = False
+) -> tuple[csr_array[np.floating] | csc_array[np.floating], list[gene_t], list[gene_t]]:
+    """
     Convert integrated gene regulatory weighted network into matrix format.
 
     Parameters
@@ -360,75 +631,264 @@ def construct_tf_target_matrix(
         Default: FALSE
     column_major : bool
         whether to use column_major or row_major data format
-    
-    
+
     Returns
     -------
-    numpy.ndarray
+    csr_array or csc_array
         a matrix containing tf-target regulatory weights
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
         the name of the columns of the matrix
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if type(weighted_networks) is not dict:
-        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
+    """
+    if not isinstance(weighted_networks, dict):
+        raise TypeError(
+            f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
+        )
     if type(standalone_output) is not bool:
         raise TypeError(f"standalone_output should have type bool, was {type(standalone_output)}")
+    if type(column_major) is not bool:
+        raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     lr_sig = weighted_networks["lr_sig"]
     gr = weighted_networks["gr"]
-    all_genes = sorted(set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist())))
-    gene2id = dict(zip(all_genes, range(len(all_genes))))
-    fr = gr["from"].apply(lambda x : gene2id[x])
-    grn_matrix = (csc_matrix if column_major else csr_matrix)(
-        (
-            gr["weight"],
-            (
-                fr,
-                gr["to"].apply(lambda x : gene2id[x])
-            )
-        ),
-        shape=(len(gene2id), len(gene2id))
+    all_genes = sorted(
+        set(chain(lr_sig["from"].tolist(), lr_sig["to"].tolist(), gr["from"].tolist(), gr["to"].tolist()))
+    )
+    gene2id = dict(zip(all_genes, range(len(all_genes)), strict=True))
+    fr = gr["from"].apply(lambda x: gene2id[x])
+    grn_matrix = (csc_array if column_major else csr_array)(
+        (gr["weight"], (fr, gr["to"].apply(lambda x: gene2id[x]))), shape=(len(gene2id), len(gene2id))
     )
     row_names = all_genes
     col_names = all_genes
     if standalone_output:
         # keep only regulators with gene regulatory interactions
         rows = sorted(set(fr))
-        grn_matrix = subset_matrix(
-            grn_matrix,
-            rows=rows
-        )
+        grn_matrix = subset_matrix(grn_matrix, rows=rows)
         row_names = [row_names[i] for i in rows]
     return (grn_matrix, row_names, col_names)
 
-def _set_min(mat):
-    for i in range(len(mat)):
-        if mat[i] == 0:
-            mat[i] = np.inf
-    m = min(mat)
-    for i in range(len(mat)):
-        if mat[i] == np.inf:
-            mat[i] = m
 
+def _set_min(mat: np.ndarray[Any, np.dtype[np.floating]]) -> None:
+    # All 0's are replaced by the smallest non-zero element
+    mat[mat == 0] = np.inf
+    mat[mat == np.inf] = np.min(mat)
+
+
+def _split_tft_direct(
+    gr_network: pd.DataFrame,
+    direct_regulators: set,
+    tft_matrix: csr_array,
+    grn_rows: list,
+    grn_cols: list,
+) -> tuple[csr_array, csr_array]:
+    """
+    Split the tf-target matrix into the direct links (regulatory links that start at a ligand) and the other links.
+
+    Parameters
+    ----------
+    gr_network : pandas.DataFrame
+        the (weighted) gene regulatory network, contains the same links as the tf-target matrix
+    direct_regulators : set
+        the genes whose regulatory links are direct
+    tft_matrix : scipy.sparse.csr_array
+        the tf-target matrix
+    grn_rows : list
+        the row names (tfs) of the tf-target matrix
+    grn_cols : list
+        the column names (targets) of the tf-target matrix
+
+    Returns
+    -------
+    scipy.sparse.csr_array
+        the tf-target matrix with only the direct links
+    scipy.sparse.csr_array
+        the tf-target matrix without the direct links
+    """
+    tf2id = dict(zip(grn_rows, range(len(grn_rows)), strict=True))
+    target2id = dict(zip(grn_cols, range(len(grn_cols)), strict=True))
+    direct_links = gr_network[gr_network["from"].isin(direct_regulators)]
+    mask = csr_array(
+        (
+            np.ones(len(direct_links), dtype=bool),
+            (direct_links["from"].map(tf2id).to_numpy(), direct_links["to"].map(target2id).to_numpy()),
+        ),
+        shape=tft_matrix.shape,
+    )
+    tft_direct = tft_matrix.multiply(mask)
+    return tft_direct, tft_matrix - tft_direct
+
+
+@overload
 def construct_ligand_target_matrix(
-    weighted_networks:dict[str, pd.DataFrame],
-    lr_network:pd.DataFrame,
-    ligands:Iterable[gene_t|Iterable[gene_t]],
-    ltf_cutoff:float=0.99,
-    algorithm:str="PPR",
-    damping_factor:float=0.5,
-    secondary_targets:bool=False,
-    ligands_as_cols:bool=True,
-    remove_direct_links:str="no",
-    return_all_matrices:bool=False
-) -> tuple[nichenet_matrix, list[gene_t], list[gene_t]]|tuple[tuple[nichenet_matrix, list[gene_t], list[gene_t]]]:
-    '''
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    ligands_as_cols: Literal[True] = True,
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    return_all_matrices: Literal[False] = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]: ...
+
+
+@overload
+def construct_ligand_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    ligands_as_cols: Literal[True] = True,
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    *,
+    return_all_matrices: Literal[True],
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+    ],
+    tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+]: ...
+
+
+@overload
+def construct_ligand_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    *,
+    ligands_as_cols: Literal[False],
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    return_all_matrices: Literal[False] = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]]: ...
+
+
+@overload
+def construct_ligand_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    *,
+    ligands_as_cols: Literal[False],
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    return_all_matrices: Literal[True],
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> tuple[
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
+    tuple[
+        np.ndarray[Any, np.dtype[np.floating]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+        list[GeneSymbol | GeneCombination[GeneSymbol]],
+        list[GeneSymbol],
+    ],
+    tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+]: ...
+
+
+@overload
+def construct_ligand_target_matrix(
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    ligands_as_cols: bool = True,
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    return_all_matrices: bool = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> (
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]
+    | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]]
+    | tuple[
+        tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[GeneSymbol | GeneCombination[GeneSymbol]]]
+        | tuple[np.ndarray[Any, np.dtype[np.floating]], list[GeneSymbol | GeneCombination[GeneSymbol]], list[gene_t]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
+        tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+    ]
+): ...
+
+
+def construct_ligand_target_matrix(  # type: ignore
+    weighted_networks: dict[str, pd.DataFrame],
+    lr_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]],
+    ltf_cutoff: float = 0.99,
+    algorithm: Literal["PPR"] | Literal["SPL"] | Literal["direct"] = "PPR",
+    damping_factor: float = 0.5,
+    secondary_targets: bool = False,
+    ligands_as_cols: bool = True,
+    remove_direct_links: Literal["ligand"] | Literal["ligand_receptor"] | Literal["no"] = "no",
+    return_all_matrices: bool = False,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> (
+    tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]]
+    | tuple[
+        tuple[np.ndarray[Any, np.dtype[np.floating]], list[gene_t], list[gene_t]],
+        tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+        ]
+        | tuple[
+            np.ndarray[Any, np.dtype[np.floating]]
+            | tuple[np.ndarray[Any, np.dtype[np.floating]], np.ndarray[Any, np.dtype[np.floating]]],
+            list[GeneSymbol | GeneCombination[GeneSymbol]],
+            list[GeneSymbol],
+        ],
+        tuple[nichenet_matrix, list[gene_t], list[gene_t]],
+    ]
+):
+    """
     Convert integrated weighted networks into a matrix which contains ligand-target probability scores.
     The higher this score, the more likely a particular ligand can induce the expression of a particular target gene.
 
@@ -441,7 +901,8 @@ def construct_ligand_target_matrix(
     ligands : Iterable[gene_t|Iterable[gene_t]]
         a list of all ligands and ligand-combinations of which target gene probability scores should be calculated
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     algorithm : str
         Selection of the algorithm to calculate ligand-tf signaling probability scores.
@@ -453,6 +914,7 @@ def construct_ligand_target_matrix(
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
         Default: 0.5
     secondary_targets : bool
         Indicate whether a ligand-target matrix should be returned that explicitly includes putative secondary targets of a ligand
@@ -465,34 +927,59 @@ def construct_ligand_target_matrix(
         Indicate whether direct ligand-target and receptor-target links in the gene regulatory network should be kept or not.
         "no": keep links;
         "ligand": remove direct ligand-target links;
-        "ligand-receptor": remove both direct ligand-target and receptor-target links.
+        "ligand_receptor": remove both direct ligand-target and receptor-target links.
         Default: "no"
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
-    
-    
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+        "no": don't split;
+        "ltf": split the ltf matrix (only valid with 'PPR' algorithm): the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
+        "ltf-tft": split both the ltf and tft matrices (only valid with 'PPR' algorithm);
+        Default: "no"
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
+    ppr_implementation : str
+        Only relevant when algorithm is PPR. How personalized pagerank is computed:
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
+        "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
+        for a higher damping_factor, see the Notes of model_construction.construct_ligand_tf_matrix). Needs
+        scikit-network, which is not installed by default
+        (`pip install nichenetpy[sknetwork]`).
+        Default: "nichenetr"
+
     Returns
     -------
     numpy.ndarray
-        a matrix containing tf-target regulatory weights
+        a matrix containing ligand-target regulatory weights
     list of gene_t
         the names of the rows of the matrix
     list of gene_t
         the name of the columns of the matrix
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
     ValueError
         if the arguments are invalid
-    '''
-    if type(weighted_networks) is not dict:
-        raise TypeError(f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}")
+        if none of the ligands are present in the weighted networks
+
+    Notes
+    -----
+    if return_all_matrices is True, three matrices with row en column labels are returned (ligand-target, ligand-tf and tf-target)
+    """
+    if not isinstance(weighted_networks, dict):
+        raise TypeError(
+            f"weighted_networks should have type dict[str, pandas.DataFrame], was {type(weighted_networks)}"
+        )
     if type(lr_network) is not pd.DataFrame:
         raise TypeError(f"lr_network should have type pandas.DataFrame, was {type(lr_network)}")
-    if not isinstance(ligands, Iterable):
-        raise TypeError(f"ligands should have type Iterable[gene_t|Iterable[gene_t]], was {type(ligands)}")
+    _check_iterable(ligands, "ligands", "ligands and combinations of ligands")
     if not isinstance(ltf_cutoff, Number):
         raise TypeError(f"ltf_cutoff should have type float, was {type(ltf_cutoff)}")
     if type(algorithm) is not str:
@@ -505,57 +992,153 @@ def construct_ligand_target_matrix(
         raise TypeError(f"ligands_as_cols should have type bool, was {type(ligands_as_cols)}")
     if type(remove_direct_links) is not str:
         raise TypeError(f"remove_direct_links should have type str, was {type(remove_direct_links)}")
-    if ltf_cutoff < 0 or ltf_cutoff > 1:
-        raise ValueError(f"ltf_cutoff should be between 0 and 1, was {ltf_cutoff}")
-    if damping_factor < 0 or damping_factor > 1:
-        raise ValueError(f"damping_factor should be between 0 and 1, was {damping_factor}")
+    # ltf_cutoff = 1 sets every score to 0 (all scores are <= the 100% quantile), so it's not allowed
+    if not 0 <= ltf_cutoff < 1:
+        raise ValueError(f"ltf_cutoff should be at least 0 and smaller than 1, was {ltf_cutoff}")
+    if not 0 <= damping_factor < 1:
+        raise ValueError(f"damping_factor should be at least 0 and smaller than 1, was {damping_factor}")
     if remove_direct_links == "ligand":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(lr_network["from"])
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links == "ligand_receptor":
+        weighted_networks = {k: v.copy() for k, v in weighted_networks.items()}
         rm_set = set(chain(lr_network["from"], lr_network["to"]))
-        weighted_networks["gr"][weighted_networks["gr"]["from"].apply(lambda x : x not in rm_set)]
+        weighted_networks["gr"] = weighted_networks["gr"][
+            weighted_networks["gr"]["from"].apply(lambda x: x not in rm_set)
+        ]
     elif remove_direct_links != "no":
-        raise ValueError(f"remove_direct_links should be in ['no', 'ligand', 'receptor'], was {remove_direct_links}")
-    ligands = [(_ligands,) if isinstance(_ligands, gene_t) else _ligands for _ligands in ligands]
-    ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor)
-    grn_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
-    ligand2target = ltf_matrix * grn_matrix
+        raise ValueError(
+            f"remove_direct_links should be in ['no', 'ligand', 'ligand_receptor'], was {remove_direct_links}"
+        )
+    if type(split_direct) is not str:
+        raise TypeError(f"split_direct should have type string, was {type(split_direct)}")
+    elif split_direct not in ("no", "ltf", "tft", "ltf-tft"):
+        raise ValueError(f"split_direct should be in ['no', 'ltf', 'tft', 'ltf-tft'], was {split_direct}")
+    if split_direct[:3] == "ltf" and algorithm != "PPR":
+        raise ValueError("When split_direct is 'ltf' or 'ltf-tft' algorithm must be 'PPR'")
+    if not isinstance(direct_coef, Number):
+        raise TypeError(f"direct_coef should have type float, was {type(direct_coef)}")
+    elif not 0 <= direct_coef <= 1:
+        raise ValueError(f"direct_coef should be between 0 and 1, was {direct_coef}")
+    _check_ppr_implementation(ppr_implementation)
+    # a single ligand (in a tuple) or a combination (an Iterable of ligands); each is iterated twice: for the direct
+    # regulators and to construct the ligand-tf matrix
+    ligands = [
+        _reiterable(_ligands) if isinstance(_ligands, Iterable) and not isinstance(_ligands, str) else (_ligands,)
+        for _ligands in ligands
+    ]
+    # the direct regulatory links start at any ligand of the ligand-receptor network, so a ligand's row doesn't depend
+    # on which other ligands are requested; the requested ligands (and the members of combinations) are added, so a
+    # ligand's own regulatory links are always direct
+    direct_regulators = set(lr_network["from"].tolist()).union(*ligands)
+    if split_direct == "no":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            ppr_implementation=ppr_implementation,
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        ligand2target = ltf_matrix @ tft_matrix
+    elif split_direct == "ltf":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            split_ppr=True,
+            ppr_implementation=ppr_implementation,
+        )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        rp_direct = ltf_direct @ tft_matrix
+        rp_indirect = ltf_indirect @ tft_matrix
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
+    elif split_direct == "tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks, ligands, ltf_cutoff, algorithm, damping_factor, ppr_implementation=ppr_implementation
+        )
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
+        rp_direct: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_direct  # type: ignore # returns ndarray
+        rp_indirect: np.ndarray[Any, np.dtype[np.floating]] = ltf_matrix @ tft_indirect  # type: ignore # returns ndarray
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
+    elif split_direct == "ltf-tft":
+        ltf_matrix, ltf_rows, ltf_cols = construct_ligand_tf_matrix(
+            weighted_networks,
+            ligands,
+            ltf_cutoff,
+            algorithm,
+            damping_factor,
+            split_ppr=True,
+            ppr_implementation=ppr_implementation,
+        )
+        ltf_direct = ltf_matrix[0]
+        ltf_indirect = ltf_matrix[1]
+        tft_matrix, grn_rows, grn_cols = construct_tf_target_matrix(weighted_networks)
+        tft_direct, tft_indirect = _split_tft_direct(
+            weighted_networks["gr"], direct_regulators, tft_matrix, grn_rows, grn_cols
+        )
+        # the same as rp_direct with split_direct == "ltf": ltf_direct only has scores at the ligand's own nodes, whose
+        # regulatory links are all direct
+        rp_direct = ltf_direct @ tft_direct
+        # the same as rp_indirect with split_direct == "tft": the ligand's own nodes have no indirect regulatory links
+        rp_indirect = ltf_indirect @ tft_indirect
+        # contrary to the other methods, when split_coef == 0.5 this is NOT the same as setting split_direct == 'no'
+        ligand2target = direct_coef * rp_direct + (1 - direct_coef) * rp_indirect
     if secondary_targets:
-        _quantile_clip(ligand2target, ltf_cutoff)
-        ligand2target_secondary = ligand2target * grn_matrix
+        ltf_secondary = ligand2target.copy()
+        _quantile_clip(ltf_secondary, ltf_cutoff)
+        ligand2target_secondary: np.ndarray[Any, np.dtype[np.floating]] = ltf_secondary @ tft_matrix
         _set_min(ligand2target)
         _set_min(ligand2target_secondary)
-        ligand2target = (ligand2target**-1 + ligand2target_secondary**-1)**-1
+        ligand2target = ((ligand2target**-1) + ligand2target_secondary**-1) ** -1
     if return_all_matrices:
         if ligands_as_cols:
             return (
                 (ligand2target.transpose(), grn_cols, ltf_rows),
-                (ltf_matrix.transpose(), ltf_cols, ltf_rows),
-                (grn_matrix.transpose(), grn_cols, grn_rows)
+                (
+                    (
+                        (ltf_direct.transpose(), ltf_indirect.transpose())
+                        if split_direct[:3] == "ltf"
+                        else ltf_matrix.transpose()
+                    ),
+                    ltf_cols,
+                    ltf_rows,
+                ),
+                (tft_matrix.transpose(), grn_cols, grn_rows),
             )
-        return (
-            (ligand2target, ltf_rows, grn_cols),
-            (ltf_matrix, ltf_rows, ltf_cols),
-            (grn_matrix, grn_rows, grn_cols)
-        )
+        return ((ligand2target, ltf_rows, grn_cols), (ltf_matrix, ltf_rows, ltf_cols), (tft_matrix, grn_rows, grn_cols))
     return (ligand2target.transpose(), grn_cols, ltf_rows) if ligands_as_cols else (ligand2target, ltf_rows, grn_cols)
 
+
 def construct_model_from_source_weights(
-    source_weights:dict[str, float]|pd.DataFrame,
-    lr_sig_hub:float,
-    gr_hub:float,
-    ltf_cutoff:float,
-    damping_factor:float,
-    lr_network:pd.DataFrame,
-    gr_network:pd.DataFrame,
-    sig_network:pd.DataFrame,
-    ligands:Iterable[gene_t]|None=None,
-    return_all_matrices:bool=True,
-    return_weighted_networks:bool=True
-):
-    '''
-    Construct the ligand-target matrix starting from the source weights. 
+    source_weights: dict[GeneSymbol, float] | pd.DataFrame,
+    lr_sig_hub: float,
+    gr_hub: float,
+    ltf_cutoff: float,
+    damping_factor: float,
+    lr_network: pd.DataFrame,
+    gr_network: pd.DataFrame,
+    sig_network: pd.DataFrame,
+    ligands: Iterable[GeneSymbol | Iterable[GeneSymbol]] | None = None,
+    return_all_matrices: bool = True,
+    return_weighted_networks: bool = True,
+    split_direct: Literal["no"] | Literal["ltf"] | Literal["tft"] | Literal["ltf-tft"] = "no",
+    direct_coef: float = 0,
+    ppr_implementation: Literal["nichenetr"] | Literal["scikit-network"] = "nichenetr",
+) -> dict[str, Any]:
+    """
+    Construct the ligand-target matrix starting from the source weights.
 
     Parameters
     ----------
@@ -568,78 +1151,90 @@ def construct_model_from_source_weights(
     gr_hub : float
         a number between 0 (no correction for hubiness) and 1 (maximal correction for hubiness)
     ltf_cutoff : float
-        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0.
+        ligand-tf scores beneath the "ltf_cutoff" quantile will be set to 0, at least 0 and smaller than 1 (1 would set
+        every score to 0).
         Default: 0.99 such that only the 1 percent closest tfs will be considered as possible tfs downstream of the ligand of choice.
     damping_factor : float
         Only relevant when algorithm is PPR.
         In the PPR algorithm, the damping factor is the probability that the random walker will continue its walk on the graph;
         1-damping factor is the probability that the walker will return to the seed node.
+        At least 0 and smaller than 1 (NicheNetR only checks this for the PPR algorithm).
     lr_network : pandas.DataFrame
         dataframe which contains ligand-receptor interactions
     gr_network : pandas.DataFrame
         dataframe which contains gene regulatory interactions
     sig_network : pandas.DataFrame
         dataframe which contains signaling interactions
-    ligands : Iterable of gene_t or None
+    ligands : Iterable[gene_t | Iterable[gene_t]] or None
         the ligands to include in the model, if None all ligands in the ligand-receptor network will be included
     return_all_matrices : bool
         whether or not to return the ligand-tf and tf-target matrices
     return_weighted_networks : bool
         whether or not to return the weighted networks
+    split_direct : str
+        Whether or not to split the matrix into direct and indirect submatrices and take a weighted average.
+        "no": don't split;
+        "ltf": split the ltf matrix: the direct part is the ligand's own score;
+        "tft": split the tft matrix: the direct part are the regulatory links that start at a ligand (any ligand of
+        lr_network or a requested ligand);
+        "ltf-tft": split both the ltf and tft matrices;
+        Default: "no"
+    direct_coef : float
+        The strength of direct links during matrix construction, should be between 0 and 1, not used when split_direct == 'no'
+        note: a weighted average is computed between the RP originating from direct links and the RP originating from indirect links
+    ppr_implementation : str
+        Only relevant when algorithm is PPR. How personalized pagerank is computed:
+        "nichenetr": the model of NicheNetR (igraph's PRPACK), the score that reaches a gene without outgoing links
+        returns to the ligand (computed by power iteration, the scores agree with NicheNetR up to about 1e-9);
+        "scikit-network": with scikit-network, as in nichenetpy 1.x (the scores differ from NicheNetR, increasingly
+        for a higher damping_factor, see the Notes of model_construction.construct_ligand_tf_matrix). Needs
+        scikit-network, which is not installed by default
+        (`pip install nichenetpy[sknetwork]`).
+        Default: "nichenetr"
+
     Returns
     -------
     dict
         A dictionary with keys 'weighted networks', 'grn matrix', 'ltf matrix' and 'ligand-target matrix'
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
-    if (
-        type(source_weights) is dict and sum(source_weights.values()) == 0
-    ) or (
+    ValueError
+        if the arguments are invalid
+        if none of the ligands are present in the weighted networks
+    """
+    if (isinstance(source_weights, dict) and sum(source_weights.values()) == 0) or (
         type(source_weights) is pd.DataFrame and sum(source_weights["weight"]) == 0
     ):
-        return (
-            {
-                "weighted networks": None,
-                "grn matrix": None,
-                "ltf matrix": None,
-                "ligand-target matrix": None
-            },
-        )
+        return {"weighted networks": None, "grn matrix": None, "ltf matrix": None, "ligand-target matrix": None}
     if ligands is None:
-        ligands = set(lr_network["from"])
-    weighted_networks = construct_weighted_networks(
+        # in the order of first appearance (the order of a set changes between Python processes)
+        ligands = list(dict.fromkeys(lr_network["from"].tolist()))
+    weighted_networks = construct_weighted_networks(lr_network, sig_network, gr_network, source_weights)
+    ligand2target: np.ndarray[Any, np.dtype[np.floating]]
+    # an empty ligand-signaling network (all ligand-receptor and signaling sources weighted 0) is handled by
+    # construct_ligand_tf_matrix, so every model goes through the same construction path and the output has the
+    # same layout (targets x ligands ligand-target matrix, ltf and grn matrices with matching orientation)
+    weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
+    weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
+    res = construct_ligand_target_matrix(
+        weighted_networks,
         lr_network,
-        sig_network,
-        gr_network,
-        source_weights
+        ligands,
+        damping_factor=damping_factor,
+        ltf_cutoff=ltf_cutoff,
+        return_all_matrices=return_all_matrices,
+        split_direct=split_direct,
+        direct_coef=direct_coef,
+        ppr_implementation=ppr_implementation,
     )
-    if weighted_networks["lr_sig"].shape[0] > 0:
-        weighted_networks["lr_sig"] = apply_hub_correction(weighted_networks["lr_sig"], hub=lr_sig_hub)
-        weighted_networks["gr"] = apply_hub_correction(weighted_networks["gr"], hub=gr_hub)
-        res = construct_ligand_target_matrix(
-            weighted_networks,
-            lr_network,
-            ligands,
-            damping_factor=damping_factor,
-            ltf_cutoff=ltf_cutoff,
-            return_all_matrices=return_all_matrices
-        )
-        if return_all_matrices:
-            ligand2target, grn_matrix, ltf_matrix = res
-        else:
-            ligand2target = res
-            grn_matrix = None
-            ltf_matrix = None
-    else: # lr_sig is empty -> lt_matrix is grn_matrix
-        grn_matrix = construct_tf_target_matrix(
-            weighted_networks,
-            standalone_output=True
-        )
-        grn_matrix = (grn_matrix[0].toarray(order="F"), grn_matrix[1], grn_matrix[2])
-        ligand2target = grn_matrix
+    if return_all_matrices:
+        ligand2target, ltf_matrix, grn_matrix = res
+    else:
+        ligand2target = res
+        grn_matrix = None
         ltf_matrix = None
     output = {
         "weighted networks": weighted_networks,
@@ -649,7 +1244,7 @@ def construct_model_from_source_weights(
             ligand2target
             if ligand2target[0].flags.f_contiguous
             else (ligand2target[0].copy(order="F"), ligand2target[1], ligand2target[2])
-        )
+        ),
     }
     if not return_all_matrices:
         output.pop("grn matrix")

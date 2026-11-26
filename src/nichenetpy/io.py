@@ -1,34 +1,136 @@
-from nichenetpy.prediction import LigandActivityPredictor
+"""
+Read and write ligand-target matrices, sparse matrices and (weighted) networks in a simple binary format.
 
-from math import log2, ceil
-from scipy.sparse import csc_matrix, csr_matrix
+Each file stores the data together with its row and column names (or gene names), so a matrix is read back with the
+names that belong to it. Unlike pickle files, these files only contain names and numbers and don't execute code when
+they are read, so files from other sources are safe to read.
+
+File layout: a sequence of chunks, each preceded by its length in bytes (8-byte big-endian integer).
+Names are stored as one UTF-8 chunk, separated by newlines (names can't contain a newline). Matrix values are float64,
+sparse indices int32 and network weights float64, in the machine's native byte order (little-endian on common
+hardware). A network file starts with the size of its gene ids in bytes (8-byte big-endian integer), and stores each
+gene name once; the links are stored as pairs of gene ids.
+
+Size and speed compared with pickle (random data):
+
+- networks: 2-5 times smaller files, written and read somewhat slower (see `write_network` and
+  `write_weighted_network`)
+- dense and sparse matrices: files of the same size as pickle, `numpy.save` and `scipy.sparse.save_npz` (the raw
+  float64 values), written and read about as fast
+
+Files written by older versions of NicheNetPy can still be read.
+"""
+
+import struct
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal, overload
 
 import numpy as np
-import struct
+import pandas as pd
+from scipy.sparse import csc_array, csc_matrix, csr_array, csr_matrix
 
+from nichenetpy.prediction import LigandActivityPredictor
+from nichenetpy.typing import nichenet_matrix, validate_matrix_type
 
 _INT_SIZE = 8
 _DOUBLE_SIZE = 8
+# sparse matrix files start with a marker, a version byte and the format (b"CSC" or b"CSR"). The marker takes the place
+# of the first length field of the files without a header (the length of the row names): their first byte can't be
+# 0xFF (that would be a length of more than 2^63 bytes), so both can be read.
+_SPARSE_MARKER = b"\xffNNPYSPM"
+_SPARSE_VERSION = 1
 
-def _write_chunks(filename, *chunks, data=None):
-    if data is None:
-        data = bytearray()
-    for chunk in chunks:
-        data.extend(len(chunk).to_bytes(length=_INT_SIZE))
-        data.extend(chunk)
+
+def _write_chunks(
+    filename: str, *chunks: bytes | bytearray | np.ndarray[Any, np.dtype[np.floating | np.integer]], header: bytes = b""
+) -> None:
+    # write the header and then each chunk preceded by its length in bytes; numpy arrays (1-D and contiguous) are written
+    # directly from their memory, without first copying them into a bytes object
     with open(filename, "wb") as file:
-        file.write(data)
+        file.write(header)
+        for chunk in chunks:
+            size = chunk.nbytes if isinstance(chunk, np.ndarray) else len(chunk)
+            file.write(size.to_bytes(length=_INT_SIZE))
+            file.write(chunk)
+
+
+def _encode_names(names: Sequence[str]) -> bytes:
+    # the file formats store gene symbols, a model or network with int gene ids (or combinations of them) can't be written
+    for name in names:
+        if not isinstance(name, str):
+            raise TypeError(
+                f"only gene symbols (str) can be written, got a name of type {type(name).__name__}: {name!r}"
+            )
+    # the names are separated by newlines, so a name can't contain one
+    if any("\n" in name for name in names):
+        raise ValueError("names can't contain a newline character")
+    return "\n".join(names).encode("utf-8")
+
+
+def _name_list(names: object, arg_name: str) -> list[str]:
+    # any ordered sequence of names (list, tuple, numpy array, pandas Index), not a str or an unordered set
+    if isinstance(names, str) or not isinstance(names, (Sequence, np.ndarray, pd.Index)):
+        raise TypeError(f"{arg_name} should be a Sequence of strings, had type {type(names)}")
+    return list(names)
+
+
+def _check_names_shape(row_names: list[str], col_names: list[str], shape: tuple[int, ...]) -> None:
+    # the shape isn't stored, the readers take it from the names
+    if (len(row_names), len(col_names)) != shape:
+        raise ValueError(
+            f"mat has shape {shape}, but there are {len(row_names)} row names and {len(col_names)} column names"
+        )
+
+
+def _decode_names(names: bytes) -> list[str]:
+    # split on newlines only (names can contain spaces), UTF-8 is a superset of ASCII so older files can still be read
+    return names.decode("utf-8").split("\n") if names else []
+
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: LigandActivityPredictor[str],
+    mat: None = None,
+    row_names: None = None,
+    col_names: None = None,
+    column_major: bool = True,
+) -> None: ...
+
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: None,
+    mat: nichenet_matrix,
+    row_names: Sequence[str],
+    col_names: Sequence[str],
+    column_major: bool = True,
+) -> None: ...
+
+
+@overload
+def write_ligand_target_matrix(
+    filename: str,
+    predictor: None = None,
+    *,
+    mat: nichenet_matrix,
+    row_names: Sequence[str],
+    col_names: Sequence[str],
+    column_major: bool = True,
+) -> None: ...
+
 
 def write_ligand_target_matrix(
-    filename:str,
-    predictor:LigandActivityPredictor|None=None,
-    mat:np.ndarray|None=None,
-    row_names:list[str]|None=None,
-    col_names:list[str]|None=None,
-    column_major:bool=True
-):
-    '''
-    Writes a ligand-target matrix to a file. 
+    filename: str,
+    predictor: LigandActivityPredictor[str] | None = None,
+    mat: nichenet_matrix | None = None,
+    row_names: Sequence[str] | None = None,
+    col_names: Sequence[str] | None = None,
+    column_major: bool = True,
+) -> None:
+    """
+    Writes a ligand-target matrix to a file.
 
     Parameters
     ----------
@@ -36,48 +138,54 @@ def write_ligand_target_matrix(
         the name of the file to write to
     predictor : LigandActvivityPredictor or None
         the predictor which contains the matrix
-    mat : numpy.ndarray or None
+    mat : nichenet_matrix or None
         the ligand-target matrix
-    row_names : list of str or None
+    row_names : Sequence of str or None
         the names of the rows
-    col_names : list of str or None
+    col_names : Sequence of str or None
         the names of the columns
     column_major : bool
         whether to use column_major or row_major data format
-    
+
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+        if a name isn't a gene symbol (str), e.g. an int gene id
+    ValueError
+        if the number of row or column names doesn't match the shape of the matrix
+        if a name contains a newline character
+    """
     if type(column_major) is not bool:
         raise TypeError(f"column_major should have type bool, was {type(column_major)}")
     if predictor is None:
-        if type(mat) is not np.ndarray:
-            raise TypeError(f"expected a numpy.ndarray for mat, got {type(mat)}")
-        if type(row_names) is not list:
-            raise TypeError(f"expected a list of strings for row_names, got {type(row_names)}")
-        if type(col_names) is not list:
-            raise TypeError(f"expected a list of strings for col_names, got {type(col_names)}")
+        validate_matrix_type(mat, f"expected a nichenet_matrix for mat, got {type(mat)}")
     else:
-        if type(predictor) is not LigandActivityPredictor:
+        if not isinstance(predictor, LigandActivityPredictor):
             raise TypeError(f"expected a LigandActivityPredictor for predictor, got {type(predictor)}")
         mat = predictor.ligand_target_matrix
         row_names = predictor.row_names
         col_names = predictor.col_names
+    row_names = _name_list(row_names, "row_names")
+    col_names = _name_list(col_names, "col_names")
+    _check_names_shape(row_names, col_names, mat.shape)  # type: ignore # mat can't be None at this point
+    if not isinstance(mat, np.ndarray):
+        mat = mat.toarray(order="F" if column_major else "C")  # type: ignore # mat can't be None at this point
     _write_chunks(
         filename,
-        "\n".join(row_names).encode("ascii"),
-        "\n".join(col_names).encode("ascii"),
-        mat.tobytes(order=("F" if column_major else "C"))
+        _encode_names(row_names),
+        _encode_names(col_names),
+        # the reader assumes float64 data (np.frombuffer default), so other float types are converted
+        # ravel returns a view (no copy) if the matrix is already in the requested order
+        mat.astype(np.float64, copy=False).ravel(order=("F" if column_major else "C")),
     )
 
+
 def read_ligand_target_matrix(
-    filename:str,
-    column_major:bool=True
-) -> tuple[np.ndarray, list[str], list[str]]:
-    '''
-    reads a ligand-target matrix from a file. 
+    filename: str, column_major: bool = True
+) -> tuple[np.ndarray[Any, np.dtype[np.floating]], list[str], list[str]]:
+    """
+    Reads a ligand-target matrix from a file.
 
     Parameters
     ----------
@@ -85,7 +193,7 @@ def read_ligand_target_matrix(
         the name of the file to read from
     column_major : bool
         whether to use column_major or row_major data format
-    
+
     Returns
     -------
     numpy.ndarray
@@ -99,7 +207,7 @@ def read_ligand_target_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     if type(column_major) is not bool:
@@ -108,80 +216,141 @@ def read_ligand_target_matrix(
         row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mat = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
-    row_names = row_names.decode("ascii").split()
-    col_names = col_names.decode("ascii").split()
+    row_names = _decode_names(row_names)
+    col_names = _decode_names(col_names)
     mat = mat.reshape((len(row_names), len(col_names)), order=("F" if column_major else "C"))
-    return (mat, row_names, col_names)
+    return (mat, row_names, col_names)  # type: ignore
+
 
 def write_sparse_matrix(
-    filename:str,
-    mat:csc_matrix|csr_matrix,
-    row_names:str,
-    col_names:str
-):
-    '''
-    Writes a sparse matrix to a file. 
+    filename: str,
+    mat: csc_matrix[np.floating] | csr_matrix[np.floating] | csc_array[np.floating] | csr_array[np.floating],
+    row_names: Sequence[str],
+    col_names: Sequence[str],
+) -> None:
+    """
+    Writes a sparse matrix to a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to write to
-    mat : csc_matrix or csr_matrix
-        the sparse matrix
-    row_names : list of str
+    mat : csc_matrix or csr_matrix or csc_array or csr_array
+        the sparse matrix (read it back with `read_csc_matrix` for a csc matrix or array, `read_csr_matrix` for a csr
+        matrix or array, the file stores which one it is; they return a sparse array or a sparse matrix depending on
+        their `sparse_array` argument, not on the type that was written)
+    row_names : Sequence of str
         the names of the rows
-    col_names : list of str
+    col_names : Sequence of str
         the names of the columns
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+        if a name isn't a gene symbol (str), e.g. an int gene id
+    ValueError
+        if the number of row or column names doesn't match the shape of mat
+        if mat is too large for the file format (more than 2^31 - 1 rows, columns or nonzero values)
+        if a name contains a newline character
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mat) is not csc_matrix and type(mat) is not csr_matrix:
-        raise TypeError(f"mat should have type csc_matrix or csr_matrix, was {type(mat)}")
-    if type(row_names) is not list:
-        raise TypeError(f"row_names should be a list of strings, had type {type(row_names)}")
-    if type(col_names) is not list:
-        raise TypeError(f"col_names should be a list of strings, had type {type(col_names)}")
+    if not isinstance(mat, (csc_matrix, csr_matrix, csc_array, csr_array)):
+        raise TypeError(f"mat should have type csc_matrix, csr_matrix, csc_array or csr_array, was {type(mat)}")
+    row_names = _name_list(row_names, "row_names")
+    col_names = _name_list(col_names, "col_names")
+    _check_names_shape(row_names, col_names, mat.shape)
+    # the reader assumes int32 indices and indptr, scipy uses int64 for large matrices (and after some operations)
+    int32_max = np.iinfo(np.int32).max
+    if max(mat.shape) > int32_max or mat.nnz > int32_max:
+        raise ValueError(f"mat is too large to write, it has shape {mat.shape} and {mat.nnz} nonzero values")
+    # the format takes 3 ASCII bytes; if options that need only one or a few bits are added (in a new version), the
+    # format (row- or column-major) should become 1 bit of a flags byte together with them
+    sparse_format = b"CSC" if isinstance(mat, (csc_matrix, csc_array)) else b"CSR"
     _write_chunks(
         filename,
-        "\n".join(row_names).encode("ascii"),
-        "\n".join(col_names).encode("ascii"),
-        mat.data.tobytes(),
-        mat.indices.tobytes(),
-        mat.indptr.tobytes()
+        _encode_names(row_names),
+        _encode_names(col_names),
+        # the reader assumes float64 data (np.frombuffer default), so other float types are converted
+        mat.data.astype(np.float64, copy=False),
+        mat.indices.astype(np.int32, copy=False),
+        mat.indptr.astype(np.int32, copy=False),
+        header=_SPARSE_MARKER + _SPARSE_VERSION.to_bytes(1) + sparse_format,
     )
 
+
 def _read_sparse_matrix(
-    filename
-):
+    filename: str, sparse_format: bytes
+) -> tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.integer]],
+    np.ndarray[Any, np.dtype[np.integer]],
+    list[str],
+    list[str],
+]:
     with open(filename, "rb") as file:
-        row_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
+        first = file.read(_INT_SIZE)
+        if first == _SPARSE_MARKER:
+            version = int.from_bytes(file.read(1))
+            if version != _SPARSE_VERSION:
+                raise ValueError(
+                    f"{filename} has sparse matrix file version {version}, only {_SPARSE_VERSION} can be read"
+                )
+            stored_format = file.read(3)
+            if stored_format not in (b"CSC", b"CSR"):
+                raise ValueError(f"{filename} has an unknown sparse matrix format {stored_format!r}")
+            if stored_format != sparse_format:
+                reader = "read_csr_matrix" if stored_format == b"CSR" else "read_csc_matrix"
+                raise ValueError(f"{filename} contains a {stored_format.decode()} matrix, read it with {reader}")
+            first = file.read(_INT_SIZE)
+        # a file without a header (as written by nichenetpy 1.x): the format isn't known, the first 8 bytes are the
+        # length of the row names
+        row_names = file.read(int.from_bytes(first))
         col_names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         data = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))))
         indices = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
         indptr = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
-    row_names = row_names.decode("ascii").split()
-    col_names = col_names.decode("ascii").split()
-    return (data, indices, indptr, row_names, col_names)
+    row_names = _decode_names(row_names)
+    col_names = _decode_names(col_names)
+    return (data, indices, indptr, row_names, col_names)  # type: ignore # the names were decoded to lists of str
+
+
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: Literal[True] = True
+) -> tuple[csc_array[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: Literal[False]
+) -> tuple[csc_matrix[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csc_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csc_array[np.float64] | csc_matrix[np.float64], list[str], list[str]]: ...
+
 
 def read_csc_matrix(
-    filename:str
-) -> tuple[csc_matrix, list[str], list[str]]:
-    '''
-    reads a csc_matrix from a file. 
+    filename: str, sparse_array: bool = True
+) -> tuple[csc_array[np.float64] | csc_matrix[np.float64], list[str], list[str]]:
+    """
+    Reads a sparse matrix in compressed sparse column format from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+    sparse_array : bool
+        if True, return a scipy.sparse.csc_array, otherwise a scipy.sparse.csc_matrix (scipy expects to deprecate
+        the sparse matrix interface)
+
     Returns
     -------
-    csc_matrix
+    csc_array or csc_matrix
         the sparse matrix
     list of str
         the names of the rows
@@ -192,27 +361,54 @@ def read_csc_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    ValueError
+        if the file contains a matrix in the other format (read it with `read_csr_matrix`) or has an unknown version
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csc_matrix((data, indices, indptr))
+    if type(sparse_array) is not bool:
+        raise TypeError(f"sparse_array should have type bool, was {type(sparse_array)}")
+    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename, b"CSC")
+    sparse_type = csc_array if sparse_array else csc_matrix
+    mat = sparse_type((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
+
+
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: Literal[True] = True
+) -> tuple[csr_array[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: Literal[False]
+) -> tuple[csr_matrix[np.float64], list[str], list[str]]: ...
+
+
+@overload
+def read_csr_matrix(
+    filename: str, sparse_array: bool = True
+) -> tuple[csr_array[np.float64] | csr_matrix[np.float64], list[str], list[str]]: ...
+
 
 def read_csr_matrix(
-    filename:str
-) -> tuple[csr_matrix, list[str], list[str]]:
-    '''
-    reads a csr_matrix from a file. 
+    filename: str, sparse_array: bool = True
+) -> tuple[csr_array[np.float64] | csr_matrix[np.float64], list[str], list[str]]:
+    """
+    Reads a sparse matrix in compressed sparse row format from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+    sparse_array : bool
+        if True, return a scipy.sparse.csr_array, otherwise a scipy.sparse.csr_matrix (scipy expects to deprecate
+        the sparse matrix interface)
+
     Returns
     -------
-    csr_matrix
+    csr_array or csr_matrix
         the sparse matrix
     list of str
         the names of the rows
@@ -223,35 +419,59 @@ def read_csr_matrix(
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    ValueError
+        if the file contains a matrix in the other format (read it with `read_csc_matrix`) or has an unknown version
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename)
-    mat = csr_matrix((data, indices, indptr))
+    if type(sparse_array) is not bool:
+        raise TypeError(f"sparse_array should have type bool, was {type(sparse_array)}")
+    data, indices, indptr, row_names, col_names = _read_sparse_matrix(filename, b"CSR")
+    sparse_type = csr_array if sparse_array else csr_matrix
+    mat = sparse_type((data, indices, indptr), shape=(len(row_names), len(col_names)))
     return (mat, row_names, col_names)
 
-def write_network(filename:str, mapping:list[tuple[str, str]]):
-    '''
-    Writes a network to a file. 
+
+def _id_size(n_names: int) -> int:
+    # number of bytes needed to store the ids 0 to n_names - 1 (at least 1)
+    return max(1, ((n_names - 1).bit_length() + 7) // 8)
+
+
+def write_network(filename: str, mapping: Iterable[tuple[str, str]]) -> None:
+    """
+    Writes a network to a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to write to
-    mapping : list[tuple[str, str]]
-        the network connections
+    mapping : Iterable of tuple[str, str]
+        the network connections (iterated once, so e.g. a generator or zip is fine)
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+        if a gene name isn't a gene symbol (str), e.g. an int gene id
+    ValueError
+        if a gene name contains a newline character
+
+    Notes
+    -----
+    Each gene name is stored once, the links are stored as pairs of gene ids of 1 byte (up to 256 genes), 2 bytes (up to
+    65,536 genes), etc. `read_network` returns the links grouped by source gene, not in the original order.
+
+    Compared with pickle (highest protocol) on random networks, files are about 5 times smaller (2.3 MB vs 12.0 MB for
+    15,000 genes and 1 million links, gzip compressed pickle: 5.8 MB). Pickle is somewhat faster (3 million links: write
+    0.9 s, read 0.4 s vs write 0.9 s, read 0.6 s), as this function and `read_network` loop over the links in Python.
+    Unlike pickle files, these files don't execute code when they are read, so files from other sources are safe to read.
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mapping) is not list:
-        raise TypeError(f"mapping should have type list[tuple[str, str]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    if isinstance(mapping, str) or not isinstance(mapping, Iterable):
+        raise TypeError(f"mapping should be an Iterable of tuple[str, str], was {type(mapping)}")
+    grouped_mapping = {}
+    name2id = {}
     for fr, to in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append(to)
@@ -261,42 +481,53 @@ def write_network(filename:str, mapping:list[tuple[str, str]]):
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
-    id_size = ceil(log2(len(name2id) - 1))
+    id_size = _id_size(len(name2id))
     data = bytearray()
     for fr, tos in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
         data.extend(len(tos).to_bytes(length=_INT_SIZE))
         for to in tos:
             data.extend(name2id[to].to_bytes(length=id_size))
-    _write_chunks(
-        filename,
-        "\n".join(name2id.keys()).encode("ascii"),
-        data,
-        data=bytearray(id_size.to_bytes(_INT_SIZE))
-    )
+    _write_chunks(filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE))
 
-def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
-    '''
-    Writes a weighted network to a file. 
+
+def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, float]]) -> None:
+    """
+    Writes a weighted network to a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to write to
-    mapping : list[tuple[str, str, float]]
-        the weighted connections of the network
+    mapping : Iterable of tuple[str, str, float]
+        the weighted connections of the network (iterated once, so e.g. a generator or zip is fine)
 
     Raises
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+        if a gene name isn't a gene symbol (str), e.g. an int gene id
+    ValueError
+        if a gene name contains a newline character
+
+    Notes
+    -----
+    Each gene name is stored once, the links are stored as pairs of gene ids of 1 byte (up to 256 genes), 2 bytes (up to
+    65,536 genes), etc. followed by the weight (8 byte float). `read_weighted_network` returns the links grouped by source
+    gene, not in the original order.
+
+    Compared with pickle (highest protocol) on random networks, files are about 2 times smaller (10.3 MB vs 21.0 MB for
+    15,000 genes and 1 million links, gzip compressed pickle: 14.5 MB); the weights take up most of the space. Pickle is
+    faster (3 million links: write 1.0 s, read 0.5 s vs write 2.6 s, read 1.1 s), as this function and
+    `read_weighted_network` loop over the links in Python. Unlike pickle files, these files don't execute code when they
+    are read, so files from other sources are safe to read.
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
-    if type(mapping) is not list:
-        raise TypeError(f"mapping should have type list[tuple[str, str, float]], was {type(mapping)}")
-    grouped_mapping = dict()
-    name2id = dict()
+    if isinstance(mapping, str) or not isinstance(mapping, Iterable):
+        raise TypeError(f"mapping should be an Iterable of tuple[str, str, float], was {type(mapping)}")
+    grouped_mapping = {}
+    name2id = {}
     for fr, to, w in mapping:
         if fr in grouped_mapping:
             grouped_mapping[fr].append((to, w))
@@ -306,7 +537,7 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
             name2id[fr] = len(name2id)
         if to not in name2id:
             name2id[to] = len(name2id)
-    id_size = ceil(log2(len(name2id) - 1))
+    id_size = _id_size(len(name2id))
     data = bytearray()
     for fr, group in grouped_mapping.items():
         data.extend(name2id[fr].to_bytes(length=id_size))
@@ -314,22 +545,18 @@ def write_weighted_network(filename:str, mapping:list[tuple[str, str, float]]):
         for to, w in group:
             data.extend(name2id[to].to_bytes(length=id_size))
             data.extend(struct.pack("d", w))
-    _write_chunks(
-        filename,
-        "\n".join(name2id.keys()).encode("ascii"),
-        data,
-        data=bytearray(id_size.to_bytes(_INT_SIZE))
-    )
+    _write_chunks(filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE))
 
-def read_network(filename:str) -> list[tuple[str, str]]:
-    '''
-    reads a network from a file. 
+
+def read_network(filename: str) -> list[tuple[str, str]]:
+    """
+    Reads a network from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     list of tuples
@@ -339,36 +566,37 @@ def read_network(filename:str) -> list[tuple[str, str]]:
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = _decode_names(names)
     id2name = dict(enumerate(names))
     output = []
     i = 0
     while i < len(mapping):
-        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        fr = id2name[int.from_bytes(mapping[i : i + id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        k = int.from_bytes(mapping[i : i + _INT_SIZE])
         i += _INT_SIZE
         for _ in range(k):
-            output.append((fr, id2name[int.from_bytes(mapping[i:i+id_size])]))
+            output.append((fr, id2name[int.from_bytes(mapping[i : i + id_size])]))
             i += id_size
-    return output
+    return output  # type: ignore
 
-def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
-    '''
-    reads a weighted network from a file. 
+
+def read_weighted_network(filename: str) -> list[tuple[str, str, float]]:
+    """
+    Reads a weighted network from a file.
 
     Parameters
     ----------
     filename : str
         the name of the file to read from
-    
+
     Returns
     -------
     list of tuples
@@ -378,27 +606,29 @@ def read_weighted_network(filename:str) -> list[tuple[str, str, float]]:
     ------
     TypeError
         if the arguments have the wrong type
-    '''
+    """
     if type(filename) is not str:
         raise TypeError(f"filename should have type str, was {type(filename)}")
     with open(filename, "rb") as file:
         id_size = int.from_bytes(file.read(_INT_SIZE))
         names = file.read(int.from_bytes(file.read(_INT_SIZE)))
         mapping = file.read(int.from_bytes(file.read(_INT_SIZE)))
-    names = names.decode("ascii").split()
+    names = _decode_names(names)
     id2name = dict(enumerate(names))
     output = []
     i = 0
     while i < len(mapping):
-        fr = id2name[int.from_bytes(mapping[i:i+id_size])]
+        fr = id2name[int.from_bytes(mapping[i : i + id_size])]
         i += id_size
-        k = int.from_bytes(mapping[i:i+_INT_SIZE])
+        k = int.from_bytes(mapping[i : i + _INT_SIZE])
         i += _INT_SIZE
         for _ in range(k):
-            output.append((
-                fr,
-                id2name[int.from_bytes(mapping[i:i+id_size])],
-                struct.unpack("d", mapping[i+id_size:i+id_size+_DOUBLE_SIZE])[0]
-            ))
+            output.append(
+                (
+                    fr,
+                    id2name[int.from_bytes(mapping[i : i + id_size])],
+                    struct.unpack("d", mapping[i + id_size : i + id_size + _DOUBLE_SIZE])[0],
+                )
+            )
             i += id_size + _DOUBLE_SIZE
-    return output
+    return output  # type: ignore
