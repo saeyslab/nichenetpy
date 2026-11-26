@@ -17,6 +17,7 @@ from anndata import AnnData
 from nichenetpy.evaluation import EvaluationData
 from nichenetpy.extraction import average_expression
 from nichenetpy.model_construction import construct_model_from_source_weights
+from nichenetpy.prediction import LigandActivityPredictor, assess_rf_class_probabilities
 from nichenetpy.prioritization import get_avg_exp
 from nichenetpy.utils import combine_dicts
 from nichenetpy.visualization import assign_ligands_to_celltype
@@ -48,6 +49,18 @@ def _model_ligands():
     return list(model["ligand-target matrix"][2])
 
 
+def _rf_predictions():
+    # a set of ligands: the order of the random forest's features
+    rng = np.random.default_rng(0)
+    genes = [f"g{i}" for i in range(40)]
+    ligands = [f"L{i}" for i in range(8)]
+    predictor = LigandActivityPredictor(np.asfortranarray(rng.random((len(genes), len(ligands)))), genes, ligands)
+    res = assess_rf_class_probabilities(
+        2, set(genes[:15]), set(genes[15:]), set(ligands), predictor, 20, random_state=0
+    )
+    return res.sort_values("gene")["prediction"].round(10).tolist()
+
+
 def _orders():
     ann = _ann()
     evaluation = EvaluationData([{"name": "s1", "from": "L1", "response": {"g0": 1}}])
@@ -60,6 +73,8 @@ def _orders():
             ann, "celltype", keys=["NK", "Z", "T", "B"], layer="counts"
         ).columns.tolist(),
         "get_avg_exp": get_avg_exp(ann, "celltype")["celltype"].unique().tolist(),
+        "get_avg_exp features": get_avg_exp(ann, "celltype", features={"L3", "g0", "L1"})["gene"].unique().tolist(),
+        "assess_rf_class_probabilities": _rf_predictions(),
         "assign_ligands_to_celltype": assign_ligands_to_celltype(ann, ["L2", "L4", "L1", "L3"]).values.tolist(),
     }
 
@@ -72,6 +87,8 @@ def test_orders():
     assert orders["average_expression"] == ["T", "B", "NK", "Mono", "DC"]
     assert orders["average_expression keys"] == ["NK", "T", "B"]
     assert orders["get_avg_exp"] == ["T", "B", "NK", "Mono", "DC"]
+    # a set of features is sorted
+    assert orders["get_avg_exp features"] == ["L1", "L3", "g0"]
     # cell types sorted, the ligands (general ligands last) in the order of ligands
     assert orders["assign_ligands_to_celltype"] == [["B", "L1"], ["NK", "L4"], ["T", "L3"], ["General", "L2"]]
 

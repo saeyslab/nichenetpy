@@ -12,6 +12,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from nichenetpy.utils import (
+    _ligand_sort_key,
     combine_by_key,
     combine_dicts,
     df_grouped_apply,
@@ -404,3 +405,9 @@ def test_ligand_activities_df_different_metrics():
 def test_combine_dicts_dict_subclass():
     dict1, dict2 = {"a": 1, "b": 2}, {"a": 3, "b": 4}
     assert combine_dicts(OrderedDict(dict1), OrderedDict(dict2)) == combine_dicts(dict1, dict2)
+
+
+def test_ligand_sort_key():
+    # ligands are sorted by their members: a combination right after its first member, int ids numerically
+    assert sorted({"B", ("A", "B"), "A", ("A", "C")}, key=_ligand_sort_key) == ["A", ("A", "B"), ("A", "C"), "B"]
+    assert sorted({10, 2, (2, 10), 1}, key=_ligand_sort_key) == [1, 2, (2, 10), 10]

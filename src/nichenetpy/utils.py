@@ -471,6 +471,15 @@ def combine_dicts(dict1: dict, dict2: dict, func: Callable | None = None) -> dic
     return {key: func(dict1[key], dict2[key]) for key in dict1 if key in dict2}
 
 
+def _ligand_sort_key(ligand: GeneSymbol | Sequence[GeneSymbol]) -> tuple[GeneSymbol, ...]:
+    # a single ligand as a 1-tuple, a combination as the tuple of its members; tuples of gene symbols (or of int ids)
+    # compare member by member, so the ligands are sorted by their members and a combination comes right after its
+    # first member: A, (A, B), B
+    if isinstance(ligand, (str, int)):
+        return (ligand,)  # pyright: ignore[reportReturnType] # a single ligand (a combination is never a str)
+    return tuple(ligand)
+
+
 def ligand_activities_df(
     ligand_activities: dict[GeneSymbol, dict[str, float]] | Iterable[tuple[GeneSymbol, dict[str, float]]],
 ) -> pd.DataFrame:

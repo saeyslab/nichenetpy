@@ -22,6 +22,7 @@ from nichenetpy.typing import (
     ligand_eval_metric_t,
     target_eval_metric_t,
 )
+from nichenetpy.utils import _ligand_sort_key
 
 # Can only add docstrings to single line variable declarations (note: *.__doc__ is read-only)
 objective_fs_dct: dict[
@@ -186,7 +187,7 @@ def evaluate_model(
             performances_target_prediction[k].append(v)
     performances_target_prediction = pd.DataFrame(performances_target_prediction)
     # sorted, so the rows and the results don't depend on the iteration order of a set
-    all_ligands = sorted(evaluation_data.get_ligands(combination=False), key=str)
+    all_ligands = sorted(evaluation_data.get_ligands(combination=False))
     ligand_importances = {"setting": [], "test_ligand": [], "true_ligand": []}
     for met in target_evaluation_metrics:
         ligand_importances[met] = []
@@ -549,7 +550,7 @@ def construct_and_evaluate(
         sig_network,
         # sorted, so the column order of the model (and the noise of replace_zero_col_by_noisy_scores) doesn't depend
         # on the iteration order of a set
-        ligands=sorted(evaluation_data.get_ligands(), key=str),
+        ligands=sorted(evaluation_data.get_ligands(), key=_ligand_sort_key),
         return_all_matrices=return_all_matrices,
         return_weighted_networks=return_weighted_networks,
         split_direct=split_direct,
@@ -572,7 +573,7 @@ def construct_and_evaluate(
             ligand_evaluation_metrics=ligand_evaluation_metrics,
             target_evaluation_metrics=target_evaluation_metrics,
         ),
-        sorted(evaluation_data.get_ligands(combination=True), key=str),
+        sorted(evaluation_data.get_ligands(combination=True), key=_ligand_sort_key),
         metric_score_f=metric_score_f,
         objective_fs=objective_fs,
     )

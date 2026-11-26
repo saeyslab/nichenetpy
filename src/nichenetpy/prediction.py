@@ -744,7 +744,8 @@ def assess_rf_class_probabilities(
     background_expressed_genes : set of gene_t
         the background, non-affected, genes (can contain the symbols of the affected genes as well)
     ligands_oi : Iterable of gene_t
-        the ligands you want to build the multi-ligand random forest with
+        the ligands you want to build the multi-ligand random forest with (a set is sorted, the order of the ligands
+        is the order of the features of the random forests)
     predictor : LigandActivityPredictor
         the ligand-activity predictor which contains the ligand-target matrix
     ntrees : int
@@ -787,12 +788,16 @@ def assess_rf_class_probabilities(
     known_genes = predictor.get_genes()
     geneset_known = set(geneset) & known_genes
     background_known = (set(background_expressed_genes) & known_genes) - geneset_known
-    # the ligand columns are the same in every fold (ligands_oi may be a generator, which can only be used once)
+    # the ligand columns are the same in every fold (ligands_oi may be a generator, which can only be used once); a set
+    # is sorted: the order of the features changes the random forests, and a set of strings has a different order in
+    # every Python process, which would change the results even with the same random_state
+    if isinstance(ligands_oi, (set, frozenset)):
+        ligands_oi = sorted(ligands_oi)
     ligand_ids = [predictor.ligand2index(ligand) for ligand in ligands_oi]
     # sorted: a set of strings has a different order in every Python session, which would change the folds even with
     # the same random_state
-    background_expressed_genes = np.array([[e] for e in sorted(background_known, key=str)])
-    geneset = np.array([[e] for e in sorted(geneset_known, key=str)])
+    background_expressed_genes = np.array([[e] for e in sorted(background_known)])
+    geneset = np.array([[e] for e in sorted(geneset_known)])
     kf = KFold(n_splits=folds, shuffle=True, random_state=random_state)
     geneset_predictions_all = []
     for beg_split, geneset_split in zip(kf.split(background_expressed_genes), kf.split(geneset), strict=True):

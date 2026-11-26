@@ -175,7 +175,7 @@ def get_avg_exp(
     layer : str
         the layer of the AnnData object to use (counts, or log-normalized data if log_normalized is True)
     features : Iterable[gene_t] or None
-        the genes to use, if None, use all genes from the AnnData object
+        the genes to use (in this order, a set is sorted), if None, use all genes from the AnnData object
     log_normalized : bool
         if False, the layer contains counts, which are normalized per cell (divided by the library size and multiplied
         by 10000) before averaging; if True, the layer contains log-normalized data (log1p of such normalized counts),
@@ -229,8 +229,10 @@ def get_avg_exp(
     )
     avg_celltype.index.name = "gene"
     if features is not None:
-        # a list: pandas selects rows with a list (not with a set or a generator)
-        avg_celltype = avg_celltype.loc[list(features)]
+        # a list: pandas selects rows with a list (not with a set or a generator); a set is sorted, its order changes
+        # between Python processes
+        features = sorted(features) if isinstance(features, (set, frozenset)) else list(features)
+        avg_celltype = avg_celltype.loc[features]
     avg_celltype = avg_celltype.reset_index()
     return pd.melt(
         avg_celltype, id_vars=["gene"], value_vars=list(celltypes), var_name=celltype_col, value_name="avg_exp"
