@@ -21,7 +21,7 @@ def calculate_de(
     celltype_col: str,
     condition_oi: str,
     condition_col: str,
-    layer="data",
+    layer: str = "data",
     features: Iterable[GeneSymbol] | None = None,
     min_abs_lfc: float = 0,
     min_pct: float = 0,

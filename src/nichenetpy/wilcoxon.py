@@ -16,7 +16,9 @@ from nichenetpy.typing import GeneSymbol, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
 
 
-def _rank_cells(mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str], tie_correction: bool = True):
+def _rank_cells(
+    mat: nichenet_matrix, cell_groups: Sequence[str] | pd.Series[str], tie_correction: bool = True
+) -> tuple[list[list[float]], Sequence[Sequence[str]], np.ndarray]:
     if type(cell_groups) is pd.Series:
         # indexing series is slow and deprecated (warning is thrown)
         cell_groups = cell_groups.tolist()

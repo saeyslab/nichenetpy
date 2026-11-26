@@ -41,7 +41,7 @@ _SPARSE_MARKER = b"\xffNNPYSPM"
 _SPARSE_VERSION = 1
 
 
-def _write_chunks(filename: str, *chunks: bytes | bytearray | np.ndarray, header: bytes = b""):
+def _write_chunks(filename: str, *chunks: bytes | bytearray | np.ndarray, header: bytes = b"") -> None:
     # write the header and then each chunk preceded by its length in bytes; numpy arrays (1-D and contiguous) are written
     # directly from their memory, without first copying them into a bytes object
     with open(filename, "wb") as file:
@@ -72,7 +72,7 @@ def _name_list(names: object, arg_name: str) -> list[str]:
     return list(names)
 
 
-def _check_names_shape(row_names: list[str], col_names: list[str], shape: tuple[int, ...]):
+def _check_names_shape(row_names: list[str], col_names: list[str], shape: tuple[int, ...]) -> None:
     # the shape isn't stored, the readers take it from the names
     if (len(row_names), len(col_names)) != shape:
         raise ValueError(
@@ -93,7 +93,7 @@ def write_ligand_target_matrix(
     row_names: None = None,
     col_names: None = None,
     column_major: bool = True,
-): ...
+) -> None: ...
 
 
 @overload
@@ -104,7 +104,7 @@ def write_ligand_target_matrix(
     row_names: Sequence[str],
     col_names: Sequence[str],
     column_major: bool = True,
-): ...
+) -> None: ...
 
 
 @overload
@@ -116,7 +116,7 @@ def write_ligand_target_matrix(
     row_names: Sequence[str],
     col_names: Sequence[str],
     column_major: bool = True,
-): ...
+) -> None: ...
 
 
 def write_ligand_target_matrix(
@@ -126,7 +126,7 @@ def write_ligand_target_matrix(
     row_names: Sequence[str] | None = None,
     col_names: Sequence[str] | None = None,
     column_major: bool = True,
-):
+) -> None:
     """
     Writes a ligand-target matrix to a file.
 
@@ -223,7 +223,7 @@ def write_sparse_matrix(
     mat: csc_matrix[np.floating] | csr_matrix[np.floating] | csc_array[np.floating] | csr_array[np.floating],
     row_names: Sequence[str],
     col_names: Sequence[str],
-):
+) -> None:
     """
     Writes a sparse matrix to a file.
 
@@ -276,7 +276,9 @@ def write_sparse_matrix(
     )
 
 
-def _read_sparse_matrix(filename, sparse_format):
+def _read_sparse_matrix(
+    filename: str, sparse_format: bytes
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str], list[str]]:
     with open(filename, "rb") as file:
         first = file.read(_INT_SIZE)
         if first == _SPARSE_MARKER:
@@ -301,7 +303,7 @@ def _read_sparse_matrix(filename, sparse_format):
         indptr = np.frombuffer(file.read(int.from_bytes(file.read(_INT_SIZE))), dtype=np.int32)
     row_names = _decode_names(row_names)
     col_names = _decode_names(col_names)
-    return (data, indices, indptr, row_names, col_names)
+    return (data, indices, indptr, row_names, col_names)  # type: ignore # the names were decoded to lists of str
 
 
 @overload
@@ -425,7 +427,7 @@ def _id_size(n_names: int) -> int:
     return max(1, ((n_names - 1).bit_length() + 7) // 8)
 
 
-def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
+def write_network(filename: str, mapping: Iterable[tuple[str, str]]) -> None:
     """
     Writes a network to a file.
 
@@ -479,7 +481,7 @@ def write_network(filename: str, mapping: Iterable[tuple[str, str]]):
     _write_chunks(filename, _encode_names(list(name2id)), data, header=id_size.to_bytes(_INT_SIZE))
 
 
-def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, float]]):
+def write_weighted_network(filename: str, mapping: Iterable[tuple[str, str, float]]) -> None:
     """
     Writes a weighted network to a file.
 

@@ -170,7 +170,7 @@ def read_csv_cols(filename: str, sep: str | Pattern = ",") -> dict[str, Sequence
     return dict(zip(lines[0], zip(*lines[1:], strict=True), strict=True))
 
 
-def read_network_file(filename: str):
+def read_network_file(filename: str) -> pd.DataFrame:
     """
     Reads a network (pandas.DataFrame) from a csv or pickle file
 
@@ -767,7 +767,7 @@ def is_ligand_active(importances: pd.DataFrame) -> list[bool]:
     ]
 
 
-def linked_iter[T](start: T, nxt: Callable[[T], T], stp: Callable[[T, T], bool]):
+def linked_iter[T](start: T, nxt: Callable[[T], T], stp: Callable[[T, T], bool]) -> Iterator[T]:
     """
     Yields all values reached by calling nxt on the current value until stp returns True
 

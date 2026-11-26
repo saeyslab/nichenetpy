@@ -182,7 +182,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             )
         ) / (self.ligand_target_matrix.shape[0] * self.ligand_target_matrix.shape[1])
 
-    def ligand2index(self, ligand: GeneSymbol | GeneCombination[GeneSymbol]):
+    def ligand2index(self, ligand: GeneSymbol | GeneCombination[GeneSymbol]) -> int:
         """
         Get the index of the ligand in the ligand-target matrix
 
@@ -208,7 +208,7 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise NotInModelError(f"{ligand} not in ligand_target_matrix")
         return self._ligand2index[ligand]
 
-    def gene2index(self, gene: GeneSymbol):
+    def gene2index(self, gene: GeneSymbol) -> int:
         """
         Get the index of the gene in the ligand-target matrix
 

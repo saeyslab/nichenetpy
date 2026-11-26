@@ -145,6 +145,8 @@ and this project adheres to [Semantic Versioning][].
 
 - Iterable arguments are only copied when that's needed: an argument that's used once isn't copied, and an argument that's used more than once is only stored in a list when it can be used only once (e.g. a generator).
 
+- The public API is fully type annotated: every public function and method annotates all its arguments and its return type (e.g. `evaluation.EvaluationData.keys` returns a `KeysView[str]`, `network.Network.subset` the type of the network, `wrappers.calculate_fraction_top_predicted_fisher` scipy's `SignificanceResult`; `layer` of `prioritization.calculate_de` and the axis and color bar labels of the heatmaps in `wrappers` are annotated as str, `cmap` as str or Colormap).
+
 ### Fixed
 
 - Corrected docstrings.

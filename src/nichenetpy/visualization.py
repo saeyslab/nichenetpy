@@ -23,7 +23,7 @@ from matplotlib.colors import Colormap, colorConverter
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
-from matplotlib.patches import Circle, Ellipse, Patch, Rectangle, RegularPolygon, Wedge
+from matplotlib.patches import Circle, Ellipse, Patch, Polygon, Rectangle, RegularPolygon, Wedge
 from matplotlib.path import Path
 from matplotlib.patheffects import withStroke
 from matplotlib.projections import register_projection
@@ -444,7 +444,7 @@ def _get_shortest_path_signaling(
     signaling_df: pd.DataFrame,
     lr_sig_mat: csr_array[np.floating],
     gene2id: dict[GeneSymbol, int],
-):
+) -> set[int]:
     ligand_signaling = signaling_df[signaling_df["ligand"] == ligand_oi]
     tfs = {gene2id[e] for e in ligand_signaling["TF"]}
     ligand_id = gene2id[ligand_oi]
@@ -599,7 +599,7 @@ def visualize_ligand_signaling_graph(
     arrow_size: int = 10,
     label_size: int = 7,
     seed: int | None = 0,
-):
+) -> None:
     """
     Visualize extracted ligand-target signaling network.
 
@@ -704,7 +704,7 @@ def assign_ligands_to_celltype(
     condition_oi: str | None = None,
     condition_col: str | None = None,
     layer: str = "data",
-):
+) -> pd.DataFrame:
     """
     Assign ligands to a sender cell type, based on the strongest expressing cell type of that ligand.
     Ligands are only assigned to a cell type if that cell type is the only one to show an expression
@@ -798,7 +798,16 @@ def assign_ligands_to_celltype(
     )
 
 
-def _plot_ties(ties, x_col, max_ligands, r_tie, top_offset, ax, ymax, tie_color):
+def _plot_ties(
+    ties: dict[Any, list[int]],
+    x_col: float,
+    max_ligands: int,
+    r_tie: float,
+    top_offset: float,
+    ax: Axes,
+    ymax: float,
+    tie_color: ColorType,
+) -> None:
     for group in ties.values():
         if len(group) > 1 and all(e < max_ligands for e in group):
             start = min(group) + 1
@@ -1027,7 +1036,7 @@ def gradient_image(
     extent: tuple[float, float, float, float],
     direction: float = 0.3,
     cmap_range: tuple[float, float] = (0, 1),
-    **kwargs,
+    **kwargs: Any,
 ) -> AxesImage:
     """
     Draw a gradient image based on a colormap.
@@ -1074,7 +1083,7 @@ _mushroom_plot_translate_keywords = {
 }
 
 
-def _mushroomplot_label(prefix, suffix=None):
+def _mushroomplot_label(prefix: str, suffix: str | None = None) -> str:
     return f"{
         ' '.join(
             _mushroom_plot_translate_keywords[keyword] if keyword in _mushroom_plot_translate_keywords else keyword
@@ -1083,7 +1092,14 @@ def _mushroomplot_label(prefix, suffix=None):
     }{'' if suffix is None else f' {suffix}'}"
 
 
-def _mushroomplot_colorbar(ax, extent, figsize_scale, cmap, label, text_offset=0.28):
+def _mushroomplot_colorbar(
+    ax: Axes,
+    extent: tuple[float, float, float, float],
+    figsize_scale: float,
+    cmap: Colormap,
+    label: str,
+    text_offset: float = 0.28,
+) -> None:
     ax.add_artist(
         Text(
             (extent[0] + extent[1]) / 2,
@@ -1296,12 +1312,12 @@ def create_mushroom_plot(
     )
     _mushroomplot_colorbar(
         ax,
-        extent=[
+        extent=(
             ligand_color_legend_center[0] - color_legend_width / 2,
             ligand_color_legend_center[0] + color_legend_width / 2,
             ligand_color_legend_center[1] - color_legend_height / 2,
             ligand_color_legend_center[1] + color_legend_height / 2,
-        ],
+        ),
         figsize_scale=figsize_scale,
         cmap=ligand_cm,
         label=_mushroomplot_label(color_prefix, "ligand"),
@@ -1312,12 +1328,12 @@ def create_mushroom_plot(
     )
     _mushroomplot_colorbar(
         ax,
-        extent=[
+        extent=(
             receptor_color_legend_center[0] - color_legend_width / 2,
             receptor_color_legend_center[0] + color_legend_width / 2,
             receptor_color_legend_center[1] - color_legend_height / 2,
             receptor_color_legend_center[1] + color_legend_height / 2,
-        ],
+        ),
         figsize_scale=figsize_scale,
         cmap=receptor_cm,
         label=_mushroomplot_label(color_prefix, "receptor"),
@@ -1330,9 +1346,9 @@ def marker_plot(
     y: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     a: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     labels: Iterable[str],
-    xlabel,
-    ylabel,
-    alabel,
+    xlabel: str,
+    ylabel: str,
+    alabel: str,
     c: Sequence[str] | np.ndarray[Any, np.dtype[np.floating]] | None = None,
     clabel: str | None = None,
     val2color: dict[Any, float] | Callable[[Any], ColorType] | None = None,
@@ -1583,7 +1599,7 @@ def marker_plot(
 
 
 # copied and modified from https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
-def _radar_factory(num_vars, frame="circle"):
+def _radar_factory(num_vars: int, frame: str = "circle") -> np.ndarray:
     """
     Create a radar chart with `num_vars` Axes.
 
@@ -1601,11 +1617,11 @@ def _radar_factory(num_vars, frame="circle"):
     theta = np.linspace(0, 2 * np.pi, num_vars, endpoint=False)
 
     class RadarTransform(PolarAxes.PolarTransform):
-        def transform_path_non_affine(self, path):
+        def transform_path_non_affine(self, path: Path) -> Path:
             # Paths with non-unit interpolation steps correspond to gridlines,
             # in which case we force interpolation (to defeat PolarTransform's
             # autoconversion to circular arcs).
-            if path._interpolation_steps > 1:
+            if path._interpolation_steps > 1:  # type: ignore # a private attribute of Path, not in the stubs
                 path = path.interpolated(num_vars)
             return Path(self.transform(path.vertices), path.codes)
 
@@ -1613,16 +1629,18 @@ def _radar_factory(num_vars, frame="circle"):
         name = "radar"
         PolarTransform = RadarTransform
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             # rotate plot such that the first axis is at the top
             self.set_theta_zero_location("N")
 
-        def fill(self, *args, closed=True, **kwargs):
+        def fill(self, *args: Any, closed: bool = True, **kwargs: Any) -> list[Polygon]:
             """Override fill so that line is closed by default"""
             return super().fill(*args, closed=closed, **kwargs)
 
-        def plot(self, *args, scalex=True, scaley=True, data=None, **kwargs) -> list[Line2D]:
+        def plot(
+            self, *args: Any, scalex: bool = True, scaley: bool = True, data: Any = None, **kwargs: Any
+        ) -> list[Line2D]:
             """Override plot so that line is closed by default"""
             # same signature and return value as Axes.plot (the lines were not returned)
             lines = super().plot(*args, scalex=scalex, scaley=scaley, data=data, **kwargs)
@@ -1630,18 +1648,18 @@ def _radar_factory(num_vars, frame="circle"):
                 self._close_line(line)
             return lines
 
-        def _close_line(self, line):
-            x, y = line.get_data()
+        def _close_line(self, line: Line2D) -> None:
+            x, y = (np.asarray(e) for e in line.get_data())
             # FIXME: markers at x[0], y[0] get doubled-up
             if x[0] != x[-1]:
                 x = np.append(x, x[0])
                 y = np.append(y, y[0])
                 line.set_data(x, y)
 
-        def set_varlabels(self, labels):
+        def set_varlabels(self, labels: Sequence[str]) -> None:
             self.set_thetagrids(np.degrees(theta), labels)
 
-        def _gen_axes_patch(self):
+        def _gen_axes_patch(self) -> Patch:
             # The Axes patch must be centered at (0.5, 0.5) and of radius 0.5
             # in axes coordinates.
             if frame == "circle":
@@ -1651,9 +1669,9 @@ def _radar_factory(num_vars, frame="circle"):
             else:
                 raise ValueError(f"Unknown value for 'frame': {frame}")
 
-        def _gen_axes_spines(self):
+        def _gen_axes_spines(self) -> dict[str, Spine]:
             if frame == "circle":
-                return super()._gen_axes_spines()  # pyright: ignore[reportAttributeAccessIssue]
+                return super()._gen_axes_spines()  # type: ignore # a private method of PolarAxes, not in the stubs
             elif frame == "polygon":
                 # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
                 spine = Spine(axes=self, spine_type="circle", path=Path.unit_regular_polygon(num_vars))

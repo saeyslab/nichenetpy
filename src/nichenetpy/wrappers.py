@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Callable, Collection, Iterable, Sequence
 from itertools import chain, cycle, repeat
 from numbers import Number
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +10,7 @@ import pandas as pd
 import scanpy as sc
 from anndata import AnnData
 from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch
 from pycirclize import Circos
@@ -30,6 +31,10 @@ from nichenetpy.visualization import (
     prepare_ligand_receptor_visualization,
     prepare_ligand_target_visualization,
 )
+
+if TYPE_CHECKING:
+    # the type of the result of scipy.stats.fisher_exact, which scipy only defines in a private module
+    from scipy.stats._stats_py import SignificanceResult
 
 
 def get_geneset_oi(
@@ -764,10 +769,10 @@ def create_ligand_activity_heatmap(
 def create_regulatory_potential_heatmap(
     predictor: LigandActivityPredictor[str],
     active_ligand_target_links: Sequence[tuple[str, str, float]],
-    xtitle="predicted target genes",
-    ytitle="prioritized ligands",
-    cbar_label="regulatory potential",
-    cmap="Blues",
+    xtitle: str = "predicted target genes",
+    ytitle: str = "prioritized ligands",
+    cbar_label: str = "regulatory potential",
+    cmap: str | Colormap = "Blues",
     figsize: tuple[float, float] = (6, 6),
 ) -> tuple[Figure, Axes]:
     """
@@ -814,10 +819,10 @@ def create_regulatory_potential_heatmap(
 
 def create_prior_interaction_potential_heatmap(
     ligand_receptor_links: WeightedNetwork[str],
-    xtitle="receptors",
-    ytitle="ligands",
-    cbar_label="prior interaction potential",
-    cmap="Oranges",
+    xtitle: str = "receptors",
+    ytitle: str = "ligands",
+    cbar_label: str = "prior interaction potential",
+    cmap: str | Colormap = "Oranges",
     figsize: tuple[float, float] = (6, 6),
 ) -> tuple[Figure, Axes]:
     """
@@ -862,10 +867,10 @@ def create_lfc_heatmap(
     sender_celltypes: list[str],
     ligand_activities: dict[GeneSymbol, dict[str, float]],
     lfcs: list[tuple[list[GeneSymbol], list[float]]],
-    xtitle="cell types",
-    ytitle="prioritized ligands",
-    cbar_label="LFC",
-    cmap="seismic",
+    xtitle: str = "cell types",
+    ytitle: str = "prioritized ligands",
+    cbar_label: str = "LFC",
+    cmap: str | Colormap = "seismic",
     figsize: tuple[float, float] = (6, 6),
     target_evaluation_metric: target_eval_metric_t = "aupr_corrected",
 ) -> tuple[Figure, Axes]:
@@ -1397,7 +1402,9 @@ def calculate_fraction_top_predicted(
     return all
 
 
-def calculate_fraction_top_predicted_fisher(affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95):
+def calculate_fraction_top_predicted_fisher(
+    affected_gene_predictions: pd.DataFrame, quantile_cutoff: float = 0.95
+) -> "SignificanceResult[float]":
     """
     Performs a Fisher's exact test to determine whether genes belonging to the gene set of interest are more likely to be part
     of the top-predicted targets.

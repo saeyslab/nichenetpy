@@ -1,5 +1,5 @@
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from typing import overload
 
 from anndata import AnnData
@@ -54,13 +54,13 @@ class GeneAliasInfo:
         except KeyError as error:
             raise KeyError(f"{key} is not a recognized gene") from error
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return self._mapping.__iter__()
 
-    def __contains__(self, item):
+    def __contains__(self, item: object) -> bool:
         return item in self._mapping
 
-    def add(self, items: Iterable[tuple[str, tuple[str, int | None]]]):
+    def add(self, items: Iterable[tuple[str, tuple[str, int | None]]]) -> None:
         """
         Adds new mappings but will not overwrite existing mappings.
 
@@ -145,7 +145,7 @@ class GeneInfo:
         if arg is not of the correct type
     """
 
-    def __init__(self, arg: str | Iterable[tuple[str, str]]):
+    def __init__(self, arg: str | Iterable[tuple[str, str]]) -> None:
         if isinstance(arg, str):
             with open(arg) as file:
                 lines = file.readlines()
@@ -173,7 +173,7 @@ class GeneInfo:
         else:
             raise KeyError(f"{key} is not a recognized gene")
 
-    def __contains__(self, item) -> bool:
+    def __contains__(self, item: object) -> bool:
         return item in self._human2mouse._index or item in self._mouse2human.keys()
 
     def convert_human_to_mouse_symbols(self, symbols: Iterable[str]) -> Iterable[str | None]:

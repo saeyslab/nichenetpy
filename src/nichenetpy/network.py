@@ -1,5 +1,5 @@
 from collections.abc import Collection, Iterator
-from typing import Generic, overload
+from typing import Generic, Self, overload
 
 import pandas as pd
 
@@ -39,14 +39,14 @@ class Network(Generic[GeneSymbol]):
     """
 
     @overload
-    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame, filename: None = None): ...
+    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame, filename: None = None) -> None: ...
 
     @overload
-    def __init__(self, mapping: None = None, *, filename: str): ...
+    def __init__(self, mapping: None = None, *, filename: str) -> None: ...
 
     def __init__(
         self, mapping: list[tuple[GeneSymbol, GeneSymbol]] | pd.DataFrame | None = None, filename: str | None = None
-    ):
+    ) -> None:
         self._mapping: list[tuple[GeneSymbol, GeneSymbol]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:
@@ -68,7 +68,7 @@ class Network(Generic[GeneSymbol]):
     def __str__(self) -> str:
         return self._mapping.__str__()
 
-    def __getitem__(self, key) -> set[GeneSymbol]:
+    def __getitem__(self, key: GeneSymbol) -> set[GeneSymbol]:
         return set(self.mapping_iter(key))
 
     def __len__(self) -> int:
@@ -77,12 +77,12 @@ class Network(Generic[GeneSymbol]):
     def __iter__(self) -> Iterator[tuple[GeneSymbol, GeneSymbol]]:
         return self._mapping.__iter__()
 
-    def __contains__(self, item: tuple):
+    def __contains__(self, item: tuple) -> bool:
         if self._pairs is None:
             self._pairs = {link[:2] for link in self._mapping}
         return tuple(item[:2]) in self._pairs
 
-    def _build_index(self):
+    def _build_index(self) -> None:
         self._index.clear()
         self._pairs = None  # the pairs set is invalidated, next call to __contains__ will rebuild it
         for i, item in enumerate(self._mapping):
@@ -145,7 +145,7 @@ class Network(Generic[GeneSymbol]):
         """
         return {gene for link in self._mapping for gene in link[:2]}
 
-    def subset(self, from_to: Collection[tuple[GeneSymbol, GeneSymbol]]):
+    def subset(self, from_to: Collection[tuple[GeneSymbol, GeneSymbol]]) -> Self:
         """
         Subset the network by the provided links.
 
@@ -168,7 +168,7 @@ class Network(Generic[GeneSymbol]):
             raise TypeError(f"from_to should be a Collection of tuple[GeneSymbol, GeneSymbol], was {type(from_to)}")
         return type(self)(mapping=[tup for tup in self._mapping if (tup[0], tup[1]) in from_to])
 
-    def subset_sep(self, fr: Collection[GeneSymbol] | None = None, to: Collection[GeneSymbol] | None = None):
+    def subset_sep(self, fr: Collection[GeneSymbol] | None = None, to: Collection[GeneSymbol] | None = None) -> Self:
         """
         Subset the network by the provided "from" and "to" values.
 
@@ -289,16 +289,18 @@ class WeightedNetwork(Network[GeneSymbol]):
     """
 
     @overload
-    def __init__(self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame, filename: None = None): ...
+    def __init__(
+        self, mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame, filename: None = None
+    ) -> None: ...
 
     @overload
-    def __init__(self, mapping: None = None, *, filename: str): ...
+    def __init__(self, mapping: None = None, *, filename: str) -> None: ...
 
     def __init__(
         self,
         mapping: list[tuple[GeneSymbol, GeneSymbol, float]] | pd.DataFrame | None = None,
         filename: str | None = None,
-    ):
+    ) -> None:
         self._mapping: list[tuple[GeneSymbol, GeneSymbol, float]]
         if mapping is not None:
             if type(mapping) is pd.DataFrame:

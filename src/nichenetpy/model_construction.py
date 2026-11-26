@@ -22,7 +22,7 @@ from nichenetpy.typing import (
 from nichenetpy.utils import subset_matrix
 
 
-def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame):
+def _sum_weights(df: pd.DataFrame, source_weights: pd.DataFrame) -> pd.DataFrame:
     return (
         df.merge(source_weights, on="source", how="inner")[["from", "to", "weight"]]
         .groupby(["from", "to"])
@@ -156,7 +156,7 @@ def _check_ppr_implementation(ppr_implementation: str) -> None:
         raise ValueError(f"ppr_implementation should be 'nichenetr' or 'scikit-network', was {ppr_implementation}")
 
 
-def _quantile_clip(mat, cutoff):
+def _quantile_clip(mat: np.ndarray, cutoff: float) -> None:
     if cutoff > 0:
         mat[mat <= np.quantile(mat, cutoff, axis=1, keepdims=True)] = 0
 
@@ -674,7 +674,7 @@ def construct_tf_target_matrix(
     return (grn_matrix, row_names, col_names)
 
 
-def _set_min(mat):
+def _set_min(mat: np.ndarray) -> None:
     # All 0's are replaced by the smallest non-zero element
     mat[mat == 0] = np.inf
     mat[mat == np.inf] = np.min(mat)

@@ -177,7 +177,7 @@ def subset_ann(
     return output
 
 
-def prepare_ann(ann: AnnData):
+def prepare_ann(ann: AnnData) -> None:
     """
     Makes sure the AnnData object is suitable for a nichenet analysis.
 

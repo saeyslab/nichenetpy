@@ -292,7 +292,7 @@ def ndcg_at_k(
     response: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     prediction: Sequence[float] | np.ndarray[Any, np.dtype[np.floating]],
     k: int | None = None,
-):
+) -> float:
     """
     Calculates the normalized discounted cumulative gain at index k in the ranking.
     Tied predictions don't depend on their input order: the result is the expected value over all their orders
@@ -459,7 +459,7 @@ def _sub_log_fold_change(
     data: nichenet_matrix,
     denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
     pseudocount: float = 1,
-):
+) -> np.ndarray:
     if denormalize is not None:
         data = denormalize(data)
     if data.shape is None:
@@ -553,7 +553,7 @@ def _single_group_metrics(
     groupby: str,
     group_oi: str,
     group_ref: str | None = None,
-):
+) -> tuple[np.ndarray, list[float], list[float]]:
     # the positions of the cells (by position, a cell name can occur more than once), cell_groups has the group of
     # each cell
     cells_oi = np.flatnonzero(cell_groups == group_oi)
@@ -589,7 +589,7 @@ def group_metrics(
     pval_thresh: float | None = None,  # 0.01 in seurat
     wilcoxon_limma: bool = False,
     lfc_denormalize: Callable[[nichenet_matrix], nichenet_matrix] | None = np.expm1,  # pyright: ignore[reportArgumentType] # np.expm1 is valid
-):
+) -> None:
     """
     For each gene, calculate the percentage of cells that have an expression value greater than 0,
     the log fold changes and the p-values / adjusted p-values.

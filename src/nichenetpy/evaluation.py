@@ -1,4 +1,4 @@
-from collections.abc import ItemsView, Iterable, Iterator, Sequence
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
 from itertools import chain
 from typing import Any, Generic, Literal, overload
 
@@ -64,7 +64,7 @@ class EvaluationData(Generic[GeneSymbol]):
         key_name: str = "name",
         ligand_name: str = "from",
         de_genes_name: str = "response",
-    ):
+    ) -> None:
         self._data: dict[str, dict[str, Any]] = {}
         self._key_name = key_name
         self._ligand_name = ligand_name
@@ -110,7 +110,7 @@ class EvaluationData(Generic[GeneSymbol]):
     def __getitem__(self, key: str) -> dict[str, Any]:
         return self._data[key]
 
-    def __setitem__(self, key: str, val: dict[str, Any]):
+    def __setitem__(self, key: str, val: dict[str, Any]) -> None:
         if type(key) is not str:
             raise TypeError(f"key should have type str, was {type(key)}")
         if not isinstance(val, dict):
@@ -131,7 +131,7 @@ class EvaluationData(Generic[GeneSymbol]):
             raise ValueError(f"'{self._de_genes_name}' does not map to a dict")
         return {**item, self._key_name: key, self._ligand_name: ligand}
 
-    def add(self, item: dict[str, Any]):
+    def add(self, item: dict[str, Any]) -> None:
         """
         Add a dictionary which maps the following keys
 
@@ -161,7 +161,7 @@ class EvaluationData(Generic[GeneSymbol]):
             raise ValueError(f"'{self._key_name}' does not map to a string")
         self._data[item[self._key_name]] = self._validated(item, item[self._key_name])
 
-    def add_all(self, items: Iterable[dict[str, Any]]):
+    def add_all(self, items: Iterable[dict[str, Any]]) -> None:
         """
         Adds dictionaries which map the following keys
 
@@ -195,7 +195,7 @@ class EvaluationData(Generic[GeneSymbol]):
     def __len__(self) -> int:
         return len(self._data)
 
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         """
         Returns the keys of the data elements
 
@@ -206,7 +206,7 @@ class EvaluationData(Generic[GeneSymbol]):
         """
         return self._data.keys()
 
-    def values(self):
+    def values(self) -> ValuesView[dict[str, Any]]:
         """
         Returns the data elements
 
@@ -217,7 +217,7 @@ class EvaluationData(Generic[GeneSymbol]):
         """
         return self._data.values()
 
-    def items(self):
+    def items(self) -> ItemsView[str, dict[str, Any]]:
         """
         Returns the data elements along with the corresponding keys
 
@@ -294,7 +294,7 @@ class EvaluationData(Generic[GeneSymbol]):
 
     def get_applicable_evaluation_datasets(
         self, predictor: LigandActivityPredictor[GeneSymbol], combination: bool = True
-    ):
+    ) -> Iterator[tuple[str, dict[str, Any]]]:
         """
         Get the subset of applicable evaluation data
         (evaluation data where the ligand is present in the ligand-target matrix and there is at least one true sample for a gene that is present in the ligand-target matrix)
