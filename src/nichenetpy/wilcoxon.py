@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from scipy.sparse import csc_array, csc_matrix
-from scipy.stats import t
+from scipy.stats import rankdata, t
 
 from nichenetpy.typing import GeneSymbol, nichenet_matrix, validate_matrix_type
 from nichenetpy.utils import subset_matrix
@@ -300,15 +300,34 @@ def wilcoxon_rank_sum_test_with_correlation(
         raise TypeError(f"correlation should have type float, was {type(correlation)}")
     if not isinstance(df, Number):
         raise TypeError(f"df should have type float, was {type(df)}")
-    n = len(statistics)
-    r = pd.DataFrame(statistics, columns=("rank",)).rank(method="average", ascending=True)
     # a numpy array is used as it is (no copy per call), anything else (a list, tuple or generator) is converted once;
-    # the dtype tells a mask (bool) from positions (int), also for an empty index
+    # the dtype tells a mask (bool) from positions (int)
     index = np.asarray(index if isinstance(index, (list, tuple, np.ndarray)) else list(index))
-    r1 = r[index] if index.dtype == bool else r.iloc[index]
+    ranks, adjustment = _ranks_and_tie_adjustment(statistics)
+    return _rank_sum_test_with_correlation(ranks, adjustment, index, correlation, df)
+
+
+def _ranks_and_tie_adjustment(statistics: Sequence[float] | np.ndarray) -> tuple[np.ndarray, float]:
+    # the ranks of the statistics (ties get their average rank) and the tie adjustment of the variance; they only depend
+    # on the statistics, so they're computed once when several groups are tested against the same statistics
+    n = len(statistics)
+    ranks = rankdata(statistics, method="average")
+    # the size of each group of tied values (tied values have the same average rank)
+    ties = np.unique(ranks, return_counts=True)[1].astype(float)
+    adjustment = float(np.sum(ties * (ties + 1) * (ties - 1))) / (n * (n + 1) * (n - 1))
+    return ranks, adjustment
+
+
+def _rank_sum_test_with_correlation(
+    ranks: np.ndarray, adjustment: float, index: np.ndarray, correlation: float = 0, df: float = np.inf
+) -> tuple[float, float]:
+    # the test of the group given by index (a mask or positions) with the ranks and the tie adjustment of
+    # _ranks_and_tie_adjustment, see wilcoxon_rank_sum_test_with_correlation
+    n = len(ranks)
+    r1 = ranks[index]
     n1 = len(r1)
     n2 = n - n1
-    u = n1 * n2 + n1 * (n1 + 1) / 2 - sum(r1["rank"])
+    u = n1 * n2 + n1 * (n1 + 1) / 2 - float(np.sum(r1))
     mu = n1 * n2 / 2
     if correlation == 0 or n1 == 1:
         sigma2 = n1 * n2 * (n + 1) / 12
@@ -319,8 +338,6 @@ def wilcoxon_rank_sum_test_with_correlation(
             + np.arcsin(correlation / 2) * n1 * (n1 - 1) * n2 * (n2 - 1)
             + np.arcsin((correlation + 1) / 2) * n1 * (n1 - 1) * n2
         ) / (2 * np.pi)
-    ties = r.groupby("rank").size()
-    adjustment = sum(ties * (ties + 1) * (ties - 1)) / (n * (n + 1) * (n - 1))
     if adjustment < 1:
         sigma2 *= 1 - adjustment
     zlowertail = (u + 0.5 - mu) / sqrt(sigma2)

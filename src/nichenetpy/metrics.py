@@ -21,7 +21,7 @@ from nichenetpy.typing import (
     validate_matrix_type,
 )
 from nichenetpy.utils import subset_matrix
-from nichenetpy.wilcoxon import wilcoxon_rank_sum_test, wilcoxon_rank_sum_test_with_correlation
+from nichenetpy.wilcoxon import _rank_sum_test_with_correlation, _ranks_and_tie_adjustment, wilcoxon_rank_sum_test
 
 
 def _auc_reverse(
@@ -791,9 +791,11 @@ def _group_pvals(
         group_pvals: dict[Any, list[float]] = {group: [] for group in groups}
         for i in range(len(test_genes)):
             col = np.asarray(mat[:, i]) if isinstance(mat, np.ndarray) else mat[:, [i]].toarray().ravel()
+            # the ranks and the tie adjustment only depend on the gene, they're computed once for all groups
+            ranks, adjustment = _ranks_and_tie_adjustment(col)
             for group in groups:
                 group_pvals[group].append(
-                    min(2 * min(wilcoxon_rank_sum_test_with_correlation(group_masks[group], col)), 1)
+                    min(2 * min(_rank_sum_test_with_correlation(ranks, adjustment, group_masks[group])), 1)
                 )
         pvals = pd.DataFrame(group_pvals, index=test_genes)
         pvals.index.name = "gene"
