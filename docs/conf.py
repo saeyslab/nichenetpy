@@ -165,6 +165,9 @@ nitpick_ignore = [
     ("py:obj", "typing.GeneSymbol"),
     ("py:class", "typing.GeneSymbol"),
     ("py:exc", "AnnError"),
+    # the result of scipy.stats.fisher_exact (wrappers.calculate_fraction_top_predicted_fisher); scipy only defines this
+    # class in a private module and doesn't document it, so there is nothing to link to
+    ("py:class", "scipy.stats._stats_py.SignificanceResult"),
 ]
 
 autodoc_type_aliases = {
