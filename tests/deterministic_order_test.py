@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 
-from nichenetpy.evaluation import EvaluationData
+from nichenetpy.evaluation import EvaluationData, get_single_ligand_importances
 from nichenetpy.extraction import average_expression
 from nichenetpy.model_construction import construct_model_from_source_weights
 from nichenetpy.prediction import LigandActivityPredictor, assess_rf_class_probabilities
@@ -49,12 +49,18 @@ def _model_ligands():
     return list(model["ligand-target matrix"][2])
 
 
-def _rf_predictions():
-    # a set of ligands: the order of the random forest's features
+def _predictor():
     rng = np.random.default_rng(0)
     genes = [f"g{i}" for i in range(40)]
     ligands = [f"L{i}" for i in range(8)]
-    predictor = LigandActivityPredictor(np.asfortranarray(rng.random((len(genes), len(ligands)))), genes, ligands)
+    return LigandActivityPredictor(np.asfortranarray(rng.random((len(genes), len(ligands)))), genes, ligands)
+
+
+def _rf_predictions():
+    # a set of ligands: the order of the random forest's features
+    predictor = _predictor()
+    genes = [f"g{i}" for i in range(40)]
+    ligands = [f"L{i}" for i in range(8)]
     res = assess_rf_class_probabilities(
         2, set(genes[:15]), set(genes[15:]), set(ligands), predictor, 20, random_state=0
     )
@@ -75,6 +81,17 @@ def _orders():
         "get_avg_exp": get_avg_exp(ann, "celltype")["celltype"].unique().tolist(),
         "get_avg_exp features": get_avg_exp(ann, "celltype", features={"L3", "g0", "L1"})["gene"].unique().tolist(),
         "assess_rf_class_probabilities": _rf_predictions(),
+        "predict_ligand_activities": list(
+            _predictor().predict_ligand_activities({"g0", "g1", "g2"}, {f"g{i}" for i in range(40)}, {"L3", "L0", "L5"})
+        ),
+        "predict_single_cell_ligand_activities": _predictor()
+        .predict_single_cell_ligand_activities(
+            ["c0"], np.arange(40, dtype=float).reshape(1, 40), ["c0"], [f"g{i}" for i in range(40)], {"L3", "L0", "L5"}
+        )["ligand"]
+        .tolist(),
+        "get_single_ligand_importances": get_single_ligand_importances(
+            _predictor(), [{"name": "s1", "from": "L1", "response": {"g0": 1, "g1": 0, "g2": 1}}], {"L3", "L0", "L5"}
+        )["test_ligand"].tolist(),
         "assign_ligands_to_celltype": assign_ligands_to_celltype(ann, ["L2", "L4", "L1", "L3"]).values.tolist(),
     }
 
@@ -89,6 +106,10 @@ def test_orders():
     assert orders["get_avg_exp"] == ["T", "B", "NK", "Mono", "DC"]
     # a set of features is sorted
     assert orders["get_avg_exp features"] == ["L1", "L3", "g0"]
+    # a set of ligands is sorted
+    assert orders["predict_ligand_activities"] == ["L0", "L3", "L5"]
+    assert orders["predict_single_cell_ligand_activities"] == ["L0", "L3", "L5"]
+    assert orders["get_single_ligand_importances"] == ["L0", "L3", "L5"]
     # cell types sorted, the ligands (general ligands last) in the order of ligands
     assert orders["assign_ligands_to_celltype"] == [["B", "L1"], ["NK", "L4"], ["T", "L3"], ["General", "L2"]]
 

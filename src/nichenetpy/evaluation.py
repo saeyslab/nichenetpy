@@ -361,7 +361,8 @@ def get_single_ligand_importances(
             response:   the observed target response, indicates for a gene whether it was a target
                         or not in the setting of interest
     all_ligands : Iterable of gene_t
-        the possible ligands that will be considered for the ligand activity state prediction
+        the possible ligands that will be considered for the ligand activity state prediction (the rows of each setting
+        are in this order, a set is sorted)
     target_evaluation_metrics : Iterable of string
         the target prediction evaluation metrics to compute
 
@@ -393,8 +394,8 @@ def get_single_ligand_importances(
         de_genes_name = evaluation_data.de_genes_name
     else:
         key_name, ligand_name, de_genes_name = "name", "from", "response"
-    # iterated once per setting
-    all_ligands = _reiterable(all_ligands)
+    # iterated once per setting; a set is sorted (its order changes between Python processes)
+    all_ligands = sorted(all_ligands) if isinstance(all_ligands, (set, frozenset)) else _reiterable(all_ligands)
     """
     target prediction score:
         - the column of the ligand is taken from the ligand-target matrix

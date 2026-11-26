@@ -24,7 +24,7 @@ from nichenetpy.typing import (
     nichenet_matrix,
     target_eval_metric_t,
 )
-from nichenetpy.utils import subset_matrix
+from nichenetpy.utils import _ligand_sort_key, subset_matrix
 
 
 class LigandActivityPredictor(Generic[GeneSymbol]):
@@ -380,7 +380,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         background_expressed_genes : Collection of gene_t
             the background, non-affected, genes (can contain the symbols of the affected genes as well)
         potential_ligands : Iterable of gene_t
-            the potentially active ligands for which you want to compute ligand activities
+            the potentially active ligands for which you want to compute ligand activities (the output is in this order,
+            a set is sorted)
         target_evaluation_metrics : Iterable of string
             the target prediction evaluation metrics to compute
 
@@ -425,6 +426,10 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         # the genes are matched once (the same for every ligand), then the metrics are computed for each ligand
         genes, rows = self._shared_genes(response.keys())
         resp = np.array([response[gene] for gene in genes])
+        # a set is sorted: its order changes between Python processes, and the order of the output decides the order of
+        # tied ligands when they're sorted by activity
+        if isinstance(potential_ligands, (set, frozenset)):
+            potential_ligands = sorted(potential_ligands, key=_ligand_sort_key)
         for ligand in potential_ligands:
             ligand = _as_ligand(ligand, "ligand")
             output[ligand] = calculate_evaluation_metrics(
@@ -461,7 +466,8 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
         expression_scaled_cols : Iterable of gene_t
             the names of the columns of expression_scaled
         potential_ligands : Collection of gene_t
-            the genes of the potentially active ligands for which you want to define ligand activities
+            the genes of the potentially active ligands for which you want to define ligand activities (the rows of each
+            cell are in this order, a set is sorted)
         quantile_cutoff : float
             the cutoff value used to compute the response vector
         calc_aupr : bool
@@ -522,6 +528,9 @@ class LigandActivityPredictor(Generic[GeneSymbol]):
             raise ValueError("expression_scaled_rows and expression_scaled_cols should not contain duplicates")
         genes, model_rows = self._shared_genes(col2id.keys())
         expression_cols = [col2id[gene] for gene in genes]
+        # a set is sorted: its order changes between Python processes
+        if isinstance(potential_ligands, (set, frozenset)):
+            potential_ligands = sorted(potential_ligands, key=_ligand_sort_key)
         predictions = {ligand: self.get_col(ligand, is_index=False)[model_rows] for ligand in potential_ligands}
         # only the lists of the computed metrics are filled and returned
         aupr: list[float] = []
